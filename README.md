@@ -16,8 +16,6 @@ _Subject to change._
 
 [![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
 
-We ❤️ all [our contributors](docs/AUTHORS); this project wouldn’t be what it is without you! If you want to help out, please see [CONTRIBUTING.md](CONTRIBUTING.md).
-
 This repository falls under the IPFS [Code of Conduct](https://github.com/ipfs/community/blob/master/code-of-conduct.md).
 
 You can contact us on the freenode #ipfs-dev channel or attend one of our
@@ -25,4 +23,4 @@ You can contact us on the freenode #ipfs-dev channel or attend one of our
 
 ## License
 
-[MIT](./LICENSE-MIT), [Apache Software License v2](./LICENSE-APACHE)
+Dual-licensed: [MIT](./LICENSE-MIT), [Apache Software License v2](./LICENSE-APACHE), by way of the [Permissive License Stack](https://protocol.ai/blog/announcing-the-permissive-license-stack/).
