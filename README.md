@@ -1,6 +1,4 @@
-# canary-testing
-
-> canary testing coordinator service for IPFS
+# canary testing coordinator service for IPFS
 
 ⚠️ **Heavy WIP.** ⚠️
 
