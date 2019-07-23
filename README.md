@@ -1,12 +1,17 @@
-# canary testing coordinator service for IPFS
+# minimal viable test pipeline (MVTP) for IPFS
 
 ⚠️ **Heavy WIP.** ⚠️
 
-This repository is incubating the _continuous canary testing service_ for IPFS. It will evolve to contain
-a fully automated pipeline that subjects every commit, PR and release to continuous canary testing against
-the IPFS public network, according to a master test plan.
+This repository is incubating the test pipeline for IPFS. On its first
+iteration, we're focusing on _continuous canary testing against the live
+network_.
 
-## Target architecture
+This repo will eventually evolve to contain the entire testing infrastructure
+code for IPFS, in a form that is packagable and replicatable in other
+environments, to enable downstream users to volunteer and participate in IPFS
+release testing.
+
+## MVTP architecture
 
 _Subject to change._
 
