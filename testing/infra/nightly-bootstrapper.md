@@ -5,11 +5,16 @@
 
 ## What you want tested
 
-A bootstrapper
+master acting as a bootstrapper in the live network, refreshed every night, with a lifetime
+of 48h.
 
 ## How is it tested
 
-Switch one of the bootstrappers over to go-ipfs nightly.
+Two machines `A` and `B` are assigned to this test strategy. We flip between `A` and `B` on
+every run in a round robin fashion, such that each gets redeployed in alternate nights.
+
+Every night, go-ipfs/master gets built, we shutdown go-ipfs in the target, and redeploy the
+new version.
 
 ## Inputs
 
@@ -17,8 +22,13 @@ Nothing.
 
 ## Outputs
 
-* [ ] Pprof profiles
-* [ ] Crash dumps
+Diagnostics traces:
+
+* [ ] pprof profiles -- captured periodically and dispatched to a diagnostics service.
+* [ ] Crash dumps -- captured on crash, and before restart.
+
+OpenCensus metrics:
+
 * [ ] Connection latency (time from TCP SYN till the peer shows up in the peer list)
 * [ ] Peer counts/dial rates
 * [ ] Bandwidth usage
