@@ -1,21 +1,12 @@
-# minimal viable test pipeline (MVTP) for IPFS
+# interplanetary test pipeline
 
 ⚠️ **Heavy WIP.** ⚠️
 
-This repository is incubating the test pipeline for IPFS. On its first
-iteration, we're focusing on _continuous canary testing against the live
-network_.
+This repository is incubating the Interplanetary Test Pipeline. 🐣
 
-This repo will eventually evolve to contain the entire testing infrastructure
-code for IPFS, in a form that is packagable and replicatable in other
-environments, to enable downstream users to volunteer and participate in IPFS
-release testing.
+## System architecture
 
-## MVTP architecture
-
-_Subject to change._
-
-![](https://gist.githubusercontent.com/raulk/00a6190ca4aae901e5a6d20d865cb40b/raw/efa6a93078dc795c1f5ce167b0e365ccde8d71f0/MVTP.png)
+Refer to the [specification](docs/SPEC.md) document.
 
 ## Contributing
 
