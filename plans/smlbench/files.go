@@ -8,14 +8,14 @@ import (
 	"io/ioutil"
 	"os"
 
-	tpipeline "github.com/ipfs/test-pipeline"
+	"github.com/ipfs/testground"
 )
 
 // TempRandFile creates a file of the specified size (in bytes) within the specified directory.
 //
 // It is the callers responsibility to delete this file when done.
 func TempRandFile(ctx context.Context, dir string, size int64) *os.File {
-	tctx := tpipeline.ExtractTestContext(ctx)
+	tctx := testground.ExtractTestContext(ctx)
 	file, err := ioutil.TempFile(dir, tctx.TestPlan)
 	if err != nil {
 		panic(err)

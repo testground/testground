@@ -1,6 +1,6 @@
 package cases
 
-import "github.com/ipfs/test-pipeline/plans/smlbench"
+import "github.com/ipfs/testground/plans/smlbench"
 
 // TODO: API sugar for generating variations of test cases based on some function.
 var TestCases = []smlbench.SmallBenchmarksTestCase{

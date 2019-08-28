@@ -3,12 +3,12 @@ package smlbench
 import (
 	"context"
 
-	tpipeline "github.com/ipfs/test-pipeline"
-	"github.com/ipfs/test-pipeline/iptb"
+	"github.com/ipfs/testground"
+	"github.com/ipfs/testground/iptb"
 )
 
 type SmallBenchmarksTestCase interface {
-	tpipeline.TestCase
+	testground.TestCase
 
 	// Configure configures the specification for the testcase.
 	Configure(ctx context.Context, spec *iptb.TestEnsembleSpec)

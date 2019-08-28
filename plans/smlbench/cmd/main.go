@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 
-	"github.com/ipfs/test-pipeline"
-	"github.com/ipfs/test-pipeline/iptb"
-	"github.com/ipfs/test-pipeline/plans/smlbench/cases"
+	"github.com/ipfs/testground"
+	"github.com/ipfs/testground/iptb"
+	"github.com/ipfs/testground/plans/smlbench/cases"
 )
 
 // TODO:
@@ -19,7 +19,7 @@ func main() {
 		spec := iptb.NewTestEnsembleSpec()
 
 		desc := tc.Descriptor()
-		ctx := context.WithValue(context.Background(), tpipeline.TestContextKey, &tpipeline.TestContext{
+		ctx := context.WithValue(context.Background(), testground.TestContextKey, &testground.TestContext{
 			TestPlan: "small-benchmarks",
 			TestCase: desc.Name,
 			TestRun:  123,

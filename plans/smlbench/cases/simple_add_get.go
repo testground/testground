@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/ipfs/test-pipeline"
-	"github.com/ipfs/test-pipeline/iptb"
-	"github.com/ipfs/test-pipeline/plans/smlbench"
+
+	"github.com/ipfs/testground"
+	"github.com/ipfs/testground/iptb"
+	"github.com/ipfs/testground/plans/smlbench"
 )
 
 // simpleAddGetTC is a simple test that adds a file of the specified size to an IPFS node, and tries to fetch it from
@@ -21,10 +22,10 @@ type simpleAddGetTC struct {
 
 var _ smlbench.SmallBenchmarksTestCase = (*simpleAddGetTC)(nil)
 
-func (tc *simpleAddGetTC) Descriptor() *smlbench.TestCaseDescriptor {
+func (tc *simpleAddGetTC) Descriptor() *testground.TestCaseDescriptor {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
 	name := fmt.Sprintf("simple-add-get-%s", h)
-	return &smlbench.TestCaseDescriptor{
+	return &testground.TestCaseDescriptor{
 		Name: name,
 	}
 }
@@ -47,7 +48,7 @@ func (tc *simpleAddGetTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemb
 		panic(err)
 	}
 
-	tpipeline.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	testground.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 	addrs, err := ensemble.GetNode("adder").SwarmAddrs()
 	if err != nil {
@@ -60,12 +61,12 @@ func (tc *simpleAddGetTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemb
 		panic(err)
 	}
 
-	tpipeline.EmitMetric(ctx, smlbench.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	testground.EmitMetric(ctx, smlbench.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 	tstarted = time.Now()
 	err = getter.Get(cid, ensemble.TempDir())
 	if err != nil {
 		panic(err)
 	}
-	tpipeline.EmitMetric(ctx, smlbench.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	testground.EmitMetric(ctx, smlbench.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
 }

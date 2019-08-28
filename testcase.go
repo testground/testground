@@ -1,4 +1,4 @@
-package tpipeline
+package testground
 
 type TestCaseDescriptor struct {
 	Name string

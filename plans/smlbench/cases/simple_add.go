@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/ipfs/test-pipeline"
-	"github.com/ipfs/test-pipeline/iptb"
-	"github.com/ipfs/test-pipeline/plans/smlbench"
+
+	"github.com/ipfs/testground"
+	"github.com/ipfs/testground/iptb"
+	"github.com/ipfs/testground/plans/smlbench"
 )
 
 // simpleAddTC is a simple test that adds a file of the specified size to an IPFS node. It measures time to add.
@@ -20,10 +21,10 @@ type simpleAddTC struct {
 
 var _ smlbench.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
 
-func (tc *simpleAddTC) Descriptor() *smlbench.TestCaseDescriptor {
+func (tc *simpleAddTC) Descriptor() *testground.TestCaseDescriptor {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
 	name := fmt.Sprintf("simple-add-%s", h)
-	return &smlbench.TestCaseDescriptor{
+	return &testground.TestCaseDescriptor{
 		Name: name,
 	}
 }
@@ -45,5 +46,5 @@ func (tc *simpleAddTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemble)
 		panic(err)
 	}
 
-	tpipeline.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	testground.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 }

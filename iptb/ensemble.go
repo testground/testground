@@ -8,7 +8,7 @@ import (
 
 	"github.com/ipfs/iptb/testbed"
 	testbedi "github.com/ipfs/iptb/testbed/interfaces"
-	tpipeline "github.com/ipfs/test-pipeline"
+	tpipeline "github.com/ipfs/testground"
 )
 
 type TestEnsemble struct {

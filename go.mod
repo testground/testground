@@ -1,4 +1,4 @@
-module github.com/ipfs/test-pipeline
+module github.com/ipfs/testground
 
 go 1.12
 

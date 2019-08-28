@@ -1,11 +1,11 @@
-package tpipeline
+package testground
 
 import "time"
 
 type TriggerSource int
 
 const (
-	TriggerSourceManual        TriggerSource = iota
+	TriggerSourceManual TriggerSource = iota
 	TriggerSourceGithubMention
 	TriggerSourceGithubCommit
 	TriggerSourceGithubRelease

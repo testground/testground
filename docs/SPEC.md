@@ -222,7 +222,7 @@ This is the heart and center of the test infrastructure – the orchestrator and
 *   Tracking and caching the **progress** of test runs, by interacting with the Nomad API.
 *   **Tracing** everything that happens for easier debuggability.
 
-The coordinator service will be developed in Go, inside the ipfs/test-pipeline repo.
+The coordinator service will be developed in Go, inside the ipfs/testground repo.
 
 ### Metrics service
 
