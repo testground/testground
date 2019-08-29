@@ -1,9 +1,9 @@
 package smlbench
 
-import "github.com/ipfs/testground"
+import "github.com/ipfs/testground/api"
 
 var (
-	MetricTimeToAdd     = &testground.MetricDefinition{Name: "time_to_add", Unit: "ms", ImprovementDir: -1}
-	MetricTimeToConnect = &testground.MetricDefinition{Name: "time_to_connect", Unit: "ms", ImprovementDir: -1}
-	MetricTimeToGet     = &testground.MetricDefinition{Name: "time_to_get", Unit: "ms", ImprovementDir: -1}
+	MetricTimeToAdd     = &api.MetricDefinition{Name: "time_to_add", Unit: "ms", ImprovementDir: -1}
+	MetricTimeToConnect = &api.MetricDefinition{Name: "time_to_connect", Unit: "ms", ImprovementDir: -1}
+	MetricTimeToGet     = &api.MetricDefinition{Name: "time_to_get", Unit: "ms", ImprovementDir: -1}
 )

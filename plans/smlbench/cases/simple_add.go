@@ -9,7 +9,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/ipfs/testground"
+	"github.com/ipfs/testground/api"
 	"github.com/ipfs/testground/iptb"
 	"github.com/ipfs/testground/plans/smlbench"
 )
@@ -21,12 +21,9 @@ type simpleAddTC struct {
 
 var _ smlbench.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
 
-func (tc *simpleAddTC) Descriptor() *testground.TestCaseDescriptor {
+func (tc *simpleAddTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
-	name := fmt.Sprintf("simple-add-%s", h)
-	return &testground.TestCaseDescriptor{
-		Name: name,
-	}
+	return fmt.Sprintf("simple-add-%s", h)
 }
 
 func (tc *simpleAddTC) Configure(ctx context.Context, spec *iptb.TestEnsembleSpec) {
@@ -46,5 +43,5 @@ func (tc *simpleAddTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemble)
 		panic(err)
 	}
 
-	testground.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	api.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 }

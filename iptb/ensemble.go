@@ -6,9 +6,10 @@ import (
 	"os"
 	"sync"
 
+	"github.com/ipfs/testground/api"
+
 	"github.com/ipfs/iptb/testbed"
 	testbedi "github.com/ipfs/iptb/testbed/interfaces"
-	tpipeline "github.com/ipfs/testground"
 )
 
 type TestEnsemble struct {
@@ -31,13 +32,13 @@ func NewTestEnsemble(ctx context.Context, spec *TestEnsembleSpec) *TestEnsemble 
 // Initialize initializes the ensemble by materializing the IPTB testbed and associating nodes with tags.
 func (te *TestEnsemble) Initialize() {
 	var (
-		tags  = te.spec.tags
-		count = len(tags)
-		tctx  = tpipeline.ExtractTestContext(te.ctx)
+		tags   = te.spec.tags
+		count  = len(tags)
+		runenv = api.RunEnvFromContext(te.ctx)
 	)
 
 	// temp dir, prefixed with the test plan name for debugging purposes.
-	dir, err := ioutil.TempDir("", tctx.TestPlan)
+	dir, err := ioutil.TempDir("", runenv.TestPlan)
 	if err != nil {
 		panic(err)
 	}
