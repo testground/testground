@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hashicorp/consul/api"
 	capi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/api/watch"
 	levelds "github.com/ipfs/go-ds-leveldb"
@@ -18,30 +18,18 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
 
-type lookupPeersTC struct {
+type LookupPeersTC struct {
 	Count      int
 	BucketSize int
 }
 
-//var _ dht.DHTTestCase = (*lookupPeersTC)(nil)
+//var _ dht.DHTTestCase = (*LookupPeersTC)(nil)
 
-func main() {
-	_ = os.Setenv("TEST_CASE_SEQ", "1")
-	_ = os.Setenv("TEST_PLAN", "dht")
-	_ = os.Setenv("TEST_BRANCH", "master")
-	_ = os.Setenv("TEST_CASE", "lookup_peers")
-	_ = os.Setenv("TEST_TAG", "")
-	_ = os.Setenv("TEST_RUN", uuid.New().String())
-
-	tc := &lookupPeersTC{}
-	tc.Execute()
-}
-
-func (tc *lookupPeersTC) Name() string {
+func (tc *LookupPeersTC) Name() string {
 	return fmt.Sprintf("lookup_peers-%dpeers-%dsize", tc.Count, tc.BucketSize)
 }
 
-func (tc *lookupPeersTC) Execute() {
+func (tc *LookupPeersTC) Execute() {
 	dir, err := ioutil.TempDir("", "dht")
 	if err != nil {
 		panic(err)
@@ -91,13 +79,23 @@ func (tc *lookupPeersTC) Execute() {
 
 	w.Handler = func(i uint64, v interface{}) {
 		fmt.Println(i)
-		fmt.Println(v)
+		kvs, ok := v.(api.KVPairs)
+		if !ok {
+			fmt.Println("unexpected type")
+		}
+		for _, kv := range kvs {
+			var addrs []string
+			fmt.Printf("received: %+v\n", kv)
+			err := json.Unmarshal(kv.Value, &addrs)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Println(addrs)
+		}
 	}
 
 	log := log.New(os.Stdout, "watch", log.LstdFlags)
 	go w.RunWithClientAndLogger(consul, log)
-
-	capi.DefaultConfig().GenerateEnv()
 
 	go func() {
 		var i int
@@ -108,7 +106,13 @@ func (tc *lookupPeersTC) Execute() {
 			}
 			i++
 			entry := capi.KVPair{Key: fmt.Sprintf("%s-%d", key, i), Value: addrs}
+			fmt.Printf("putting: %+v\n", entry)
 			if _, err := consul.KV().Put(&entry, nil); err != nil {
+				panic(err)
+			}
+			del := fmt.Sprintf("%s-%d", key, i-1)
+			fmt.Printf("deleting: %+v\n", del)
+			if _, err = consul.KV().Delete(del, nil); err != nil {
 				panic(err)
 			}
 			time.Sleep(2 * time.Second)

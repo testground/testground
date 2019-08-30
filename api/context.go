@@ -16,7 +16,7 @@ const (
 type RunEnv struct {
 	TestPlan    string `json:"test_plan"`
 	TestCase    string `json:"test_case"`
-	TestRun     int    `json:"test_run"`
+	TestRun     string `json:"test_run"`
 	TestTag     string `json:"test_tag"`
 	TestBranch  string `json:"test_branch"`
 	TestRepo    string `json:"test_repo"`
@@ -36,7 +36,7 @@ func CurrentRunEnv() *RunEnv {
 	tc := &RunEnv{
 		TestPlan:    os.Getenv(EnvTestPlan),
 		TestCase:    os.Getenv(EnvTestCase),
-		TestRun:     toInt(os.Getenv(EnvTestRun)),
+		TestRun:     os.Getenv(EnvTestRun),
 		TestTag:     os.Getenv(EnvTestTag),
 		TestBranch:  os.Getenv(EnvTestBranch),
 		TestRepo:    os.Getenv(EnvTestRepo),

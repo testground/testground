@@ -14,7 +14,7 @@ type testCase interface {
 }
 
 var testcases = []testCase{
-	&lookupPeersTC{Count: 10, BucketSize: 100},
+	&LookupPeersTC{Count: 10, BucketSize: 100},
 }
 
 func (*TestPlan) Descriptor() *api.TestPlanDescriptor {

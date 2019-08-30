@@ -13,6 +13,10 @@ require (
 	github.com/ipfs/iptb v1.4.0
 	github.com/ipfs/iptb-plugins v0.1.0
 	github.com/libp2p/go-libp2p v0.3.1
+	github.com/libp2p/go-libp2p-core v0.2.2
 	github.com/libp2p/go-libp2p-kad-dht v0.2.0
 	github.com/multiformats/go-multiaddr v0.0.4
+	go.uber.org/atomic v1.4.0 // indirect
+	go.uber.org/multierr v1.1.0 // indirect
+	go.uber.org/zap v1.10.0
 )
