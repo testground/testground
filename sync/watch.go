@@ -2,71 +2,87 @@ package sync
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
-	"regexp"
+	"reflect"
 	"sync"
 
-	"github.com/ipfs/testground/api"
 	"github.com/ipfs/testground/logging"
 
 	capi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/consul/api/watch"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/multiformats/go-multiaddr"
+	"github.com/ipfs/testground/api"
 )
 
-type Action int
-
-const (
-	ActionAdded Action = iota
-	ActionModified
-	ActionDeleted
-)
-
-var (
-	regexPeers = regexp.MustCompile("\\/nodes\\/?P<peerId>(.*?)/addrs")
-)
-
-type Event struct {
-	Action Action
+// Watcher allows us to watch subtrees below a root, which is typically linked
+// with this test case and run.
+type Watcher struct {
+	lk       sync.RWMutex
+	client   *capi.Client
+	plan     *watch.Plan
+	root     string
+	subtrees map[*Subtree]map[*typedChan]struct{}
 }
 
-type PeerEvent struct {
-	Event
+type typedChan reflect.Value
 
-	AddrInfo *peer.AddrInfo
-}
-
-type watcher struct {
-	lk     sync.RWMutex
-	client *capi.Client
-	plan   *watch.Plan
-	chs    struct {
-		peers map[chan *PeerEvent]struct{}
+// TypedChan wraps a typed channel for use with this watcher. Thank you, Go.
+func TypedChan(val interface{}) typedChan {
+	v := reflect.ValueOf(val)
+	if k := v.Kind(); k != reflect.Chan {
+		panic("value is not a channel")
 	}
+	return typedChan(v)
 }
 
-type sink struct {
-	regex *regexp.Regexp
-	out   <-chan struct{}
+// WatchTree begins watching the subtree underneath this path.
+func WatchTree(client *capi.Client, runenv *api.RunEnv) (w *Watcher, err error) {
+	var (
+		plan   *watch.Plan
+		prefix = basePrefix(runenv)
+	)
+
+	// Create a plan that watches the entire subtree. We'll mux on this base
+	// watch to route updates based on their subpath.
+	args := map[string]interface{}{
+		"type":   "keyprefix",
+		"prefix": prefix,
+	}
+	if plan, err = watch.Parse(args); err != nil {
+		return nil, err
+	}
+
+	w = &Watcher{
+		client:   client,
+		plan:     plan,
+		root:     prefix,
+		subtrees: make(map[*Subtree]map[*typedChan]struct{}),
+	}
+	plan.Handler = w.route
+
+	log := log.New(os.Stdout, "watch", log.LstdFlags)
+	go plan.RunWithClientAndLogger(client, log)
+
+	return w, nil
 }
 
-func (w *watcher) SubscribePeers(ch chan *PeerEvent) (cancel func(), err error) {
-	w.lk.Lock()
-	defer w.lk.Unlock()
-
-	w.chs.peers[ch] = struct{}{}
+// Subscribe watches a subtree and emits updates on the specified channel.
+func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func(), err error) {
+	typ := reflect.Value(ch).Type().Elem()
+	subtree.AssertType(typ)
+	if _, ok := w.subtrees[subtree]; !ok {
+		w.subtrees[subtree] = make(map[*typedChan]struct{}, 2)
+	}
+	w.subtrees[subtree][&ch] = struct{}{}
 	cancel = func() {
 		w.lk.Lock()
 		defer w.lk.Unlock()
-		delete(w.chs.peers, ch)
+		delete(w.subtrees[subtree], &ch)
 	}
 	return cancel, nil
 }
 
-func (w *watcher) route(index uint64, v interface{}) {
+func (w *Watcher) route(index uint64, v interface{}) {
 	kvs, ok := v.(capi.KVPairs)
 	if !ok {
 		logging.S().Warn("watcher received unexpected type")
@@ -76,99 +92,43 @@ func (w *watcher) route(index uint64, v interface{}) {
 	w.lk.RLock()
 	defer w.lk.RUnlock()
 
+	// For each key value in the notification.
 	for _, kv := range kvs {
-		match := regexPeers.FindStringSubmatch(kv.Key)
-		if len(match) > 0 {
-			w.handlePeer(kv, match)
+		// Check the kv against the subtrees we're watching.
+		for st, chs := range w.subtrees {
+			if !st.MatchFunc(kv) {
+				continue
+			}
+
+			// If this kv matches this subtree, process it.
+			// Deserialize its json into a struct of its type.
+			payload := reflect.New(st.PayloadType.Elem())
+			if err := json.Unmarshal(kv.Value, payload.Interface()); err != nil {
+				logging.S().Warnw("failed to decode value", "data", string(kv.Value), "type", st.PayloadType)
+				continue
+			}
+			for ch := range chs {
+				v := reflect.Value(*ch)
+				v.Send(payload)
+			}
 		}
 	}
 }
 
-func (w *watcher) handlePeer(kv *capi.KVPair, match []string) (handled bool) {
-	if len(w.chs.peers) == 0 {
-		return true
-	}
-
-	id, err := peer.IDB58Decode(match[1])
-	if err != nil {
-		logging.S().Warnw("failed to decode peer ID", "data", match[1])
-		return false
-	}
-
-	var addrs []string
-	if err = json.Unmarshal(kv.Value, &addrs); err != nil {
-		logging.S().Warnw("failed to decode addresses", "data", string(kv.Value))
-		return false
-	}
-
-	maddrs := make([]multiaddr.Multiaddr, 0, len(addrs))
-	for _, a := range addrs {
-		ma, err := multiaddr.NewMultiaddr(a)
-		if err != nil {
-			logging.S().Warnw("failed to decode multiaddr", "data", string(kv.Value))
-			return false
-		}
-		maddrs = append(maddrs, ma)
-	}
-
-	ai := &peer.AddrInfo{
-		ID:    id,
-		Addrs: maddrs,
-	}
-
-	action := ActionAdded
-	v, _, err := w.client.KV().Get(kv.Key, nil)
-	if err != nil {
-		logging.S().Warnw("failed to query the status of the key", "data", string(kv.Key), "error", err)
-		return false
-	}
-	if v == nil {
-		action = ActionDeleted
-	}
-
-	for ch := range w.chs.peers {
-		pe := &PeerEvent{AddrInfo: ai, Event: Event{Action: action}}
-		ch <- pe
-	}
-
-	return true
-}
-
-func (w *watcher) Close() error {
+// Close closes this watcher. After calling this method, the watcher can't be
+// resused.
+func (w *Watcher) Close() error {
 	w.lk.Lock()
 	defer w.lk.Unlock()
 
 	w.plan.Stop()
+	w.plan = nil
 
-	for ch := range w.chs.peers {
-		close(ch)
-		delete(w.chs.peers, ch)
+	for _, chs := range w.subtrees {
+		for ch := range chs {
+			reflect.Value(*ch).Close()
+		}
 	}
-
+	w.subtrees = nil
 	return nil
-}
-
-func WatchTree(client *capi.Client, runenv *api.RunEnv) (*watcher, error) {
-	prefix := fmt.Sprintf("run/%s/plan/%s/case/%s", runenv.TestRun, runenv.TestPlan, runenv.TestCase)
-
-	plan, err := watch.Parse(map[string]interface{}{
-		"type":   "keyprefix",
-		"prefix": prefix,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	res := &watcher{
-		client: client,
-		plan:   plan,
-	}
-
-	plan.Handler = res.route
-
-	log := log.New(os.Stdout, "watch", log.LstdFlags)
-	go plan.RunWithClientAndLogger(client, log)
-
-	return res, nil
 }

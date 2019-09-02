@@ -2,6 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/sha1"
+	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 )
@@ -17,10 +20,12 @@ type RunEnv struct {
 	TestPlan    string `json:"test_plan"`
 	TestCase    string `json:"test_case"`
 	TestRun     string `json:"test_run"`
-	TestTag     string `json:"test_tag"`
-	TestBranch  string `json:"test_branch"`
-	TestRepo    string `json:"test_repo"`
 	TestCaseSeq int    `json:"test_seq"`
+
+	TestRepo   string `json:"test_repo"`
+	TestCommit string `json:"test_commit"`
+	TestBranch string `json:"test_branch"`
+	TestTag    string `json:"test_tag"`
 }
 
 // CurrentRunEnv populates a test context from environment vars.
@@ -57,6 +62,20 @@ func RunEnvFromContext(ctx context.Context) *RunEnv {
 		panic("test context has unexpected type")
 	}
 	return tctx
+}
+
+func RandomRunEnv() *RunEnv {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+
+	return &RunEnv{
+		TestPlan:    fmt.Sprintf("testplan-%d", rand.Uint32()),
+		TestCase:    fmt.Sprintf("testcase-%d", rand.Uint32()),
+		TestRun:     fmt.Sprintf("testrun-%d", rand.Uint32()),
+		TestCaseSeq: int(rand.Uint32()),
+		TestRepo:    "github.com/ipfs/go-ipfs",
+		TestCommit:  fmt.Sprintf("%x", sha1.Sum(b)),
+	}
 }
 
 // NewContext returns a new context that carries the run environment.

@@ -2,18 +2,15 @@ package dht
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
-	"time"
 
-	"github.com/hashicorp/consul/api"
-	capi "github.com/hashicorp/consul/api"
-	"github.com/hashicorp/consul/api/watch"
 	levelds "github.com/ipfs/go-ds-leveldb"
+	"github.com/ipfs/testground/api"
+	"github.com/ipfs/testground/sync"
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
@@ -40,86 +37,29 @@ func (tc *LookupPeersTC) Execute() {
 		panic(err)
 	}
 
-	host, err := libp2p.New(context.Background())
+	h, err := libp2p.New(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = kaddht.New(context.Background(), host /*dhtopts.BucketSize(tc.BucketSize),*/, dhtopts.Datastore(ds))
+	_, err = kaddht.New(context.Background(), h /*dhtopts.BucketSize(tc.BucketSize),*/, dhtopts.Datastore(ds))
 	if err != nil {
 		panic(err)
 	}
 
-	consul, err := capi.NewClient(capi.DefaultConfig())
-	if err != nil {
+	consul := sync.ConsulClient()
+	runenv := api.CurrentRunEnv()
+
+	watcher, writer := sync.MustWatchWrite(consul, runenv)
+	defer watcher.Close()
+
+	peerCh := make(chan *peer.AddrInfo, 16)
+	cancel, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
+	defer cancel()
+
+	if err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
 		panic(err)
 	}
-
-	// 1. Publish my multiaddrs.
-	// 2. Subscribe to all multiaddrs as they appear.
-	// 3. Connect to all multiaddrs.
-	// 4. Run test.
-	prefix := fmt.Sprintf("run/%s/plan/%s/case/%s",
-		os.Getenv("TEST_RUN"),
-		os.Getenv("TEST_PLAN"),
-		os.Getenv("TEST_CASE"))
-
-	key := fmt.Sprintf("%s/nodes/%s/addrs",
-		prefix,
-		host.ID().Pretty())
-
-	w, err := watch.Parse(map[string]interface{}{
-		"type":   "keyprefix",
-		"prefix": prefix,
-	})
-
-	if err != nil {
-		panic(err)
-	}
-
-	w.Handler = func(i uint64, v interface{}) {
-		fmt.Println(i)
-		kvs, ok := v.(api.KVPairs)
-		if !ok {
-			fmt.Println("unexpected type")
-		}
-		for _, kv := range kvs {
-			var addrs []string
-			fmt.Printf("received: %+v\n", kv)
-			err := json.Unmarshal(kv.Value, &addrs)
-			if err != nil {
-				fmt.Println(err)
-			}
-			fmt.Println(addrs)
-		}
-	}
-
-	log := log.New(os.Stdout, "watch", log.LstdFlags)
-	go w.RunWithClientAndLogger(consul, log)
-
-	go func() {
-		var i int
-		for {
-			addrs, err := json.Marshal(host.Addrs())
-			if err != nil {
-				panic(err)
-			}
-			i++
-			entry := capi.KVPair{Key: fmt.Sprintf("%s-%d", key, i), Value: addrs}
-			fmt.Printf("putting: %+v\n", entry)
-			if _, err := consul.KV().Put(&entry, nil); err != nil {
-				panic(err)
-			}
-			del := fmt.Sprintf("%s-%d", key, i-1)
-			fmt.Printf("deleting: %+v\n", del)
-			if _, err = consul.KV().Delete(del, nil); err != nil {
-				panic(err)
-			}
-			time.Sleep(2 * time.Second)
-		}
-	}()
-
-	fmt.Println("hello")
-	time.Sleep(10 * time.Minute)
+	defer writer.Close()
 
 }
