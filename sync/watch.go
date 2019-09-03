@@ -72,10 +72,16 @@ func WatchTree(client *capi.Client, runenv *api.RunEnv) (w *Watcher, err error) 
 func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func(), err error) {
 	typ := reflect.Value(ch).Type().Elem()
 	subtree.AssertType(typ)
+
+	w.lk.Lock()
+	defer w.lk.Unlock()
+
+	// Make sure we have a subtree mapping.
 	if _, ok := w.subtrees[subtree]; !ok {
 		w.subtrees[subtree] = make(map[*typedChan]struct{}, 2)
 	}
 	w.subtrees[subtree][&ch] = struct{}{}
+
 	cancel = func() {
 		w.lk.Lock()
 		defer w.lk.Unlock()
@@ -98,6 +104,7 @@ func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-c
 	subCh := reflect.MakeChan(chTyp, 0)
 	resCh := make(chan error)
 
+	// No need to take the lock here, as Subscribe does.
 	cancelSub, err := w.Subscribe(subtree, TypedChan(subCh.Interface()))
 	if err != nil {
 		return nil, err
