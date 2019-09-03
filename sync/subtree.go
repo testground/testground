@@ -8,8 +8,9 @@ import (
 	"github.com/ipfs/testground/logging"
 )
 
-// A Subtree represents a subtree of the sync tree under a test, tied with
-// a particular path pattern, storing payloads of a specific type.
+// A Subtree represents a subtree of the sync tree for a test run. It is bound
+// to a particular subpath pattern, where payloads of a specific type are posted
+// and manipulated.
 type Subtree struct {
 	// PayloadType is the type of the payload. Must be a pointer type.
 	PayloadType reflect.Type

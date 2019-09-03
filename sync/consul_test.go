@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -14,6 +15,7 @@ import (
 	capi "github.com/hashicorp/consul/api"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -99,4 +101,52 @@ func TestWatchWrite(t *testing.T) {
 		t.Fatal("no event received within 5 seconds")
 	}
 
+}
+
+func TestBarrier(t *testing.T) {
+	close := mustStartConsul(t)
+	defer close()
+
+	client, err := capi.NewClient(capi.DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runenv := api.RandomRunEnv()
+
+	watcher, writer := MustWatchWrite(client, runenv)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ch, err := watcher.Barrier(ctx, PeerSubtree, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	publishPeer := func() {
+		id := test.RandPeerIDFatal(t)
+		ma, err := multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/8001/p2p/" + id.Pretty())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		ai, err := peer.AddrInfoFromP2pAddr(ma)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		writer.Write(PeerSubtree, ai)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for i := 0; i < 10; i++ {
+		publishPeer()
+	}
+
+	if err := <-ch; err != nil {
+		t.Fatal(err)
+	}
 }

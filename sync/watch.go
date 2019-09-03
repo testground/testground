@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -82,6 +84,71 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func(), err 
 	return cancel, nil
 }
 
+// Barrier awaits until the specified amount of subtree nodes have been posted
+// on the subtree. It returns a channel on which two things can happen:
+//
+//   a. if enough subtree nodes were written before the context fired, a nil
+//      error will be sent.
+//   b. if the context was exceeded, or another error occurred during the
+//      subscription, an error will be propagated.
+//
+// In both cases, the chan will only receive a single element before closure.
+func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-chan error, error) {
+	chTyp := reflect.ChanOf(reflect.BothDir, subtree.PayloadType)
+	subCh := reflect.MakeChan(chTyp, 0)
+	resCh := make(chan error)
+
+	cancelSub, err := w.Subscribe(subtree, TypedChan(subCh.Interface()))
+	if err != nil {
+		return nil, err
+	}
+
+	// Pump values to an untyped channel, so we can consume in the select block
+	// below.
+	next := make(chan interface{})
+	go func() {
+		for {
+			val, ok := subCh.Recv()
+			if !ok {
+				close(next)
+				return
+			}
+			next <- val.Interface()
+		}
+	}()
+
+	// This goroutine drains the subscription channel and increments a counter.
+	// When we receive enough elements, we finish and inform the caller. If the
+	// context fires, or an error occurs, we inform the caller of the error
+	// condition.
+	go func() {
+		defer close(resCh)
+		defer cancelSub()
+
+		for rcvd := 0; rcvd < count; rcvd++ {
+			select {
+			case _, ok := <-next:
+				if !ok {
+					// Subscription channel was closed early.
+					resCh <- fmt.Errorf("subscription closed early; not enough elements, requested: %d, got: %d", count, rcvd)
+					return
+				}
+				continue
+			case <-ctx.Done():
+				// Context fired before we got enough elements.
+				resCh <- fmt.Errorf("context deadline exceeded; not enough elements, requested: %d, got: %d", count, rcvd)
+				return
+			}
+		}
+		// We got as many elements as required.
+		resCh <- nil
+	}()
+
+	return resCh, nil
+}
+
+// route handles an incoming update, matches it against a subtree, transforms
+// the payload, and informs subscribers.
 func (w *Watcher) route(index uint64, v interface{}) {
 	kvs, ok := v.(capi.KVPairs)
 	if !ok {
