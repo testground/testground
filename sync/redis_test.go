@@ -3,66 +3,57 @@ package sync
 import (
 	"context"
 	"fmt"
-	"log"
-	"os"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/go-redis/redis"
 	"github.com/ipfs/testground/api"
-
-	"github.com/hashicorp/consul/agent"
-	"github.com/hashicorp/consul/agent/config"
-	capi "github.com/hashicorp/consul/api"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 )
 
-// TODO: start consul on random ports for all endpoints.
-func mustStartConsul(t *testing.T) func() {
+// Check if there's a running instance of redis, or start it otherwise.
+func ensureRedis(t *testing.T) (client *redis.Client, close func()) {
 	t.Helper()
 
-	devMode := true
-	builder, err := config.NewBuilder(config.Flags{
-		DevMode: &devMode,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rt, err := builder.Build()
-	if err != nil {
-		t.Fatal(err)
+	// Try to obtain a client; if this fails, attempt to start a redis instance.
+	client, err := RedisClient()
+	if err == nil {
+		return client, func() {}
 	}
 
-	log := log.New(os.Stdout, "test", log.LstdFlags)
-	ag, err := agent.New(&rt, log)
-	if err != nil {
-		t.Fatal(err)
+	cmd := exec.Command("redis-server", "-")
+	// enable keyspace events.
+	cmd.Stdin = strings.NewReader(`notify-keyspace-events "$szxKE"`)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("failed to start redis: %s", err)
 	}
 
-	if err := ag.Start(); err != nil {
-		t.Fatal(err)
+	time.Sleep(1 * time.Second)
+
+	// Try to obtain a client again.
+	if client, err = RedisClient(); err != nil {
+		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
 
-	return func() {
-		ag.ShutdownAgent()
-		ag.ShutdownEndpoints()
+	return client, func() {
+		if err := cmd.Process.Kill(); err != nil {
+			t.Fatalf("failed while stopping test-scoped redis: %s", err)
+		}
 	}
 }
 
-func TestWatchWrite(t *testing.T) {
-	close := mustStartConsul(t)
+func TestWatcherWriter(t *testing.T) {
+	client, close := ensureRedis(t)
 	defer close()
-
-	client, err := capi.NewClient(capi.DefaultConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	runenv := api.RandomRunEnv()
 
-	watcher, err := WatchTree(client, runenv)
+	watcher, err := NewWatcher(client, runenv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,6 +61,7 @@ func TestWatchWrite(t *testing.T) {
 	peersCh := make(chan *peer.AddrInfo, 16)
 	cancel, err := watcher.Subscribe(PeerSubtree, TypedChan(peersCh))
 	defer cancel()
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,17 +96,12 @@ func TestWatchWrite(t *testing.T) {
 }
 
 func TestBarrier(t *testing.T) {
-	close := mustStartConsul(t)
+	client, close := ensureRedis(t)
 	defer close()
-
-	client, err := capi.NewClient(capi.DefaultConfig())
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	runenv := api.RandomRunEnv()
 
-	watcher, writer := MustWatchWrite(client, runenv)
+	watcher, writer := MustWatcherWriter(client, runenv)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

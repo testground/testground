@@ -1,35 +1,43 @@
 package sync
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
 
-	capi "github.com/hashicorp/consul/api"
 	"github.com/ipfs/testground/api"
+	"github.com/ipfs/testground/logging"
+
+	"github.com/go-redis/redis"
 )
 
-// ConsulClient returns a consul client from this processes environment
+// RedisClient returns a consul client from this processes environment
 // variables, or panics if unable to create one.
-func ConsulClient() (client *capi.Client) {
-	client, err := capi.NewClient(capi.DefaultConfig())
-	if err != nil {
-		panic(err)
-	}
-	return client
+func RedisClient() (client *redis.Client, err error) {
+	// TODO: will need to populate opts from an env variable.
+	opts := &redis.Options{}
+	client = redis.NewClient(opts)
+
+	// PING redis to make sure we're alive.
+	err = client.Ping().Err()
+	return client, err
 }
 
-// MustWatchWrite proxies to WatchWrite, panicking if an error occurs.
-func MustWatchWrite(client *capi.Client, runenv *api.RunEnv) (*Watcher, *Writer) {
-	watcher, writer, err := WatchWrite(client, runenv)
+// MustWatcherWriter proxies to WatcherWriter, panicking if an error occurs.
+func MustWatcherWriter(client *redis.Client, runenv *api.RunEnv) (*Watcher, *Writer) {
+	watcher, writer, err := WatcherWriter(client, runenv)
 	if err != nil {
 		panic(err)
 	}
 	return watcher, writer
 }
 
-// WatchWrite creates a Watcher and a Writer object associated with this test
+// WatcherWriter creates a Watcher and a Writer object associated with this test
 // run's sync tree.
-func WatchWrite(client *capi.Client, runenv *api.RunEnv) (*Watcher, *Writer, error) {
-	watcher, err := WatchTree(client, runenv)
+func WatcherWriter(client *redis.Client, runenv *api.RunEnv) (*Watcher, *Writer, error) {
+	watcher, err := NewWatcher(client, runenv)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -43,10 +51,33 @@ func WatchWrite(client *capi.Client, runenv *api.RunEnv) (*Watcher, *Writer, err
 }
 
 func basePrefix(runenv *api.RunEnv) string {
-	prefix := fmt.Sprintf("run/%s/plan/%s/case/%s",
-		runenv.TestRun,
-		runenv.TestPlan,
-		runenv.TestCase)
+	p := fmt.Sprintf("run:%s:plan:%s:case:%s", runenv.TestRun, runenv.TestPlan, runenv.TestCase)
+	return p
+}
 
-	return prefix
+// mvccFromKey extracts the MVCC counter from the key. If the last token is not
+// an MVCC int value, it panics.
+func mvccFromKey(key string) int {
+	splt := strings.Split(key, ":")
+	mvcc, err := strconv.Atoi(splt[len(splt)-1])
+	if err != nil {
+		panic(err)
+	}
+	return mvcc
+}
+
+// decodePayload extracts a value of the specified type from incoming json, or
+// panics if not possible.
+func decodePayload(val interface{}, typ reflect.Type) reflect.Value {
+	// Deserialize the value.
+	payload := reflect.New(typ)
+	raw, ok := val.(string)
+	if !ok {
+		panic("payload not a string")
+	}
+	if err := json.Unmarshal([]byte(raw), payload.Interface()); err != nil {
+		logging.S().Warnw("failed to decode value", "data", string(raw), "type", typ)
+		panic("failed to decode value")
+	}
+	return payload
 }
