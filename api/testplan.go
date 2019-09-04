@@ -5,6 +5,7 @@ import (
 )
 
 type BuildOpts struct {
+	WorkDir  string
 	Versions map[string]string
 }
 
@@ -19,17 +20,35 @@ type ScheduleResult struct {
 	Jobs []*napi.Job
 }
 
-type TestPlanDescriptor struct {
+// TestCaseDefinition encapsulates the definition of a test case.
+type TestCaseDefinition struct {
+	// Name is the name of the test case.
+	Name string
+	// Instances is the amount of instances this test case requires.
+	Instances int
+}
+
+type TestCase interface {
+	// Define returns the definition of a test case.
+	Define() *TestCaseDefinition
+
+	//
+	Mutate(*napi.Job)
+}
+
+type TestPlanDefinition struct {
 	Name      string
-	TestCases []string
+	TestCases []TestCase
 }
 
 type Namer interface {
 	Name() string
 }
 
+// TestPlan is to be implemented by all test plans.
 type TestPlan interface {
-	Descriptor() *TestPlanDescriptor
+	// Define retuns the definition of this test plan.
+	Define() *TestPlanDefinition
 
 	// Build takes the source of the test plan and compiles it into an
 	// executable or Docker image that can then be shipped somewhere for

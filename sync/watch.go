@@ -2,29 +2,15 @@ package sync
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
-	"os"
 	"reflect"
 	"sync"
 
-	"github.com/ipfs/testground/logging"
-
-	capi "github.com/hashicorp/consul/api"
-	"github.com/hashicorp/consul/api/watch"
 	"github.com/ipfs/testground/api"
-)
 
-// Watcher allows us to watch subtrees below a root, which is typically linked
-// with this test case and run.
-type Watcher struct {
-	lk       sync.RWMutex
-	client   *capi.Client
-	plan     *watch.Plan
-	root     string
-	subtrees map[*Subtree]map[*typedChan]struct{}
-}
+	"github.com/go-redis/redis"
+	"github.com/hashicorp/go-multierror"
+)
 
 type typedChan reflect.Value
 
@@ -37,60 +23,75 @@ func TypedChan(val interface{}) typedChan {
 	return typedChan(v)
 }
 
-// WatchTree begins watching the subtree underneath this path.
-func WatchTree(client *capi.Client, runenv *api.RunEnv) (w *Watcher, err error) {
-	var (
-		plan   *watch.Plan
-		prefix = basePrefix(runenv)
-	)
+// Watcher exposes methods to watch subtrees within the sync tree of this test.
+type Watcher struct {
+	lk       sync.RWMutex
+	client   *redis.Client
+	root     string
+	subtrees map[*Subtree]map[*subscription]struct{}
+}
 
-	// Create a plan that watches the entire subtree. We'll mux on this base
-	// watch to route updates based on their subpath.
-	args := map[string]interface{}{
-		"type":   "keyprefix",
-		"prefix": prefix,
-	}
-	if plan, err = watch.Parse(args); err != nil {
-		return nil, err
-	}
-
+// NewWatcher begins watching the subtree underneath this path.
+func NewWatcher(client *redis.Client, runenv *api.RunEnv) (w *Watcher, err error) {
+	prefix := basePrefix(runenv)
 	w = &Watcher{
 		client:   client,
-		plan:     plan,
 		root:     prefix,
-		subtrees: make(map[*Subtree]map[*typedChan]struct{}),
+		subtrees: make(map[*Subtree]map[*subscription]struct{}),
 	}
-	plan.Handler = w.route
-
-	log := log.New(os.Stdout, "watch", log.LstdFlags)
-	go plan.RunWithClientAndLogger(client, log)
-
 	return w, nil
 }
 
 // Subscribe watches a subtree and emits updates on the specified channel.
-func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func(), err error) {
+//
+// The element type of the channel must match the payload type of the Subtree.
+// Wrap the channel in the TypedChan() function before passing it into this
+// method.
+func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func() error, err error) {
 	typ := reflect.Value(ch).Type().Elem()
-	subtree.AssertType(typ)
+	if err = subtree.AssertType(typ); err != nil {
+		return nil, err
+	}
 
 	w.lk.Lock()
-	defer w.lk.Unlock()
 
 	// Make sure we have a subtree mapping.
 	if _, ok := w.subtrees[subtree]; !ok {
-		w.subtrees[subtree] = make(map[*typedChan]struct{}, 2)
+		w.subtrees[subtree] = make(map[*subscription]struct{})
 	}
-	w.subtrees[subtree][&ch] = struct{}{}
 
-	cancel = func() {
+	root := w.root + ":" + subtree.GroupKey
+	sub := &subscription{
+		w:       w,
+		subtree: subtree,
+		client:  w.client,
+		root:    root,
+		outCh:   ch,
+	}
+
+	w.subtrees[subtree][sub] = struct{}{}
+	w.lk.Unlock()
+
+	// Start the subscription.
+	if err := sub.start(); err != nil {
+		return nil, err
+	}
+
+	cancel = func() error {
 		w.lk.Lock()
 		defer w.lk.Unlock()
-		delete(w.subtrees[subtree], &ch)
+
+		delete(w.subtrees[subtree], sub)
+		if len(w.subtrees[subtree]) == 0 {
+			delete(w.subtrees, subtree)
+		}
+
+		return sub.stop()
 	}
 	return cancel, nil
 }
 
-// Barrier awaits until the specified amount of subtree nodes have been posted
+// Barrier awaits until the specified amount of subtree items have been posted
 // on the subtree. It returns a channel on which two things can happen:
 //
 //   a. if enough subtree nodes were written before the context fired, a nil
@@ -154,55 +155,18 @@ func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-c
 	return resCh, nil
 }
 
-// route handles an incoming update, matches it against a subtree, transforms
-// the payload, and informs subscribers.
-func (w *Watcher) route(index uint64, v interface{}) {
-	kvs, ok := v.(capi.KVPairs)
-	if !ok {
-		logging.S().Warn("watcher received unexpected type")
-		return
-	}
-
-	w.lk.RLock()
-	defer w.lk.RUnlock()
-
-	// For each key value in the notification.
-	for _, kv := range kvs {
-		// Check the kv against the subtrees we're watching.
-		for st, chs := range w.subtrees {
-			if !st.MatchFunc(kv) {
-				continue
-			}
-
-			// If this kv matches this subtree, process it.
-			// Deserialize its json into a struct of its type.
-			payload := reflect.New(st.PayloadType.Elem())
-			if err := json.Unmarshal(kv.Value, payload.Interface()); err != nil {
-				logging.S().Warnw("failed to decode value", "data", string(kv.Value), "type", st.PayloadType)
-				continue
-			}
-			for ch := range chs {
-				v := reflect.Value(*ch)
-				v.Send(payload)
-			}
-		}
-	}
-}
-
 // Close closes this watcher. After calling this method, the watcher can't be
 // resused.
 func (w *Watcher) Close() error {
 	w.lk.Lock()
 	defer w.lk.Unlock()
 
-	w.plan.Stop()
-	w.plan = nil
-
-	for _, chs := range w.subtrees {
-		for ch := range chs {
-			reflect.Value(*ch).Close()
+	var result *multierror.Error
+	for _, st := range w.subtrees {
+		for sub := range st {
+			multierror.Append(result, sub.stop())
 		}
 	}
 	w.subtrees = nil
-	return nil
+	return result.ErrorOrNil()
 }

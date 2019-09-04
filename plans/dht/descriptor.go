@@ -6,7 +6,7 @@ import (
 
 type TestPlan struct{}
 
-var _ api.TestPlan = (*TestPlan)(nil)
+// var _ api.TestPlan = (*TestPlan)(nil)
 
 type testCase interface {
 	Name() string
@@ -17,17 +17,18 @@ var testcases = []testCase{
 	&LookupPeersTC{Count: 10, BucketSize: 100},
 }
 
-func (*TestPlan) Descriptor() *api.TestPlanDescriptor {
+func (*TestPlan) Descriptor() interface{} {
 	names := make([]string, 0, len(testcases))
 	for _, tc := range testcases {
 		names = append(names, tc.Name())
 	}
 
-	desc := &api.TestPlanDescriptor{
-		Name:      "dht-tests",
-		TestCases: []string{"lookup-peers"},
-	}
-	return desc
+	return nil
+	// desc := &api.TestPlanDescriptor{
+	// 	Name:      "dht-tests",
+	// 	TestCases: []string{"lookup-peers"},
+	// }
+	// return desc
 }
 
 func (*TestPlan) Build(opts *api.BuildOpts) (*api.BuildResult, error) {

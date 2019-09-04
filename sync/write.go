@@ -2,72 +2,137 @@ package sync
 
 import (
 	"encoding/json"
-	"fmt"
-
 	"reflect"
+	"strconv"
+	"sync"
+	"time"
 
-	capi "github.com/hashicorp/consul/api"
 	"github.com/ipfs/testground/api"
+
+	"github.com/go-redis/redis"
 )
 
-// Writer perform writes on this test run's sync tree.
+var (
+	// TTL is the expiry of the records this writer inserts.
+	TTL = 10 * time.Second
+
+	// RefreshPeriod is half the TTL. The Writer refreshes records it owns with
+	// this frequency.
+	RefreshPeriod = TTL / 2
+)
+
+// Writer offers an API to write objects to the sync tree for a running test.
 type Writer struct {
-	client *capi.Client
-	sid    string // sid is the session id.
-	root   string
-	doneCh chan struct{}
+	lk      sync.RWMutex
+	client  *redis.Client
+	root    string
+	ownsets map[string][]string
+	doneCh  chan struct{}
 }
 
-// TODO add a mode to prevent watches firing on keys added from a writer.
-
 // NewWriter creates a new Writer for a particular test run.
-func NewWriter(client *capi.Client, runenv *api.RunEnv) (w *Writer, err error) {
-	opts := &capi.SessionEntry{
-		TTL:      "10s",
-		Behavior: "delete",
-	}
-
-	sid, _, err := client.Session().Create(opts, nil)
-	if err != nil {
-		return nil, err
-	}
-
+func NewWriter(client *redis.Client, runenv *api.RunEnv) (w *Writer, err error) {
 	w = &Writer{
-		client: client,
-		sid:    sid,
-		root:   basePrefix(runenv),
-		doneCh: make(chan struct{}),
+		client:  client,
+		root:    basePrefix(runenv),
+		doneCh:  make(chan struct{}),
+		ownsets: make(map[string][]string),
 	}
 
-	// Launch the periodic session renewer.
-	go client.Session().RenewPeriodic("3s", sid, nil, w.doneCh)
-
+	go w.refreshOwned()
 	return w, nil
 }
 
-// Write writes a payload in a subtree. It panics if the payload's type does
-// not match the expected type for the subtree. If the actual write on the sync
-// service fails, this method returns an error.
+// refreshOwned runs a loop that refreshes owned keys every `RefreshPeriod`.
+// It should be launched as a goroutine.
+func (w *Writer) refreshOwned() {
+Loop:
+	select {
+	case <-time.After(RefreshPeriod):
+		w.lk.RLock()
+		// TODO: do this in a transaction. We risk the loop overlapping with the
+		// refresh period, and all kinds of races. We need to be adaptive here.
+		for _, os := range w.ownsets {
+			for _, k := range os {
+				if err := w.client.Expire(k, TTL).Err(); err != nil {
+					w.lk.RUnlock()
+					panic(err)
+				}
+			}
+		}
+		w.lk.RUnlock()
+		goto Loop
+
+	case <-w.doneCh:
+		return
+	}
+}
+
+// Write writes a payload in the sync tree for the test. It panics if the
+// payload's type does not match the expected type for the subtree. If the
+// actual write on the sync service fails, this method returns an error.
 func (w *Writer) Write(subtree *Subtree, payload interface{}) (err error) {
-	subtree.AssertType(reflect.ValueOf(payload).Type())
+	if err = subtree.AssertType(reflect.ValueOf(payload).Type()); err != nil {
+		return err
+	}
+
+	// Serialize the payload.
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	key := fmt.Sprintf("%s/%s", w.root, subtree.PathFunc(payload))
-	kv := &capi.KVPair{
-		Key:   key,
-		Value: bytes,
+	// Calculate the index key.
+	idx := w.root + ":" + subtree.GroupKey
+
+	// Claim an MVCC.
+	mvcc, err := w.client.Incr(idx + ":mvcc").Result()
+	if err != nil {
+		return err
 	}
 
-	_, err = w.client.KV().Put(kv, nil)
+	key := w.root + ":" + subtree.PathFunc(payload) + ":" + strconv.Itoa(int(mvcc))
+
+	// Perform a transaction setting the key and adding it to the index.
+	err = w.client.Watch(func(tx *redis.Tx) error {
+		_, err := tx.Pipelined(func(pipe redis.Pipeliner) error {
+			pipe.Set(key, bytes, TTL)
+			pipe.SAdd(idx, key)
+			return nil
+		})
+		return err
+	})
+
+	if err != nil {
+		return err
+	}
+
+	// Update the ownset.
+	w.lk.Lock()
+	defer w.lk.Unlock()
+
+	os := w.ownsets[subtree.GroupKey]
+	w.ownsets[subtree.GroupKey] = append(os, key)
+
 	return err
 }
 
-// Close closes this writer and destroys the sync session.
+// Close closes this writer, and drops all owned keys immediately.
 func (w *Writer) Close() error {
 	close(w.doneCh)
-	_, err := w.client.Session().Destroy(w.sid, nil)
-	return err
+
+	w.lk.Lock()
+	defer w.lk.Unlock()
+
+	// Drop all keys owned by this writer.
+	for g, os := range w.ownsets {
+		if err := w.client.SRem(g, os).Err(); err != nil {
+			return err
+		}
+		if err := w.client.Del(os...).Err(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
