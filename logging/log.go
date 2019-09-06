@@ -1,6 +1,11 @@
 package logging
 
-import "go.uber.org/zap"
+import (
+	"os"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
 
 var (
 	logger  *zap.Logger
@@ -9,7 +14,16 @@ var (
 
 func init() {
 	var err error
-	logger, err = zap.NewDevelopment()
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.FatalLevel)
+
+	if level := os.Getenv("LOG_LEVEL"); level != "" {
+		l := zapcore.Level(0)
+		l.UnmarshalText([]byte(level))
+		cfg.Level = zap.NewAtomicLevelAt(l)
+	}
+
+	logger, err = cfg.Build()
 	if err != nil {
 		panic(err)
 	}

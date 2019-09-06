@@ -15,8 +15,6 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 
 	"time"
-
-	"github.com/logrusorgru/aurora"
 )
 
 type LookupPeersTC struct {
@@ -48,7 +46,7 @@ func (tc *LookupPeersTC) Execute() {
 		panic(err)
 	}
 
-	_, err = kaddht.New(context.Background(), h, dhtopts.Datastore(ds))
+	dht, err := kaddht.New(context.Background(), h, dhtopts.Datastore(ds))
 	if err != nil {
 		panic(err)
 	}
@@ -62,23 +60,51 @@ func (tc *LookupPeersTC) Execute() {
 	watcher, writer := sync.MustWatcherWriter(redis, runenv)
 	defer watcher.Close()
 
-	peerCh := make(chan *peer.AddrInfo, 16)
-	cancel, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
-	defer cancel()
-
-	go func() {
-		for range peerCh {
-			tc.EventsReceived++
-			fmt.Println(aurora.Sprintf(aurora.Green(aurora.Bold("(instance %d) received events: %d")), tc.Instance, tc.EventsReceived))
-		}
-	}()
-
-	defer cancel()
-
 	if err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
 		panic(err)
 	}
 	defer writer.Close()
+
+	peerCh := make(chan *peer.AddrInfo, 16)
+	cancel, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
+	defer cancel()
+
+	for i := 0; i < tc.Count; i++ {
+		select {
+		case ai := <-peerCh:
+			tc.EventsReceived++
+			if ai.ID == h.ID() {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := h.Connect(ctx, *ai)
+			if err != nil {
+				panic(err)
+			}
+			cancel()
+
+		case <-time.After(5 * time.Second):
+			panic("no new peers in 5 seconds")
+		}
+	}
+
+	for i, id := range h.Peerstore().PeersWithAddrs() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		t := time.Now()
+		if _, err := dht.FindPeer(ctx, id); err != nil {
+			panic(err)
+		}
+
+		api.EmitMetric(api.NewContext(context.Background()), &api.MetricDefinition{
+			Name:           fmt.Sprintf("time-to-find-%d", i),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Now().Sub(t).Nanoseconds()))
+
+		cancel()
+	}
+
+	defer cancel()
 
 	time.Sleep(5 * time.Hour)
 
