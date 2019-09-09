@@ -3,13 +3,10 @@ package smlbench
 import (
 	"context"
 
-	"github.com/ipfs/testground/api"
-	"github.com/ipfs/testground/iptb"
+	"github.com/ipfs/testground/sdk/iptb"
 )
 
 type SmallBenchmarksTestCase interface {
-	api.Namer
-
 	// Configure configures the specification for the testcase.
 	Configure(ctx context.Context, spec *iptb.TestEnsembleSpec)
 

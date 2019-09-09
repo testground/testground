@@ -8,15 +8,15 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/ipfs/testground/api"
+	"github.com/ipfs/testground/sdk/runtime"
 )
 
 // TempRandFile creates a file of the specified size (in bytes) within the specified directory.
 //
 // It is the callers responsibility to delete this file when done.
 func TempRandFile(ctx context.Context, dir string, size int64) *os.File {
-	runenv := api.RunEnvFromContext(ctx)
-	file, err := ioutil.TempFile(dir, runenv.TestPlan)
+	re := runtime.CurrentRunEnv()
+	file, err := ioutil.TempFile(dir, re.TestPlan)
 	if err != nil {
 		panic(err)
 	}

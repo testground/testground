@@ -1,0 +1,51 @@
+name = "smlbench"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file:${TESTGROUND_REPO}/plans/smlbench"
+
+[build_strategies."docker:ipfs"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/dht"
+exec_pkg = "exec"
+  
+[build_strategies."exec:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/dht"
+exec_pkg = "exec"
+
+[run_strategies."local:exec"]
+enabled = true
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."cluster:nomad"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "lookup-peers"
+instances = { min = 2, max = 100, default = 50 }
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+
+# seq 1
+[[testcases]]
+name = "lookup-providers"
+instances = { min = 2, max = 100, default = 50 }
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+
+# seq 2
+[[testcases]]
+name = "store-get-value"
+instances = { min = 2, max = 100, default = 50 }
+roles = ["storer", "fetcher"]
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+

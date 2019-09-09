@@ -9,9 +9,9 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/ipfs/testground/api"
-	"github.com/ipfs/testground/iptb"
 	"github.com/ipfs/testground/plans/smlbench"
+	"github.com/ipfs/testground/sdk/iptb"
+	"github.com/ipfs/testground/sdk/runtime"
 )
 
 // simpleAddTC is a simple test that adds a file of the specified size to an IPFS node. It measures time to add.
@@ -43,5 +43,5 @@ func (tc *simpleAddTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemble)
 		panic(err)
 	}
 
-	api.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runtime.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 }

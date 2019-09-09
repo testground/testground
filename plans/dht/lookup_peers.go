@@ -1,57 +1,33 @@
-package dht
+package main
 
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"time"
 
-	levelds "github.com/ipfs/go-ds-leveldb"
-	"github.com/ipfs/testground/api"
-	"github.com/ipfs/testground/sync"
+	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 
-	"time"
+	"github.com/ipfs/go-datastore"
 )
 
-type LookupPeersTC struct {
-	Instance       int
-	Count          int
-	BucketSize     int
-	EventsReceived int
-}
-
-//var _ dht.DHTTestCase = (*LookupPeersTC)(nil)
-
-func (tc *LookupPeersTC) Name() string {
-	return fmt.Sprintf("lookup_peers-%dpeers-%dsize", tc.Count, tc.BucketSize)
-}
-
-func (tc *LookupPeersTC) Execute() {
-	dir, err := ioutil.TempDir("", "dht")
-	if err != nil {
-		panic(err)
-	}
-
-	ds, err := levelds.NewDatastore(dir, nil)
-	if err != nil {
-		panic(err)
-	}
-
+func LookupPeers(runenv *runtime.RunEnv) {
 	h, err := libp2p.New(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	dht, err := kaddht.New(context.Background(), h, dhtopts.Datastore(ds))
+	dht, err := dht.New(context.Background(), h, dhtopts.Datastore(datastore.NewMapDatastore()))
 	if err != nil {
 		panic(err)
 	}
 
-	runenv := api.CurrentRunEnv()
 	redis, err := sync.RedisClient()
 	if err != nil {
 		panic(err)
@@ -69,10 +45,11 @@ func (tc *LookupPeersTC) Execute() {
 	cancel, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
 	defer cancel()
 
-	for i := 0; i < tc.Count; i++ {
+	var events int
+	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
 		case ai := <-peerCh:
-			tc.EventsReceived++
+			events++
 			if ai.ID == h.ID() {
 				continue
 			}
@@ -83,8 +60,10 @@ func (tc *LookupPeersTC) Execute() {
 			}
 			cancel()
 
-		case <-time.After(5 * time.Second):
-			panic("no new peers in 5 seconds")
+		case <-time.After(10 * time.Second):
+			// TODO need a way to fail a distributed test immediately. No point
+			// making it run.
+			panic("no new peers in 10 seconds")
 		}
 	}
 
@@ -95,7 +74,7 @@ func (tc *LookupPeersTC) Execute() {
 			panic(err)
 		}
 
-		api.EmitMetric(api.NewContext(context.Background()), &api.MetricDefinition{
+		runtime.EmitMetric(runtime.NewContextWithRunEnv(context.Background()), &runtime.MetricDefinition{
 			Name:           fmt.Sprintf("time-to-find-%d", i),
 			Unit:           "ns",
 			ImprovementDir: -1,
@@ -105,7 +84,4 @@ func (tc *LookupPeersTC) Execute() {
 	}
 
 	defer cancel()
-
-	time.Sleep(5 * time.Hour)
-
 }
