@@ -1,17 +1,5 @@
 package main
 
-import (
-	"context"
-	"os"
-
-	"strconv"
-
-	"github.com/google/uuid"
-	"github.com/ipfs/testground/api"
-	"github.com/ipfs/testground/iptb"
-	"github.com/ipfs/testground/plans/smlbench/cases"
-)
-
 // TODO:
 //  Testcase abstraction.
 //  Entrypoint demuxing (TEST_CASE_SEQ).
@@ -19,25 +7,25 @@ import (
 //  Temporary directory from environment variable.
 //  Error handling -- right now everything panics on failure.
 func main() {
-	_ = os.Setenv("TEST_PLAN", "smlbenchmarks")
-	_ = os.Setenv("TEST_BRANCH", "master")
-	_ = os.Setenv("TEST_TAG", "")
-	_ = os.Setenv("TEST_RUN", uuid.New().String())
+	// _ = os.Setenv("TEST_PLAN", "smlbenchmarks")
+	// _ = os.Setenv("TEST_BRANCH", "master")
+	// _ = os.Setenv("TEST_TAG", "")
+	// _ = os.Setenv("TEST_RUN", uuid.New().String())
 
-	for i, tc := range cases.TestCases {
-		_ = os.Setenv("TEST_CASE", tc.Name())
-		_ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
+	// for i, tc := range cases.TestCases {
+	// 	_ = os.Setenv("TEST_CASE", tc.Name())
+	// 	_ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
 
-		ctx := api.NewContext(context.Background())
+	// 	ctx := api.NewContext(context.Background())
 
-		spec := iptb.NewTestEnsembleSpec()
-		tc.Configure(ctx, spec)
+	// 	spec := iptb.NewTestEnsembleSpec()
+	// 	tc.Configure(ctx, spec)
 
-		ensemble := iptb.NewTestEnsemble(ctx, spec)
-		ensemble.Initialize()
+	// 	ensemble := iptb.NewTestEnsemble(ctx, spec)
+	// 	ensemble.Initialize()
 
-		tc.Execute(ctx, ensemble)
+	// 	tc.Execute(ctx, ensemble)
 
-		ensemble.Destroy()
-	}
+	// 	ensemble.Destroy()
+	// }
 }
