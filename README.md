@@ -21,7 +21,7 @@ libp2p, and quantifying its characteristics in terms of performance, resource
 and network utilisation, stability, interoperability, etc., when compared to
 other commits.
 
-The Interplanteary Test Ground aims to be tightly integrated with the software
+The Interplanetary Test Ground aims to be tightly integrated with the software
 engineering practices and tooling the IPFS and libp2p teams rely on.
 
 ## System architecture
