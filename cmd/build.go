@@ -57,24 +57,12 @@ func buildCommand(c *cli.Context) error {
 
 	var (
 		plan    = c.Args().First()
-		deps    = c.StringSlice("dep")
 		builder = c.Generic("builder").(*EnumValue).String()
-		params  = c.StringSlice("build-param")
 	)
 
-	dependencies, err := toKeyValues(deps)
+	in, err := parseBuildInput(c)
 	if err != nil {
 		return err
-	}
-
-	parameters, err := toKeyValues(params)
-	if err != nil {
-		return err
-	}
-
-	in := &build.Input{
-		Dependencies:    dependencies,
-		BuildParameters: parameters,
 	}
 
 	out, err := Engine.DoBuild(plan, builder, in)
@@ -85,4 +73,27 @@ func buildCommand(c *cli.Context) error {
 	spew.Dump(out)
 
 	return nil
+}
+
+func parseBuildInput(c *cli.Context) (*build.Input, error) {
+	var (
+		deps   = c.StringSlice("dep")
+		params = c.StringSlice("build-param")
+	)
+
+	dependencies, err := toKeyValues(deps)
+	if err != nil {
+		return nil, err
+	}
+
+	parameters, err := toKeyValues(params)
+	if err != nil {
+		return nil, err
+	}
+
+	in := &build.Input{
+		Dependencies:    dependencies,
+		BuildParameters: parameters,
+	}
+	return in, err
 }

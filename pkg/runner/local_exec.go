@@ -43,7 +43,7 @@ func (*LocalExecutableRunner) Run(input *Input, cfg interface{}) (*Output, error
 	// Spawn as many instances as the test case dictates.
 	var wg sync.WaitGroup
 	for i := 0; i < instances; i++ {
-		cmd := exec.Command(input.Runnable)
+		cmd := exec.Command(input.ArtifactPath)
 
 		// Populate the environment.
 		env := map[string]string{

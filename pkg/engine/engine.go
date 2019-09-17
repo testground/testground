@@ -19,10 +19,11 @@ type BuilderMapping struct {
 }
 
 type RunnerMapping struct {
-	Key            string
-	Runner         runner.Runner
-	ConfigType     reflect.Type
-	configFieldIdx int
+	Key                string
+	Runner             runner.Runner
+	ConfigType         reflect.Type
+	CompatibleBuilders *BuilderMapping
+	configFieldIdx     int
 }
 
 var AllBuilders = []BuilderMapping{
@@ -34,6 +35,12 @@ var AllBuilders = []BuilderMapping{
 }
 
 var AllRunners = []RunnerMapping{
+	{
+		Key:                "local:docker",
+		Runner:             &runner.LocalDockerRunner{},
+		CompatibleBuilders: &AllBuilders[0],
+		ConfigType:         reflect.TypeOf(&api.PlaceholderRunStrategy{}),
+	},
 	{
 		Key:        "local:exec",
 		Runner:     &runner.LocalExecutableRunner{},

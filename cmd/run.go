@@ -1,75 +1,125 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/ipfs/testground/pkg/runner"
+
 	"github.com/urfave/cli"
 )
+
+var runners = func() []string {
+	r := Engine.ListRunners()
+	if len(r) == 0 {
+		panic("no runners loaded")
+	}
+
+	names := make([]string, 0, len(r))
+	for k, _ := range r {
+		names = append(names, k)
+	}
+	return names
+}()
 
 // RunCommand is the definition of the `run` command.
 var RunCommand = cli.Command{
 	Name:      "run",
-	Usage:     "run test case with name `testplan/testcase`",
+	Usage:     "(builds and) runs test case with name `testplan/testcase`",
 	Action:    runCommand,
 	ArgsUsage: "[name]",
-	Flags: []cli.Flag{
+	Flags: append(
+		BuildCommand.Flags, // inject all build command flags.
 		cli.GenericFlag{
 			Name: "runner, r",
 			Value: &EnumValue{
-				Allowed: []string{"local", "nomad"},
-				Default: "local",
+				Allowed: runners,
+				Default: runners[0],
 			},
-			Usage: "specifies the runner; options: [local, nomad]",
+			Usage: fmt.Sprintf("specifies the runner; options: %v", runners),
 		},
 		cli.StringFlag{
 			Name:  "nomad-api, n",
 			Value: "http://127.0.0.1:5000",
-			Usage: "nomad endpoint",
+			Usage: "the url of the Nomad endpoint (unused for now)",
 		},
 		cli.IntFlag{
+			// default 0
 			Name:  "instances, i",
-			Value: 10,
 			Usage: "number of instances of the test case to run",
 		},
-	},
+		cli.StringSliceFlag{
+			Name:  "run-param",
+			Usage: "provide a run parameter",
+		},
+	),
 }
 
 func runCommand(c *cli.Context) error {
-	// if c.NArg() != 1 {
-	// 	cli.ShowSubcommandHelp(c)
-	// 	fmt.Println("")
-	// 	return errors.New("missing test name")
-	// }
+	if c.NArg() != 1 {
+		cli.ShowSubcommandHelp(c)
+		return errors.New("missing test name")
+	}
 
-	// testcase := c.Args().First()
-	// if testcase == "" {
-	// 	cli.ShowSubcommandHelp(c)
-	// 	return errors.New("no test case provided; use the `list` command to view available test cases")
-	// }
+	// Extract flags and arguments.
+	var (
+		testcase  = c.Args().First()
+		builderId = c.Generic("builder").(*EnumValue).String()
+		runnerId  = c.Generic("runner").(*EnumValue).String()
+		params    = c.StringSlice("run-param")
+		instances = c.Int("instances")
+	)
 
-	// comp := strings.Split(testcase, "/")
-	// if len(comp) != 2 {
-	// 	cli.ShowSubcommandHelp(c)
-	// 	return errors.New("wrong format for test case name, should be: `testplan/testcase`")
-	// }
+	// Validate this test plan and test case exist.
+	if testcase == "" {
+		cli.ShowSubcommandHelp(c)
+		return errors.New("no test case provided; use the `list` command to view available test cases")
+	}
 
-	// tp := api.TestCensus().ByName(comp[0])
-	// if tp == nil {
-	// 	return errors.New("unrecognized test plan; use the `list` command to view available test plans and cases")
-	// }
+	comp := strings.Split(testcase, "/")
+	if len(comp) != 2 {
+		cli.ShowSubcommandHelp(c)
+		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
+	}
 
-	// seq, _, ok := tp.TestCaseByName(comp[1])
-	// if !ok {
-	// 	return errors.New("unrecognized test case; use the `list` command to view available test cases")
-	// }
+	tp := Engine.TestCensus().ByName(comp[0])
+	if tp == nil {
+		return errors.New("unrecognized test plan; use the `list` command to view available test plans and cases")
+	}
 
-	// switch ev := c.Generic("runner").(*EnumValue).String(); ev {
-	// case "local":
-	// 	local := &runner.LocalRunner{}
-	// 	local.Run(tp, seq)
-	// case "docker":
-	// 	fallthrough
-	// default:
-	// 	return fmt.Errorf("unsupported runner: %s", ev)
-	// }
+	seq, _, ok := tp.TestCaseByName(comp[1])
+	if !ok {
+		return errors.New("unrecognized test case; use the `list` command to view available test cases")
+	}
 
-	return nil
+	// Slurp run parameters into a map.
+	parameters, err := toKeyValues(params)
+	if err != nil {
+		return err
+	}
+
+	// Now that we've verified that the test plan and the test case exist, build
+	// the testplan.
+	buildIn, err := parseBuildInput(c)
+	if err != nil {
+		return fmt.Errorf("error while parsing build input: %w", err)
+	}
+
+	// Trigger the build job.
+	buildOut, err := Engine.DoBuild(tp.Name, builderId, buildIn)
+	if err != nil {
+		return fmt.Errorf("error while building test plan: %w", err)
+	}
+
+	runIn := &runner.Input{
+		TestPlan:      tp,
+		Instances:     instances,
+		Seq:           seq,
+		ArtifactPath:  buildOut.ArtifactPath,
+		RunParameters: parameters,
+	}
+
+	_, err = Engine.DoRun(tp.Name, runnerId, runIn)
+	return err
 }
