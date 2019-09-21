@@ -47,7 +47,7 @@ func (b *DockerGoBuilder) Build(opts *Input, config interface{}) (*Output, error
 		return nil, err
 	} else if exists {
 		fmt.Println("found cached docker image for:", id)
-		return &Output{DockerImage: id}, nil
+		return &Output{ArtifactPath: id}, nil
 	}
 
 	// Create a temp dir, and copy the source into it.
@@ -157,7 +157,7 @@ func (b *DockerGoBuilder) Build(opts *Input, config interface{}) (*Output, error
 		fmt.Println(scan.Text())
 	}
 
-	return &Output{DockerImage: id}, nil
+	return &Output{ArtifactPath: id}, nil
 }
 
 func validateSdkDir(dir string) error {

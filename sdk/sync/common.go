@@ -15,6 +15,9 @@ import (
 
 // RedisClient returns a consul client from this processes environment
 // variables, or panics if unable to create one.
+//
+// TODO: source redis URL from environment variables. The Redis host and port
+// will be wired in by Nomad/Swarm.
 func RedisClient() (client *redis.Client, err error) {
 	// TODO: will need to populate opts from an env variable.
 	opts := &redis.Options{

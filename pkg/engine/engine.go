@@ -6,25 +6,46 @@ import (
 	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
-
 	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/runner"
 )
 
+// BuilderMapping provides metadata about a builder that has been loaded into
+// the system.
 type BuilderMapping struct {
-	Key            string
-	Builder        build.Builder
-	ConfigType     reflect.Type
+	// Key is the identifier by which this builder strategy will be referenced
+	// in configuration files.
+	Key string
+	// Builder is the actual builder.
+	Builder build.Builder
+	// ConfigType is the type of the configuration object this builder receives.
+	// It is used to cherry-pick the configuration from a test plan definition.
+	ConfigType reflect.Type
+	// configFieldIdx caches the index of the configuration object within the
+	// BuilderStrategies configuration entity.
 	configFieldIdx int
 }
 
+// RunnerMapping provides metadata about a runner that has been loaded into
+// the system.
 type RunnerMapping struct {
-	Key            string
-	Runner         runner.Runner
-	ConfigType     reflect.Type
+	// Key is the identifier by which this run strategy will be referenced
+	// in configuration files.
+	Key string
+	// Builder is the actual runner.
+	Runner runner.Runner
+	// ConfigType is the type of the configuration object this runner receives.
+	// It is used to cherry-pick the configuration from a test plan definition.
+	ConfigType reflect.Type
+	// CompatibleBuilders references the builders this runner can be combined
+	// with.
+	CompatibleBuilders []*BuilderMapping
+	// configFieldIdx caches the index of the configuration object within the
+	// RunStrategies configuration entity.
 	configFieldIdx int
 }
 
+// AllBuilders enumerates all builders known to the system.
 var AllBuilders = []BuilderMapping{
 	{
 		Key:        "docker:go",
@@ -33,19 +54,39 @@ var AllBuilders = []BuilderMapping{
 	},
 }
 
+// AllRunners enumerates all builders known to the system.
 var AllRunners = []RunnerMapping{
+	{
+		Key:                "local:docker",
+		Runner:             &runner.LocalDockerRunner{},
+		CompatibleBuilders: []*BuilderMapping{&AllBuilders[0]},
+		ConfigType:         reflect.TypeOf(&api.PlaceholderRunStrategy{}),
+	},
 	{
 		Key:        "local:exec",
 		Runner:     &runner.LocalExecutableRunner{},
 		ConfigType: reflect.TypeOf(&api.PlaceholderRunStrategy{}),
+		// CompatibleBuilders: TODO,
 	},
 }
 
+// Engine is the central runtime object of the system. It knows about all test
+// plans, builders, and runners. It is supposed to be instantiated as a
+// singleton in all runtimes, whether the testground is run as a CLI tool, or as
+// a daemon. In the latter mode, the GitHub bridge will trigger commands and
+// perform queries on the Engine.
+//
+// TODO: the Engine should also centralise all system state and make it
+// queriable, e.g. what tests are running, or have run, such that we can easily
+// query test plans that ran for a particular commit of an upstream.
 type Engine struct {
-	lk       sync.RWMutex
-	census   *TestCensus
+	lk sync.RWMutex
+	// census is a catalogue of all test plans known to this engine.
+	census *TestCensus
+	// builders binds builders to their identifying key.
 	builders map[string]BuilderMapping
-	runners  map[string]RunnerMapping
+	// runners binds runners to their identifying key.
+	runners map[string]RunnerMapping
 }
 
 type EngineConfig struct {

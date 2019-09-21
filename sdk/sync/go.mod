@@ -7,6 +7,8 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
 	github.com/libp2p/go-libp2p-core v0.2.2
+	github.com/multiformats/go-multiaddr v0.0.4
+	github.com/pkg/errors v0.8.1 // indirect
 )
 
 replace github.com/ipfs/testground/sdk/runtime => ../runtime

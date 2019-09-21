@@ -7,7 +7,7 @@ type TestPlanDefinition struct {
 	SourcePath      string          `toml:"source_path"`
 	BuildStrategies BuildStrategies `toml:"build_strategies"`
 	RunStrategies   RunStrategies   `toml:"run_strategies"`
-	TestCases       []*TestCase     `toml:"test_cases"`
+	TestCases       []*TestCase     `toml:"testcases"`
 }
 
 // TODO: add validation methods, so that we reject empty build strategies.

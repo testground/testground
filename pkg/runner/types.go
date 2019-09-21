@@ -15,12 +15,13 @@ type Input struct {
 	TestPlan *api.TestPlanDefinition
 	// Instances is the number of instances to run.
 	Instances int
-	// Runnable can be a docker image ID or an executable path, it's runner-dependent.
-	Runnable string
+	// ArtifactPath can be a docker image ID or an executable path; it's
+	// runner-dependent.
+	ArtifactPath string
 	// Seq is the test case seq number to run.
 	Seq int
-	// Parameters are the runtime parameters to the test case.
-	Parameters map[string]string
+	// RunParameters are the runtime parameters to the test case.
+	RunParameters map[string]string
 }
 
 type Output struct {

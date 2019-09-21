@@ -1,4 +1,4 @@
-package api
+package auto
 
 import "time"
 
@@ -12,10 +12,6 @@ const (
 )
 
 type RepoCommand struct {
-	TriggerContext TriggerContext
-}
-
-type TriggerContext struct {
 	Timestamp time.Time
 	// Source is an enum indicating the method by which this run was triggered.
 	Source TriggerSource

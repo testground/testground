@@ -11,7 +11,8 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-// TempRandFile creates a file of the specified size (in bytes) within the specified directory.
+// TempRandFile creates a file of the specified size (in bytes) within the
+// specified directory.
 //
 // It is the callers responsibility to delete this file when done.
 func TempRandFile(ctx context.Context, dir string, size int64) *os.File {

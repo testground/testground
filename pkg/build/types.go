@@ -19,6 +19,5 @@ type Input struct {
 
 // Output encapsulates the output from a build action.
 type Output struct {
-	DockerImage    string
-	ExecutablePath string
+	ArtifactPath string
 }
