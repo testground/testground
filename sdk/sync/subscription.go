@@ -26,13 +26,12 @@ type subscription struct {
 }
 
 // start brings the state of the subscription forward to match the state of the
-// database. It does so in two phases:
+// store. It does so in two phases:
 //
 //   1. Replay: read the current state of the subtree from Redis, and
 //      replay it to the consumer.
-//   2. Batch fast-forward: during the replay phase, we keep receiving streaming
-//      updates from Redis. We consume all pending updates and process them in a
-//      batch, before switching to full online mode.
+//   2. Batch fast-forward: reconcile the events we received during the replay
+//      phase. Drain the queue and switch to online consumption.
 func (s *subscription) start() error {
 	s.ps = s.client.PSubscribe("__keyspace@0__:" + s.root + ":*")
 	s.inCh = s.ps.Channel()
@@ -238,6 +237,7 @@ Loop:
 	}
 }
 
+// stop stops this subcription.
 func (s *subscription) stop() error {
 	if err := s.ps.Unsubscribe("__keyspace@0__:" + s.subtree.GroupKey); err != nil {
 		return err

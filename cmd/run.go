@@ -23,7 +23,7 @@ var runners = func() []string {
 	return names
 }()
 
-// RunCommand is the definition of the `run` command.
+// RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
 	Name:      "run",
 	Usage:     "(builds and) runs test case with name `testplan/testcase`",

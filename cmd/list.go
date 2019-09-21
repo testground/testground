@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-// ListCommand is the definition of the `list` command.
+// ListCommand is the specification of the `list` command.
 var ListCommand = cli.Command{
 	Name:   "list",
 	Usage:  "list all test plans and test cases",

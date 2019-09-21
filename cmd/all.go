@@ -5,6 +5,7 @@ import (
 	"github.com/urfave/cli"
 )
 
+// Engine is a singleton engine to be shared by all CLI commands.
 var Engine = engine.NewDefaultEngine()
 
 // Commands collects all subcommands of the testground CLI.
