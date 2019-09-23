@@ -40,8 +40,8 @@ var BuildCommand = cli.Command{
 			Usage: "set a dependency mapping",
 		},
 		cli.StringSliceFlag{
-			Name:  "build-param",
-			Usage: "set a build parameter",
+			Name:  "build-cfg",
+			Usage: "set a build config parameter",
 		},
 	},
 	Description: `Builds a test plan by name. It errors if the test plan doesn't exist. Otherwise, it runs the build and outputs the Docker image id.
@@ -77,8 +77,8 @@ func buildCommand(c *cli.Context) error {
 
 func parseBuildInput(c *cli.Context) (*build.Input, error) {
 	var (
-		deps   = c.StringSlice("dep")
-		params = c.StringSlice("build-param")
+		deps = c.StringSlice("dep")
+		cfg  = c.StringSlice("build-cfg")
 	)
 
 	dependencies, err := toKeyValues(deps)
@@ -86,14 +86,14 @@ func parseBuildInput(c *cli.Context) (*build.Input, error) {
 		return nil, err
 	}
 
-	parameters, err := toKeyValues(params)
+	config, err := toKeyValues(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	in := &build.Input{
-		Dependencies:    dependencies,
-		BuildParameters: parameters,
+		Dependencies:        dependencies,
+		BuildConfigOverride: config,
 	}
 	return in, err
 }

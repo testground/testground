@@ -224,8 +224,8 @@ func (e *Engine) DoBuild(testplan string, builder string, input *build.Input) (*
 	}
 
 	// field is a pointer, so we get Elem().
-	cfg := f.Elem().Interface()
-	return bm.Builder.Build(input, cfg)
+	input.BuildConfig = f.Elem().Interface()
+	return bm.Builder.Build(input)
 }
 
 // TODO does run need to trigger a build?

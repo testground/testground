@@ -35,9 +35,9 @@ type TestCase struct {
 
 type GoBuildStrategy struct {
 	Enabled    bool
-	GoVersion  string `toml:"go_version"`
-	ModulePath string `toml:"module_path"`
-	ExecPkg    string `toml:"exec_pkg"`
+	GoVersion  string `toml:"go_version" overridable:"yes"`
+	ModulePath string `toml:"module_path" overridable:"yes"`
+	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
 }
 
 type PlaceholderRunStrategy struct {

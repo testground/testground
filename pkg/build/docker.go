@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -27,10 +28,15 @@ type DockerGoBuilder struct{}
 
 var _ Builder = (*DockerGoBuilder)(nil)
 
+func (b *DockerGoBuilder) OverridableParameters() []string {
+	return api.EnumerateOverridableFields(reflect.TypeOf(api.GoBuildStrategy{}))
+}
+
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go into a Docker container.
-func (b *DockerGoBuilder) Build(opts *Input, config interface{}) (*Output, error) {
-	cfg, ok := config.(api.GoBuildStrategy)
+func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
+	// TODO apply configuration overrides.
+	cfg, ok := opts.BuildConfig.(api.GoBuildStrategy)
 	if !ok {
 		panic("expected configuration type GoBuildStrategy")
 	}
