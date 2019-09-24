@@ -1,73 +1,28 @@
 package engine
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"sync"
 
-	"github.com/ipfs/testground/pkg/api"
+	"github.com/google/uuid"
+
+	"github.com/BurntSushi/toml"
+
 	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/runner"
 )
 
-// BuilderMapping provides metadata about a builder that has been loaded into
-// the system.
-type BuilderMapping struct {
-	// Key is the identifier by which this builder strategy will be referenced
-	// in configuration files.
-	Key string
-	// Builder is the actual builder.
-	Builder build.Builder
-	// ConfigType is the type of the configuration object this builder receives.
-	// It is used to cherry-pick the configuration from a test plan definition.
-	ConfigType reflect.Type
-	// configFieldIdx caches the index of the configuration object within the
-	// BuilderStrategies configuration entity.
-	configFieldIdx int
-}
-
-// RunnerMapping provides metadata about a runner that has been loaded into
-// the system.
-type RunnerMapping struct {
-	// Key is the identifier by which this run strategy will be referenced
-	// in configuration files.
-	Key string
-	// Builder is the actual runner.
-	Runner runner.Runner
-	// ConfigType is the type of the configuration object this runner receives.
-	// It is used to cherry-pick the configuration from a test plan definition.
-	ConfigType reflect.Type
-	// CompatibleBuilders references the builders this runner can be combined
-	// with.
-	CompatibleBuilders []*BuilderMapping
-	// configFieldIdx caches the index of the configuration object within the
-	// RunStrategies configuration entity.
-	configFieldIdx int
-}
-
 // AllBuilders enumerates all builders known to the system.
-var AllBuilders = []BuilderMapping{
-	{
-		Key:        "docker:go",
-		Builder:    &build.DockerGoBuilder{},
-		ConfigType: reflect.TypeOf(&api.GoBuildStrategy{}),
-	},
+var AllBuilders = []build.Builder{
+	&build.DockerGoBuilder{},
 }
 
 // AllRunners enumerates all builders known to the system.
-var AllRunners = []RunnerMapping{
-	{
-		Key:                "local:docker",
-		Runner:             &runner.LocalDockerRunner{},
-		CompatibleBuilders: []*BuilderMapping{&AllBuilders[0]},
-		ConfigType:         reflect.TypeOf(&api.PlaceholderRunStrategy{}),
-	},
-	{
-		Key:        "local:exec",
-		Runner:     &runner.LocalExecutableRunner{},
-		ConfigType: reflect.TypeOf(&api.PlaceholderRunStrategy{}),
-		// CompatibleBuilders: TODO,
-	},
+var AllRunners = []runner.Runner{
+	&runner.LocalDockerRunner{},
+	&runner.LocalExecutableRunner{},
 }
 
 // Engine is the central runtime object of the system. It knows about all test
@@ -84,69 +39,43 @@ type Engine struct {
 	// census is a catalogue of all test plans known to this engine.
 	census *TestCensus
 	// builders binds builders to their identifying key.
-	builders map[string]BuilderMapping
+	builders map[string]build.Builder
 	// runners binds runners to their identifying key.
-	runners map[string]RunnerMapping
+	runners map[string]runner.Runner
 }
 
 type EngineConfig struct {
-	Builders []BuilderMapping
-	Runners  []RunnerMapping
+	Builders []build.Builder
+	Runners  []runner.Runner
 }
 
 func NewEngine(cfg *EngineConfig) *Engine {
 	e := &Engine{
 		census:   newTestCensus(),
-		builders: make(map[string]BuilderMapping, len(cfg.Builders)),
-		runners:  make(map[string]RunnerMapping, len(cfg.Runners)),
+		builders: make(map[string]build.Builder, len(cfg.Builders)),
+		runners:  make(map[string]runner.Runner, len(cfg.Runners)),
 	}
 
-	typ := reflect.TypeOf(api.BuildStrategies{})
 	for _, b := range cfg.Builders {
-		found := false
-		for i := 0; i < typ.NumField(); i++ {
-			f := typ.Field(i)
-			ft := f.Type
-			if ft == b.ConfigType {
-				b.configFieldIdx = i
-				found = true
-				break
-			}
-		}
-		if !found {
-			panic("could not find config field for builder " + b.Key)
-		}
-		e.builders[b.Key] = b
-
+		e.builders[b.ID()] = b
 	}
 
-	typ = reflect.TypeOf(api.RunStrategies{})
 	for _, r := range cfg.Runners {
-		found := false
-		for i := 0; i < typ.NumField(); i++ {
-			if typ.Field(i).Type == r.ConfigType {
-				r.configFieldIdx = i
-				found = true
-				break
-			}
-		}
-		if !found {
-			panic("could not find config field for runner " + r.Key)
-		}
-		e.runners[r.Key] = r
+		e.runners[r.ID()] = r
 	}
 
 	return e
 }
 
 func NewDefaultEngine() *Engine {
-	var (
-		cfg    = &EngineConfig{AllBuilders, AllRunners}
-		engine = NewEngine(cfg)
-		plans  = discoverTestPlans()
-	)
+	cfg := &EngineConfig{
+		Builders: AllBuilders,
+		Runners:  AllRunners,
+	}
 
-	for _, p := range plans {
+	engine := NewEngine(cfg)
+
+	for _, p := range discoverTestPlans() {
 		engine.census.EnrollTestPlan(p)
 	}
 
@@ -160,26 +89,20 @@ func (e *Engine) TestCensus() *TestCensus {
 	return e.census
 }
 
-func (e *Engine) BuilderByName(name string) build.Builder {
+func (e *Engine) BuilderByName(name string) (build.Builder, bool) {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
-	if m, ok := e.builders[name]; ok {
-		return m.Builder
-	} else {
-		return nil
-	}
+	m, ok := e.builders[name]
+	return m, ok
 }
 
-func (e *Engine) RunnerByName(name string) runner.Runner {
+func (e *Engine) RunnerByName(name string) (runner.Runner, bool) {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
-	if m, ok := e.runners[name]; ok {
-		return m.Runner
-	} else {
-		return nil
-	}
+	m, ok := e.runners[name]
+	return m, ok
 }
 
 func (e *Engine) ListBuilders() map[string]build.Builder {
@@ -188,7 +111,7 @@ func (e *Engine) ListBuilders() map[string]build.Builder {
 
 	m := make(map[string]build.Builder, len(e.builders))
 	for k, v := range e.builders {
-		m[k] = v.Builder
+		m[k] = v
 	}
 	return m
 }
@@ -199,49 +122,126 @@ func (e *Engine) ListRunners() map[string]runner.Runner {
 
 	m := make(map[string]runner.Runner, len(e.runners))
 	for k, v := range e.runners {
-		m[k] = v.Runner
+		m[k] = v
 	}
 	return m
 }
 
 func (e *Engine) DoBuild(testplan string, builder string, input *build.Input) (*build.Output, error) {
-	tp := e.TestCensus().ByName(testplan)
-	if tp == nil {
+	plan := e.TestCensus().PlanByName(testplan)
+	if plan == nil {
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
 	}
+
+	// Find the builder.
 	bm, ok := e.builders[builder]
 	if !ok {
-		return nil, fmt.Errorf("unknown builder: %s", builder)
+		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
-	input.TestPlan = tp
+	// Get the base configuration of the build strategy.
+	planCfg, ok := plan.BuildStrategies[builder]
+	if !ok {
+		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
+	}
+
+	// Compile all configurations to coalesce.
+	cfgs := []map[string]interface{}{planCfg}
+	if overrides := input.BuildConfig; overrides != nil {
+		// We have config overrides.
+		// TODO type conversion.
+		cfgs = append(cfgs, overrides.(map[string]interface{}))
+	}
+
+	// Coalesce all configs and deserialize into the provided type.
+	cfg, err := coalesceConfigsIntoType(bm.ConfigType(), cfgs...)
+	if err != nil {
+		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
+	input.TestPlan = plan
 	input.BaseDir = BaseDir
+	input.BuildConfig = cfg
 
-	// find the field that matches the toml key for the build strategy.
-	f := reflect.ValueOf(tp.BuildStrategies).Field(bm.configFieldIdx)
-	if f.IsZero() || f.IsNil() {
-		return nil, fmt.Errorf("plan does not support builder %s", builder)
-	}
-
-	// field is a pointer, so we get Elem().
-	input.BuildConfig = f.Elem().Interface()
-	return bm.Builder.Build(input)
+	return bm.Build(input)
 }
 
-// TODO does run need to trigger a build?
-func (e *Engine) DoRun(testplan string, runner string, input *runner.Input) (*runner.Output, error) {
-	tp := e.TestCensus().ByName(testplan)
-	if tp == nil {
-		return nil, fmt.Errorf("unknown test plan: %s", testplan)
+func (e *Engine) DoRun(testplan string, testcase string, runner string, input *runner.Input) (*runner.Output, error) {
+	// Find the test plan.
+	plan := e.TestCensus().PlanByName(testplan)
+	if plan == nil {
+		return nil, fmt.Errorf("unrecognized test plan: %s", testplan)
 	}
-	rm, ok := e.runners[runner]
+
+	// Find the test case.
+	seq, tcase, ok := plan.TestCaseByName(testcase)
+	if !ok {
+		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
+	}
+
+	// Get the runner.
+	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
 
-	input.TestPlan = tp
+	// Fall back to default instance count if none was provided.
+	if input.Instances == 0 {
+		input.Instances = tcase.Instances.Default
+	}
 
-	// find the field that matches the toml key for the run strategy.
-	cfg := reflect.ValueOf(tp.RunStrategies).Field(rm.configFieldIdx).Elem().Interface()
-	return rm.Runner.Run(input, cfg)
+	// Get the base configuration of the run strategy.
+	planCfg, ok := plan.RunStrategies[runner]
+	if !ok {
+		return nil, fmt.Errorf("test plan does not support runner: %s", runner)
+	}
+
+	// Compile all configurations to coalesce.
+	cfgs := []map[string]interface{}{planCfg}
+	if overrides := input.RunnerConfig; overrides != nil {
+		// We have config overrides.
+		// TODO type conversions.
+		cfgs = append(cfgs, overrides.(map[string]interface{}))
+	}
+
+	// Coalesce all configs and deserialize into the provided type.
+	cfg, err := coalesceConfigsIntoType(run.ConfigType(), cfgs...)
+	if err != nil {
+		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
+	// TODO generate the run id with a mononotically increasing counter; persist
+	// the run ID in the state db.
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return nil, fmt.Errorf("error while generating test run ID: %w", err)
+	}
+
+	input.ID = id.String()
+	input.RunnerConfig = cfg
+	input.Seq = seq
+	input.TestPlan = plan
+
+	return run.Run(input)
+}
+
+func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {
+	m := make(map[string]interface{})
+
+	// Copy all values into coalesced map.
+	for _, cfg := range cfgs {
+		for k, v := range cfg {
+			m[k] = v
+		}
+	}
+
+	// Serialize map into TOML, and then deserialize into the appropriate type.
+	buf := new(bytes.Buffer)
+	if err := toml.NewEncoder(buf).Encode(m); err != nil {
+		return nil, fmt.Errorf("error while encoding into TOML: %w", err)
+	}
+
+	v := reflect.New(typ).Interface()
+	_, err := toml.DecodeReader(buf, v)
+	return v, err
 }

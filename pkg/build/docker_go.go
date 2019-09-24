@@ -1,9 +1,10 @@
 package build
 
 import (
-	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,6 +12,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	"github.com/docker/docker/pkg/jsonmessage"
 
 	"github.com/ipfs/testground/pkg/api"
 
@@ -23,22 +26,31 @@ import (
 	"github.com/otiai10/copy"
 )
 
+var (
+	_ Builder = &DockerGoBuilder{}
+)
+
 // DockerGoBuilder builds the test plan as a go-based container.
 type DockerGoBuilder struct{}
 
-var _ Builder = (*DockerGoBuilder)(nil)
+type DockerGoBuilderConfig struct {
+	Enabled    bool
+	GoVersion  string `toml:"go_version" overridable:"yes"`
+	ModulePath string `toml:"module_path" overridable:"yes"`
+	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
+}
 
 func (b *DockerGoBuilder) OverridableParameters() []string {
-	return api.EnumerateOverridableFields(reflect.TypeOf(api.GoBuildStrategy{}))
+	return api.EnumerateOverridableFields(reflect.TypeOf(DockerGoBuilder{}))
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go into a Docker container.
 func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	// TODO apply configuration overrides.
-	cfg, ok := opts.BuildConfig.(api.GoBuildStrategy)
+	cfg, ok := opts.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
-		panic("expected configuration type GoBuildStrategy")
+		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", opts.BuildConfig)
 	}
 
 	var (
@@ -136,20 +148,19 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
 
-	fmt.Println(tmp)
-
 	tar, err := archive.TarWithOptions(tmp, &archive.TarOptions{})
 	if err != nil {
 		return nil, err
 	}
 
+	args := map[string]*string{
+		"GO_VERSION":        &cfg.GoVersion,
+		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
+	}
+
 	buildOpts := types.ImageBuildOptions{
-		Dockerfile: "Dockerfile",
-		Tags:       []string{id},
-		BuildArgs: map[string]*string{
-			"GO_VERSION":        &cfg.GoVersion,
-			"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
-		},
+		Tags:      []string{id},
+		BuildArgs: args,
 	}
 
 	resp, err := cli.ImageBuild(ctx, tar, buildOpts)
@@ -158,9 +169,20 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	}
 	defer resp.Body.Close()
 
-	scan := bufio.NewScanner(resp.Body)
-	for scan.Scan() {
-		fmt.Println(scan.Text())
+	var msg jsonmessage.JSONMessage
+Loop:
+	for dec := json.NewDecoder(resp.Body); ; {
+		switch err := dec.Decode(&msg); err {
+		case nil:
+			msg.Display(os.Stdout, true)
+			if msg.Error != nil {
+				return nil, msg.Error
+			}
+		case io.EOF:
+			break Loop
+		default:
+			return nil, err
+		}
 	}
 
 	return &Output{ArtifactPath: id}, nil
@@ -210,4 +232,12 @@ func imageExists(ctx context.Context, cli *client.Client, id string) (bool, erro
 		return false, err
 	}
 	return len(summary) > 0, nil
+}
+
+func (*DockerGoBuilder) ID() string {
+	return "docker:go"
+}
+
+func (*DockerGoBuilder) ConfigType() reflect.Type {
+	return reflect.TypeOf(DockerGoBuilderConfig{})
 }

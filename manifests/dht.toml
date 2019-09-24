@@ -7,12 +7,12 @@ source_path = "file:${TESTGROUND_BASEDIR}/plans/dht"
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "exec"
+exec_pkg = "."
   
 [build_strategies."exec:go"]
 enabled = true
 module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "exec"
+exec_pkg = "."
 
 [run_strategies."local:exec"]
 enabled = true

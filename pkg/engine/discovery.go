@@ -14,7 +14,7 @@ func discoverTestPlans() []*api.TestPlanDefinition {
 	glob := filepath.Join(BaseDir, "/manifests/*.toml")
 	manifests, err := filepath.Glob(glob)
 	if err != nil {
-		logging.S().Errorf("failed to glob manifests directory: %w", err)
+		logging.S().Errorf("failed to glob manifests directory: %s", err)
 		return nil
 	}
 
@@ -22,7 +22,7 @@ func discoverTestPlans() []*api.TestPlanDefinition {
 	for _, m := range manifests {
 		var def api.TestPlanDefinition
 		if _, err := toml.DecodeFile(m, &def); err != nil {
-			logging.S().Errorf("failed to parse file %s: %w", m, err)
+			logging.S().Errorf("failed to parse file %s: %s", m, err)
 			continue
 		}
 		defs = append(defs, &def)

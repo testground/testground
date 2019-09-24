@@ -42,15 +42,38 @@ type RunEnv struct {
 	TestBranch string `json:"test_branch"`
 	TestTag    string `json:"test_tag"`
 
-	TestInstanceCount  int    `json:"test_instance_count"`
-	TestInstanceRole   string `json:"test_instance_role"`
-	TestInstanceParams string `json:"test_instance_params"`
-
-	parsedParams map[string]string
+	TestInstanceCount  int               `json:"test_instance_count"`
+	TestInstanceRole   string            `json:"test_instance_role"`
+	TestInstanceParams map[string]string `json:"test_instance_params"`
 
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
+}
+
+func (re *RunEnv) ToEnvVars() map[string]string {
+	packParams := func(in map[string]string) string {
+		arr := make([]string, 0, len(in))
+		for k, v := range in {
+			arr = append(arr, k+"="+v)
+		}
+		return strings.Join(arr, "|")
+	}
+
+	out := map[string]string{
+		EnvTestPlan:           re.TestPlan,
+		EnvTestBranch:         re.TestBranch,
+		EnvTestCase:           re.TestCase,
+		EnvTestTag:            re.TestTag,
+		EnvTestRun:            re.TestRun,
+		EnvTestRepo:           re.TestRepo,
+		EnvTestCaseSeq:        strconv.Itoa(re.TestCaseSeq),
+		EnvTestInstanceCount:  strconv.Itoa(re.TestInstanceCount),
+		EnvTestInstanceRole:   re.TestInstanceRole,
+		EnvTestInstanceParams: packParams(re.TestInstanceParams),
+	}
+
+	return out
 }
 
 func (re *RunEnv) SLogger() *zap.SugaredLogger {
@@ -97,31 +120,27 @@ func (re *RunEnv) initLoggers() {
 	re.slogger = re.logger.Sugar()
 }
 
-func (re *RunEnv) parseParams() {
-	if re.parsedParams != nil {
-		return
-	}
-
-	splt := strings.Split(re.TestInstanceParams, "|")
-	m := make(map[string]string, len(splt))
-	for _, s := range splt {
-		v := strings.Split(s, "=")
-		if len(v) != 2 {
-			continue
-		}
-		m[v[0]] = v[1]
-	}
-	re.parsedParams = m
-}
-
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
-	toInt := func(s string) (v int) {
-		var err error
-		if v, err = strconv.Atoi(s); err != nil {
+	toInt := func(s string) int {
+		v, err := strconv.Atoi(s)
+		if err != nil {
 			return -1
 		}
 		return v
+	}
+
+	unpackParams := func(packed string) map[string]string {
+		spltparams := strings.Split(packed, "|")
+		params := make(map[string]string, len(spltparams))
+		for _, s := range spltparams {
+			v := strings.Split(s, "=")
+			if len(v) != 2 {
+				continue
+			}
+			params[v[0]] = v[1]
+		}
+		return params
 	}
 
 	re := &RunEnv{
@@ -134,24 +153,23 @@ func CurrentRunEnv() *RunEnv {
 		TestCaseSeq:        toInt(os.Getenv(EnvTestCaseSeq)),
 		TestInstanceCount:  toInt(os.Getenv(EnvTestInstanceCount)),
 		TestInstanceRole:   os.Getenv(EnvTestInstanceRole),
-		TestInstanceParams: os.Getenv(EnvTestInstanceParams),
+		TestInstanceParams: unpackParams(os.Getenv(EnvTestInstanceParams)),
 	}
 
 	re.initLoggers()
-	re.parseParams()
 
 	return re
 }
 
 // StringParam returns a string parameter.
 func (re *RunEnv) StringParam(name string) (s string, ok bool) {
-	v, ok := re.parsedParams[name]
+	v, ok := re.TestInstanceParams[name]
 	return v, ok
 }
 
 // IntParam returns an int parameter.
 func (re *RunEnv) IntParam(name string) (i int, ok bool) {
-	v, ok := re.parsedParams[name]
+	v, ok := re.TestInstanceParams[name]
 	if !ok {
 		return -1, false
 	}
@@ -184,9 +202,9 @@ func RandomRunEnv() *RunEnv {
 		TestCaseSeq:        int(rand.Uint32()),
 		TestRepo:           "github.com/ipfs/go-ipfs",
 		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
-		TestInstanceCount:  int(rand.Uint32()),
+		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
 		TestInstanceRole:   "",
-		TestInstanceParams: "",
+		TestInstanceParams: make(map[string]string, 0),
 	}
 }
 

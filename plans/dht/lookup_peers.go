@@ -28,12 +28,7 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		panic(err)
 	}
 
-	redis, err := sync.RedisClient()
-	if err != nil {
-		panic(err)
-	}
-
-	watcher, writer := sync.MustWatcherWriter(redis, runenv)
+	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 
 	if err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {

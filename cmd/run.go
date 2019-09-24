@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/runner"
+	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
 )
@@ -35,9 +36,8 @@ var RunCommand = cli.Command{
 			Name: "runner, r",
 			Value: &EnumValue{
 				Allowed: runners,
-				Default: runners[0],
 			},
-			Usage: fmt.Sprintf("specifies the runner; options: %v", runners),
+			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
 		cli.StringFlag{
 			Name:  "nomad-api, n",
@@ -45,12 +45,11 @@ var RunCommand = cli.Command{
 			Usage: "the url of the Nomad endpoint (unused for now)",
 		},
 		cli.IntFlag{
-			// default 0
 			Name:  "instances, i",
 			Usage: "number of instances of the test case to run",
 		},
 		cli.StringSliceFlag{
-			Name:  "run-param",
+			Name:  "run-cfg",
 			Usage: "provide a run parameter",
 		},
 	),
@@ -67,36 +66,21 @@ func runCommand(c *cli.Context) error {
 		testcase  = c.Args().First()
 		builderId = c.Generic("builder").(*EnumValue).String()
 		runnerId  = c.Generic("runner").(*EnumValue).String()
-		params    = c.StringSlice("run-param")
+		runcfg    = c.StringSlice("run-cfg")
 		instances = c.Int("instances")
 	)
 
-	// Validate this test plan and test case exist.
+	// Validate this test case was provided.
 	if testcase == "" {
 		cli.ShowSubcommandHelp(c)
 		return errors.New("no test case provided; use the `list` command to view available test cases")
 	}
 
+	// Validate the test case format.
 	comp := strings.Split(testcase, "/")
 	if len(comp) != 2 {
 		cli.ShowSubcommandHelp(c)
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
-	}
-
-	tp := Engine.TestCensus().ByName(comp[0])
-	if tp == nil {
-		return errors.New("unrecognized test plan; use the `list` command to view available test plans and cases")
-	}
-
-	seq, _, ok := tp.TestCaseByName(comp[1])
-	if !ok {
-		return errors.New("unrecognized test case; use the `list` command to view available test cases")
-	}
-
-	// Slurp run parameters into a map.
-	parameters, err := toKeyValues(params)
-	if err != nil {
-		return err
 	}
 
 	// Now that we've verified that the test plan and the test case exist, build
@@ -107,19 +91,24 @@ func runCommand(c *cli.Context) error {
 	}
 
 	// Trigger the build job.
-	buildOut, err := Engine.DoBuild(tp.Name, builderId, buildIn)
+	buildOut, err := Engine.DoBuild(comp[0], builderId, buildIn)
 	if err != nil {
 		return fmt.Errorf("error while building test plan: %w", err)
 	}
 
-	runIn := &runner.Input{
-		TestPlan:      tp,
-		Instances:     instances,
-		Seq:           seq,
-		ArtifactPath:  buildOut.ArtifactPath,
-		RunParameters: parameters,
+	// Process run cfg override.
+	cfgOverride, err := util.ToOptionsMap(runcfg)
+	if err != nil {
+		return err
 	}
 
-	_, err = Engine.DoRun(tp.Name, runnerId, runIn)
+	// Prepare the run job.
+	runIn := &runner.Input{
+		Instances:    instances,
+		ArtifactPath: buildOut.ArtifactPath,
+		RunnerConfig: cfgOverride,
+	}
+
+	_, err = Engine.DoRun(comp[0], comp[1], runnerId, runIn)
 	return err
 }

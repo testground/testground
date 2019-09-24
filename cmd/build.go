@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/urfave/cli"
@@ -32,7 +33,6 @@ var BuildCommand = cli.Command{
 			Name: "builder, b",
 			Value: &EnumValue{
 				Allowed: builders,
-				Default: builders[0],
 			},
 		},
 		cli.StringSliceFlag{
@@ -81,19 +81,23 @@ func parseBuildInput(c *cli.Context) (*build.Input, error) {
 		cfg  = c.StringSlice("build-cfg")
 	)
 
-	dependencies, err := toKeyValues(deps)
+	d, err := util.ToOptionsMap(deps)
+	if err != nil {
+		return nil, err
+	}
+	dependencies, err := util.ToStringStringMap(d)
 	if err != nil {
 		return nil, err
 	}
 
-	config, err := toKeyValues(cfg)
+	config, err := util.ToOptionsMap(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	in := &build.Input{
-		Dependencies:        dependencies,
-		BuildConfigOverride: config,
+		Dependencies: dependencies,
+		BuildConfig:  config,
 	}
 	return in, err
 }

@@ -39,7 +39,7 @@ func (c *TestCensus) EnrollTestPlan(tp *api.TestPlanDefinition) error {
 
 // ByName returns the test plan with the specified name, or nil if
 // inexistent.
-func (c *TestCensus) ByName(name string) *api.TestPlanDefinition {
+func (c *TestCensus) PlanByName(name string) *api.TestPlanDefinition {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 
@@ -47,7 +47,7 @@ func (c *TestCensus) ByName(name string) *api.TestPlanDefinition {
 }
 
 // List returns all test plans enrolled.
-func (c *TestCensus) List() (tp []*api.TestPlanDefinition) {
+func (c *TestCensus) ListPlans() (tp []*api.TestPlanDefinition) {
 	c.lk.RLock()
 	defer c.lk.RUnlock()
 

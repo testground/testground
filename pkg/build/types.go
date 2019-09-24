@@ -1,18 +1,27 @@
 package build
 
 import (
+	"reflect"
+
 	"github.com/ipfs/testground/pkg/api"
 )
 
-// Builder is the interface to be implemented by all builders.
+// Builder is the interface to be implemented by all builders. A builder takes a
+// test plan and builds it into executable form against a set of upstream
+// dependencies, so it can be scheduled by a runner.
 type Builder interface {
-	// Build performs a build. It takes the definition of the build job, and the
-	// configuration of this builder as per the test plan manifest.
+	// ID returns the canonical identifier for this builder.
+	ID() string
+
+	// Build performs a build.
 	Build(job *Input) (*Output, error)
 
 	// OverridableParameters returns the names of the build configuration
 	// parameters than can be overriden.
 	OverridableParameters() []string
+
+	// ConfigType returns the configuration type of this builder.
+	ConfigType() reflect.Type
 }
 
 // Input encapsulates the input options for building a test plan.
@@ -27,15 +36,14 @@ type Input struct {
 	//  github.com/libp2p/go-libp2p=v0.2.8
 	Dependencies map[string]string
 	// BuildConfig is the configuration of the build job sourced from the test
-	// plan manifest.
+	// plan manifest, coalesced with any user-provided overrides.
 	BuildConfig interface{}
-	// BuildConfigOverride are override parameters passed in when the build job
-	// was triggered.
-	BuildConfigOverride map[string]string
 }
 
 // Output encapsulates the output from a build action.
 type Output struct {
+	// BuilderID is the ID of the builder used.
+	BuilderID string
 	// ArtifactPath can be the docker image ID, a file location, etc. of the
 	// resulting artifact. It is builder-dependent.
 	ArtifactPath string

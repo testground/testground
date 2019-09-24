@@ -15,7 +15,7 @@ var (
 func init() {
 	var err error
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = zap.NewAtomicLevelAt(zapcore.FatalLevel)
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
 
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		l := zapcore.Level(0)

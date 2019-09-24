@@ -37,9 +37,13 @@ func CanonicalBuildID(opts *Input) string {
 	for _, v := range CollapseOptionsMap(opts.Dependencies) {
 		w.WriteString(v)
 	}
-	for _, v := range CollapseOptionsMap(opts.BuildConfigOverride) {
-		w.WriteString(v)
-	}
+
+	// TODO Build configurations are now structs. Need to adjust this.
+	//
+	// for _, v := range CollapseOptionsMap(opts.BuildConfigOverride) {
+	// 	w.WriteString(v)
+	// }
+
 	h := hash.Sum(nil)[:hash.Size()]
 	hex := strings.ToLower(hex.EncodeToString(h))
 	return fmt.Sprintf("testground-%s:%s", opts.TestPlan.Name, hex)
