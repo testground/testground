@@ -31,7 +31,12 @@ type Writer struct {
 }
 
 // NewWriter creates a new Writer for a particular test run.
-func NewWriter(client *redis.Client, runenv *runtime.RunEnv) (w *Writer, err error) {
+func NewWriter(runenv *runtime.RunEnv) (w *Writer, err error) {
+	client, err := redisClient(runenv)
+	if err != nil {
+		return nil, err
+	}
+
 	w = &Writer{
 		client:  client,
 		root:    basePrefix(runenv),

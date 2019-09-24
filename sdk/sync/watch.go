@@ -33,7 +33,12 @@ type Watcher struct {
 }
 
 // NewWatcher begins watching the subtree underneath this path.
-func NewWatcher(client *redis.Client, runenv *runtime.RunEnv) (w *Watcher, err error) {
+func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
+	client, err := redisClient(runenv)
+	if err != nil {
+		return nil, err
+	}
+
 	prefix := basePrefix(runenv)
 	w = &Watcher{
 		re:       runenv,
