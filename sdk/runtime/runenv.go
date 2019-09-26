@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"context"
 	"crypto/sha1"
 	"fmt"
 	"math/rand"
@@ -27,7 +26,7 @@ const (
 	EnvTestInstanceRole   = "TEST_INSTANCE_ROLE"
 	EnvTestInstanceParams = "TEST_INSTANCE_PARAMS"
 
-	runEnvContextKey key = iota
+	// runEnvContextKey key = iota
 )
 
 // RunEnv encapsulates the context for this test run.
@@ -37,14 +36,14 @@ type RunEnv struct {
 	TestRun     string `json:"test_run"`
 	TestCaseSeq int    `json:"test_seq"`
 
-	TestRepo   string `json:"test_repo"`
-	TestCommit string `json:"test_commit"`
-	TestBranch string `json:"test_branch"`
-	TestTag    string `json:"test_tag"`
+	TestRepo   string `json:"test_repo,omitempty"`
+	TestCommit string `json:"test_commit,omitempty"`
+	TestBranch string `json:"test_branch,omitempty"`
+	TestTag    string `json:"test_tag,omitempty"`
 
 	TestInstanceCount  int               `json:"test_instance_count"`
-	TestInstanceRole   string            `json:"test_instance_role"`
-	TestInstanceParams map[string]string `json:"test_instance_params"`
+	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
+	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
 
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
@@ -116,6 +115,7 @@ func (re *RunEnv) initLoggers() {
 		zap.String("commit", re.TestCommit),
 		zap.String("branch", re.TestBranch),
 		zap.String("tag", re.TestTag),
+		zap.Int("instances", re.TestInstanceCount),
 	)
 	re.slogger = re.logger.Sugar()
 }
@@ -177,18 +177,18 @@ func (re *RunEnv) IntParam(name string) (i int, ok bool) {
 	return i, err == nil
 }
 
-// ExtractRunEnv extracts the test context from a context.Context object.
-func ExtractRunEnv(ctx context.Context) *RunEnv {
-	c := ctx.Value(runEnvContextKey)
-	if c == nil {
-		panic("test context is nil")
-	}
-	tctx, ok := c.(*RunEnv)
-	if !ok {
-		panic("test context has unexpected type")
-	}
-	return tctx
-}
+// // ExtractRunEnv extracts the test context from a context.Context object.
+// func ExtractRunEnv(ctx context.Context) *RunEnv {
+// 	c := ctx.Value(runEnvContextKey)
+// 	if c == nil {
+// 		panic("test context is nil")
+// 	}
+// 	tctx, ok := c.(*RunEnv)
+// 	if !ok {
+// 		panic("test context has unexpected type")
+// 	}
+// 	return tctx
+// }
 
 // RandomRunEnv generates a random RunEnv for testing purposes.
 func RandomRunEnv() *RunEnv {
@@ -208,7 +208,7 @@ func RandomRunEnv() *RunEnv {
 	}
 }
 
-// NewContextWithRunEnv returns a new context containing the run environment.
-func NewContextWithRunEnv(ctx context.Context) context.Context {
-	return context.WithValue(ctx, runEnvContextKey, CurrentRunEnv())
-}
+// // NewContextWithRunEnv returns a new context containing the run environment.
+// func NewContextWithRunEnv(ctx context.Context) context.Context {
+// 	return context.WithValue(ctx, runEnvContextKey, CurrentRunEnv())
+// }

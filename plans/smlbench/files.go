@@ -2,7 +2,6 @@ package smlbench
 
 import (
 	"bufio"
-	"context"
 	"crypto/rand"
 	"io"
 	"io/ioutil"
@@ -15,9 +14,8 @@ import (
 // specified directory.
 //
 // It is the callers responsibility to delete this file when done.
-func TempRandFile(ctx context.Context, dir string, size int64) *os.File {
-	re := runtime.CurrentRunEnv()
-	file, err := ioutil.TempFile(dir, re.TestPlan)
+func TempRandFile(runenv *runtime.RunEnv, dir string, size int64) *os.File {
+	file, err := ioutil.TempFile(dir, runenv.TestPlan)
 	if err != nil {
 		panic(err)
 	}
