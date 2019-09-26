@@ -11,11 +11,19 @@ import (
 var (
 	logger  *zap.Logger
 	sugared *zap.SugaredLogger
-	level   = zap.NewAtomicLevelAt(zapcore.WarnLevel)
+
+	level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
+
+	terminal = false
 )
 
 func init() {
 	DevelopmentMode()
+}
+
+// IsTerminal returns whether we're running in terminal mode.
+func IsTerminal() bool {
+	return terminal
 }
 
 // SetLevel adjusts the level of the loggers.
@@ -23,8 +31,10 @@ func SetLevel(l zapcore.Level) {
 	level.SetLevel(l)
 }
 
-// ConsoleMode switches logging output to TTY mode.
-func ConsoleMode() {
+// TerminalMode switches logging output to TTY mode.
+func TerminalMode() {
+	terminal = true
+
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level = level
 	cfg.DisableCaller = true

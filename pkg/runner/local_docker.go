@@ -1,10 +1,17 @@
 package runner
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"reflect"
+	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
+
+	"github.com/docker/docker/pkg/stdcopy"
 
 	"go.uber.org/zap"
 
@@ -19,32 +26,34 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/imdario/mergo"
+	"github.com/logrusorgru/aurora"
 )
 
 var (
 	_ Runner = &LocalDockerRunner{}
 )
 
+// LocalDockerRunnerConfig is the configuration object of this runner. Boolean
+// values are expressed in a way that zero value (false) is the default setting.
 type LocalDockerRunnerConfig struct {
-	// Enabled indicates if this runner is enabled.
-	Enabled bool
-	// RmContainers removes test containers as soon as they exit (default: true).
-	RmContainers bool `toml:"rm"`
+	// KeepContainers retains test containers even after they exit (default:
+	// false).
+	KeepContainers bool `toml:"keep_containers"`
 	// LogLevel sets the log level in the test containers (default: not set).
 	LogLevel string `toml:"log_level"`
-	// NoStart only creates the containers without starting them (default: false).
-	NoStart bool `toml:"no_start"`
-	// Tail tails the output of all containers and logs as info messages (default: true).
-	Tail bool `toml:"tail"`
+	// Unstarted creates the containers without starting them (default: false).
+	Unstarted bool `toml:"no_start"`
+	// Background avoids tailing the output of containers, and displaying it as
+	// log messages (default: true).
+	Background bool `toml:"tail"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
 // merged with this object.
 var defaultConfig = LocalDockerRunnerConfig{
-	Enabled:      true,
-	RmContainers: true,
-	NoStart:      false,
-	Tail:         true,
+	KeepContainers: false,
+	Unstarted:      false,
+	Background:     false,
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -66,7 +75,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		image    = input.ArtifactPath
 		seq      = input.Seq
 		deferred []func() error
-		log      = logging.S().With("runner", "local:docker")
+		log      = logging.S().With("runner", "local:docker", "run_id", input.ID)
 	)
 
 	defer func() {
@@ -153,7 +162,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		}
 		hcfg := &container.HostConfig{
 			NetworkMode: container.NetworkMode(networkID),
-			AutoRemove:  cfg.RmContainers,
+			// AutoRemove:  !cfg.KeepContainers,
 		}
 
 		// Create the container.
@@ -170,19 +179,96 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 	// If an error occurred interim, delete all containers, and abort.
 	if err != nil {
 		log.Error(err)
-		log.Infow("deleting containers", "ids", containers)
-		if err := deleteContainers(cli, log, containers); err != nil {
-			log.Errorw("failed while deleting containers", "error", err)
-			return nil, err
+		return nil, deleteContainers(cli, log, containers)
+	}
+
+	// Start the containers, unless the NoStart option is specified.
+	if !cfg.Unstarted {
+		log.Infow("starting containers", "count", len(containers))
+
+		g, ctx := errgroup.WithContext(context.Background())
+		for _, id := range containers {
+			if err != nil {
+				break
+			}
+			g.Go(func(id string) func() error {
+				return func() error {
+					log.Debugw("starting container", "id", id)
+					err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
+					if err == nil {
+						log.Debugw("started container", "id", id)
+					}
+					return err
+				}
+			}(id))
 		}
-		return nil, err
+
+		// If an error occurred, delete all containers, and abort.
+		if err := g.Wait(); err != nil {
+			log.Error(err)
+			return nil, deleteContainers(cli, log, containers)
+		}
+
+		log.Infow("started containers", "count", len(containers))
+	}
+
+	type containerReader struct {
+		io.ReadCloser
+		id    string
+		color uint8
+	}
+
+	a := aurora.NewAurora(logging.IsTerminal())
+
+	if !cfg.Background {
+		var wg sync.WaitGroup
+		for n, id := range containers {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
+				ShowStdout: true,
+				ShowStderr: true,
+				Since:      "2019-01-02T00:00:00",
+				Follow:     true,
+			})
+			defer cancel()
+
+			if err != nil {
+				log.Error(err)
+				return nil, deleteContainers(cli, log, containers)
+			}
+
+			rpipe, wpipe := io.Pipe()
+			reader := containerReader{
+				ReadCloser: rpipe,
+				id:         id,
+				color:      uint8(n % 16),
+			}
+
+			go func() {
+				_, err := stdcopy.StdCopy(wpipe, wpipe, stream)
+				wpipe.CloseWithError(err)
+			}()
+
+			wg.Add(1)
+			go func(r *containerReader) {
+				defer wg.Done()
+				defer r.Close()
+
+				scanner := bufio.NewScanner(r)
+				for scanner.Scan() {
+					fmt.Println(a.Index(r.color, "<< "+r.id+" >>"), scanner.Text())
+				}
+			}(&reader)
+		}
+		wg.Wait()
 	}
 
 	return nil, nil
 }
 
-func deleteContainers(cli *client.Client, log *zap.SugaredLogger, containerIDs []string) (err error) {
-	for _, id := range containerIDs {
+func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
+	log.Infow("deleting containers", "ids", ids)
+	for _, id := range ids {
 		if err != nil {
 			break
 		}
@@ -194,6 +280,11 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, containerIDs [
 		})
 		cancel()
 	}
+
+	if err != nil {
+		log.Errorw("failed while deleting containers", "error", err)
+	}
+
 	return err
 }
 
