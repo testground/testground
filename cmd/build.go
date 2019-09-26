@@ -11,7 +11,7 @@ import (
 )
 
 var builders = func() []string {
-	b := Engine.ListBuilders()
+	b := _engine.ListBuilders()
 	if len(b) == 0 {
 		panic("no builders loaded")
 	}
@@ -65,7 +65,7 @@ func buildCommand(c *cli.Context) error {
 		return err
 	}
 
-	out, err := Engine.DoBuild(plan, builder, in)
+	out, err := _engine.DoBuild(plan, builder, in)
 	if err != nil {
 		return err
 	}

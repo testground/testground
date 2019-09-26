@@ -12,7 +12,7 @@ import (
 )
 
 var runners = func() []string {
-	r := Engine.ListRunners()
+	r := _engine.ListRunners()
 	if len(r) == 0 {
 		panic("no runners loaded")
 	}
@@ -91,7 +91,7 @@ func runCommand(c *cli.Context) error {
 	}
 
 	// Trigger the build job.
-	buildOut, err := Engine.DoBuild(comp[0], builderId, buildIn)
+	buildOut, err := _engine.DoBuild(comp[0], builderId, buildIn)
 	if err != nil {
 		return fmt.Errorf("error while building test plan: %w", err)
 	}
@@ -109,6 +109,6 @@ func runCommand(c *cli.Context) error {
 		RunnerConfig: cfgOverride,
 	}
 
-	_, err = Engine.DoRun(comp[0], comp[1], runnerId, runIn)
+	_, err = _engine.DoRun(comp[0], comp[1], runnerId, runIn)
 	return err
 }

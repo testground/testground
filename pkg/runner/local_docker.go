@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -20,8 +22,6 @@ import (
 
 var (
 	_ Runner = &LocalDockerRunner{}
-
-	log = logging.S().With("runner", "local:docker")
 )
 
 type LocalDockerRunnerConfig struct {
@@ -49,6 +49,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		image    = input.ArtifactPath
 		seq      = input.Seq
 		deferred []func() error
+		log      = logging.S().With("runner", "local:docker")
 	)
 
 	cfg := input.RunnerConfig.(*LocalDockerRunnerConfig)
@@ -102,7 +103,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 
 	// Ensure that we have a testground-redis container; if not, we'll create
 	// it.
-	redisContainerID, err := ensureRedisContainer(cli)
+	redisContainerID, err := ensureRedisContainer(cli, log)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +120,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 	for i := 0; i < input.Instances; i++ {
 		name := fmt.Sprintf("tg-%s-%s-%d-%s", input.TestPlan.Name, testcase.Name, i, input.ID)
 
-		log.Infof("starting container: %s")
+		log.Infow("starting container", "name", name)
 
 		ccfg := &container.Config{
 			Image: image,
@@ -164,7 +165,7 @@ func newUserDefinedBridge(cli *client.Client) (id string, err error) {
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.
-func ensureRedisContainer(cli *client.Client) (id string, err error) {
+func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
