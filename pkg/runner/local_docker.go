@@ -18,6 +18,7 @@ import (
 	"github.com/docker/docker/client"
 
 	"github.com/google/uuid"
+	"github.com/imdario/mergo"
 )
 
 var (
@@ -25,9 +26,25 @@ var (
 )
 
 type LocalDockerRunnerConfig struct {
-	Enabled      bool
-	RmContainers bool   `toml:"rm"`
-	LogLevel     string `toml:"log_level"`
+	// Enabled indicates if this runner is enabled.
+	Enabled bool
+	// RmContainers removes test containers as soon as they exit (default: true).
+	RmContainers bool `toml:"rm"`
+	// LogLevel sets the log level in the test containers (default: not set).
+	LogLevel string `toml:"log_level"`
+	// NoStart only creates the containers without starting them (default: false).
+	NoStart bool `toml:"no_start"`
+	// Tail tails the output of all containers and logs as info messages (default: true).
+	Tail bool `toml:"tail"`
+}
+
+// defaultConfig is the default configuration. Incoming configurations will be
+// merged with this object.
+var defaultConfig = LocalDockerRunnerConfig{
+	Enabled:      true,
+	RmContainers: true,
+	NoStart:      false,
+	Tail:         true,
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -52,8 +69,6 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		log      = logging.S().With("runner", "local:docker")
 	)
 
-	cfg := input.RunnerConfig.(*LocalDockerRunnerConfig)
-
 	defer func() {
 		for i := len(deferred) - 1; i >= 0; i-- {
 			if err := deferred[i](); err != nil {
@@ -61,6 +76,16 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 			}
 		}
 	}()
+
+	var (
+		cfg   = defaultConfig
+		incfg = input.RunnerConfig.(*LocalDockerRunnerConfig)
+	)
+
+	// Merge the incoming configuration with the default configuration.
+	if err := mergo.Merge(&cfg, incfg, mergo.WithOverride); err != nil {
+		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	}
 
 	// Sanity check.
 	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
@@ -115,12 +140,12 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 	}
 	// deferred = append(deferred, detach)
 
-	var containers []string
 	// Start as many containers as test case instances.
+	var containers []string
 	for i := 0; i < input.Instances; i++ {
-		name := fmt.Sprintf("tg-%s-%s-%d-%s", input.TestPlan.Name, testcase.Name, i, input.ID)
+		name := fmt.Sprintf("tg-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.ID, i)
 
-		log.Infow("starting container", "name", name)
+		log.Infow("creating container", "name", name)
 
 		ccfg := &container.Config{
 			Image: image,
@@ -137,13 +162,39 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		cancel()
 
 		if err != nil {
-			// TODO cleanup already started containers.
-			return nil, err
+			break
 		}
 		containers = append(containers, res.ID)
 	}
 
+	// If an error occurred interim, delete all containers, and abort.
+	if err != nil {
+		log.Error(err)
+		log.Infow("deleting containers", "ids", containers)
+		if err := deleteContainers(cli, log, containers); err != nil {
+			log.Errorw("failed while deleting containers", "error", err)
+			return nil, err
+		}
+		return nil, err
+	}
+
 	return nil, nil
+}
+
+func deleteContainers(cli *client.Client, log *zap.SugaredLogger, containerIDs []string) (err error) {
+	for _, id := range containerIDs {
+		if err != nil {
+			break
+		}
+
+		log.Debugw("deleting container", "id", id)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
+			Force: true,
+		})
+		cancel()
+	}
+	return err
 }
 
 func newUserDefinedBridge(cli *client.Client) (id string, err error) {
