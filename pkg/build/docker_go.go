@@ -15,8 +15,6 @@ import (
 
 	"github.com/docker/docker/pkg/jsonmessage"
 
-	"github.com/ipfs/testground/pkg/api"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -38,10 +36,7 @@ type DockerGoBuilderConfig struct {
 	GoVersion  string `toml:"go_version" overridable:"yes"`
 	ModulePath string `toml:"module_path" overridable:"yes"`
 	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
-}
-
-func (b *DockerGoBuilder) OverridableParameters() []string {
-	return api.EnumerateOverridableFields(reflect.TypeOf(DockerGoBuilder{}))
+	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
@@ -110,21 +105,23 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 		return nil, err
 	}
 
-	for _, f := range []string{"go.mod", "go.sum"} {
-		file := filepath.Join(plandst, f)
-		if _, err := os.Stat(file); !os.IsNotExist(err) {
-			if err := os.Remove(file); err != nil {
-				return nil, fmt.Errorf("cleanup failed; %w", err)
+	if cfg.FreshGomod {
+		for _, f := range []string{"go.mod", "go.sum"} {
+			file := filepath.Join(plandst, f)
+			if _, err := os.Stat(file); !os.IsNotExist(err) {
+				if err := os.Remove(file); err != nil {
+					return nil, fmt.Errorf("cleanup failed; %w", err)
+				}
 			}
 		}
-	}
 
-	// Initialize a fresh go.mod file.
-	cmd := exec.Command("go", "mod", "init", cfg.ModulePath)
-	cmd.Dir = plandst
-	out, err := cmd.CombinedOutput()
-	if !strings.Contains(string(out), "creating new go.mod") {
-		return nil, fmt.Errorf("unable to create go.mod; %s", out)
+		// Initialize a fresh go.mod file.
+		cmd := exec.Command("go", "mod", "init", cfg.ModulePath)
+		cmd.Dir = plandst
+		out, _ := cmd.CombinedOutput()
+		if !strings.Contains(string(out), "creating new go.mod") {
+			return nil, fmt.Errorf("unable to create go.mod; %s", out)
+		}
 	}
 
 	// If we have version overrides, apply them.
@@ -141,9 +138,9 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
 
 	// Write replace directives.
-	cmd = exec.Command("go", append([]string{"mod", "edit"}, replaces...)...)
+	cmd := exec.Command("go", append([]string{"mod", "edit"}, replaces...)...)
 	cmd.Dir = plandst
-	out, err = cmd.CombinedOutput()
+	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
