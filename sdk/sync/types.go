@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 // A Subtree represents a subtree of the sync tree for a test run. It is bound
@@ -15,8 +16,17 @@ type Subtree struct {
 	// PayloadType is the type of the payload. Must be a pointer type.
 	PayloadType reflect.Type
 
-	// PathFunc returns the path to put this value to.
-	PathFunc func(val interface{}) string
+	// KeyFunc returns the key of this entry within the subtree, optionally
+	// deriving it from the supplied payload.
+	KeyFunc func(payload interface{}) string
+}
+
+// State represents a state in a distributed test.
+type State string
+
+// Key gets the key, contextualized to the parent.
+func (s State) Key(parent string) string {
+	return strings.Join([]string{parent, "states", string(s)}, ":")
 }
 
 // AssertType errors if the value doesn't match the expected type.

@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -24,8 +23,7 @@ type PeerPayload struct {
 var PeerSubtree = &Subtree{
 	GroupKey:    "nodes",
 	PayloadType: reflect.TypeOf(&peer.AddrInfo{}),
-	PathFunc: func(val interface{}) string {
-		ai := val.(*peer.AddrInfo)
-		return fmt.Sprintf("nodes:%s:addrs", ai.ID.Pretty())
+	KeyFunc: func(val interface{}) string {
+		return val.(*peer.AddrInfo).ID.Pretty()
 	},
 }

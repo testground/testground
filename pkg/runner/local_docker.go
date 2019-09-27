@@ -162,7 +162,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		}
 		hcfg := &container.HostConfig{
 			NetworkMode: container.NetworkMode(networkID),
-			// AutoRemove:  !cfg.KeepContainers,
+			AutoRemove:  !cfg.KeepContainers,
 		}
 
 		// Create the container.
@@ -373,10 +373,6 @@ func attachContainerToNetwork(cli *client.Client, containerID string, networkID 
 		return cli.NetworkDisconnect(ctx, networkID, containerID, true)
 	}
 	return discFn, nil
-}
-
-func (*LocalDockerRunner) OverridableParameters() []string {
-	return nil
 }
 
 func (*LocalDockerRunner) ID() string {

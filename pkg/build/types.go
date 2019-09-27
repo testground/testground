@@ -16,10 +16,6 @@ type Builder interface {
 	// Build performs a build.
 	Build(job *Input) (*Output, error)
 
-	// OverridableParameters returns the names of the build configuration
-	// parameters than can be overriden.
-	OverridableParameters() []string
-
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type
 }

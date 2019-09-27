@@ -19,7 +19,7 @@ import (
 
 func LookupPeers(runenv *runtime.RunEnv) {
 	timeout := func() time.Duration {
-		if t, ok := runenv.IntParam("timeout_secs"); ok {
+		if t, ok := runenv.IntParam("timeout_secs"); !ok {
 			return 30 * time.Second
 		} else {
 			return time.Duration(t) * time.Second
@@ -39,7 +39,7 @@ func LookupPeers(runenv *runtime.RunEnv) {
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 
-	if err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
+	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
 		panic(err)
 	}
 	defer writer.Close()
@@ -65,15 +65,17 @@ func LookupPeers(runenv *runtime.RunEnv) {
 
 		case <-time.After(timeout):
 			// TODO need a way to fail a distributed test immediately. No point
-			// making it run.
-			panic("no new peers in %d seconds")
+			// making it run elsewhere beyond this point.
+			panic(fmt.Sprintf("no new peers in %d seconds", timeout))
 		}
 	}
 
 	for i, id := range h.Peerstore().PeersWithAddrs() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
 		t := time.Now()
 		if _, err := dht.FindPeer(ctx, id); err != nil {
+			cancel()
 			runenv.Abort(err)
 			return
 		}
@@ -85,6 +87,25 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		}, float64(time.Now().Sub(t).Nanoseconds()))
 
 		cancel()
+	}
+
+	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
+	defer ctxCancel()
+
+	end := sync.State("end")
+
+	// Set a state barrier.
+	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
+
+	// Signal we're done on the end state.
+	_, err = writer.SignalEntry(end)
+	if err != nil {
+		panic(err)
+	}
+
+	// Wait until all others have signalled.
+	if err := <-doneCh; err != nil {
+		panic(err)
 	}
 
 	runenv.OK()

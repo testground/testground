@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os/exec"
 	"strings"
 	"testing"
@@ -11,9 +12,13 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 )
+
+func init() {
+	// Avoid collisions in Redis keys over test runs.
+	rand.Seed(time.Now().UnixNano())
+}
 
 // Check if there's a running instance of redis, or start it otherwise. If we
 // start an ad-hoc instance, the close function will terminate it.
@@ -110,31 +115,15 @@ func TestBarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ch, err := watcher.Barrier(ctx, PeerSubtree, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
+	state := State("yoda")
+	ch := watcher.Barrier(ctx, state, 10)
 
-	publishPeer := func() {
-		id := test.RandPeerIDFatal(t)
-		ma, err := multiaddr.NewMultiaddr("/ip4/1.2.3.4/tcp/8001/p2p/" + id.Pretty())
-		if err != nil {
+	for i := 1; i <= 10; i++ {
+		if curr, err := writer.SignalEntry(state); err != nil {
 			t.Fatal(err)
+		} else if curr != int64(i) {
+			t.Fatalf("expected current count to be: %d; was: %d", i, curr)
 		}
-
-		ai, err := peer.AddrInfoFromP2pAddr(ma)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		writer.Write(PeerSubtree, ai)
-		if err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		publishPeer()
 	}
 
 	if err := <-ch; err != nil {

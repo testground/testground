@@ -2,22 +2,38 @@ package util
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 )
 
 // ToOptionsMap converts a slice of ["KEY1=VAL1", "KEY2=VAL2", ...] dictionary
-// values into a map of strings.
+// values into a map of interface{}, where the actual type is determined by
+// guessing.
 //
 // TODO may need to be extended to support variadic values, returning a
 // map[string][]string (a map of string keys to string slices).
-func ToOptionsMap(input []string) (map[string]interface{}, error) {
-	res := make(map[string]interface{}, len(input))
+func ToOptionsMap(input []string) (res map[string]interface{}, err error) {
+	res = make(map[string]interface{}, len(input))
+	var v interface{}
 	for _, d := range input {
 		splt := strings.Split(d, "=")
 		if len(splt) != 2 {
 			return nil, fmt.Errorf("invalid key-value: %s", d)
 		}
-		res[splt[0]] = splt[1]
+
+		// 1. Try to parse as an integer.
+		// 2. Try to parse as a float.
+		// 3. Try to parse as a bool.
+		// 4. It is a string, try to unquote.
+		// 5. Use as string value.
+		if v, err = strconv.Atoi(splt[1]); err == nil {
+		} else if v, err = strconv.ParseFloat(splt[1], 64); err == nil {
+		} else if v, err = strconv.ParseBool(splt[1]); err == nil {
+		} else if v, err = strconv.Unquote(splt[1]); err == nil {
+		} else {
+			v = splt[1]
+		}
+		res[splt[0]] = v
 	}
 	return res, nil
 }
