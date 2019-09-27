@@ -345,6 +345,8 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger) (id string
 		return container.ID, nil
 	}
 
+	log.Infow("redis container not found; creating")
+
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
@@ -353,6 +355,20 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger) (id string
 		Entrypoint: []string{"redis-server"},
 		Cmd:        []string{"--notify-keyspace-events", "$szxK"},
 	}, nil, nil, "testground-redis")
+
+	if err != nil {
+		return "", err
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	log.Infow("starting new redis container", "id", res.ID)
+
+	err = cli.ContainerStart(ctx, res.ID, types.ContainerStartOptions{})
+	if err == nil {
+		log.Infow("started redis container", "id", res.ID)
+	}
 
 	return res.ID, err
 }
