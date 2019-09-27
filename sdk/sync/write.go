@@ -50,30 +50,34 @@ func NewWriter(runenv *runtime.RunEnv) (w *Writer, err error) {
 		refreshset: make(map[string]struct{}),
 	}
 
-	go w.refreshOwned()
+	go w.refreshWorker()
 	return w, nil
 }
 
-// refreshOwned runs a loop that refreshes owned keys every `RefreshPeriod`.
+// refreshWorker runs a loop that refreshes owned keys every `RefreshPeriod`.
 // It should be launched as a goroutine.
-func (w *Writer) refreshOwned() {
-Loop:
-	select {
-	case <-time.After(RefreshPeriod):
-		w.lk.RLock()
-		// TODO: do this in a transaction. We risk the loop overlapping with the
-		// refresh period, and all kinds of races. We need to be adaptive here.
-		for k, _ := range w.refreshset {
-			if err := w.client.Expire(k, TTL).Err(); err != nil {
-				w.lk.RUnlock()
-				panic(err)
-			}
+func (w *Writer) refreshWorker() {
+	for {
+		select {
+		case <-time.After(RefreshPeriod):
+			w.refreshOwned()
+		case <-w.doneCh:
+			return
 		}
-		w.lk.RUnlock()
-		goto Loop
+	}
+}
 
-	case <-w.doneCh:
-		return
+// refreshOwned refreshes all owned keys.
+func (w *Writer) refreshOwned() {
+	w.lk.RLock()
+	defer w.lk.RUnlock()
+
+	// TODO: do this in a transaction. We risk the loop overlapping with the
+	// refresh period, and all kinds of races. We need to be adaptive here.
+	for k, _ := range w.refreshset {
+		if err := w.client.Expire(k, TTL).Err(); err != nil {
+			panic(err)
+		}
 	}
 }
 
