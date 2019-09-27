@@ -162,7 +162,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 		}
 		hcfg := &container.HostConfig{
 			NetworkMode: container.NetworkMode(networkID),
-			// AutoRemove:  !cfg.KeepContainers,
+			AutoRemove:  !cfg.KeepContainers,
 		}
 
 		// Create the container.

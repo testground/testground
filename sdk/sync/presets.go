@@ -27,18 +27,3 @@ var PeerSubtree = &Subtree{
 		return val.(*peer.AddrInfo).ID.Pretty()
 	},
 }
-
-// StateSubtrees holds subtrees representing commonplace states in a distributed
-// test, e.g. start, end.
-var StateSubtrees = struct {
-	// End state.
-	End *Subtree
-}{
-	End: &Subtree{
-		GroupKey:    "end",
-		PayloadType: reflect.TypeOf(new(string)),
-		KeyFunc: func(val interface{}) string {
-			return *(val.(*string))
-		},
-	},
-}

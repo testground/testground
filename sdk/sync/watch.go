@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -98,73 +99,47 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func() error
 	return cancel, nil
 }
 
-// Barrier awaits until the specified amount of subtree items have been posted
-// on the subtree. It returns a channel on which two things can happen:
+// Barrier awaits until the specified amount of items are advertising to be in
+// the provided state. It returns a channel on which two things can happen:
 //
-//   a. if enough subtree nodes were written before the context fired, a nil
+//   a. if enough items appear before the context fires, a nil
 //      error will be sent.
-//   b. if the context was exceeded, or another error occurred during the
-//      subscription, an error will be propagated.
+//   b. if the context fires, or another error occurs during the
+//      process, an error is propagated in the channel.
 //
 // In both cases, the chan will only receive a single element before closure.
-//
-// TODO this is a naïve implementation that uses a normal subcription behind the
-// scenes. It discards the payload, but still incurs in the cost of fetching it.
-// We should get better at that.
-func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) <-chan error {
-	chTyp := reflect.ChanOf(reflect.BothDir, subtree.PayloadType)
-	subCh := reflect.MakeChan(chTyp, 0)
+func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-chan error {
 	resCh := make(chan error)
 
-	// No need to take the lock here, as Subscribe does.
-	cancelSub, err := w.Subscribe(subtree, TypedChan(subCh.Interface()))
-	if err != nil {
-		resCh <- err
-		close(resCh)
-		return resCh
-	}
-
-	// Pump values to an untyped channel, so we can consume in the select block
-	// below without using reflection all the way through -- that would be
-	// painful.
-	next := make(chan interface{})
-	go func() {
-		for {
-			val, ok := subCh.Recv()
-			if !ok {
-				close(next)
-				return
-			}
-			next <- val.Interface()
-		}
-	}()
-
-	// This goroutine drains the subscription channel and increments a counter.
-	// When we receive enough elements, we finish and inform the caller. If the
-	// context fires, or an error occurs, we inform the caller of the error
-	// condition.
 	go func() {
 		defer close(resCh)
-		defer cancelSub()
 
-		for rcvd := 0; rcvd < count; rcvd++ {
+		var (
+			last   int64
+			err    error
+			ticker = time.NewTicker(250 * time.Millisecond)
+			k      = state.Key(w.root)
+		)
+
+		defer ticker.Stop()
+
+		for last != required {
 			select {
-			case _, ok := <-next:
-				if !ok {
-					// Subscription channel was closed early.
-					err := fmt.Errorf("subscription closed early; not enough elements, requested: %d, got: %d", count, rcvd)
+			case <-ticker.C:
+				last, err = w.client.Get(k).Int64()
+				if err != nil {
+					err = fmt.Errorf("error occured in barrier: %w", err)
 					resCh <- err
 					return
 				}
-				continue
+				// loop over
 			case <-ctx.Done():
 				// Context fired before we got enough elements.
-				err := fmt.Errorf("context deadline exceeded; not enough elements, requested: %d, got: %d", count, rcvd)
+				err := fmt.Errorf("context deadline exceeded; not enough elements, required: %d, got: %d", required, last)
 				resCh <- err
 				return
 			}
 		}
-		// We got as many elements as required.
 		resCh <- nil
 	}()
 

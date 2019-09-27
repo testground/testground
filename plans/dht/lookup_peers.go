@@ -89,19 +89,22 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		cancel()
 	}
 
-	// Signal we're done by writing on the End state subtree.
-	id := h.ID().String()
-	_, err = writer.Write(sync.StateSubtrees.End, &id)
+	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
+	defer ctxCancel()
+
+	end := sync.State("end")
+
+	// Set a state barrier.
+	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
+
+	// Signal we're done on the end state.
+	_, err = writer.SignalEntry(end)
 	if err != nil {
 		panic(err)
 	}
 
-	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
-	defer ctxCancel()
-
-	// Wait until all other nodes have finished querying.
-	err = <-watcher.Barrier(ctx, sync.StateSubtrees.End, runenv.TestInstanceCount)
-	if err != nil {
+	// Wait until all others have signalled.
+	if err := <-doneCh; err != nil {
 		panic(err)
 	}
 

@@ -32,11 +32,12 @@ var (
 type DockerGoBuilder struct{}
 
 type DockerGoBuilderConfig struct {
-	Enabled    bool
-	GoVersion  string `toml:"go_version" overridable:"yes"`
-	ModulePath string `toml:"module_path" overridable:"yes"`
-	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
+	Enabled     bool
+	GoVersion   string `toml:"go_version" overridable:"yes"`
+	ModulePath  string `toml:"module_path" overridable:"yes"`
+	ExecPkg     string `toml:"exec_pkg" overridable:"yes"`
+	FreshGomod  bool   `toml:"fresh_gomod" overridable:"yes"`
+	BypassCache bool   `toml:"bypass_cache" overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
@@ -55,12 +56,14 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	)
 	defer cancel()
 
-	// Check if an image for this build already exists.
-	if exists, err := imageExists(ctx, cli, id); err != nil {
-		return nil, err
-	} else if exists {
-		fmt.Println("found cached docker image for:", id)
-		return &Output{ArtifactPath: id}, nil
+	if !cfg.BypassCache {
+		// Check if an image for this build already exists.
+		if exists, err := imageExists(ctx, cli, id); err != nil {
+			return nil, err
+		} else if exists {
+			fmt.Println("found cached docker image for:", id)
+			return &Output{ArtifactPath: id}, nil
+		}
 	}
 
 	// Create a temp dir, and copy the source into it.
