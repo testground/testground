@@ -375,10 +375,6 @@ func attachContainerToNetwork(cli *client.Client, containerID string, networkID 
 	return discFn, nil
 }
 
-func (*LocalDockerRunner) OverridableParameters() []string {
-	return nil
-}
-
 func (*LocalDockerRunner) ID() string {
 	return "local:docker"
 }
