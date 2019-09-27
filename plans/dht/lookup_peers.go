@@ -26,6 +26,20 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		}
 	}()
 
+	// TODO Make parameter getting nicer by providing typed accessors in the
+	// RunEnv (à la urfave/cli), that accept a second argument (default value).
+	bucketSize := func() int {
+		if t, ok := runenv.IntParam("bucket_size"); !ok {
+			return 20
+		} else {
+			return t
+		}
+	}()
+
+	// moot assignment to pacify the compiler. We need to merge the configurable
+	// bucket size param upstream.
+	_ = bucketSize
+
 	h, err := libp2p.New(context.Background())
 	if err != nil {
 		panic(err)

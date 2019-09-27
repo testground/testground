@@ -30,6 +30,7 @@ instances = { min = 2, max = 100, default = 50 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+  timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
 
 # seq 1
 [[testcases]]
