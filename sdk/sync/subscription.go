@@ -13,8 +13,8 @@ import (
 type subscription struct {
 	lk sync.RWMutex
 
-	root      string
-	startMVCC int
+	root     string
+	startSeq int
 
 	w       *Watcher
 	subtree *Subtree
@@ -38,12 +38,12 @@ func (s *subscription) start() error {
 
 	// Get the current counter; we'll only process entries prior or equal to
 	// this counter. This is a way of "freezing" state.
-	mvcc, err := s.client.Get(s.root + ":mvcc").Int()
+	seq, err := s.client.Get(s.root + ":seq").Int()
 	if err != nil && err != redis.Nil {
 		return err
 	}
 
-	s.startMVCC = mvcc
+	s.startSeq = seq
 
 	go s.process()
 	return nil
@@ -51,13 +51,13 @@ func (s *subscription) start() error {
 
 // process does the heavy-lifting of this subscription.
 func (s *subscription) process() {
-	log := s.w.re.SLogger().With("subtree", s.subtree, "start_mvcc", s.startMVCC)
+	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", s.startSeq)
 
-	// Sync: state can slide through two pathways while we synchronize. To
-	// mitigate that, we use a counter that acts like an MVCC sentinel for
-	// syncing. Assuming that entries are immutable, we read entries from the
-	// iterator and discard those that have an MVCC higher than the one we
-	// initialized with. Newer entries will arrive as notifications.
+	// Sync: state can slide while we synchronize. To mitigate that, we use an
+	// incrementing seq number guarded by atomic operations. Assuming that
+	// entries are immutable, we read entries from the iterator and discard
+	// those that have an seq higher than the one we initialized with. Newer
+	// entries will arrive as notifications.
 	var (
 		keys   []string                    // gets reassigned on every iteration.
 		dead   = make(map[string]struct{}) // accumulates dead/expired elements for pruning.
@@ -83,11 +83,11 @@ func (s *subscription) process() {
 
 		log.Debugw("replay iteration", "iteration", i, "key_count", len(keys))
 
-		// Filter keys to retain only those whose MVCC is lower or equal to the
-		// start MVCC.
+		// Filter keys to retain only those whose seq is lower or equal to the
+		// start seq.
 		filtered := make([]string, 0, len(keys))
 		for _, k := range keys {
-			if mvcc := mvccFromKey(k); mvcc > s.startMVCC {
+			if seq := seqFromKey(k); seq > s.startSeq {
 				continue
 			}
 			filtered = append(filtered, k)

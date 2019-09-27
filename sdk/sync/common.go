@@ -96,15 +96,15 @@ func basePrefix(runenv *runtime.RunEnv) string {
 	return p
 }
 
-// mvccFromKey extracts the MVCC counter from the key. If the last token is not
-// an MVCC int value, it panics.
-func mvccFromKey(key string) int {
+// seqFromKey extracts the seq counter from the key. If the last token is not
+// an seq int value, it panics.
+func seqFromKey(key string) int {
 	splt := strings.Split(key, ":")
-	mvcc, err := strconv.Atoi(splt[len(splt)-1])
+	seq, err := strconv.Atoi(splt[len(splt)-1])
 	if err != nil {
 		panic(err)
 	}
-	return mvcc
+	return seq
 }
 
 // decodePayload extracts a value of the specified type from incoming json.

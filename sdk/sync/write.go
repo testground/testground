@@ -23,9 +23,11 @@ var (
 
 // Writer offers an API to write objects to the sync tree for a running test.
 type Writer struct {
-	lk      sync.RWMutex
-	client  *redis.Client
-	root    string
+	lk     sync.RWMutex
+	client *redis.Client
+	root   string
+	// ownsets tracks the keys we own, grouped by GroupKey. We use this to
+	// refresh the TTL in the background while we're alive.
 	ownsets map[string][]string
 	doneCh  chan struct{}
 }
@@ -90,13 +92,13 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (err error) {
 	// Calculate the index key.
 	idx := w.root + ":" + subtree.GroupKey
 
-	// Claim an MVCC.
-	mvcc, err := w.client.Incr(idx + ":mvcc").Result()
+	// Claim an seq.
+	seq, err := w.client.Incr(idx + ":seq").Result()
 	if err != nil {
 		return err
 	}
 
-	key := w.root + ":" + subtree.PathFunc(payload) + ":" + strconv.Itoa(int(mvcc))
+	key := w.root + ":" + subtree.PathFunc(payload) + ":" + strconv.Itoa(int(seq))
 
 	// Perform a transaction setting the key and adding it to the index.
 	err = w.client.Watch(func(tx *redis.Tx) error {
