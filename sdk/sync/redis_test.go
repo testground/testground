@@ -10,21 +10,23 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 
-	"github.com/go-redis/redis"
-
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/test"
 	"github.com/multiformats/go-multiaddr"
 )
 
-// Check if there's a running instance of redis, or start it otherwise.
-func ensureRedis(t *testing.T) (client *redis.Client, close func()) {
+// Check if there's a running instance of redis, or start it otherwise. If we
+// start an ad-hoc instance, the close function will terminate it.
+func ensureRedis(t *testing.T) (close func()) {
 	t.Helper()
 
-	// Try to obtain a client; if this fails, attempt to start a redis instance.
-	client, err := RedisClient()
+	runenv := runtime.CurrentRunEnv()
+
+	// Try to obtain a client; if this fails, we'll attempt to start a redis
+	// instance.
+	client, err := redisClient(runenv)
 	if err == nil {
-		return client, func() {}
+		return func() {}
 	}
 
 	cmd := exec.Command("redis-server", "-")
@@ -37,11 +39,12 @@ func ensureRedis(t *testing.T) (client *redis.Client, close func()) {
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
-	if client, err = RedisClient(); err != nil {
+	if client, err = redisClient(runenv); err != nil {
 		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
+	defer client.Close()
 
-	return client, func() {
+	return func() {
 		if err := cmd.Process.Kill(); err != nil {
 			t.Fatalf("failed while stopping test-scoped redis: %s", err)
 		}
@@ -49,12 +52,12 @@ func ensureRedis(t *testing.T) (client *redis.Client, close func()) {
 }
 
 func TestWatcherWriter(t *testing.T) {
-	client, close := ensureRedis(t)
+	close := ensureRedis(t)
 	defer close()
 
 	runenv := runtime.CurrentRunEnv()
 
-	watcher, err := NewWatcher(client, runenv)
+	watcher, err := NewWatcher(runenv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +70,7 @@ func TestWatcherWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	writer, err := NewWriter(client, runenv)
+	writer, err := NewWriter(runenv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,12 +100,12 @@ func TestWatcherWriter(t *testing.T) {
 }
 
 func TestBarrier(t *testing.T) {
-	client, close := ensureRedis(t)
+	close := ensureRedis(t)
 	defer close()
 
 	runenv := runtime.RandomRunEnv()
 
-	watcher, writer := MustWatcherWriter(client, runenv)
+	watcher, writer := MustWatcherWriter(runenv)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

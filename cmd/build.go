@@ -4,13 +4,14 @@ import (
 	"errors"
 
 	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/urfave/cli"
 )
 
 var builders = func() []string {
-	b := Engine.ListBuilders()
+	b := _engine.ListBuilders()
 	if len(b) == 0 {
 		panic("no builders loaded")
 	}
@@ -32,7 +33,6 @@ var BuildCommand = cli.Command{
 			Name: "builder, b",
 			Value: &EnumValue{
 				Allowed: builders,
-				Default: builders[0],
 			},
 		},
 		cli.StringSliceFlag{
@@ -40,8 +40,8 @@ var BuildCommand = cli.Command{
 			Usage: "set a dependency mapping",
 		},
 		cli.StringSliceFlag{
-			Name:  "build-param",
-			Usage: "set a build parameter",
+			Name:  "build-cfg",
+			Usage: "set a build config parameter",
 		},
 	},
 	Description: `Builds a test plan by name. It errors if the test plan doesn't exist. Otherwise, it runs the build and outputs the Docker image id.
@@ -65,7 +65,7 @@ func buildCommand(c *cli.Context) error {
 		return err
 	}
 
-	out, err := Engine.DoBuild(plan, builder, in)
+	out, err := _engine.DoBuild(plan, builder, in)
 	if err != nil {
 		return err
 	}
@@ -77,23 +77,27 @@ func buildCommand(c *cli.Context) error {
 
 func parseBuildInput(c *cli.Context) (*build.Input, error) {
 	var (
-		deps   = c.StringSlice("dep")
-		params = c.StringSlice("build-param")
+		deps = c.StringSlice("dep")
+		cfg  = c.StringSlice("build-cfg")
 	)
 
-	dependencies, err := toKeyValues(deps)
+	d, err := util.ToOptionsMap(deps)
+	if err != nil {
+		return nil, err
+	}
+	dependencies, err := util.ToStringStringMap(d)
 	if err != nil {
 		return nil, err
 	}
 
-	parameters, err := toKeyValues(params)
+	config, err := util.ToOptionsMap(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	in := &build.Input{
-		Dependencies:    dependencies,
-		BuildParameters: parameters,
+		Dependencies: dependencies,
+		BuildConfig:  config,
 	}
 	return in, err
 }

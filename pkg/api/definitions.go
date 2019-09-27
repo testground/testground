@@ -4,24 +4,13 @@ package api
 // Its name must be unique within a test census.
 type TestPlanDefinition struct {
 	Name            string
-	SourcePath      string          `toml:"source_path"`
-	BuildStrategies BuildStrategies `toml:"build_strategies"`
-	RunStrategies   RunStrategies   `toml:"run_strategies"`
-	TestCases       []*TestCase     `toml:"testcases"`
+	SourcePath      string               `toml:"source_path"`
+	BuildStrategies map[string]ConfigMap `toml:"build_strategies"`
+	RunStrategies   map[string]ConfigMap `toml:"run_strategies"`
+	TestCases       []*TestCase          `toml:"testcases"`
 }
 
-// TODO: add validation methods, so that we reject empty build strategies.
-type BuildStrategies struct {
-	DockerGo *GoBuildStrategy `toml:"docker:go"`
-	ExecGo   *GoBuildStrategy `toml:"exec:go"`
-}
-
-// TODO: add validation methods, so that we reject empty run strategies.
-type RunStrategies struct {
-	LocalExec    *PlaceholderRunStrategy `toml:"local:exec"`
-	LocalDocker  *PlaceholderRunStrategy `toml:"local:docker"`
-	ClusterNomad *PlaceholderRunStrategy `toml:"cluster:nomad"`
-}
+type ConfigMap map[string]interface{}
 
 // TestCase represents a configuration for a test case known by the system.
 type TestCase struct {
@@ -31,13 +20,6 @@ type TestCase struct {
 	Parameters map[string]Parameter `toml:"params"`
 	// Roles are roles that instances of this test case can assume.
 	Roles []string
-}
-
-type GoBuildStrategy struct {
-	Enabled    bool
-	GoVersion  string `toml:"go_version"`
-	ModulePath string `toml:"module_path"`
-	ExecPkg    string `toml:"exec_pkg"`
 }
 
 type PlaceholderRunStrategy struct {

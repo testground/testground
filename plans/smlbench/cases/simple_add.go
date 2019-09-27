@@ -1,7 +1,6 @@
 package cases
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -26,22 +25,24 @@ func (tc *simpleAddTC) Name() string {
 	return fmt.Sprintf("simple-add-%s", h)
 }
 
-func (tc *simpleAddTC) Configure(ctx context.Context, spec *iptb.TestEnsembleSpec) {
+func (tc *simpleAddTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec) {
 	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "adder")
 }
 
-func (tc *simpleAddTC) Execute(ctx context.Context, ensemble *iptb.TestEnsemble) {
+func (tc *simpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
 	node := ensemble.GetNode("adder")
 	client := node.Client()
 
-	file := smlbench.TempRandFile(ctx, ensemble.TempDir(), tc.SizeBytes)
+	file := smlbench.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
 	defer os.Remove(file.Name())
 
 	tstarted := time.Now()
 	_, err := client.Add(file)
 	if err != nil {
-		panic(err)
+		runenv.Abort(err)
+		return
 	}
 
-	runtime.EmitMetric(ctx, smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.EmitMetric(smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.OK()
 }

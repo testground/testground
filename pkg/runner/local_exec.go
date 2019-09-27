@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"reflect"
 	"strconv"
 	"sync"
 
@@ -18,7 +19,7 @@ type LocalExecutableRunner struct{}
 
 var _ Runner = (*LocalExecutableRunner)(nil)
 
-func (*LocalExecutableRunner) Run(input *Input, cfg interface{}) (*Output, error) {
+func (*LocalExecutableRunner) Run(input *Input) (*Output, error) {
 	var (
 		plan      = input.TestPlan
 		seq       = input.Seq
@@ -40,6 +41,7 @@ func (*LocalExecutableRunner) Run(input *Input, cfg interface{}) (*Output, error
 		err := fmt.Errorf(str, instances, tcase.Instances.Minimum, tcase.Instances.Maximum, name)
 		return nil, err
 	}
+
 	// Spawn as many instances as the test case dictates.
 	var wg sync.WaitGroup
 	for i := 0; i < instances; i++ {
@@ -84,4 +86,18 @@ func (*LocalExecutableRunner) Run(input *Input, cfg interface{}) (*Output, error
 	wg.Wait()
 
 	return new(Output), nil
+}
+
+func (*LocalExecutableRunner) ID() string {
+	return "local:exec"
+}
+
+func (*LocalExecutableRunner) ConfigType() reflect.Type {
+	// TODO
+	return nil
+}
+
+func (*LocalExecutableRunner) CompatibleBuilders() []string {
+	// TODO
+	return nil
 }

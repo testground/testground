@@ -33,7 +33,12 @@ type Watcher struct {
 }
 
 // NewWatcher begins watching the subtree underneath this path.
-func NewWatcher(client *redis.Client, runenv *runtime.RunEnv) (w *Watcher, err error) {
+func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
+	client, err := redisClient(runenv)
+	if err != nil {
+		return nil, err
+	}
+
 	prefix := basePrefix(runenv)
 	w = &Watcher{
 		re:       runenv,
@@ -102,6 +107,10 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func() error
 //      subscription, an error will be propagated.
 //
 // In both cases, the chan will only receive a single element before closure.
+//
+// TODO this is a naïve implementation that uses a normal subcription behind the
+// scenes. It discards the payload, but still incurs in the cost of fetching it.
+// We should get better at that.
 func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-chan error, error) {
 	chTyp := reflect.ChanOf(reflect.BothDir, subtree.PayloadType)
 	subCh := reflect.MakeChan(chTyp, 0)
@@ -114,7 +123,8 @@ func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-c
 	}
 
 	// Pump values to an untyped channel, so we can consume in the select block
-	// below.
+	// below without using reflection all the way through -- that would be
+	// painful.
 	next := make(chan interface{})
 	go func() {
 		for {
@@ -140,13 +150,15 @@ func (w *Watcher) Barrier(ctx context.Context, subtree *Subtree, count int) (<-c
 			case _, ok := <-next:
 				if !ok {
 					// Subscription channel was closed early.
-					resCh <- fmt.Errorf("subscription closed early; not enough elements, requested: %d, got: %d", count, rcvd)
+					err := fmt.Errorf("subscription closed early; not enough elements, requested: %d, got: %d", count, rcvd)
+					resCh <- err
 					return
 				}
 				continue
 			case <-ctx.Done():
 				// Context fired before we got enough elements.
-				resCh <- fmt.Errorf("context deadline exceeded; not enough elements, requested: %d, got: %d", count, rcvd)
+				err := fmt.Errorf("context deadline exceeded; not enough elements, requested: %d, got: %d", count, rcvd)
+				resCh <- err
 				return
 			}
 		}

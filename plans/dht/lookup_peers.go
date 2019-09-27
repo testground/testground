@@ -18,6 +18,14 @@ import (
 )
 
 func LookupPeers(runenv *runtime.RunEnv) {
+	timeout := func() time.Duration {
+		if t, ok := runenv.IntParam("timeout_secs"); ok {
+			return 30 * time.Second
+		} else {
+			return time.Duration(t) * time.Second
+		}
+	}()
+
 	h, err := libp2p.New(context.Background())
 	if err != nil {
 		panic(err)
@@ -28,12 +36,7 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		panic(err)
 	}
 
-	redis, err := sync.RedisClient()
-	if err != nil {
-		panic(err)
-	}
-
-	watcher, writer := sync.MustWatcherWriter(redis, runenv)
+	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 
 	if err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
@@ -53,17 +56,17 @@ func LookupPeers(runenv *runtime.RunEnv) {
 			if ai.ID == h.ID() {
 				continue
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			err := h.Connect(ctx, *ai)
 			if err != nil {
 				panic(err)
 			}
 			cancel()
 
-		case <-time.After(10 * time.Second):
+		case <-time.After(timeout):
 			// TODO need a way to fail a distributed test immediately. No point
 			// making it run.
-			panic("no new peers in 10 seconds")
+			panic("no new peers in %d seconds")
 		}
 	}
 
@@ -71,10 +74,11 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		t := time.Now()
 		if _, err := dht.FindPeer(ctx, id); err != nil {
-			panic(err)
+			runenv.Abort(err)
+			return
 		}
 
-		runtime.EmitMetric(runtime.NewContextWithRunEnv(context.Background()), &runtime.MetricDefinition{
+		runenv.EmitMetric(&runtime.MetricDefinition{
 			Name:           fmt.Sprintf("time-to-find-%d", i),
 			Unit:           "ns",
 			ImprovementDir: -1,
@@ -83,5 +87,5 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		cancel()
 	}
 
-	defer cancel()
+	runenv.OK()
 }
