@@ -1,4 +1,4 @@
-# Known Test Suites
+# Available Test Suites accross {go, js}-IPFS and libp2p land
 
 Complete, in-progress, and TBD.
 
