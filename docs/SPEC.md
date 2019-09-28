@@ -26,7 +26,7 @@ We envision the following types of tests:
 
 ## System design
 
-The following diagram illustrates the proposed system architecture. 
+The following diagram illustrates the proposed system architecture.
 
 Throughout this document, we use the term “service” in the sense of _domain driven design_. A service encapsulates a _logical, loosely coupled unit of the system, with a clearly delineated responsibility and function_. **A service does not translate to a separate process/binary;** instead the coordinator service will be a single binary, hosting and nesting all other services within it.
 
@@ -60,7 +60,7 @@ The **IPFS test pipeline** is composed of various **test plans**, each of which 
 
 **Test plans** comprise **test cases**: concrete use cases that we wish to reproduce consistently over time, in order to capture fluctuations in the observed behaviour.
 
-Each **test plan** is a world of its own. **Test plans** will be written, owned and maintained by distinct teams and working groups. 
+Each **test plan** is a world of its own. **Test plans** will be written, owned and maintained by distinct teams and working groups.
 
 **Test plans** may be written in Go, JS, shell script, or anything else. Language, library choices and testing methodology must be opaque to the test infrastructure and pipeline. Test plans effectively behave like black boxes. A test plan satisfies a contract. It relies on an environment to be injected, executes its custom testing logic, and produces outputs in a predefined manner.
 
@@ -169,7 +169,7 @@ Besides the environment variables supplied by Nomad and Docker, the test runtime
 
 The test case must generate a stream of [ndjson](http://ndjson.org/) events on stdout. At this time, we support three types of **events**:
 
-*   **metric:** records a quantifiable observation, attaching a metric name, unit, improvement direction, timestamp, value. 
+*   **metric:** records a quantifiable observation, attaching a metric name, unit, improvement direction, timestamp, value.
     *   The context (test case, test plan, run number) are encoded in the environment variables, so it would be superfluous to record them.
 *   **result:** records a test success, failure or skip.
 *   **asset:** enrolls an asset to be collected and archived by the sidecar agent. They have to be written on to the `/output` volume..
@@ -259,7 +259,7 @@ The backing blob store can be a simple filesystem to start with, to later migrat
 
 ### Dashboard service
 
-The dashboard service is responsible for generating and serving the comparative dashboard. 
+The dashboard service is responsible for generating and serving the comparative dashboard.
 
 This component may not be necessary at the outset, where running Grafana against the InfluxDB/Prometheus dataset could suffice to start getting insights.
 
@@ -274,8 +274,8 @@ Grafana is fitting for charting continuous time series, but the presentation for
 We are inspired by the following dashboards from other OSS projects:
 
 *   Google Chrome – [https://chromeperf.appspot.com/](https://chromeperf.appspot.com/)
-*   Firefox – [https://arewefastyet.com/win10/overview?numDays=60](https://arewefastyet.com/win10/overview?numDays=60) 
-*   Node (compatibility matrix, no numbers) – [https://node.green/](https://node.green/) 
+*   Firefox – [https://arewefastyet.com/win10/overview?numDays=60](https://arewefastyet.com/win10/overview?numDays=60)
+*   Node (compatibility matrix, no numbers) – [https://node.green/](https://node.green/)
 
 The dashboard service will not only serve the web assets to render the dashboard on the browser; it’ll also offer the REST or WebSockets services to feed the interactive dashboard real time.
 
@@ -329,7 +329,7 @@ This section proposes the outline of an implementation plan to realise this desi
 1. Study how [libp2p/testlab](https://github.com/libp2p/testlab/) can cover the distributed deployment requirements of this design, and understand how it can be reused within this context.
     *   Initial assessment: The current version can be regarded as a domain-specific deployer, capable of launching p2p and ipfs daemons (PR in review) in a Nomad cluster. It does not use Docker, nor does it have support for deploying test logic. It essentially schedules N containers in a cluster, and returns the API multiaddrs to the scheduling process to enable creating client stubs for control, from the code that launched the deployment.
     *   In some ways, it can be regarded as a cloud-native iptb.
-    *   The observability/monitoring/metrics elements are not yet developed. 
+    *   The observability/monitoring/metrics elements are not yet developed.
 2. Create a basic PoC small-benchmarks test plan with at least 5 cases, relying on system ipfs.
 3. Build the mechanics for test case muxing (TEST_CASE_SEQ), and API toolbox for working with iptb.
 4. Print metrics and results on stdout using ndjson. Test plan runs locally as a binary.
@@ -351,149 +351,4 @@ This section proposes the outline of an implementation plan to realise this desi
 
 ## Test inventory
 
-### Small-scale benchmarks (max 5 local nodes)
-
-**Exists.**
-
-A test framework and a series of test cases written in JS. It captures traces analysable by Node Clinic, and records metrics and test runs in InfluxDB. Capable of orchestrating go daemons and embedded JS nodes. JS nodes are embedded in the V8 runtime where the test is taking place, whereas Go nodes are spawned as standalone processes.
-
-Existing test cases are simple and are mostly concerned with measuring time between commands as observed by the client of the APIs, e.g. instantiate a JS node, add a file, record the time elapsed.
-
-Note: Clinic Doctor traces appear to be collected of the test harness itself, not of each JS node separately. The lack of profile isolation may produce inaccurate/unreliable results, because:
-
-1. it contains test runtime overhead – and –
-2. if a test case instantiates multiple JS nodes, it conflates all traces in a single profiling session.
-
-<table>
-  <tr>
-   <td>
-<strong>Test suite</strong>
-   </td>
-   <td><strong>Single node</strong>
-   </td>
-   <td><strong>Two nodes</strong>
-   </td>
-   <td><strong>Multiple nodes</strong>
-   </td>
-  </tr>
-  <tr>
-   <td><strong>Node initialization</strong>
-   </td>
-   <td>Node initialization
-   </td>
-   <td>
-   </td>
-   <td>
-   </td>
-  </tr>
-  <tr>
-   <td><strong>Adding files</strong> \
-variants: balanced DAG, trickle DAG
-   </td>
-   <td>Add small file
-<p>
-Add many small files
-<p>
-Add large file
-   </td>
-   <td>
-   </td>
-   <td>
-   </td>
-  </tr>
-  <tr>
-   <td><strong>Catting files</strong> \
-variants: transport [tcp/websocket/webrtc] | multiplexer [mplex] | security [secio/none]
-   </td>
-   <td>Cat small file
-<p>
-Cat large file
-   </td>
-   <td>Cat small file
-<p>
-Cat large file
-   </td>
-   <td>Cat small file
-<p>
-Cat large file
-   </td>
-  </tr>
-  <tr>
-   <td><strong>MFS tests</strong>
-   </td>
-   <td>MFS write small file
-<p>
-MFS write many small files (10k)
-<p>
-MFS write large file
-<p>
-MFS write to dir with < 1,000 files
-<p>
-MFS write to dir with > 1,000 files
-<p>
-MFS write to deeply nested dir
-<p>
-MFS read a small file
-<p>
-MFS read a large file
-<p>
-MFS cp a file
-<p>
-MFS mv a file
-<p>
-MFS rm a file
-<p>
-MFS stat a file
-   </td>
-   <td>
-   </td>
-   <td>
-   </td>
-  </tr>
-</table>
-
-### Canary tests against production
-
-**DHT: Find peer in public network**
-
-For 16 peers connected to the public network and bootstrapped against a single bootstrapper out of a list of bootstrappers B[0..n], where B[i] is picked in round robin fashion. For each peer P, and all other peers p[i]:
-
-1. ipfs dht findpeer p[i].
-2. Record the time it took.
-
-See [https://github.com/jbenet/dht-simple-tests](https://github.com/jbenet/dht-simple-tests).
-
-**DHT: Add a file -- time to first provider record, peers queried**
-
-For a single node P, generate a random 1mb file F, and run ipfs add F. Watch the IPFS event logs and count the number of peers queried, and the time it took until the first provider record was published.
-
-**End-to-end add & get**
-
-1. Generate a random file F of size 10mb.
-2. From node A, ipfs add the file. Get the CID.
-3. From node B, ipfs get that CID.
-4. Time the whole process.
-
-### Reproducible network tests
-
-We’re aiming to support 100.000+ nodes.
-
-Tests need to be fully reproducible. This means:
-
-    *   Network needs to be tightly controlled and possibly mocked, simulated.
-        *   See points below.
-    *   Certain scenarios will require persistent peer IDs (e.g. content or peer routing)
-    *   Certain scenarios will require fixed choreographies, e.g. if we want the routing table to be the same across all runs of test scenario “foo”, we’ll need to connect nodes with fixed identities, in fixed sequences. Otherwise the results may be unstable.
-    *   Consider a test fixtures repository: a service that store pools of test fixtures (e.g. peer identities), that nodes can query “check out” a test fixture satisfying facets A, B, C, and check them back in when they’re done.
-
-Defining network topologies, mainly to simulate NAT’ted, relayed nodes, signalling use cases, etc. Otherwise it’s safe to assume a _fully connectable_ paradigm.
-
-Simulating network conditions via “network blueprints” -- nodes will be running in a distributed environment (we need to horizontally scale to support 100.000+ nodes). 
-
-*   There’s actually a real network involved, on top of which we need to overlay network conditions.
-*   Latency, packet loss, jitter, bandwidth limitations on uplink and downlink, etc.
-
-## PoC Large-scale private network test (Cole)
-
-DHT-based. Raúl will post a link to Juan’s DHT canary test for inspiration.
-
+See [Test Inventory](./test-inventory.md)
