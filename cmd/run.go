@@ -50,7 +50,11 @@ var RunCommand = cli.Command{
 		},
 		cli.StringSliceFlag{
 			Name:  "run-cfg",
-			Usage: "provide a run parameter",
+			Usage: "override runner configuration",
+		},
+		cli.StringSliceFlag{
+			Name:  "test-param, p",
+			Usage: "provide a test parameter",
 		},
 	),
 }
@@ -63,11 +67,12 @@ func runCommand(c *cli.Context) error {
 
 	// Extract flags and arguments.
 	var (
-		testcase  = c.Args().First()
-		builderId = c.Generic("builder").(*EnumValue).String()
-		runnerId  = c.Generic("runner").(*EnumValue).String()
-		runcfg    = c.StringSlice("run-cfg")
-		instances = c.Int("instances")
+		testcase   = c.Args().First()
+		builderId  = c.Generic("builder").(*EnumValue).String()
+		runnerId   = c.Generic("runner").(*EnumValue).String()
+		runcfg     = c.StringSlice("run-cfg")
+		instances  = c.Int("instances")
+		testparams = c.StringSlice("test-param")
 	)
 
 	// Validate this test case was provided.
@@ -97,7 +102,17 @@ func runCommand(c *cli.Context) error {
 	}
 
 	// Process run cfg override.
-	cfgOverride, err := util.ToOptionsMap(runcfg)
+	cfgOverride, err := util.ToOptionsMap(runcfg, true)
+	if err != nil {
+		return err
+	}
+
+	// Pick up test parameters.
+	p, err := util.ToOptionsMap(testparams, false)
+	if err != nil {
+		return err
+	}
+	parameters, err := util.ToStringStringMap(p)
 	if err != nil {
 		return err
 	}
@@ -107,6 +122,7 @@ func runCommand(c *cli.Context) error {
 		Instances:    instances,
 		ArtifactPath: buildOut.ArtifactPath,
 		RunnerConfig: cfgOverride,
+		Parameters:   parameters,
 	}
 
 	_, err = _engine.DoRun(comp[0], comp[1], runnerId, runIn)

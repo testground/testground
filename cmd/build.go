@@ -81,7 +81,7 @@ func parseBuildInput(c *cli.Context) (*build.Input, error) {
 		cfg  = c.StringSlice("build-cfg")
 	)
 
-	d, err := util.ToOptionsMap(deps)
+	d, err := util.ToOptionsMap(deps, false)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func parseBuildInput(c *cli.Context) (*build.Input, error) {
 		return nil, err
 	}
 
-	config, err := util.ToOptionsMap(cfg)
+	config, err := util.ToOptionsMap(cfg, true)
 	if err != nil {
 		return nil, err
 	}

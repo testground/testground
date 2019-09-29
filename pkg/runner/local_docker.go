@@ -241,7 +241,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 			reader := containerReader{
 				ReadCloser: rpipe,
 				id:         id,
-				color:      uint8(n % 16),
+				color:      uint8(n%15) + 1,
 			}
 
 			go func() {
