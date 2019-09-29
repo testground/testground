@@ -9,7 +9,43 @@ Each test presents:
 
 ## Test Plans
 
-### 1. Data Transfer of Random DataSets (Bitswap/GraphSync)
+### 1. Chewing strategies for Large DataSets
+
+IPFS supports an evergrowing set of ways in how a File or Files can be added to the Network (Regular IPFS Add, MFS Add, Sharding, Balanced DAG, Trickle DAG, File Store, URL Store). This test plan checks their perfomormance
+
+#### What is being optimized (min/max, reach)
+
+- (Minimize) Memory used when performing any of the instructions
+- (Minimize) Time spent time chewing the files/directories
+- (Minimize) Time spent pinning/unpinning & garbage collection
+- (Minimize) Number of unreferanceable nodes when adding multiple files to MF
+- (Minimize) Waste when adding multiple files to an MFS tree (nodes that are no longer referenceable from the MFS tree due to graph updates)
+- (Minimize) Time spent creating the Manifest files uisng URL and File Store
+
+#### Execution Variants
+
+- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+
+#### Test Narrative
+
+- **Warm up**
+  - Each node accesses a pre-generated file test set (fixtures) that contains:
+    - Small files (1KB to 100MB)
+    - Medium files (100MB to 10GB)
+    - Large files (10GB to 10TB)
+    - Nested directories with multiple levels (10 to 100000) containing small files
+- **Wave I** - IPFS Add with multiple layouts and sharding
+  - Each node adds each file using Balanced Dag & Trickle Dag
+  - Each node adds the nested directories using regular add and sharding
+- **Wave II** - MFS
+  - Each node calls files.write to create the Nested Directories structure in MFS. Once regular and once with Sharding
+  - Each node runs a pin on the MFS root hash
+  - Each node runs GC (to clean all the waste created by MFS)
+- **Wave III** - URL Store & File Store
+  - The Nested Directories get served beyond a HTTP static server
+  - Each node adds (creates the manifest) for the nested directories using URL Store & File Store
+
+### 2. Data Transfer of Random DataSets (Bitswap/GraphSync)
 
 Create an envinroment in which data transfer is stress tested. This test is not about content discovery or connectivity, it is assumed that all nodes are dialable by each other and that these are executed in an homogeneus network (same CPU, Memory, Bandwidth).
 
@@ -22,7 +58,7 @@ Create an envinroment in which data transfer is stress tested. This test is not 
 - (Reach) The number of nodes that were able to fetch all files as instructed. (Reach 100% success of all fetches)
 - (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
 
-#### Execution Variants 
+#### Execution Variants
 
 This test is complete if one can:
 
@@ -35,7 +71,7 @@ This test is not expected to support:
 
 #### Test Narrative
 
-- **Warm up** 
+- **Warm up**
   - Boot N nodes
   - Connect each node to the node next to it (hash ring)
   - Run multiple DHT random-walk queries to populate the finger tables
@@ -64,42 +100,29 @@ This test is not expected to support:
   - Cohort A, B & C fetch the files created from Cohort D
 
 
-### 2. ???
+### 3. Data Exchange with Datasets of Interest (BitSwap/GraphSync)
+
+This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/GraphSync)) with a twist. It focuses the attention to the experience will have when using IPFS to access popular and/or interesting datasets. The current datasets that this test plan contemplates are:
+
+- Wikipedia Mirror
+- NPM clone
+- ImageNet
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
-
-
-### 3. ???
-
-
-#### What is being optimized (min/max, reach)
-
-#### Execution Variants 
-
-#### Test Narrative
-
-- **Warm up** 
-  - 
-- **Wave I**
-  - 
-- **Wave II**
-  - 
-- **Wave III**
-  - 
 
 
 ### 4. ???
@@ -107,117 +130,117 @@ This test is not expected to support:
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 5. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 6. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 7. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 8. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 9. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
 
 ### 10. ???
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants 
+#### Execution Variants
 
 #### Test Narrative
 
-- **Warm up** 
-  - 
+- **Warm up**
+  -
 - **Wave I**
-  - 
+  -
 - **Wave II**
-  - 
+  -
 - **Wave III**
-  - 
+  -
