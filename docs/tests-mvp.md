@@ -110,23 +110,42 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 
 #### What is being optimized (min/max, reach)
 
+- (Minimize) The performance of fetching a file. Lower is Better
+  - To compute this, capture: file size, number of nodes in the IPLD graph, time to fetch it from first block to completion.
+- (Minimize) The bandwidth consumed to fetch a file. Lower is Better
+  - To compute this, capture: The number of duplicated blocks received vs. total block count
+- (Reach) The number of nodes that were able to fetch all files as instructed. (Reach 100% success of all fetches)
+- (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
+
+
 #### Execution Variants
+
+This test is complete if one can:
+
+- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+- Number of nodes with full replica of the dataset initially (from 1 to 10) - M
+- Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
+
+This test is not expected to support:
+
+- An heterogeneus network in which nodes have different configurations
 
 #### Test Narrative
 
 - **Warm up**
-  -
-- **Wave I**
-  -
-- **Wave II**
-  -
-- **Wave III**
-  -
+  - Boot N nodes
+  - Connect each node to the node next to it (hash ring)
+  - Run multiple DHT random-walk queries to populate the finger tables
+  - Run a discovery service provided by Redis (to ensure that every node keeps getting at least one another node to connect)
+  - Load the datasets in M nodes
+- **Wave I** - Access Wikipedia
+  - %W of the nodes access Wikipedia
+- **Wave II** - Access NPM
+  - %W of the nodes access NPM
+- **Wave III** - Access ImageNet
+  - %W of the nodes access ImageNet
 
-
-
-### 4. ???
-
+### 4. Nodes Connectivity (Transports, Hole Punching, Relay)
 
 #### What is being optimized (min/max, reach)
 
@@ -143,7 +162,7 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 - **Wave III**
   -
 
-### 5. ???
+### 5. Providing Content (Content Routing / DHT)
 
 #### What is being optimized (min/max, reach)
 
@@ -160,7 +179,7 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 - **Wave III**
   -
 
-### 6. ???
+### 6. Message Delivery (PubSub)
 
 #### What is being optimized (min/max, reach)
 
@@ -177,7 +196,7 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 - **Wave III**
   -
 
-### 7. ???
+### 7. Naming (IPNS & its multiple routers)
 
 #### What is being optimized (min/max, reach)
 
