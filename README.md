@@ -124,8 +124,21 @@ dht      smlbench
 Then do
 
 ```
-> TESTGROUND_BASEDIR=`pwd` testground run plans/dht
+> TESTGROUND_BASEDIR=`pwd` testground run dht/lookup-peers
+..
+```
 
+To check which Test Plan and Test Cases are available do:
+
+```
+> TESTGROUND_BASEDIR=`pwd` testground list
+resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+dht/lookup-peers
+dht/lookup-providers
+dht/store-get-value
+smlbench/lookup-peers
+smlbench/lookup-providers
+smlbench/store-get-value
 ```
 
 ### Running the tests on the TestGround infrastructure
