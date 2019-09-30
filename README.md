@@ -92,7 +92,7 @@ Download the repo and install the dependencies
 Test that everything is installed correctly by running
 
 ```sh
-» TESTGROUND_BASEDIR=`pwd` testground
+> TESTGROUND_BASEDIR=`pwd` testground
 resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 NAME:
    testground - A new cli application
@@ -113,6 +113,20 @@ NAME:
 ```
 
 ### Running the tests locally
+
+To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
+
+```
+> ls plans
+dht      smlbench
+```
+
+Then do
+
+```
+> TESTGROUND_BASEDIR=`pwd` testground run plans/dht
+
+```
 
 ### Running the tests on the TestGround infrastructure
 
