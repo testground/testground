@@ -19,9 +19,9 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 - (Minimize) Memory used when performing each of the instructions
 - (Minimize) Time spent time chewing the files/directories
 - (Minimize) Time spent pinning/unpinning & garbage collection
-- (Minimize) Number of unreferanceable nodes when adding multiple files to MF
-- (Minimize) Waste when adding multiple files to an MFS tree (nodes that are no longer referenceable from the MFS tree due to graph updates)
 - (Minimize) Time spent creating the Manifest files uisng URL and File Store
+- (Minimize) Number of leftover and unreferanceable nodes from the MFS root when adding multiple files to MFS
+- (Minimize) Waste when adding multiple files to an MFS tree (nodes that are no longer referenceable from the MFS tree due to graph updates)
 
 #### Parameters
 
@@ -67,7 +67,10 @@ Create an envinroment in which data transfer is stress tested. This test is not 
 - **Network Parameters**
   - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 - **Image Parameters**
-  - Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
+  - Single Image - The go-ipfs commit that is being tested
+    - Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
+    - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
+    - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 
 This test is not expected to support:
 
@@ -80,17 +83,7 @@ This test is not expected to support:
   - Connect each node to the node next to it (hash ring)
   - Run multiple DHT random-walk queries to populate the finger tables
   - Run a discovery service provided by Redis (to ensure that every node keeps getting at least one another node to connect)
-  - Each node creates a dataset with random data of:
-    - Single File
-      - 1MB
-      - 1GB
-      - 10GB
-      - 100GB
-      - 1TB
-    - Directory
-      - 10 level nested directory with many 1MB
-      - 10 level nested directory with many 10GB
-      - 100 level nested directory with many 1MB
+  - Each node creates a dataset with random data following the parameters `File Sizes` and `Directory Depth
   - The nodes are divided in 4 cohorts, A, B, C & D, which each contains a set of %25 of the nodes available without creating an overlap (recommended to use a number of nodes that is a multiple of 4 to simplify the reasoning at the end (i.e. not having a situation in which a transfer of the file was instant))
 - **Wave I**
   - Cohort B fetches the files created from Cohort A
