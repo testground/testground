@@ -83,7 +83,7 @@ This test is not expected to support:
   - Connect each node to the node next to it (hash ring)
   - Run multiple DHT random-walk queries to populate the finger tables
   - Run a discovery service provided by Redis (to ensure that every node keeps getting at least one another node to connect)
-  - Each node creates a dataset with random data following the parameters `File Sizes` and `Directory Depth
+  - Each node creates a dataset with random data following the parameters `File Sizes` and `Directory Depth`
   - The nodes are divided in 4 cohorts, A, B, C & D, which each contains a set of %25 of the nodes available without creating an overlap (recommended to use a number of nodes that is a multiple of 4 to simplify the reasoning at the end (i.e. not having a situation in which a transfer of the file was instant))
 - **Wave I**
   - Cohort B fetches the files created from Cohort A
