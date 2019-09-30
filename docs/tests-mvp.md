@@ -26,6 +26,7 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 #### Parameters
 
 - **Network Parameters**
+  - `Region` - Region or Regions where the test should be run at (default to single region)
   - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
 - **Image Parameters**
   - Single Image - The go-ipfs commit that is being tested
@@ -65,6 +66,7 @@ Create an envinroment in which data transfer is stress tested. This test is not 
 #### Parameters
 
 - **Network Parameters**
+  - `Region` - Region or Regions where the test should be run at (default to single region)
   - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 - **Image Parameters**
   - Single Image - The go-ipfs commit that is being tested
@@ -118,6 +120,7 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 #### Parameters
 
 - **Network Parameters**
+  - `Region` - Region or Regions where the test should be run at (default to single region)
   - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 - **Image Parameters**
   - Number of nodes with full replica of the dataset initially (from 1 to 10) - M
@@ -153,6 +156,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 #### Parameters
 
 - **Network Parameters**
+  - `Region` - Region or Regions where the test should be run at (default to single region)
   - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
   - Nodes being beyind a NAT/Firewall - F (F is a % of N)
   - Nodes running the Image with IPFS on a Browser - B (B is a % of N)
@@ -297,6 +301,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 #### Parameters
 
 - **Network Parameters**
+  - `Region` - Region or Regions where the test should be run at (default to single region)
   -
 - **Image Parameters**
   -
