@@ -1,5 +1,7 @@
 # InterPlanetary TestGround
 
+![](https://img.shields.io/badge/go-%3E%3D1.13.0-blue.svg?style=flat-square)
+
 > ⚠️ **Heavy WIP.** beware of the Dragons 🐉..
 
 > **This repository is incubating the InterPlanetary Testground. 🐣**
@@ -69,6 +71,46 @@ Refer to the [specification](docs/SPEC.md) document.
 ## Contributing & Testing
 
 We kindly ask you to read through the SPEC first and give this project a run first in your local machine. It is a fast moving project at the moment and it might require some tinkering and experimentation to compesate the lack of documentation.
+
+### Setup
+
+Ensure that you are running go 1.13 or later (for gomod support)
+
+```sh
+> go version
+go version go1.13.1 darwin/amd64
+```
+
+Download the repo and install the dependencies
+
+```sh
+> go get git@github.com:ipfs/testground.git
+# ..fetch and install logs
+> cd $GOPATH/src/github.com/ipfs/testground
+```
+
+Test that everything is installed correctly by running
+
+```sh
+» TESTGROUND_BASEDIR=`pwd` testground
+resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+NAME:
+   testground - A new cli application
+
+   USAGE:
+      testground [global options] command [command options] [arguments...]
+
+   COMMANDS:
+      run      (builds and) runs test case with name `testplan/testcase`
+      list     list all test plans and test cases
+      build    builds a test plan
+      help, h  Shows a list of commands or help for one command
+
+   GLOBAL OPTIONS:
+      -v          verbose output (equivalent to INFO log level)
+      --vv        super verbose output (equivalent to DEBUG log level)
+     --help, -h  show help
+```
 
 ### Running the tests locally
 
