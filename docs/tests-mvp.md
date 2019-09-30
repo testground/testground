@@ -147,14 +147,26 @@ This test is not expected to support:
 
 ### 4. Nodes Connectivity (Transports, Hole Punching, Relay)
 
+Ensuring that a node can always connect to the rest of the network, if not completely isolated.
+
 #### What is being optimized (min/max, reach)
 
+- (Reach) The number of nodes that are able to dial to any other node (100%)
+
 #### Execution Variants
+
+- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+- Nodes being beyind a NAT/Firewall - F (F is a % of N)
+- Nodes running on a Browser - B (B is a % of N)
+- Nodes using only TCP - T (T is a % of N)
+- Nodes using only QUIC - Q (Q is a % of N)
+- Nodes using only WebSockets - W (W is a % of N)
+- Nodes using only WebRTC - C (C is a % of N)
 
 #### Test Narrative
 
 - **Warm up**
-  -
+  - Create the Bootstrapper nodes that are connected among themselves and support every transport
 - **Wave I**
   -
 - **Wave II**
