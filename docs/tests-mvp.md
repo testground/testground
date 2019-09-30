@@ -16,7 +16,7 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 
 #### What is being optimized (min/max, reach)
 
-- (Minimize) Memory used when performing any of the instructions
+- (Minimize) Memory used when performing each of the instructions
 - (Minimize) Time spent time chewing the files/directories
 - (Minimize) Time spent pinning/unpinning & garbage collection
 - (Minimize) Number of unreferanceable nodes when adding multiple files to MF
@@ -25,7 +25,10 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 
 #### Parameters
 
-- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+- **Network Parameters**
+  - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
+- **Image Parameters**
+  - Single Image - The go-ipfs commit that is being tested
 
 #### Narrative
 
@@ -61,10 +64,10 @@ Create an envinroment in which data transfer is stress tested. This test is not 
 
 #### Parameters
 
-This test is complete if one can:
-
-- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
-- Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
+- **Network Parameters**
+  - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+- **Image Parameters**
+  - Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
 
 This test is not expected to support:
 
@@ -121,11 +124,11 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 
 #### Parameters
 
-This test is complete if one can:
-
-- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
-- Number of nodes with full replica of the dataset initially (from 1 to 10) - M
-- Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
+- **Network Parameters**
+  - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+- **Image Parameters**
+  - Number of nodes with full replica of the dataset initially (from 1 to 10) - M
+  - Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
 
 This test is not expected to support:
 
@@ -156,13 +159,19 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-- Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
-- Nodes being beyind a NAT/Firewall - F (F is a % of N)
-- Nodes running on a Browser - B (B is a % of N)
-- Nodes using only TCP - T (T is a % of N)
-- Nodes using only QUIC - Q (Q is a % of N)
-- Nodes using only WebSockets - W (W is a % of N)
-- Nodes using only WebRTC - C (C is a % of N)
+- **Network Parameters**
+  - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
+  - Nodes being beyind a NAT/Firewall - F (F is a % of N)
+  - Nodes running the Image with IPFS on a Browser - B (B is a % of N)
+  - Nodes running the Image with go-ipfs using only TCP - T (T is a % of N)
+  - Nodes running the Image with go-ipfs using only QUIC - Q (Q is a % of N)
+  - Nodes running the Image with go-ipfs using only WebSockets - W (W is a % of N)
+  - Nodes running the Image with go-ipfs using only WebRTC - C (C is a % of N)
+- **Image Parameters**
+  - Image A - Base `go-ipfs`
+    - `Transport` The only transport to be used
+  - Image B - Base `js-ipfs` running in a Browser
+    - `Browser` The Browser in which js-ipfs will be running from
 
 #### Narrative
 
@@ -181,6 +190,11 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
+
 #### Narrative
 
 - **Warm up**
@@ -197,6 +211,11 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 #### What is being optimized (min/max, reach)
 
 #### Parameters
+
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
 
 #### Narrative
 
@@ -215,6 +234,12 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
+
+
 #### Narrative
 
 - **Warm up**
@@ -231,6 +256,12 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 #### What is being optimized (min/max, reach)
 
 #### Parameters
+
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
+
 
 #### Narrative
 
@@ -249,6 +280,12 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
+
+
 #### Narrative
 
 - **Warm up**
@@ -265,6 +302,11 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 #### What is being optimized (min/max, reach)
 
 #### Parameters
+
+- **Network Parameters**
+  -
+- **Image Parameters**
+  -
 
 #### Narrative
 
