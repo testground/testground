@@ -3,13 +3,10 @@
 The following test cases have been identified as the initial set of tests to implement using testground, with the goal of delivering a good characterization of the performance of IPFS in specific areas, while still being possible to deliver the tests within a 1 month implementation period.
 
 Each Test Plan description contains:
-- An overview of what we are looking to achieve with the test (roughly ~1 paragraph)
-- The data points that must be gathered -
-
-Each test presents:
-- What we are looking to optimize (aka the things to monitor and measure so that we can take conclusions out of the test)
-- The execution variants (aka the knobs that should be at our avail to test IPFS in different ways
-- The Test Narrative (the description of what should happen). Each Narrative has a _Warm Up_ phase that creates the envinronment in which we want to run our tests. Each Narrative contains 1 or move _Waves_, each Wave starts only after the previous has completed.
+- An overview of what we are looking to achieve with the test (roughly ~1 paragraph).
+- What we are looking to expect to be able to optimize by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
+- The test parameters. This include both Network Parameters (e.g. Number of Nodes) and Image Parametes (e.g. bucket_size, bitswap strategy, etc)
+- Narrative that describes on how the network will set up itself (_Warm Up_ phase) and how the actors will play their multiple roles (in _Waves_).
 
 ## Test Plans
 
@@ -30,7 +27,7 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 
 - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   - Each node accesses a pre-generated file test set (fixtures) that contains:
@@ -73,7 +70,7 @@ This test is not expected to support:
 
 - An heterogeneus network in which nodes have different configurations
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   - Boot N nodes
@@ -134,7 +131,7 @@ This test is not expected to support:
 
 - An heterogeneus network in which nodes have different configurations
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   - Boot N nodes
@@ -167,7 +164,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - Nodes using only WebSockets - W (W is a % of N)
 - Nodes using only WebRTC - C (C is a % of N)
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   - Create the Bootstrapper nodes that are connected among themselves and support every transport
@@ -184,7 +181,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
@@ -201,7 +198,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
@@ -218,7 +215,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
@@ -235,7 +232,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
@@ -252,7 +249,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
@@ -269,7 +266,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### Parameters
 
-#### Test Narrative
+#### Narrative
 
 - **Warm up**
   -
