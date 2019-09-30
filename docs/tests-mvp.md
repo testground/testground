@@ -1,6 +1,10 @@
-# List of Test Plans to be written for Test Ground MVP
+# Test Plans to be written for Test Ground MVP
 
 The following test cases have been identified as the initial set of tests to implement using testground, with the goal of delivering a good characterization of the performance of IPFS in specific areas, while still being possible to deliver the tests within a 1 month implementation period.
+
+Each Test Plan description contains:
+- An overview of what we are looking to achieve with the test (roughly ~1 paragraph)
+- The data points that must be gathered -
 
 Each test presents:
 - What we are looking to optimize (aka the things to monitor and measure so that we can take conclusions out of the test)
@@ -22,7 +26,7 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 - (Minimize) Waste when adding multiple files to an MFS tree (nodes that are no longer referenceable from the MFS tree due to graph updates)
 - (Minimize) Time spent creating the Manifest files uisng URL and File Store
 
-#### Execution Variants
+#### Parameters
 
 - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 
@@ -58,7 +62,7 @@ Create an envinroment in which data transfer is stress tested. This test is not 
 - (Reach) The number of nodes that were able to fetch all files as instructed. (Reach 100% success of all fetches)
 - (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
 
-#### Execution Variants
+#### Parameters
 
 This test is complete if one can:
 
@@ -118,7 +122,7 @@ This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/
 - (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
 
 
-#### Execution Variants
+#### Parameters
 
 This test is complete if one can:
 
@@ -153,7 +157,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 - (Reach) The number of nodes that are able to dial to any other node (100%)
 
-#### Execution Variants
+#### Parameters
 
 - Ran with with an arbitraty amount of nodes (from 10 to 1000000) - N
 - Nodes being beyind a NAT/Firewall - F (F is a % of N)
@@ -178,7 +182,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
@@ -195,7 +199,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
@@ -212,7 +216,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
@@ -229,7 +233,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
@@ -246,7 +250,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
@@ -263,7 +267,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 #### What is being optimized (min/max, reach)
 
-#### Execution Variants
+#### Parameters
 
 #### Test Narrative
 
