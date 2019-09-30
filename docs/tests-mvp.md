@@ -5,22 +5,22 @@ The following test cases have been identified as the initial set of tests to imp
 Each Test Plan description contains:
 - An overview of what we are looking to achieve with the test (roughly ~1 paragraph).
 - What we are looking to expect to be able to optimize by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
-- The test parameters. This include both Network Parameters (e.g. Number of Nodes) and Image Parametes (e.g. bucket_size, bitswap strategy, etc)
+- The test parameters. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)
 - Narrative that describes on how the network will set up itself (_Warm Up_ phase) and how the actors will play their multiple roles (in _Waves_).
 
 ## Test Plans
 
 ### 1. Chewing strategies for Large DataSets
 
-IPFS supports an evergrowing set of ways in how a File or Files can be added to the Network (Regular IPFS Add, MFS Add, Sharding, Balanced DAG, Trickle DAG, File Store, URL Store). This test plan checks their perfomormance
+IPFS supports an ever-growing set of ways in how a File or Files can be added to the Network (Regular IPFS Add, MFS Add, Sharding, Balanced DAG, Trickle DAG, File Store, URL Store). This test plan checks their performance
 
 #### What is being optimized (min/max, reach)
 
 - (Minimize) Memory used when performing each of the instructions
 - (Minimize) Time spent time chewing the files/directories
 - (Minimize) Time spent pinning/unpinning & garbage collection
-- (Minimize) Time spent creating the Manifest files uisng URL and File Store
-- (Minimize) Number of leftover and unreferanceable nodes from the MFS root when adding multiple files to MFS
+- (Minimize) Time spent creating the Manifest files using URL and File Store
+- (Minimize) Number of leftover and unreferenceable nodes from the MFS root when adding multiple files to MFS
 - (Minimize) Waste when adding multiple files to an MFS tree (nodes that are no longer referenceable from the MFS tree due to graph updates)
 
 #### Parameters
@@ -52,7 +52,7 @@ IPFS supports an evergrowing set of ways in how a File or Files can be added to 
 
 ### 2. Data Transfer of Random DataSets (Bitswap/GraphSync)
 
-Create an envinroment in which data transfer is stress tested. This test is not about content discovery or connectivity, it is assumed that all nodes are dialable by each other and that these are executed in an homogeneus network (same CPU, Memory, Bandwidth).
+Create an environment in which data transfer is stress tested. This test is not about content discovery or connectivity, it is assumed that all nodes are dialable by each other and that these are executed in an homogeneous network (same CPU, Memory, Bandwidth).
 
 #### What is being optimized (min/max, reach)
 
