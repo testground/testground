@@ -26,18 +26,11 @@ Refer to the [specification](docs/SPEC.md) document.
 ## Repo Structure
 
 ```
-.
 ├── README.md                       # This file
 ├── main.go                         # TestGround entrypoint file
 ├── cmd                             # TestGround CLI comamnds
 │   ├── all.go
-│   ├── build.go
-│   ├── daemon.go
-│   ├── enum_flag.go
-│   ├── helpers.go
-│   ├── list.go
-│   ├── run.go
-│   └── sidecar.go
+│   ├── ...
 ├── manifests                       # Manifests for each test Plan. These exist independent from plans to enable plans to live elsewhere
 │   ├── dht.toml
 │   └── smlbench.toml
@@ -45,25 +38,14 @@ Refer to the [specification](docs/SPEC.md) document.
 │   ├── dht
 │   └── smlbench
 ├── sdk                             # SDK available to each test plan
-│   ├── README.md
-│   ├── iptb
 │   ├── runtime
-│   └── sync
+│   └── ...
 ├── docs                            # Documentation of the project
 │   ├── SPEC.md
-│   ├── container-hierarchy.png
-│   ├── dashboard-mockup.png
-│   ├── system-architecture.png
-│   └── testcase-runtime-env.png
+│   ├── ...
 ├── pkg                             # Internals to TestGround
 │   ├── api
-│   ├── auto
-│   ├── build
-│   ├── engine
-│   ├── logging
-│   ├── runner
-│   ├── state
-│   └── util
+│   ├── ...
 └── tools                           # ??
     └── src_generate.go
 ```
