@@ -27,7 +27,7 @@ var runners = func() []string {
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
 	Name:      "run",
-	Usage:     "(builds and) runs test case with name `testplan/testcase`",
+	Usage:     "(builds and) runs test case with name `<testplan>/<testcase>`. List test cases with `list` command",
 	Action:    runCommand,
 	ArgsUsage: "[name]",
 	Flags: append(
