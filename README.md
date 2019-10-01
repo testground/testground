@@ -141,12 +141,9 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-### Running the tests on the TestGround infrastructure
+### Running a Test Plan on the TestGround infrastructure
 
-`To be Written once such infrastructure exists..`
-
-### Run a single test outside of the orchestrator
-
+`To be Written once such infrastructure exists..soon™`
 
 ## Contributing
 
