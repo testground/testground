@@ -1,4 +1,4 @@
-package cases
+package test
 
 import "github.com/ipfs/testground/plans/smlbench"
 
