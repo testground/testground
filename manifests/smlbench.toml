@@ -1,18 +1,27 @@
 name = "smlbench"
-# hashicorp/go-getter URLs, so in the future we can support fetching test plans
-# from GitHub.
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
 source_path = "file:${TESTGROUND_REPO}/plans/smlbench"
 
+# Fetches latest go-ipfs
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/dht"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+# Builds latest go-ipfs
 [build_strategies."docker:ipfs"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/dht"
+module_path = "github.com/ipfs/testground/plans/smlbench"
 exec_pkg = "exec"
-  
+
+# Runs with local go-ipfs install  
 [build_strategies."exec:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/dht"
+module_path = "github.com/ipfs/testground/plans/smlbench"
 exec_pkg = "exec"
 
 [run_strategies."local:exec"]
@@ -26,7 +35,7 @@ enabled = true
 
 # seq 0
 [[testcases]]
-name = "lookup-peers"
+name = "simple-add"
 instances = { min = 2, max = 100, default = 50 }
 
   [testcases.params]
@@ -34,18 +43,8 @@ instances = { min = 2, max = 100, default = 50 }
 
 # seq 1
 [[testcases]]
-name = "lookup-providers"
+name = "simple-add-get"
 instances = { min = 2, max = 100, default = 50 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-
-# seq 2
-[[testcases]]
-name = "store-get-value"
-instances = { min = 2, max = 100, default = 50 }
-roles = ["storer", "fetcher"]
-
-  [testcases.params]
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-
