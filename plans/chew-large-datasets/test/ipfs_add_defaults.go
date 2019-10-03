@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsAddDefaults(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo")
+	fmt.Printf("Yo\n")
 
 	runenv.OK()
 }
