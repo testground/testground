@@ -94,7 +94,7 @@ NAME:
      --help, -h  show help
 ```
 
-### Running the tests locally
+### Running the tests locally with TestGround
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
@@ -123,7 +123,27 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-### Running a Test Plan on the TestGround infrastructure
+### Running a test outside of TestGround orchestrator
+
+You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
+
+Then run it locally with
+
+```
+> redis server
+# ...
+93801:M 03 Oct 2019 14:42:52.430 * Ready to accept connections
+```
+
+Then move into the folder that has the plan and test you want to run locally. Execute it by sessting the TEST_CASE & TEST_CASE_SEQ env variables
+
+```
+> cd plans/dht
+> TEST_CASE="lookup-peers" TEST_CASE_SEQ="0" go run main.go
+# ... test output
+```
+
+### Running a Test Plan on the TestGround Cloud Infrastructure
 
 `To be Written once such infrastructure exists..soon™`
 
