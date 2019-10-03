@@ -106,7 +106,7 @@ dht      smlbench
 Then do
 
 ```
-> TESTGROUND_BASEDIR=`pwd` testground run dht/lookup-peers --builder=docker:go
+> TESTGROUND_BASEDIR=`pwd` testground run dht/lookup-peers --builder=docker:go --runner=local:docker
 ..
 ```
 
