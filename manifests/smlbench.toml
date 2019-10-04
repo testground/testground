@@ -1,6 +1,6 @@
 name = "smlbench"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
-source_path = "file:${TESTGROUND_REPO}/plans/smlbench"
+source_path = "file:${TESTGROUND_BASEDIR}/plans/smlbench"
 
 # Fetches latest go-ipfs
 [build_strategies."docker:go"]
@@ -10,26 +10,28 @@ module_path = "github.com/ipfs/testground/plans/smlbench"
 exec_pkg = "."
 go_ipfs_version = "0.4.22"
 
-# Builds latest go-ipfs
+# TODO: Builds latest go-ipfs
 [build_strategies."docker:ipfs"]
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/smlbench"
 exec_pkg = "exec"
 
-# Runs with local go-ipfs install  
+# TODO: Runs with local go-ipfs install  
 [build_strategies."exec:go"]
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/smlbench"
 exec_pkg = "exec"
 
-[run_strategies."local:exec"]
-enabled = true
-
 [run_strategies."local:docker"]
 enabled = true
 
+# TODO
+[run_strategies."local:exec"]
+enabled = true
+
+# TODO
 [run_strategies."cluster:nomad"]
 enabled = true
 
