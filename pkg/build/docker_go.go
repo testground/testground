@@ -2,9 +2,7 @@ package build
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -13,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -169,20 +167,8 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	}
 	defer resp.Body.Close()
 
-	var msg jsonmessage.JSONMessage
-Loop:
-	for dec := json.NewDecoder(resp.Body); ; {
-		switch err := dec.Decode(&msg); err {
-		case nil:
-			msg.Display(os.Stdout, true)
-			if msg.Error != nil {
-				return nil, msg.Error
-			}
-		case io.EOF:
-			break Loop
-		default:
-			return nil, err
-		}
+	if err := util.PipeDockerOutput(resp.Body, os.Stdout); err != nil {
+		return nil, err
 	}
 
 	return &Output{ArtifactPath: id}, nil

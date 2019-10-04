@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"sync"
 	"time"
@@ -346,6 +347,18 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger) (id string
 	}
 
 	log.Infow("redis container not found; creating")
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	out, err := cli.ImagePull(ctx, "redis", types.ImagePullOptions{})
+	if err != nil {
+		return "", err
+	}
+
+	if err := util.PipeDockerOutput(out, os.Stdout); err != nil {
+		return "", err
+	}
 
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
