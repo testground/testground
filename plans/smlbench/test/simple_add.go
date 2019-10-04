@@ -14,22 +14,22 @@ import (
 )
 
 // simpleAddTC is a simple test that adds a file of the specified size to an IPFS node. It measures time to add.
-type simpleAddTC struct {
+type SimpleAddTC struct {
 	SizeBytes int64
 }
 
 var _ utils.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
 
-func (tc *simpleAddTC) Name() string {
+func (tc *SimpleAddTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
 	return fmt.Sprintf("simple-add-%s", h)
 }
 
-func (tc *simpleAddTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec) {
+func (tc *SimpleAddTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec) {
 	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "adder")
 }
 
-func (tc *simpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
+func (tc *SimpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
 	node := ensemble.GetNode("adder")
 	client := node.Client()
 

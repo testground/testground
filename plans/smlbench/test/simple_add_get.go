@@ -16,22 +16,22 @@ import (
 
 // simpleAddGetTC is a simple test that adds a file of the specified size to an IPFS node, and tries to fetch it from
 // another local node, by swarm connecting to the former first. It measures: time to add, time to connect, time to get.
-type simpleAddGetTC struct {
+type SimpleAddGetTC struct {
 	SizeBytes int64
 }
 
 var _ utils.SmallBenchmarksTestCase = (*simpleAddGetTC)(nil)
 
-func (tc *simpleAddGetTC) Name() string {
+func (tc *SimpleAddGetTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
 	return fmt.Sprintf("simple-add-get-%s", h)
 }
 
-func (tc *simpleAddGetTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec) {
+func (tc *SimpleAddGetTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec) {
 	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "adder", "getter")
 }
 
-func (tc *simpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
+func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
 	adder := ensemble.GetNode("adder").Client()
 	getter := ensemble.GetNode("getter").Client()
 
