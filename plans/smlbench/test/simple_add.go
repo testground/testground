@@ -8,7 +8,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/ipfs/testground/plans/smlbench"
+	utils "github.com/ipfs/testground/plans/smlbench/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -18,7 +18,7 @@ type simpleAddTC struct {
 	SizeBytes int64
 }
 
-var _ smlbench.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
+var _ utils.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
 
 func (tc *simpleAddTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
@@ -33,7 +33,7 @@ func (tc *simpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemb
 	node := ensemble.GetNode("adder")
 	client := node.Client()
 
-	file := smlbench.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
+	file := utils.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
 	defer os.Remove(file.Name())
 
 	tstarted := time.Now()
@@ -43,6 +43,6 @@ func (tc *simpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemb
 		return
 	}
 
-	runenv.EmitMetric(smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 	runenv.OK()
 }

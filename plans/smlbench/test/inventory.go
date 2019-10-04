@@ -1,9 +1,12 @@
 package test
 
-import "github.com/ipfs/testground/plans/smlbench"
+import (
+	utils "github.com/ipfs/testground/plans/smlbench/utils"
+)
 
 // TODO: API sugar for generating variations of test cases based on some function.
-var TestCases = []smlbench.SmallBenchmarksTestCase{
+
+var TestCases = []utils.SmallBenchmarksTestCase{
 	&simpleAddTC{},                 // 0
 	&simpleAddTC{1024},             // 1kb
 	&simpleAddTC{64 * 1024},        // 64kb

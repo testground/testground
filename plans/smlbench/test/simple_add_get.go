@@ -9,7 +9,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 
-	"github.com/ipfs/testground/plans/smlbench"
+	utils "github.com/ipfs/testground/plans/smlbench/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -20,7 +20,7 @@ type simpleAddGetTC struct {
 	SizeBytes int64
 }
 
-var _ smlbench.SmallBenchmarksTestCase = (*simpleAddGetTC)(nil)
+var _ utils.SmallBenchmarksTestCase = (*simpleAddGetTC)(nil)
 
 func (tc *simpleAddGetTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
@@ -36,7 +36,7 @@ func (tc *simpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 	getter := ensemble.GetNode("getter").Client()
 
 	// generate a random file of the designated size.
-	file := smlbench.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
+	file := utils.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
 	defer os.Remove(file.Name())
 
 	tstarted := time.Now()
@@ -46,7 +46,7 @@ func (tc *simpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 		return
 	}
 
-	runenv.EmitMetric(smlbench.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 	addrs, err := ensemble.GetNode("adder").SwarmAddrs()
 	if err != nil {
@@ -64,7 +64,7 @@ func (tc *simpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 		return
 	}
 
-	runenv.EmitMetric(smlbench.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.EmitMetric(utils.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 	tstarted = time.Now()
 	err = getter.Get(cid, ensemble.TempDir())
@@ -72,6 +72,6 @@ func (tc *simpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 		runenv.Abort(err)
 		return
 	}
-	runenv.EmitMetric(smlbench.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.EmitMetric(utils.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
 	runenv.OK()
 }
