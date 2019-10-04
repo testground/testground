@@ -6,8 +6,8 @@ import (
 )
 
 var testCases = []func(*runtime.RunEnv){
-	SimpleAdd,
-	SimpleAddGet,
+	test.SimpleAdd,
+	test.SimpleAddGet,
 }
 
 // TODO:
