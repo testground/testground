@@ -63,12 +63,6 @@ Ensure that you are running go 1.13 or later (for gomod support)
 go version go1.13.1 darwin/amd64
 ```
 
-You will need docker and the redis docker image. Learn how to install docker on your machine at https://docs.docker.com/install and once you have completed, pull the redis image with:
-
-```
-docker pull redis
-```
-
 Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
 
 ```sh
