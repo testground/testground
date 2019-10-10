@@ -32,3 +32,6 @@ plans/**/go.sum
 .history
 
 # End of https://www.gitignore.io/api/go,visualstudiocode
+
+.vscode
+*.swp
