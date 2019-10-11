@@ -10,14 +10,24 @@
 
 You may have noticed a few test efforts with similar names underway! Testing at scale is a hard problem. We are indeed exploring and experimenting a lot, until we land on an end-to-end solution that works for us.
 
-* Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
-  * a simple utility to manage local clusters/aggregates of IPFS instances.
-* libp2p testlab: https://github.com/libp2p/testlab
-  * a Nomad deployer for libp2p nodes with a DSL for test scenarios.
+-  Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
+  - a simple utility to manage local clusters/aggregates of IPFS instances.
+- libp2p testlab: https://github.com/libp2p/testlab
+  - a Nomad deployer for libp2p nodes with a DSL for test scenarios.
+- And others such as https://github.com/ipfs/interop and https://github.com/ipfs/benchmarks
 
 The Interplanetary Test Ground aims to leverage the learnings and tooling resulting from those efforts to provide a scalable runtime environment for the execution of various types of tests and benchmarks, written in different languages, by different teams, targeting a specific commit of IPFS and/or libp2p, and quantifying its characteristics in terms of performance, resource and network utilisation, stability, interoperability, etc., when compared to other commits.
 
 The Interplanetary Test Ground aims to be tightly integrated with the software engineering practices and tooling the IPFS and libp2p teams rely on.
+
+## Team
+
+The current TestGround Team is composed of:
+
+- @raulk - Lead Architect, Engineer, Developer
+- @daviddias - Engineer, Developer, acting as interim PM for the project
+- @jimpick - Engineer, Developer, Infrastructure Lead
+- you! Yes, you can contribute as well, however, do understand that this is a brand new and fast moving project and so contributing might require extra time to onboard
 
 ## Architecture
 
