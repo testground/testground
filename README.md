@@ -29,6 +29,8 @@ The current TestGround Team is composed of:
 - @jimpick - Engineer, Developer, Infrastructure Lead
 - you! Yes, you can contribute as well, however, do understand that this is a brand new and fast moving project and so contributing might require extra time to onboard
 
+We run a Weekly Sync at 4pm Tuesdays on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit) and stored at [meeting-notes](https://github.com/ipfs/testground/tree/master/_meeting-notes).
+
 ## Architecture
 
 Refer to the [specification](docs/SPEC.md) document.
