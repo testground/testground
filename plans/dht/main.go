@@ -1,9 +1,14 @@
 package main
 
-import "github.com/ipfs/testground/sdk/runtime"
+import (
+  "github.com/ipfs/testground/sdk/runtime"
+  test "github.com/ipfs/testground/plans/dht/test"
+)
 
 var testCases = []func(*runtime.RunEnv){
-	LookupPeers,
+	test.LookupPeers,
+	test.LookupProviders,
+	test.StoreGetValue,
 }
 
 func main() {

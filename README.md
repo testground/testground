@@ -73,7 +73,7 @@ Ensure that you are running go 1.13 or later (for gomod support)
 go version go1.13.1 darwin/amd64
 ```
 
-Download the repo and install the dependencies
+Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
 
 ```sh
 > go get git@github.com:ipfs/testground.git
@@ -104,23 +104,9 @@ NAME:
      --help, -h  show help
 ```
 
-### Running the tests locally
+### Running the tests locally with TestGround
 
-To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
-
-```
-> ls plans
-dht      smlbench
-```
-
-Then do
-
-```
-> TESTGROUND_BASEDIR=`pwd` testground run dht/lookup-peers --builder=docker:go
-..
-```
-
-To check which Test Plan and Test Cases are available do:
+To run a test locally, you can use the `testground run` command. Check what Plans and Tests are available by running the `list` command:
 
 ```
 > TESTGROUND_BASEDIR=`pwd` testground list
@@ -133,7 +119,36 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-### Running a Test Plan on the TestGround infrastructure
+Then do
+
+```
+> TESTGROUND_BASEDIR=`pwd` testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
+...
+```
+
+To check which Test Plan and Test Cases are available do:
+
+### Running a test outside of TestGround orchestrator
+
+You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
+
+Then run it locally with
+
+```
+> redis server
+# ...
+93801:M 03 Oct 2019 14:42:52.430 * Ready to accept connections
+```
+
+Then move into the folder that has the plan and test you want to run locally. Execute it by sessting the TEST_CASE & TEST_CASE_SEQ env variables
+
+```
+> cd plans/dht
+> TEST_CASE="lookup-peers" TEST_CASE_SEQ="0" go run main.go
+# ... test output
+```
+
+### Running a Test Plan on the TestGround Cloud Infrastructure
 
 `To be Written once such infrastructure exists..soon™`
 
