@@ -83,7 +83,9 @@ Then, onto getting the actual Test Ground code. Download the repo and install th
 > cd $GOPATH/src/github.com/ipfs/testground
 ```
 
-Test that everything is installed correctly by running
+This command may take a couple of minutes to complete. If successful, it will end with no message.
+
+Now test that everything is installed correctly by running
 
 ```sh
 > TESTGROUND_BASEDIR=`pwd` testground
@@ -121,14 +123,18 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-Then do
+Then run this comment to... (TODO: What does this do?)
 
 ```
 > TESTGROUND_BASEDIR=`pwd` testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
 ...
 ```
 
+You should see... (TODO: What should I see?)
+
 To check which Test Plan and Test Cases are available do:
+
+TODO: Is something supposed to be here?
 
 ### Running a test outside of TestGround orchestrator
 
