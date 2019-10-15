@@ -78,7 +78,7 @@ go version go1.13.1 darwin/amd64
 Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
 
 ```sh
-> go get git@github.com:ipfs/testground.git
+> go get github.com/ipfs/testground
 # ..fetch and install logs
 > cd $GOPATH/src/github.com/ipfs/testground
 ```
