@@ -1,12 +1,13 @@
 package main
 
 import (
-	"os"
-	"strconv"
+	"fmt"
+	// "os"
+	// "strconv"
 
 	test "github.com/ipfs/testground/plans/smlbench/test"
 	utils "github.com/ipfs/testground/plans/smlbench/utils"
-	iptb "github.com/ipfs/testground/sdk/iptb"
+	// iptb "github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
@@ -60,14 +61,16 @@ func main() {
 		panic("test case sequence number not set")
 	}
 
-	testCases := testCasesSet
+	testCases := testCasesSet[runenv.TestCaseSeq]
 
 	for i, tc := range testCases {
-		_ = os.Setenv("TEST_CASE", tc.Name())
-		_ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
+		// _ = os.Setenv("TEST_CASE", tc.Name())
+		// _ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
 
 		// ctx := api.NewContext(context.Background())
 
+		fmt.Printf("Jim1 %v %v\n", i, tc)
+		/*
 		spec := iptb.NewTestEnsembleSpec()
 		tc.Configure(runenv, spec)
 
@@ -77,5 +80,6 @@ func main() {
 		tc.Execute(runenv, ensemble)
 
 		ensemble.Destroy()
+		*/
 	}
 }
