@@ -32,12 +32,13 @@ var (
 type DockerGoBuilder struct{}
 
 type DockerGoBuilderConfig struct {
-	Enabled     bool
-	GoVersion   string `toml:"go_version" overridable:"yes"`
-	ModulePath  string `toml:"module_path" overridable:"yes"`
-	ExecPkg     string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod  bool   `toml:"fresh_gomod" overridable:"yes"`
-	BypassCache bool   `toml:"bypass_cache" overridable:"yes"`
+	Enabled       bool
+	GoVersion     string `toml:"go_version" overridable:"yes"`
+	GoIPFSVersion string `toml:"go_ipfs_version" overridable:"yes"`
+	ModulePath    string `toml:"module_path" overridable:"yes"`
+	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
+	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
+	BypassCache   bool   `toml:"bypass_cache" overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
@@ -74,13 +75,15 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	defer os.RemoveAll(tmp)
 
 	var (
-		plansrc       = opts.TestPlan.SourcePath
-		sdksrc        = filepath.Join(opts.BaseDir, "/sdk")
-		dockerfilesrc = filepath.Join(opts.BaseDir, "pkg", "build", "Dockerfile.template")
+		plansrc        = opts.TestPlan.SourcePath
+		sdksrc         = filepath.Join(opts.BaseDir, "/sdk")
+		dockerfilesrc  = filepath.Join(opts.BaseDir, "pkg", "build", "Dockerfile.template")
+		installipfssrc = filepath.Join(opts.BaseDir, "pkg", "build", "install-ipfs.sh")
 
-		plandst       = filepath.Join(tmp, "plan")
-		sdkdst        = filepath.Join(tmp, "sdk")
-		dockerfiledst = filepath.Join(tmp, "Dockerfile")
+		plandst        = filepath.Join(tmp, "plan")
+		sdkdst         = filepath.Join(tmp, "sdk")
+		dockerfiledst  = filepath.Join(tmp, "Dockerfile")
+		installipfsdst = filepath.Join(tmp, "install-ipfs.sh")
 	)
 
 	// Copy the plan's source; go-getter will create the dir.
@@ -93,6 +96,11 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 
 	// Copy the dockerfile.
 	if err := copyFile(dockerfiledst, dockerfilesrc); err != nil {
+		return nil, err
+	}
+
+	// Copy the install-ipfs.sh script.
+	if err := copyFile(installipfsdst, installipfssrc); err != nil {
 		return nil, err
 	}
 
@@ -155,6 +163,7 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 
 	args := map[string]*string{
 		"GO_VERSION":        &cfg.GoVersion,
+		"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
 		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
 	}
 
