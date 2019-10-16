@@ -1,0 +1,22 @@
+name = "smlbench2"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
+source_path = "file:${TESTGROUND_BASEDIR}/plans/smlbench2"
+
+# Fetches latest go-ipfs
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/smlbench2"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+[run_strategies."local:docker"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "simple-add-get"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }

@@ -2,7 +2,9 @@ package iptb
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"sync"
 	"time"
@@ -47,7 +49,32 @@ func (te *TestEnsemble) Initialize() {
 	tb := testbed.NewTestbed(dir)
 	te.testbed = &tb
 
-	specs, err := testbed.BuildSpecs(tb.Dir(), count, "localipfs", nil)
+	attrs := map[string]string{}
+	swarmaddrs := make([]string, 0)
+
+	iface, err := net.InterfaceByName("eth0")
+	if err == nil {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			panic(err)
+		}
+		for _, a := range addrs {
+		    switch v := a.(type) {
+		    case *net.IPAddr:
+			// fmt.Printf("%v : %s (%s)\n", iface.Name, v, v.IP.DefaultMask())
+		    case *net.IPNet:
+			// fmt.Printf("%v : %s (%s)\n", iface.Name, v, v.IP.DefaultMask())
+			if (v.IP.To4() != nil) {
+				swarmaddrs = append(swarmaddrs, fmt.Sprintf("/ip4/%v/tcp/0", v.IP))
+			}
+		    }
+		}
+	}
+	if len(swarmaddrs) > 0 {
+		attrs["swarmaddr"] = swarmaddrs[0]
+	}
+
+	specs, err := testbed.BuildSpecs(tb.Dir(), count, "localipfs", attrs)
 	if err != nil {
 		panic(err)
 	}
