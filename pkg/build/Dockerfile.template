@@ -47,7 +47,8 @@ RUN touch /tmp/delete_me
 #::: RUNTIME CONTAINER
 #:::
 
-FROM busybox:1.31.0-glibc
+#FROM busybox:1.31.0-glibc # Doesn't work with prebuilt IPFS binaries
+FROM debian
 
 COPY --from=0 /plan/testplan /
 RUN mkdir -p /usr/local/bin
