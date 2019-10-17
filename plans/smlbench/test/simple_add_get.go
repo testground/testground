@@ -20,7 +20,7 @@ type SimpleAddGetTC struct {
 	SizeBytes int64
 }
 
-var _ utils.SmallBenchmarksTestCase = (*simpleAddGetTC)(nil)
+var _ utils.SmallBenchmarksTestCase = (*SimpleAddGetTC)(nil)
 
 func (tc *SimpleAddGetTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")

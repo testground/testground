@@ -18,7 +18,7 @@ type SimpleAddTC struct {
 	SizeBytes int64
 }
 
-var _ utils.SmallBenchmarksTestCase = (*simpleAddTC)(nil)
+var _ utils.SmallBenchmarksTestCase = (*SimpleAddTC)(nil)
 
 func (tc *SimpleAddTC) Name() string {
 	h := strings.ReplaceAll(strings.ToLower(humanize.IBytes(uint64(tc.SizeBytes))), " ", "")
