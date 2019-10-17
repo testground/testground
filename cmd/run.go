@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/runner"
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
@@ -118,7 +118,7 @@ func runCommand(c *cli.Context) error {
 	}
 
 	// Prepare the run job.
-	runIn := &runner.Input{
+	runIn := &api.RunInput{
 		Instances:    instances,
 		ArtifactPath: buildOut.ArtifactPath,
 		RunnerConfig: cfgOverride,

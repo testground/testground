@@ -32,7 +32,6 @@ func (c *TestCensus) EnrollTestPlan(tp *api.TestPlanDefinition) error {
 	}
 
 	tp.SourcePath = os.ExpandEnv(tp.SourcePath)
-
 	c.m[tp.Name] = tp
 	return nil
 }

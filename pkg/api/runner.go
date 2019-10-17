@@ -1,9 +1,7 @@
-package runner
+package api
 
 import (
 	"reflect"
-
-	"github.com/ipfs/testground/pkg/api"
 )
 
 // Runner is the interface to be implemented by all runners. A runner takes a
@@ -17,7 +15,7 @@ type Runner interface {
 	ID() string
 
 	// Run runs a test case.
-	Run(job *Input) (*Output, error)
+	Run(job *RunInput) (*RunOutput, error)
 
 	// ConfigType returns the configuration type of this runner.
 	ConfigType() reflect.Type
@@ -27,13 +25,15 @@ type Runner interface {
 	CompatibleBuilders() []string
 }
 
-// Input encapsulates the input options for running a test plan.
-type Input struct {
-	// ID is the run id assigned to this job by the Engine.
-	ID string
+// RunInput encapsulates the input options for running a test plan.
+type RunInput struct {
+	// Directories providers accessors to directories managed by the runtime.
+	Directories Directories
+	// RunID is the run id assigned to this job by the Engine.
+	RunID string
 	// TestPlan is the definition of the test plan containing the test case to
 	// run.
-	TestPlan *api.TestPlanDefinition
+	TestPlan *TestPlanDefinition
 	// Instances is the number of instances to run.
 	Instances int
 	// ArtifactPath can be a docker image ID or an executable path; it's
@@ -48,7 +48,7 @@ type Input struct {
 	RunnerConfig interface{}
 }
 
-type Output struct {
+type RunOutput struct {
 	// TODO.
 	// RunnerID is the ID of the runner used.
 	RunnerID string

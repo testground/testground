@@ -9,17 +9,20 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/logrusorgru/aurora"
+
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
-
-	"github.com/google/uuid"
 )
 
 type LocalExecutableRunner struct{}
 
-var _ Runner = (*LocalExecutableRunner)(nil)
+type LocalExecutableRunnerCfg struct{}
 
-func (*LocalExecutableRunner) Run(input *Input) (*Output, error) {
+var _ api.Runner = (*LocalExecutableRunner)(nil)
+
+func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	var (
 		plan      = input.TestPlan
 		seq       = input.Seq
@@ -31,61 +34,57 @@ func (*LocalExecutableRunner) Run(input *Input) (*Output, error) {
 		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
 	}
 
-	tcase := plan.TestCases[seq]
+	testcase := plan.TestCases[seq]
 
-	// Validate instance count.
-	if instances == 0 {
-		instances = tcase.Instances.Default
-	} else if instances < tcase.Instances.Minimum || tcase.Instances.Maximum > instances {
-		str := "instance count outside (%d) of allowable range [%d, %d] for test %s"
-		err := fmt.Errorf(str, instances, tcase.Instances.Minimum, tcase.Instances.Maximum, name)
-		return nil, err
+	// Build a runenv.
+	runenv := &runtime.RunEnv{
+		TestPlan:           input.TestPlan.Name,
+		TestCase:           testcase.Name,
+		TestRun:            input.RunID,
+		TestCaseSeq:        seq,
+		TestInstanceCount:  input.Instances,
+		TestInstanceParams: input.Parameters,
 	}
 
 	// Spawn as many instances as the test case dictates.
 	var wg sync.WaitGroup
 	for i := 0; i < instances; i++ {
-		cmd := exec.Command(input.ArtifactPath)
-
-		// Populate the environment.
-		env := map[string]string{
-			runtime.EnvTestPlan:          name,
-			runtime.EnvTestRun:           uuid.New().String(),
-			runtime.EnvTestBranch:        "<TODO>",
-			runtime.EnvTestTag:           "<TODO>",
-			runtime.EnvTestCaseSeq:       strconv.Itoa(input.Seq),
-			runtime.EnvTestInstanceCount: strconv.Itoa(instances),
+		var env []string
+		for k, v := range runenv.ToEnvVars() {
+			env = append(env, k+"="+v)
 		}
 
-		cmd.Env = make([]string, 0, len(env))
-		for k, v := range env {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
+		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
 
-		logging.S().Infow("starting test case instance", "testcase", name, "runenv", cmd.Env)
+		a := aurora.NewAurora(logging.IsTerminal())
 
 		wg.Add(1)
-		go func() {
+		go func(n int) {
+			defer wg.Done()
+
 			var (
+				nstr      = strconv.Itoa(n)
+				color     = uint8(n%15) + 1
+				cmd       = exec.Command(input.ArtifactPath)
 				stdout, _ = cmd.StdoutPipe()
 				stderr, _ = cmd.StderrPipe()
 				combined  = io.MultiReader(stdout, stderr)
 				scanner   = bufio.NewScanner(combined)
 			)
 
+			cmd.Env = env
 			cmd.Start()
 
 			for scanner.Scan() {
-				l := scanner.Text()
-				fmt.Println(l)
+				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
 			}
 
-			wg.Done()
-		}()
+		}(i)
 	}
+
 	wg.Wait()
 
-	return new(Output), nil
+	return new(api.RunOutput), nil
 }
 
 func (*LocalExecutableRunner) ID() string {
@@ -93,11 +92,9 @@ func (*LocalExecutableRunner) ID() string {
 }
 
 func (*LocalExecutableRunner) ConfigType() reflect.Type {
-	// TODO
-	return nil
+	return reflect.TypeOf(&LocalExecutableRunnerCfg{})
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
-	// TODO
-	return nil
+	return []string{"exec:go"}
 }

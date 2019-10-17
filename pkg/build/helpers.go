@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/ipfs/testground/pkg/api"
 	"sort"
 	"strings"
 )
@@ -31,7 +32,7 @@ func CollapseOptionsMap(src map[string]string) []string {
 //
 // TODO this does not take into account the source code of the test plan, nor
 // the build configuration per manifest. It should.
-func CanonicalBuildID(opts *Input) string {
+func CanonicalBuildID(opts *api.BuildInput) string {
 	hash := sha256.New()
 	w := bufio.NewWriter(hash)
 	for _, v := range CollapseOptionsMap(opts.Dependencies) {

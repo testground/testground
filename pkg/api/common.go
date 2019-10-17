@@ -4,6 +4,13 @@ import (
 	"reflect"
 )
 
+// Directories providers accessors to directories managed by the testground
+// runtime (engine).
+type Directories interface {
+	SourceDir() string
+	WorkDir() string
+}
+
 // EnumerateOverridableFields returns the fields from a struct type that can be
 // overridden, i.e. they bear the `overridable="yes"` tag, and they have an
 // explicitly defined toml key.
