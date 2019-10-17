@@ -123,18 +123,19 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-Then run this comment to... (TODO: What does this do?)
+This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
 
 ```
 > TESTGROUND_BASEDIR=`pwd` testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
 ...
 ```
 
-You should see... (TODO: What should I see?)
+You should see a bunch of logs that describe the steps of the test, from:
 
-To check which Test Plan and Test Cases are available do:
-
-TODO: Is something supposed to be here?
+* Setting up the container
+* Compilation of the test case inside the container
+* Starting the containers (total of 50 as 50 is the default number of nodes for this test)
+* You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
 
 ### Running a test outside of TestGround orchestrator
 
