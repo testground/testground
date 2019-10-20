@@ -4,13 +4,18 @@
 
 # GO_VERSION is the golang version this image will be built against.
 ARG GO_VERSION
-# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
-# The image will build that package only.
-ARG TESTPLAN_EXEC_PKG
 
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.
 FROM golang:${GO_VERSION}-buster
+
+# GO_VERSION is the golang version this image will be built against.
+ARG GO_VERSION
+# GO_IPFS_VERSION is the go-ipfs version to include in this image.
+ARG GO_IPFS_VERSION
+# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
+# The image will build that package only.
+ARG TESTPLAN_EXEC_PKG
 
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 # PLAN_DIR is the location containing the plan source inside the container.
@@ -34,12 +39,21 @@ RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY=direct \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
 
+# Optionally install IPFS
+RUN if [ -n "${GO_IPFS_VERSION}" ]; then echo Install IPFS ${GO_IPFS_VERSION}; bash /install-ipfs.sh ${GO_IPFS_VERSION}; fi
+RUN touch /tmp/delete_me
+
 #:::
 #::: RUNTIME CONTAINER
 #:::
 
-FROM busybox:1.31.0-glibc
+#FROM busybox:1.31.0-glibc # Doesn't work with prebuilt IPFS binaries
+FROM debian
 
 COPY --from=0 /plan/testplan /
+RUN mkdir -p /usr/local/bin
+COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
+RUN rm -f /usr/local/bin/delete_me
+ENV PATH="/usr/local/bin:${PATH}"
 
 ENTRYPOINT [ "/testplan" ]
