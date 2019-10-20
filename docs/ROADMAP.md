@@ -9,7 +9,24 @@
 
 ## 💎 Milestones
 
+#### A formal specification is created of how to create a Test Plan
 
+We have a format to spec out Test Plans and we've spec'ed out at least 10 Test Plans. These 10 Test Plans should directly contribute to increase the degree of confidence when shipping a go-ipfs Release 
+
+#### TestGround can levarage the Cloud to run its tests
+
+- TestGround can run on Cloud Infrastructure as well as in local envinronment
+- A dashboard exists to visualize the result of the tests
+
+#### TestGround can simulate network conditions
+
+For example: 
+- bottlenecks (networks with different bandwidth)
+- network isolation (i.e. NATs)
+
+#### We bring up the total team capacity to 3 full time people
+
+We started the quarter at 1 + 0.3 + 0.5
 
 ## OKRs
 
