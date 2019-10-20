@@ -1,7 +1,9 @@
 package main
 
 import (
-	"context"
+	"os"
+  "context"
+	"strconv"
 
 	test "github.com/ipfs/testground/plans/smlbench/test"
 	utils "github.com/ipfs/testground/plans/smlbench/utils"
@@ -61,8 +63,12 @@ func main() {
 
 	testCases := testCasesSet[runenv.TestCaseSeq]
 
-	for _, tc := range testCases {
-		ctx := context.Background()
+	for i, tc := range testCases {
+		_ = os.Setenv("TEST_CASE", tc.Name())
+		_ = os.Setenv("TEST_CASE_SEQ", strconv.Itoa(i))
+    
+    ctx := context.Background()
+    // ctx, _ := context.WithCancel(context.Background())
 
 		spec := iptb.NewTestEnsembleSpec()
 		tc.Configure(runenv, spec)
