@@ -30,7 +30,7 @@ The following diagram illustrates the proposed system architecture.
 
 Throughout this document, we use the term “service” in the sense of _domain driven design_. A service encapsulates a _logical, loosely coupled unit of the system, with a clearly delineated responsibility and function_. **A service does not translate to a separate process/binary;** instead the coordinator service will be a single binary, hosting and nesting all other services within it.
 
-![test pipeline system architecture](system-architecture.png)
+![test pipeline system architecture](img/system-architecture.png)
 
 In the next sections, we’ll first provide an overview of the core concepts, to then proceed to describe each component individually, documenting its responsibility, technology, and how it interacts and integrates with the rest of the system.
 
@@ -79,7 +79,7 @@ For each test plan, the test runtime _promises_ to:
 
 **Test plans** are _executable_ programs in their own. They expose a single entrypoint that multiplexes all inner test cases. This has the nice property of making test plans locally usable and testable -- without relying on a cluster being available.
 
-Children test cases are identified by sequential ordinals in the range [0, ∞). The entrypoint must dispatch to the appropriate **test case** based on an environment variable (TEST_CASE_SEQ).
+Children test cases are identified by sequential ordinals in the range \[0, ∞). The entrypoint must dispatch to the appropriate **test case** based on an environment variable (TEST_CASE_SEQ).
 
 The **test scheduler** will execute the **test plan** repeatedly, as many times as test cases it contains, incrementing the value of the variable each time. This will be accomplished by submitting one job per test case to Nomad, setting the TEST_CASE_SEQ value in the job spec.
 
@@ -99,7 +99,7 @@ Each **test plan** will be built as a standalone Docker image, layered on top of
 
 The following diagram depicts the hierarchy:
 
-![container hierarchy](container-hierarchy.png)
+![container hierarchy](img/container-hierarchy.png)
 
 These images will be published in a **private Docker registry**.
 
@@ -111,7 +111,7 @@ By using the [“List processes running inside a container”](https://docs.dock
 
 To enable opacity of the inner mechanics of a test case, we define an agnostic, barebones formal execution environment that enables us to feed configuration parameters to the test case, and read out metrics, test results, and assets out of it, once it finishes running.
 
-![test case runtime environment](testcase-runtime-env.png)
+![test case runtime environment](img/testcase-runtime-env.png)
 
 #### Inputs
 
@@ -279,7 +279,7 @@ We are inspired by the following dashboards from other OSS projects:
 
 The dashboard service will not only serve the web assets to render the dashboard on the browser; it’ll also offer the REST or WebSockets services to feed the interactive dashboard real time.
 
-![dashboard mockup](dashboard-mockup.png)
+![dashboard mockup](img/dashboard-mockup.png)
 
 ### Distributed test scenarios
 
