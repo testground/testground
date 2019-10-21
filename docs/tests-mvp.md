@@ -5,7 +5,7 @@ The testing Plans below have been identified as the most valuable sets of tests 
 Each testing **Plan** contains:
 - An **overview** of what we are looking to achieve with the test (roughly ~1 paragraph).
 - **What we are looking to expect to be able to optimize** by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
-- The **test parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)
+- The **plan & test parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)
 - A Narrative for each Test that describes on how the network will set up itself (_Warm Up_ phase) and how the actors will play their multiple roles (in _Acts_).
 
 ## `Plan:` Chewing strategies for Large DataSets
@@ -32,7 +32,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
   - Image Resources CPU & Ram
   - Offline/Online - Specify if you want the node to run connected to the other nodes or not
 
-### Test Narratives
+### Tests
 
 #### `Test:` IPFS Add Defaults
 
@@ -175,7 +175,7 @@ This test is not expected to support:
 
 - An heterogeneus network in which nodes have different configurations
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -230,7 +230,7 @@ This test is not expected to support:
 
 - An heterogeneus network in which nodes have different configurations
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -275,7 +275,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
   - Image B - Base `js-ipfs` running in a Browser
     - `Browser` The Browser in which js-ipfs will be running from
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -302,7 +302,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   -
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -329,7 +329,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   - b
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -356,7 +356,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   - b
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -383,7 +383,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   - b
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -410,7 +410,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   - b
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
@@ -437,7 +437,7 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 - **Image Parameters**
   - b
 
-### Test Narratives
+### Tests
 
 #### `Test:` _NAME_
 
