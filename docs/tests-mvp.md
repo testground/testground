@@ -28,7 +28,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
   - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
 - **Image Parameters**
   - Single Image - The go-ipfs commit that is being tested
-
   - Image Resources CPU & Ram
   - Offline/Online - Specify if you want the node to run connected to the other nodes or not
 
