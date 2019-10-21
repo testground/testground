@@ -20,10 +20,9 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/imdario/mergo v0.3.7
+	github.com/ipfs/testground/plans/smlbench v0.0.0-20191021055434-2033a9495c93 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20190803045625-94edacc10f9b
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -40,7 +39,6 @@ require (
 	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 // indirect
 	golang.org/x/tools v0.0.0-20190911225940-c7d52e45e2f2 // indirect
 	google.golang.org/grpc v1.23.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
