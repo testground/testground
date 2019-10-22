@@ -25,7 +25,77 @@ Ensuring that a node can always connect to the rest of the network, if not compl
 
 ## Tests
 
-### `Test:` _NAME_
+### `Test:` TCP hole punching
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - Create the Bootstrapper nodes that are connected among themselves and support every transport
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+## `Test:` uTP hole punching
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - Create the Bootstrapper nodes that are connected among themselves and support every transport
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+### `Test:` QUIC hole punching
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - Create the Bootstrapper nodes that are connected among themselves and support every transport
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+## `Test:` WebRTC hole punching
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - Create the Bootstrapper nodes that are connected among themselves and support every transport
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+## `Test:` Circuit Relay (between all transports combinations)
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - Create the Bootstrapper nodes that are connected among themselves and support every transport
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+## `Test:` go-ipfs to js-ipfs to browser Interop (Transports & Relay)
 
 - **Test Parameters**
   - n/a

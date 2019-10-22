@@ -11,7 +11,49 @@
 
 ## Tests
 
-### `Test:` _NAME_
+### `Test:` DHT Router
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - a
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+### `Test:` PubSub Router
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - a
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+### `Test:` DNS Router
+
+- **Test Parameters**
+  - n/a
+- **Narrative**
+  - **Warm up**
+    - a
+  - **Act I**
+    - b
+  - **Act II**
+    - c
+  - **Act III**
+    - d
+
+### `Test:` Cloudfare Workers Router
 
 - **Test Parameters**
   - n/a
