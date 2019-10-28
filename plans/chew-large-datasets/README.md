@@ -76,7 +76,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
     - Add each file and directory using the files.write function
     - Output to total size of the IPFS Repo and size of the MFS root tree
   - **Act II**
-    - Pin the MFS root hash
     - Run GC
     - Output to total size of the IPFS Repo and size of the MFS root tree
 
@@ -95,7 +94,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
     - Add each file and directory using the files.write function
     - Output to total size of the IPFS Repo and size of the MFS root tree
   - **Act II**
-    - Pin the MFS root hash
     - Run GC
     - Output to total size of the IPFS Repo and size of the MFS root tree
 
@@ -129,9 +127,9 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
-    - Run FileStore on the folder with Random Data
-    - Verify that all files are listed on the Manifest
+    - `ipfs add --copy` on the folder with Random Data (the --copy will use the FileStore)
+    - Verify that all files are listed on the Manifest with `ipfs filestore ls`
   - **Act II**
     - Generate 10 more random files.
-    - Run FileStore again
-    - Verify that all files are listed on the Manifes
+    - `ipfs add --copy` again
+    - Verify that all files are listed on the Manifest with `ipfs filestore ls`
