@@ -1,8 +1,9 @@
-package main
+package utils
 
 import (
-	"context"
 	"fmt"
+	"context"
+
 	"io/ioutil"
 	"path/filepath"
 
@@ -85,7 +86,7 @@ func createNode(ctx context.Context, repoPath string) (iCore.CoreAPI, error) {
 	return coreapi.NewCoreAPI(node)
 }
 
-// Spawns a node to be used just for this run (i.e. creates a tmp repo)
+// CreateIpfsInstance spawns a node to be used just for this run (i.e. creates a tmp repo)
 func CreateIpfsInstance(ctx context.Context) (iCore.CoreAPI, error) {
 	if err := setupPlugins(""); err != nil {
 		return nil, err
