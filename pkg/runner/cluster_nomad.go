@@ -13,7 +13,8 @@ var _ Runner = (*NomadRunner)(nil)
 
 // TODO: NomadRunner.
 func (*NomadRunner) Run(input *Input) (*Output, error) {
-	return nil, nil
+	// TODO
+	panic("unimplemented")
 }
 
 func (*NomadRunner) ID() string {
@@ -22,10 +23,10 @@ func (*NomadRunner) ID() string {
 
 func (*NomadRunner) ConfigType() reflect.Type {
 	// TODO
-	return nil
+	panic("unimplemented")
 }
 
 func (*NomadRunner) CompatibleBuilders() []string {
 	// TODO
-	return nil
+	panic("unimplemented")
 }
