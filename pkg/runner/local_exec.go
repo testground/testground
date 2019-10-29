@@ -20,6 +20,7 @@ type LocalExecutableRunner struct{}
 var _ Runner = (*LocalExecutableRunner)(nil)
 
 func (*LocalExecutableRunner) Run(input *Input) (*Output, error) {
+	panic("unimplemented")
 	var (
 		plan      = input.TestPlan
 		seq       = input.Seq
@@ -94,10 +95,10 @@ func (*LocalExecutableRunner) ID() string {
 
 func (*LocalExecutableRunner) ConfigType() reflect.Type {
 	// TODO
-	return nil
+	panic("unimplemented")
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	// TODO
-	return nil
+	panic("unimplemented")
 }
