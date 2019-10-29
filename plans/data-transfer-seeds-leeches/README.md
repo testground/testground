@@ -12,6 +12,7 @@ Create an environment in which combinations of seeds and leeches are varied. Thi
   - time from the first leech request to the last leech block receipt
 - (Minimize) The bandwidth consumed to fetch a file. Lower is Better
   - To compute this, capture: The byte size of duplicated blocks received vs. total blocks received
+- (Minimize) The total time to transfer all data to all leeches
 - (Reach) The number of nodes that were able to fetch all files as instructed. (Reach 100% success of all fetches)
 - (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
 
