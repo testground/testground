@@ -22,6 +22,8 @@ Create an environment in which combinations of seeds and leeches are varied. Thi
   - `Region` - Region or Regions where the test should be run at (default to single region)
   - `Seeds` - Number of seeds
   - `Leeches` - Number of leeches
+  - `Latency Average` - The average latency of connections in the system
+  - `Latency Variance` - The variance over the average latency
 - **Image Parameters**
   - Single Image - The go-ipfs commit that is being tested
     - Ran with custom libp2p & IPFS suites (swap in/out Bitswap & GraphSync versions, Crypto Channels, Transports and other libp2p components)
