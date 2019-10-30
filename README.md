@@ -31,7 +31,7 @@ The current TestGround Team is composed of:
 
 We run a Weekly Sync at 4pm Tuesdays on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit?both) and stored at [meeting-notes](https://github.com/ipfs/testground/tree/master/_meeting-notes). This weekly is listed on the [IPFS Community Calendar](https://github.com/ipfs/community#community-calendar). Recordings can be found [here](https://drive.google.com/open?id=1VL57t9ZOtk5Yw-cQoG7TtKaf3agDsrLc)(currently only available to the team).
 
-We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/workspaces/test-ground-5db6a5bf7ca61c00014e2961/board?repos=197244214). Notes on using the Kanban:
+We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/workspaces/test-ground-5db6a5bf7ca61c00014e2961/board?repos=197244214) (plus, if you want to give your browser super powers, get the [Zenhub extension](https://www.zenhub.com/extension)). Notes on using the Kanban:
 - The multiple stages are:
   - **Inbox** - New issues or PRs that haven't been evaluated yet
   - **Icebox** - Low priority, un-prioritized Issues that are not immediate priorities.
