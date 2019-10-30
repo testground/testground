@@ -18,6 +18,7 @@ Create an environment in which latency and connectivity vary while a file is bei
 
 - **Network Parameters**
   - `Node count` - The number of nodes
+  - `Legacy Node ratio` - The ratio of nodes running a legacy version of Bitswap/GraphSync to current version
   - `Node lifetime average` - The average amount of time a seed node stays online
   - `Node lifetime variance` - The variance over the average lifetime
   - `Latency Average` - The average latency of connections in the system
