@@ -39,6 +39,7 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
   - **Ready** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
   - **In Progress** - Issues that someone is already tackling. Contributors should focus on a few things rather than many at once.
   - **Review/QA** - Issues open to the team for review and testing. Code is ready to be deployed pending feedback.
+  - **OKR** - This column is just a location for the OKR cards to live until all the work under them is complete.
   - **Closed/Done** - Issues are automatically moved here when the issue is closed or the PR merged. Means that the work of the issue has been complete.
 - We label issues using the following guidelines:
   - `difficulty:{easy, moderate, hard}` - This is an instinctive measure give by the project lead, project maintainer and/or architect.. It is a subjective best guess, however the current golden rule is that an issue with difficulty:easy should not require more than a morning (3~4 hours) to do and it should not require having to mess with multiple modules to complete. Issues with difficulty moderate or hard might require some discussion around the problem or even request that another team (i.e go-ipfs) makes some changes. The length of moderate or hard issue might be a day to ad-aeternum.
