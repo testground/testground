@@ -13,6 +13,8 @@ Create an environment in which combinations of seeds and leeches are varied. Thi
 - (Minimize) The bandwidth consumed to fetch a file. Lower is Better
   - To compute this, capture: The byte size of duplicated blocks received vs. total blocks received
 - (Minimize) The total time to transfer all data to all leeches
+- (Minimize) The amount of "background" data transfer
+  - To compute this, capture the total bytes transferred to all nodes (including passive nodes) vs theoretical minimum.
 - (Reach) The number of nodes that were able to fetch all files as instructed. (Reach 100% success of all fetches)
 - (Reach) No node is expected to crash/panic during this Test Plan. (Reach 0% crashes)
 
@@ -22,6 +24,7 @@ Create an environment in which combinations of seeds and leeches are varied. Thi
   - `Region` - Region or Regions where the test should be run at (default to single region)
   - `Seeds` - Number of seeds
   - `Leeches` - Number of leeches
+  - `Passive Nodes` - Number of nodes that are neither seeds nor leeches
   - `Latency Average` - The average latency of connections in the system
   - `Latency Variance` - The variance over the average latency
 - **Image Parameters**
