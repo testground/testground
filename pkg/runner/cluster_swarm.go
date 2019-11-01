@@ -91,6 +91,9 @@ func (*ClusterSwarmRunner) Run(input *Input) (*Output, error) {
 		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
 	}
 
+  // Temp Redis fix
+	env = append(env, "REDIS_HOST=172.31.14.166")
+
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -112,12 +115,17 @@ func (*ClusterSwarmRunner) Run(input *Input) (*Output, error) {
     },
     TaskTemplate: swarm.TaskSpec{
       ContainerSpec: &swarm.ContainerSpec{
-        Image: "alpine",
+        Image: "909427826938.dkr.ecr.us-west-2.amazonaws.com/testground:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855@sha256:e175f10c2fc0545ede1de08458dffbea5b3efb3c023963028eac9129f4fd5920",
         Env: env,
-        Command: []string{ "ping", "docker.com" },
       },
-      // RestartPolicy
-      // Networks
+      RestartPolicy: &swarm.RestartPolicy{
+        Condition: swarm.RestartPolicyConditionNone,
+      },
+      Networks: []swarm.NetworkAttachmentConfig{
+        {
+          Target: "hw6dcms11qhf3iv3rr2j8a2vb",
+        },
+      },
     },
     Mode: swarm.ServiceMode{
       Replicated: &swarm.ReplicatedService{
