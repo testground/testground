@@ -1,0 +1,19 @@
+[all]
+{% for item in new_hosts %}
+{{ item }}
+{% endfor %}
+
+[manager]
+{% for item in manager_hosts %}
+{{ item }}
+{% endfor %}
+
+[redis]
+{% for item in redis_hosts %}
+{{ item }}
+{% endfor %}
+
+[workers]
+{% for item in worker_hosts %}
+{{ item }}
+{% endfor %}
