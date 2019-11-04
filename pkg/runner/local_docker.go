@@ -16,6 +16,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -31,7 +32,7 @@ import (
 )
 
 var (
-	_ Runner = &LocalDockerRunner{}
+	_ api.Runner = &LocalDockerRunner{}
 )
 
 // LocalDockerRunnerConfig is the configuration object of this runner. Boolean
@@ -71,12 +72,12 @@ type LocalDockerRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
+func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	var (
 		image    = input.ArtifactPath
 		seq      = input.Seq
 		deferred []func() error
-		log      = logging.S().With("runner", "local:docker", "run_id", input.ID)
+		log      = logging.S().With("runner", "local:docker", "run_id", input.RunID)
 	)
 
 	defer func() {
@@ -109,7 +110,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 	runenv := &runtime.RunEnv{
 		TestPlan:           input.TestPlan.Name,
 		TestCase:           testcase.Name,
-		TestRun:            input.ID,
+		TestRun:            input.RunID,
 		TestCaseSeq:        seq,
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
@@ -153,7 +154,7 @@ func (*LocalDockerRunner) Run(input *Input) (*Output, error) {
 	// Start as many containers as test case instances.
 	var containers []string
 	for i := 0; i < input.Instances; i++ {
-		name := fmt.Sprintf("tg-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.ID, i)
+		name := fmt.Sprintf("tg-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, i)
 
 		log.Infow("creating container", "name", name)
 

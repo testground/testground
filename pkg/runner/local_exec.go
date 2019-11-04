@@ -2,91 +2,132 @@ package runner
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"reflect"
 	"strconv"
 	"sync"
 
+	"github.com/logrusorgru/aurora"
+
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
-
-	"github.com/google/uuid"
 )
+
+var _ api.Runner = (*LocalExecutableRunner)(nil)
 
 type LocalExecutableRunner struct{}
 
-var _ Runner = (*LocalExecutableRunner)(nil)
+// LocalExecutableRunnerCfg is the configuration struct for this runner.
+type LocalExecutableRunnerCfg struct{}
 
-func (*LocalExecutableRunner) Run(input *Input) (*Output, error) {
-	panic("unimplemented")
+func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	var (
-		plan      = input.TestPlan
-		seq       = input.Seq
-		instances = input.Instances
-		name      = plan.Name
+		plan        = input.TestPlan
+		seq         = input.Seq
+		instances   = input.Instances
+		name        = plan.Name
+		redisWaitCh = make(chan struct{})
 	)
+
+	// Housekeeping. If we've started a temporary redis instance for this test,
+	// this defer will keep the runtime alive until it's shut down, giving us an
+	// opportunity to print the "redis stopped successfully" log statement.
+	// Otherwise, it might not be printed out at all.
+	defer func() { <-redisWaitCh }()
 
 	if seq >= len(plan.TestCases) {
 		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
 	}
 
-	tcase := plan.TestCases[seq]
+	// Check if a local Redis instance is running. If not, try to start it.
+	if _, err := net.Dial("tcp", "localhost:6379"); err == nil {
+		fmt.Println("local redis instance check: OK")
+		close(redisWaitCh)
+	} else {
+		// Try to start a Redis instance.
+		fmt.Println("local redis instance check: FAIL; attempting to start one for this run")
 
-	// Validate instance count.
-	if instances == 0 {
-		instances = tcase.Instances.Default
-	} else if instances < tcase.Instances.Minimum || tcase.Instances.Maximum > instances {
-		str := "instance count outside (%d) of allowable range [%d, %d] for test %s"
-		err := fmt.Errorf(str, instances, tcase.Instances.Minimum, tcase.Instances.Maximum, name)
-		return nil, err
+		// This context gets cancelled when the runner has finished, which in
+		// turn signals the temporary Redis instance to shut down.
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		cmd := exec.CommandContext(ctx, "redis-server", "--notify-keyspace-events", "$szxK")
+		if err := cmd.Start(); err == nil {
+			fmt.Println("temporary redis instance started successfully")
+		} else {
+			close(redisWaitCh)
+			return nil, fmt.Errorf("temporary redis instance failed to start: %w", err)
+		}
+
+		// This goroutine monitors the redis instance, and prints a log output
+		// when it's done. The cmd.Wait() returns when the context is cancelled,
+		// which happens when the runner finishes. Once we print the log
+		// statement, we close the redis wait channel, which allows the method
+		// to return.
+		go func() {
+			cmd.Wait()
+			fmt.Println("temporary redis instance stopped successfully")
+			close(redisWaitCh)
+		}()
 	}
 
-	// Spawn as many instances as the test case dictates.
+	testcase := plan.TestCases[seq]
+
+	// Build a runenv.
+	runenv := &runtime.RunEnv{
+		TestPlan:           input.TestPlan.Name,
+		TestCase:           testcase.Name,
+		TestRun:            input.RunID,
+		TestCaseSeq:        seq,
+		TestInstanceCount:  input.Instances,
+		TestInstanceParams: input.Parameters,
+	}
+
+	// Spawn as many instances as the input parameters require.
 	var wg sync.WaitGroup
 	for i := 0; i < instances; i++ {
-		cmd := exec.Command(input.ArtifactPath)
-
-		// Populate the environment.
-		env := map[string]string{
-			runtime.EnvTestPlan:          name,
-			runtime.EnvTestRun:           uuid.New().String(),
-			runtime.EnvTestBranch:        "<TODO>",
-			runtime.EnvTestTag:           "<TODO>",
-			runtime.EnvTestCaseSeq:       strconv.Itoa(input.Seq),
-			runtime.EnvTestInstanceCount: strconv.Itoa(instances),
+		var env []string
+		for k, v := range runenv.ToEnvVars() {
+			env = append(env, k+"="+v)
 		}
 
-		cmd.Env = make([]string, 0, len(env))
-		for k, v := range env {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
+		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
 
-		logging.S().Infow("starting test case instance", "testcase", name, "runenv", cmd.Env)
+		a := aurora.NewAurora(logging.IsTerminal())
 
 		wg.Add(1)
-		go func() {
+		go func(n int) {
+			defer wg.Done()
+
 			var (
+				nstr      = strconv.Itoa(n)
+				color     = uint8(n%15) + 1
+				cmd       = exec.Command(input.ArtifactPath)
 				stdout, _ = cmd.StdoutPipe()
 				stderr, _ = cmd.StderrPipe()
 				combined  = io.MultiReader(stdout, stderr)
 				scanner   = bufio.NewScanner(combined)
 			)
 
+			cmd.Env = env
 			cmd.Start()
+			defer cmd.Wait()
 
 			for scanner.Scan() {
-				l := scanner.Text()
-				fmt.Println(l)
+				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
 			}
-
-			wg.Done()
-		}()
+		}(i)
 	}
+
 	wg.Wait()
 
-	return new(Output), nil
+	return new(api.RunOutput), nil
 }
 
 func (*LocalExecutableRunner) ID() string {
@@ -94,11 +135,9 @@ func (*LocalExecutableRunner) ID() string {
 }
 
 func (*LocalExecutableRunner) ConfigType() reflect.Type {
-	// TODO
-	panic("unimplemented")
+	return reflect.TypeOf(&LocalExecutableRunnerCfg{})
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
-	// TODO
-	panic("unimplemented")
+	return []string{"exec:go"}
 }

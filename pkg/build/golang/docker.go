@@ -1,4 +1,4 @@
-package build
+package golang
 
 import (
 	"context"
@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
@@ -23,7 +25,7 @@ import (
 )
 
 var (
-	_ Builder = &DockerGoBuilder{}
+	_ api.Builder = &DockerGoBuilder{}
 )
 
 // DockerGoBuilder builds the test plan as a go-based container.
@@ -40,16 +42,15 @@ type DockerGoBuilderConfig struct {
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
-// Build builds a testplan written in Go into a Docker container.
-func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
-	// TODO apply configuration overrides.
+// Build builds a testplan written in Go and outputs a Docker container.
+func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) {
 	cfg, ok := opts.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", opts.BuildConfig)
 	}
 
 	var (
-		id          = CanonicalBuildID(opts)
+		id          = build.CanonicalBuildID(opts)
 		cli, err    = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	)
@@ -61,7 +62,7 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 			return nil, err
 		} else if exists {
 			fmt.Println("found cached docker image for:", id)
-			return &Output{ArtifactPath: id}, nil
+			return &api.BuildOutput{ArtifactPath: id}, nil
 		}
 	}
 
@@ -74,9 +75,9 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 
 	var (
 		plansrc        = opts.TestPlan.SourcePath
-		sdksrc         = filepath.Join(opts.BaseDir, "/sdk")
-		dockerfilesrc  = filepath.Join(opts.BaseDir, "pkg", "build", "Dockerfile.template")
-		installipfssrc = filepath.Join(opts.BaseDir, "pkg", "build", "install-ipfs.sh")
+		sdksrc         = filepath.Join(opts.Directories.SourceDir(), "/sdk")
+		dockerfilesrc  = filepath.Join(opts.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
+		installipfssrc = filepath.Join(opts.Directories.SourceDir(), "pkg", "build", "install-ipfs.sh")
 
 		plandst        = filepath.Join(tmp, "plan")
 		sdkdst         = filepath.Join(tmp, "sdk")
@@ -136,11 +137,11 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range opts.Dependencies {
+		// TODO(RK): allow to override target of replaces, so we can test against forks.
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, mod, ver))
 	}
 
-	// Inject a replace directive for the testground's source code.
-	// TODO make the module mapping dynamic.
+	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync"),
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb"),
@@ -180,7 +181,7 @@ func (b *DockerGoBuilder) Build(opts *Input) (*Output, error) {
 		return nil, err
 	}
 
-	return &Output{ArtifactPath: id}, nil
+	return &api.BuildOutput{ArtifactPath: id}, nil
 }
 
 func validateSdkDir(dir string) error {

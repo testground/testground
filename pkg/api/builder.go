@@ -1,9 +1,7 @@
-package build
+package api
 
 import (
 	"reflect"
-
-	"github.com/ipfs/testground/pkg/api"
 )
 
 // Builder is the interface to be implemented by all builders. A builder takes a
@@ -14,18 +12,18 @@ type Builder interface {
 	ID() string
 
 	// Build performs a build.
-	Build(job *Input) (*Output, error)
+	Build(input *BuildInput) (*BuildOutput, error)
 
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type
 }
 
-// Input encapsulates the input options for building a test plan.
-type Input struct {
+// BuildInput encapsulates the input options for building a test plan.
+type BuildInput struct {
+	// Directories providers accessors to directories managed by the runtime.
+	Directories Directories
 	// TestPlan is the metadata of the test plan being built.
-	TestPlan *api.TestPlanDefinition
-	// BaseDir is the base directory of the testground source code.
-	BaseDir string
+	TestPlan *TestPlanDefinition
 	// Dependencies are the versions of upstream dependencies we want to build
 	// against. For a go build, this could be e.g.:
 	//  github.com/ipfs/go-ipfs=v0.4.22
@@ -36,8 +34,8 @@ type Input struct {
 	BuildConfig interface{}
 }
 
-// Output encapsulates the output from a build action.
-type Output struct {
+// BuildOutput encapsulates the output from a build action.
+type BuildOutput struct {
 	// BuilderID is the ID of the builder used.
 	BuilderID string
 	// ArtifactPath can be the docker image ID, a file location, etc. of the

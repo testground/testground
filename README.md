@@ -108,7 +108,7 @@ This command may take a couple of minutes to complete. If successful, it will en
 Now test that everything is installed correctly by running
 
 ```sh
-> TESTGROUND_BASEDIR=`pwd` testground
+> TESTGROUND_SRCDIR=`pwd` testground
 resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 NAME:
    testground - A new cli application
@@ -130,10 +130,24 @@ NAME:
 
 ### Running the tests locally with TestGround
 
-To run a test locally, you can use the `testground run` command. Check what Plans and Tests are available by running the `list` command:
+To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
 ```
-> TESTGROUND_BASEDIR=`pwd` testground list
+> ls plans
+dht      smlbench
+```
+
+Then do
+
+```
+> TESTGROUND_SRCDIR=`pwd` testground run dht/lookup-peers --builder=docker:go
+..
+```
+
+To check which Test Plan and Test Cases are available do:
+
+```
+> TESTGROUND_SRCDIR=`pwd` testground list
 resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 dht/lookup-peers
 dht/lookup-providers

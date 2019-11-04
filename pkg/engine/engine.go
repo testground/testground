@@ -10,17 +10,19 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/runner"
 )
 
 // AllBuilders enumerates all builders known to the system.
-var AllBuilders = []build.Builder{
-	&build.DockerGoBuilder{},
+var AllBuilders = []api.Builder{
+	&golang.DockerGoBuilder{},
+	&golang.ExecGoBuilder{},
 }
 
 // AllRunners enumerates all builders known to the system.
-var AllRunners = []runner.Runner{
+var AllRunners = []api.Runner{
 	&runner.LocalDockerRunner{},
 	&runner.LocalExecutableRunner{},
 }
@@ -39,21 +41,26 @@ type Engine struct {
 	// census is a catalogue of all test plans known to this engine.
 	census *TestCensus
 	// builders binds builders to their identifying key.
-	builders map[string]build.Builder
+	builders map[string]api.Builder
 	// runners binds runners to their identifying key.
-	runners map[string]runner.Runner
+	runners map[string]api.Runner
+	// dirs stores the path of important directories.
+	dirs struct {
+		src  string
+		work string
+	}
 }
 
 type EngineConfig struct {
-	Builders []build.Builder
-	Runners  []runner.Runner
+	Builders []api.Builder
+	Runners  []api.Runner
 }
 
-func NewEngine(cfg *EngineConfig) *Engine {
+func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	e := &Engine{
 		census:   newTestCensus(),
-		builders: make(map[string]build.Builder, len(cfg.Builders)),
-		runners:  make(map[string]runner.Runner, len(cfg.Runners)),
+		builders: make(map[string]api.Builder, len(cfg.Builders)),
+		runners:  make(map[string]api.Runner, len(cfg.Runners)),
 	}
 
 	for _, b := range cfg.Builders {
@@ -64,22 +71,36 @@ func NewEngine(cfg *EngineConfig) *Engine {
 		e.runners[r.ID()] = r
 	}
 
-	return e
+	srcdir, err := locateSrcDir()
+	if err != nil {
+		return nil, err
+	}
+
+	workdir, err := locateWorkDir()
+	if err != nil {
+		return nil, err
+	}
+
+	e.dirs.src = srcdir
+	e.dirs.work = workdir
+
+	return e, nil
 }
 
-func NewDefaultEngine() *Engine {
+func NewDefaultEngine() (*Engine, error) {
 	cfg := &EngineConfig{
 		Builders: AllBuilders,
 		Runners:  AllRunners,
 	}
 
-	engine := NewEngine(cfg)
-
-	for _, p := range discoverTestPlans() {
-		engine.census.EnrollTestPlan(p)
+	e, err := NewEngine(cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	return engine
+	e.discoverTestPlans()
+
+	return e, nil
 }
 
 func (e *Engine) TestCensus() *TestCensus {
@@ -89,7 +110,7 @@ func (e *Engine) TestCensus() *TestCensus {
 	return e.census
 }
 
-func (e *Engine) BuilderByName(name string) (build.Builder, bool) {
+func (e *Engine) BuilderByName(name string) (api.Builder, bool) {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
@@ -97,7 +118,7 @@ func (e *Engine) BuilderByName(name string) (build.Builder, bool) {
 	return m, ok
 }
 
-func (e *Engine) RunnerByName(name string) (runner.Runner, bool) {
+func (e *Engine) RunnerByName(name string) (api.Runner, bool) {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
@@ -105,29 +126,29 @@ func (e *Engine) RunnerByName(name string) (runner.Runner, bool) {
 	return m, ok
 }
 
-func (e *Engine) ListBuilders() map[string]build.Builder {
+func (e *Engine) ListBuilders() map[string]api.Builder {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
-	m := make(map[string]build.Builder, len(e.builders))
+	m := make(map[string]api.Builder, len(e.builders))
 	for k, v := range e.builders {
 		m[k] = v
 	}
 	return m
 }
 
-func (e *Engine) ListRunners() map[string]runner.Runner {
+func (e *Engine) ListRunners() map[string]api.Runner {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
-	m := make(map[string]runner.Runner, len(e.runners))
+	m := make(map[string]api.Runner, len(e.runners))
 	for k, v := range e.runners {
 		m[k] = v
 	}
 	return m
 }
 
-func (e *Engine) DoBuild(testplan string, builder string, input *build.Input) (*build.Output, error) {
+func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput) (*api.BuildOutput, error) {
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
@@ -159,14 +180,14 @@ func (e *Engine) DoBuild(testplan string, builder string, input *build.Input) (*
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
+	input.Directories = e
 	input.TestPlan = plan
-	input.BaseDir = BaseDir
 	input.BuildConfig = cfg
 
 	return bm.Build(input)
 }
 
-func (e *Engine) DoRun(testplan string, testcase string, runner string, input *runner.Input) (*runner.Output, error) {
+func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput) (*api.RunOutput, error) {
 	// Find the test plan.
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
@@ -186,8 +207,13 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *r
 	}
 
 	// Fall back to default instance count if none was provided.
-	if input.Instances == 0 {
+	// Else validate the desired number of instances is within bounds.
+	if instances := input.Instances; instances == 0 {
 		input.Instances = tcase.Instances.Default
+	} else if instances < tcase.Instances.Minimum || instances > tcase.Instances.Maximum {
+		str := "instance count outside (%d) of allowable range [%d, %d] for test %s"
+		err := fmt.Errorf(str, instances, tcase.Instances.Minimum, tcase.Instances.Maximum, testcase)
+		return nil, err
 	}
 
 	// Get the base configuration of the run strategy.
@@ -217,7 +243,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *r
 		return nil, fmt.Errorf("error while generating test run ID: %w", err)
 	}
 
-	input.ID = id.String()
+	input.RunID = id.String()
 	input.RunnerConfig = cfg
 	input.Seq = seq
 	input.TestPlan = plan
