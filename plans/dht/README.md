@@ -52,7 +52,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
     - `p-failing` of the nodes attempt to resolve records that do not exist
 
 
-### `Test:` Providing Records
+### `Test:` Provide Stress
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
