@@ -49,14 +49,14 @@ The testing Plans linked below have been identified as the most valuable sets of
 
 - 01. [`Plan:` Chewing strategies for Large DataSets](../plans/chew-large-datasets)
 - 02. [`Plan:` Data Transfer of Random DataSets (Bitswap/GraphSync)](../plans/data-transfer-datasets-random)
-- 03. [`Plan:` Data Exchange with Datasets of Interest (BitSwap/GraphSync)](../plans/data-transfer-datasets-interest)
+- 03. [`Plan:` Data Transfer with Datasets of Interest (BitSwap/GraphSync)](../plans/data-transfer-datasets-interest)
 - 04. [`Plan:` Nodes Connectivity (Transports, Hole Punching, Relay)](../plans/nodes-connectivity)
 - 05. [`Plan:` Providing Content (Content Routing / DHT)](../plans/providing-content)
 - 06. [`Plan:` Message Delivery (PubSub)](../plans/message-delivery)
 - 07. [`Plan:` Naming (IPNS & its multiple routers)](../plans/naming)
-- 08. `TBD`
-- 09. `TBD`
-- 10. `TBD`
+- 08. [`Plan:` Bitswap specifics](https://github.com/ipfs/testground/pull/82)
+- 09. [`Plan:` Data Transfer with variable connectivity](https://github.com/ipfs/testground/pull/87)
+- 10. [`Plan:` go-libp2p DHT](../plans/dht)
 
 There are 2 other test plans that were created to test the functionality of TestGround and to be used as a demo. These are:
 
