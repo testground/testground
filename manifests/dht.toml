@@ -28,7 +28,7 @@ enabled = true
 
 # seq 0
 [[testcases]]
-name = "lookup-peers"
+name = "find-peers"
 instances = { min = 2, max = 200, default = 50 }
 
   [testcases.params]
@@ -37,13 +37,21 @@ instances = { min = 2, max = 200, default = 50 }
 
 # seq 1
 [[testcases]]
-name = "lookup-providers"
+name = "find-providers"
 instances = { min = 2, max = 100, default = 50 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
 
 # seq 2
+[[testcases]]
+name = "provide-stress"
+instances = { min = 2, max = 100, default = 50 }
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+
+# seq 3
 [[testcases]]
 name = "store-get-value"
 instances = { min = 2, max = 100, default = 50 }

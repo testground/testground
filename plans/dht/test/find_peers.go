@@ -9,16 +9,21 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
+	datastore "github.com/ipfs/go-datastore"
+	libp2p "github.com/libp2p/go-libp2p"
+	host "github.com/libp2p/go-libp2p-core/host"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
-
-	"github.com/ipfs/go-datastore"
 )
 
-func LookupPeers(runenv *runtime.RunEnv) {
+// Run this test with
+// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run dht/find-peer --builder=docker:go --runner="local:docker" --dep="github.com/libp2p/go-libp2p-kad-dht=master"
+
+// FindPeers is the Find Peers Test Case
+func FindPeers(runenv *runtime.RunEnv) {
+	// Test Parameters
+
 	var (
 		timeout    = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
 		bucketSize = runenv.IntParamD("bucket_size", 20)
@@ -27,19 +32,23 @@ func LookupPeers(runenv *runtime.RunEnv) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// moot assignment to pacify the compiler. We need to merge the configurable
-	// bucket size param upstream.
-	_ = bucketSize
+	/// --- Warm up
 
-	h, err := libp2p.New(context.Background())
+	node, err := libp2p.New(context.Background())
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
-	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
+	runenv.Message("I am %s with addrs: %v", node.ID(), node.Addrs())
 
-	dht, err := dht.New(context.Background(), h, dhtopts.Datastore(datastore.NewMapDatastore()))
+	// TODO enable/disable random-walk based on test parameter
+	dhtOptions := []dhtopts.Option{
+		dhtopts.Datastore(datastore.NewMapDatastore()),
+		dhtopts.BucketSize(bucketSize),
+	}
+
+	dht, err := dht.New(context.Background(), node, dhtOptions...)
 	if err != nil {
 		runenv.Abort(err)
 		return
@@ -48,7 +57,7 @@ func LookupPeers(runenv *runtime.RunEnv) {
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 
-	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(h)); err != nil {
+	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
 		runenv.Abort(err)
 		return
 	}
@@ -63,7 +72,7 @@ func LookupPeers(runenv *runtime.RunEnv) {
 		select {
 		case ai := <-peerCh:
 			id1, _ := ai.ID.MarshalBinary()
-			id2, _ := h.ID().MarshalBinary()
+			id2, _ := node.ID().MarshalBinary()
 			if bytes.Compare(id1, id2) >= 0 {
 				// skip over dialing ourselves, and prevent TCP simultaneous
 				// connect (known to fail) by only dialing peers whose peer ID
@@ -81,15 +90,25 @@ func LookupPeers(runenv *runtime.RunEnv) {
 	}
 
 	for _, ai := range toDial {
-		err = h.Connect(ctx, *ai)
+		err = node.Connect(ctx, *ai)
 		if err != nil {
 			runenv.Abort(fmt.Errorf("error while dialing peer %v: %w", ai.Addrs, err))
 			return
 		}
 	}
 
-	for i, id := range h.Peerstore().PeersWithAddrs() {
+	// TODO: Check if `random-walk` is enabled, if yes, run it 5 times
+
+	/// --- Act I
+
+	// TODO: Instrument libp2p dht to get:
+	// - Number of peers dialed
+	// - Number of dials along the way that failed
+
+	for i, id := range node.Peerstore().PeersWithAddrs() {
 		t := time.Now()
+
+		// TODO call FindPeer `n-find-peers` times, each time a different peer
 		if _, err := dht.FindPeer(ctx, id); err != nil {
 			runenv.Abort(err)
 			return
@@ -103,6 +122,8 @@ func LookupPeers(runenv *runtime.RunEnv) {
 	}
 
 	end := sync.State("end")
+
+	/// --- Ending the test
 
 	// Set a state barrier.
 	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
