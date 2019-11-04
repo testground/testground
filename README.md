@@ -10,14 +10,46 @@
 
 You may have noticed a few test efforts with similar names underway! Testing at scale is a hard problem. We are indeed exploring and experimenting a lot, until we land on an end-to-end solution that works for us.
 
-* Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
-  * a simple utility to manage local clusters/aggregates of IPFS instances.
-* libp2p testlab: https://github.com/libp2p/testlab
-  * a Nomad deployer for libp2p nodes with a DSL for test scenarios.
+-  Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
+  - a simple utility to manage local clusters/aggregates of IPFS instances.
+- libp2p testlab: https://github.com/libp2p/testlab
+  - a Nomad deployer for libp2p nodes with a DSL for test scenarios.
+- And others such as https://github.com/ipfs/interop and https://github.com/ipfs/benchmarks
 
 The Interplanetary Test Ground aims to leverage the learnings and tooling resulting from those efforts to provide a scalable runtime environment for the execution of various types of tests and benchmarks, written in different languages, by different teams, targeting a specific commit of IPFS and/or libp2p, and quantifying its characteristics in terms of performance, resource and network utilisation, stability, interoperability, etc., when compared to other commits.
 
 The Interplanetary Test Ground aims to be tightly integrated with the software engineering practices and tooling the IPFS and libp2p teams rely on.
+
+## Team
+
+The current TestGround Team is composed of:
+
+- @raulk - Lead Architect, Engineer, Developer
+- @daviddias - Engineer, Developer, acting as interim PM for the project
+- @jimpick - Engineer, Developer, Infrastructure Lead
+- you! Yes, you can contribute as well, however, do understand that this is a brand new and fast moving project and so contributing might require extra time to onboard
+
+We run a Weekly Sync at 4pm Tuesdays on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit?both) and stored at [meeting-notes](https://github.com/ipfs/testground/tree/master/_meeting-notes). This weekly is listed on the [IPFS Community Calendar](https://github.com/ipfs/community#community-calendar). Recordings can be found [here](https://drive.google.com/open?id=1VL57t9ZOtk5Yw-cQoG7TtKaf3agDsrLc)(currently only available to the team).
+
+We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/workspaces/test-ground-5db6a5bf7ca61c00014e2961/board?repos=197244214) (plus, if you want to give your browser super powers, get the [Zenhub extension](https://www.zenhub.com/extension)). Notes on using the Kanban:
+- The multiple stages are:
+  - **Inbox** - New issues or PRs that haven't been evaluated yet
+  - **Icebox** - Low priority, un-prioritized Issues that are not immediate priorities.
+  - **Blocked** - Issues that are blocked or discussion threads that are not currently active
+  - **Ready** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
+  - **In Progress** - Issues that someone is already tackling. Contributors should focus on a few things rather than many at once.
+  - **Review/QA** - Issues open to the team for review and testing. Code is ready to be deployed pending feedback.
+  - **OKR** - This column is just a location for the OKR cards to live until all the work under them is complete.
+  - **Closed/Done** - Issues are automatically moved here when the issue is closed or the PR merged. Means that the work of the issue has been complete.
+- We label issues using the following guidelines:
+  - `difficulty:{easy, moderate, hard}` - This is an instinctive measure give by the project lead, project maintainer and/or architect.. It is a subjective best guess, however the current golden rule is that an issue with difficulty:easy should not require more than a morning (3~4 hours) to do and it should not require having to mess with multiple modules to complete. Issues with difficulty moderate or hard might require some discussion around the problem or even request that another team (i.e go-ipfs) makes some changes. The length of moderate or hard issue might be a day to ad-aeternum.
+  - `priority (P0, P1, P2, P3, P4)` - P0 is the most important while P4 is the least.
+  - `good first issue` - Issues perfect for new contributors. They will have the information necessary or the pointers for a new contributor to figure out what is required. These issues are never blocked on some other issue be done first.
+  - `help wanted` - A label to flag that the owner of the issue is looking for support to get this issue done.
+-   `blocked` - Work can't progress until a dependency of the issue is resolved.
+- Responsibilities:
+  - Project Maintainer and/or Project Architect - Review issues on Inbox, break them down if necessary, move them into Ready when it is the right time. Also, label issues with priority and difficulty.
+  - Contributors move issues between the Ready, In Progress and Review/QA Colums. Use help wanted and blocked labels in case they want to flag that work.
 
 ## Architecture
 
@@ -63,15 +95,17 @@ Ensure that you are running go 1.13 or later (for gomod support)
 go version go1.13.1 darwin/amd64
 ```
 
-Download the repo and install the dependencies
+Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
 
 ```sh
-> go get git@github.com:ipfs/testground.git
+> go get github.com/ipfs/testground
 # ..fetch and install logs
 > cd $GOPATH/src/github.com/ipfs/testground
 ```
 
-Test that everything is installed correctly by running
+This command may take a couple of minutes to complete. If successful, it will end with no message.
+
+Now test that everything is installed correctly by running
 
 ```sh
 > TESTGROUND_SRCDIR=`pwd` testground
@@ -94,7 +128,7 @@ NAME:
      --help, -h  show help
 ```
 
-### Running the tests locally
+### Running the tests locally with TestGround
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
@@ -123,7 +157,41 @@ smlbench/lookup-providers
 smlbench/store-get-value
 ```
 
-### Running a Test Plan on the TestGround infrastructure
+This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
+
+```
+> TESTGROUND_BASEDIR=`pwd` testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
+...
+```
+
+You should see a bunch of logs that describe the steps of the test, from:
+
+* Setting up the container
+* Compilation of the test case inside the container
+* Starting the containers (total of 50 as 50 is the default number of nodes for this test)
+* You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
+
+### Running a test outside of TestGround orchestrator
+
+You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
+
+Then run it locally with
+
+```
+> redis server
+# ...
+93801:M 03 Oct 2019 14:42:52.430 * Ready to accept connections
+```
+
+Then move into the folder that has the plan and test you want to run locally. Execute it by sessting the TEST_CASE & TEST_CASE_SEQ env variables
+
+```
+> cd plans/dht
+> TEST_CASE="lookup-peers" TEST_CASE_SEQ="0" go run main.go
+# ... test output
+```
+
+### Running a Test Plan on the TestGround Cloud Infrastructure
 
 `To be Written once such infrastructure exists..soon™`
 

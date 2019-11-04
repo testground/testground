@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -111,6 +112,7 @@ func (te *TestEnsemble) Destroy() {
 		}(node)
 	}
 	wg.Wait()
+	time.Sleep(100 * time.Millisecond) // Race?
 
 	err = os.RemoveAll(te.testbed.Dir())
 	if err != nil {

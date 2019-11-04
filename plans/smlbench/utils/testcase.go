@@ -1,4 +1,4 @@
-package smlbench
+package utils
 
 import (
 	"github.com/ipfs/testground/sdk/iptb"
@@ -6,6 +6,9 @@ import (
 )
 
 type SmallBenchmarksTestCase interface {
+	// Name returns a string with the name of the testcase.
+	Name() string
+
 	// Configure configures the specification for the testcase.
 	Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec)
 

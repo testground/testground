@@ -1,4 +1,4 @@
-package smlbench
+package utils
 
 import (
 	"bufio"

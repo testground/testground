@@ -3,49 +3,51 @@ name = "smlbench"
 # from GitHub.
 source_path = "file:${TESTGROUND_SRCDIR}/plans/smlbench"
 
+# Fetches latest go-ipfs
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/smlbench"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+# TODO: Builds latest go-ipfs
 [build_strategies."docker:ipfs"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "./exec"
-  
+module_path = "github.com/ipfs/testground/plans/smlbench"
+exec_pkg = "exec"
+
+# TODO: Runs with local go-ipfs install  
 [build_strategies."exec:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "./exec"
-
-[run_strategies."local:exec"]
-enabled = true
+module_path = "github.com/ipfs/testground/plans/smlbench"
+exec_pkg = "exec"
 
 [run_strategies."local:docker"]
 enabled = true
 
+# TODO
+[run_strategies."local:exec"]
+enabled = true
+
+# TODO
 [run_strategies."cluster:nomad"]
 enabled = true
 
 # seq 0
 [[testcases]]
-name = "lookup-peers"
-instances = { min = 2, max = 100, default = 50 }
+name = "simple-add"
+instances = { min = 1, max = 1, default = 1 }
 
   [testcases.params]
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+  some_param = { type = "int", desc = "some param", unit = "peers" }
 
 # seq 1
 [[testcases]]
-name = "lookup-providers"
-instances = { min = 2, max = 100, default = 50 }
+name = "simple-add-get"
+instances = { min = 1, max = 1, default = 1 }
 
   [testcases.params]
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-
-# seq 2
-[[testcases]]
-name = "store-get-value"
-instances = { min = 2, max = 100, default = 50 }
-roles = ["storer", "fetcher"]
-
-  [testcases.params]
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-
+  some_param = { type = "int", desc = "some param", unit = "peers" }
