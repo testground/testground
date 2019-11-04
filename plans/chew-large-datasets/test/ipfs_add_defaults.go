@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-// IPFS Add Defaults Test
+// IpfsAddDefaults IPFS Add Defaults Test
 func IpfsAddDefaults(runenv *runtime.RunEnv) {
 	var size int64 = 1024 * 1024
 

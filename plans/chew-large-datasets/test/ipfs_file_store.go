@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsFileStore(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo")
+	fmt.Printf("Yo - IpfsFileStore")
 
 	runenv.OK()
 }

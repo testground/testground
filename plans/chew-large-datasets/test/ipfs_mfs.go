@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsMfs(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo")
+	fmt.Printf("Yo - IpfsMfs")
 
 	runenv.OK()
 }

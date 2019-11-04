@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo")
+	fmt.Printf("Yo - IpfsAddTrickleDag")
 
 	runenv.OK()
 }

@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsAddDirSharding(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo")
+	fmt.Printf("Yo - IpfsAddDirSharing")
 
 	runenv.OK()
 }
