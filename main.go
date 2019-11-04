@@ -46,7 +46,9 @@ func configureLogging(c *cli.Context) {
 	// The LOG_LEVEL environment variable takes precedence.
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		var l zapcore.Level
-		l.UnmarshalText([]byte(level))
+		if err := l.UnmarshalText([]byte(level)); err != nil {
+			panic(err)
+		}
 		logging.SetLevel(l)
 		return
 	}

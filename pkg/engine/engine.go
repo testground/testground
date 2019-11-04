@@ -98,7 +98,7 @@ func NewDefaultEngine() (*Engine, error) {
 		return nil, err
 	}
 
-	e.discoverTestPlans()
+	_, _ = e.discoverTestPlans()
 
 	return e, nil
 }

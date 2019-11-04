@@ -31,7 +31,7 @@ func ToOptionsMap(input []string, guessTypes bool) (res map[string]interface{}, 
 			if v, err = strconv.Atoi(splt[1]); err == nil {
 			} else if v, err = strconv.ParseFloat(splt[1], 64); err == nil {
 			} else if v, err = strconv.ParseBool(splt[1]); err == nil {
-			} else if v, err = strconv.Unquote(splt[1]); err == nil {
+			} else if v, err = strconv.Unquote(splt[1]); err == nil { //nolint
 			}
 		}
 		res[splt[0]] = v

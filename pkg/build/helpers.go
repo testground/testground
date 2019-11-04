@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/ipfs/testground/pkg/api"
 	"sort"
 	"strings"
+
+	"github.com/ipfs/testground/pkg/api"
 )
 
 // CollapseOptionsMap converts a string map to a slice of key=value strings,
@@ -15,7 +16,7 @@ import (
 func CollapseOptionsMap(src map[string]string) []string {
 	// 1. Do a first pass getting only the keys.
 	dst := make([]string, 0, len(src))
-	for k, _ := range src {
+	for k := range src {
 		dst = append(dst, k)
 	}
 	// 2. Sort keys in lexicographic order.
@@ -36,7 +37,7 @@ func CanonicalBuildID(opts *api.BuildInput) string {
 	hash := sha256.New()
 	w := bufio.NewWriter(hash)
 	for _, v := range CollapseOptionsMap(opts.Dependencies) {
-		w.WriteString(v)
+		_, _ = w.WriteString(v)
 	}
 
 	// TODO Build configurations are now structs. Need to adjust this.

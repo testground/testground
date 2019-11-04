@@ -18,7 +18,7 @@ var runners = func() []string {
 	}
 
 	names := make([]string, 0, len(r))
-	for k, _ := range r {
+	for k := range r {
 		names = append(names, k)
 	}
 	return names
@@ -61,7 +61,7 @@ var RunCommand = cli.Command{
 
 func runCommand(c *cli.Context) error {
 	if c.NArg() != 1 {
-		cli.ShowSubcommandHelp(c)
+		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("missing test name")
 	}
 
@@ -77,14 +77,14 @@ func runCommand(c *cli.Context) error {
 
 	// Validate this test case was provided.
 	if testcase == "" {
-		cli.ShowSubcommandHelp(c)
+		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("no test case provided; use the `list` command to view available test cases")
 	}
 
 	// Validate the test case format.
 	comp := strings.Split(testcase, "/")
 	if len(comp) != 2 {
-		cli.ShowSubcommandHelp(c)
+		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 

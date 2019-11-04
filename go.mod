@@ -1,6 +1,6 @@
 module github.com/ipfs/testground
 
-go 1.12
+go 1.13
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
@@ -34,10 +34,12 @@ require (
 	github.com/urfave/cli v1.22.0
 	go.opencensus.io v0.22.1 // indirect
 	go.uber.org/zap v1.10.0
+	golang.org/x/net v0.0.0-20190923162816-aa69164e4478 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 // indirect
 	google.golang.org/grpc v1.23.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
+	gopkg.in/yaml.v2 v2.2.4 // indirect
 	gotest.tools v2.2.0+incompatible // indirect
 )
 
