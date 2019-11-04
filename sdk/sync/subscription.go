@@ -21,8 +21,10 @@ type subscription struct {
 	client  *redis.Client
 	ps      *redis.PubSub
 
-	outCh typedChan
-	inCh  <-chan *redis.Message
+	outCh   typedChan
+	inCh    <-chan *redis.Message
+	closeCh chan struct{}
+	closeWg sync.WaitGroup
 }
 
 // start brings the state of the subscription forward to match the state of the
@@ -45,8 +47,21 @@ func (s *subscription) start() error {
 
 	s.startSeq = seq
 
-	go s.process()
+	s.closeWg.Add(1)
+	go func() {
+		s.process()
+		s.closeWg.Done()
+	}()
 	return nil
+}
+
+func (s *subscription) isClosed() bool {
+	select {
+	case <-s.closeCh:
+		return true
+	default:
+		return false
+	}
 }
 
 // process does the heavy-lifting of this subscription.
@@ -74,7 +89,7 @@ func (s *subscription) process() {
 	// --- FAST-FORWARD PHASE ---
 	//---------------------------
 
-	for i := 0; ; i++ {
+	for i := 0; !s.isClosed(); i++ {
 		// Read elements from the set in increments of 1000.
 		keys, cursor, err = s.client.SScan(s.root, cursor, "", 1000).Result()
 		if err != nil {
@@ -151,6 +166,11 @@ func (s *subscription) process() {
 		}()
 	}
 
+	// Abort early if we're closed.
+	if s.isClosed() {
+		return
+	}
+
 	// Function to extract the key from a pubsub notification.
 	extractKey := func(msg *redis.Message) string {
 		key := strings.TrimPrefix(msg.Channel, "__keyspace@0__:")
@@ -165,7 +185,10 @@ func (s *subscription) process() {
 Loop:
 	for {
 		select {
-		case msg := <-s.inCh:
+		case msg, ok := <-s.inCh:
+			if !ok {
+				return
+			}
 			if key := extractKey(msg); key != "" && msg.Payload == "set" {
 				pendingKeys = append(pendingKeys, key)
 			}
@@ -195,6 +218,11 @@ Loop:
 				panic(err)
 			}
 
+			// Abort early if we're closed.
+			if s.isClosed() {
+				return
+			}
+
 			sendFn(p)
 		}
 		pendingKeys, pendingVals = nil, nil
@@ -204,48 +232,52 @@ Loop:
 
 	// --- FORWARD CONSUMPTION ---
 
-	for msg := range s.inCh {
-		log.Debugw("received keyspace notification", "message", msg)
-		switch msg.Payload {
-		case "set":
-			key := extractKey(msg)
-			if key == "" {
-				continue
+	for !s.isClosed() {
+		select {
+		case msg, ok := <-s.inCh:
+			if !ok {
+				return
 			}
+			log.Debugw("received keyspace notification", "message", msg)
+			switch msg.Payload {
+			case "set":
+				key := extractKey(msg)
+				if key == "" {
+					continue
+				}
 
-			// TODO: batch gets rather than individually getting each key.
-			v, err := s.client.Get(key).Result()
-			switch err {
-			case nil:
-				p, err := decodePayload(v, typ)
-				if err != nil {
-					log.Warnf("unable to decode item: %s", err)
+				// TODO: batch GETs.
+				switch v, err := s.client.Get(key).Result(); err {
+				case redis.Nil:
+					// TODO: log we received a notification for a key that disappeared.
+				case nil:
+					p, err := decodePayload(v, typ)
+					if err != nil {
+						log.Warnf("unable to decode item: %s", err)
+						panic(err)
+					}
+					sendFn(p)
+				default:
 					panic(err)
 				}
-				sendFn(p)
-
-			case redis.Nil:
-				// TODO: log we received a notification for a key that
-				// disappeared.
 
 			default:
-				panic(err)
 			}
-
-		default:
 		}
 	}
 }
 
 // stop stops this subcription.
 func (s *subscription) stop() error {
+	if err := s.ps.Close(); err != nil {
+		return err
+	}
+
 	if err := s.ps.Unsubscribe("__keyspace@0__:" + s.subtree.GroupKey); err != nil {
 		return err
 	}
 
-	if err := s.ps.Close(); err != nil {
-		return err
-	}
+	s.closeWg.Wait()
 
 	v := reflect.Value(s.outCh)
 	v.Close()

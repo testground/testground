@@ -30,11 +30,12 @@ type Event struct {
 	Timestamp int64   `json:"timestamp"`
 	Metric    *Metric `json:"metric,omitempty"`
 	Result    *Result `json:"result,omitempty"`
+	Message   string  `json:"msg,omitempty"`
 }
 
 type Result struct {
 	Outcome Outcome `json:"outcome"`
-	Message string  `json:"msg,omitempty"`
+	Reason  string  `json:"reason,omitempty"`
 }
 
 // Abort outputs an abortion event, where reason is an object that will be
@@ -50,7 +51,6 @@ func (r *RunEnv) Abort(reason interface{}) {
 	if err != nil {
 		panic(err)
 	}
-
 	fmt.Println(string(bytes))
 }
 
@@ -66,7 +66,24 @@ func (r *RunEnv) OK() {
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(string(bytes))
+}
 
+// Message prints out an informational message.
+func (r *RunEnv) Message(msg string, a ...interface{}) {
+	if len(a) > 0 {
+		msg = fmt.Sprintf(msg, a...)
+	}
+	evt := &Event{
+		RunEnv:    r,
+		Timestamp: time.Now().UnixNano(),
+		Message:   msg,
+	}
+
+	bytes, err := json.Marshal(evt)
+	if err != nil {
+		panic(err)
+	}
 	fmt.Println(string(bytes))
 }
 
@@ -83,6 +100,5 @@ func (r *RunEnv) EmitMetric(def *MetricDefinition, value float64) {
 	if err != nil {
 		panic(err)
 	}
-
 	fmt.Println(string(bytes))
 }
