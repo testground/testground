@@ -248,7 +248,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 			go func() {
 				_, err := stdcopy.StdCopy(wpipe, wpipe, stream)
-				wpipe.CloseWithError(err)
+				_ = wpipe.CloseWithError(err)
 			}()
 
 			wg.Add(1)

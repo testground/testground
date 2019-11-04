@@ -56,6 +56,10 @@ func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) 
 	)
 	defer cancel()
 
+	if err != nil {
+		return nil, err
+	}
+
 	if !cfg.BypassCache {
 		// Check if an image for this build already exists.
 		if exists, err := imageExists(ctx, cli, id); err != nil {

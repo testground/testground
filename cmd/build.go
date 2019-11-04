@@ -17,7 +17,7 @@ var builders = func() []string {
 	}
 
 	names := make([]string, 0, len(b))
-	for k, _ := range b {
+	for k := range b {
 		names = append(names, k)
 	}
 	return names

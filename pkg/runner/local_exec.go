@@ -71,7 +71,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		// statement, we close the redis wait channel, which allows the method
 		// to return.
 		go func() {
-			cmd.Wait()
+			_ = cmd.Wait()
 			fmt.Println("temporary redis instance stopped successfully")
 			close(redisWaitCh)
 		}()
@@ -116,8 +116,12 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			)
 
 			cmd.Env = env
-			cmd.Start()
-			defer cmd.Wait()
+
+			if err := cmd.Start(); err != nil {
+				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), err)
+				return
+			}
+			defer cmd.Wait() //nolint
 
 			for scanner.Scan() {
 				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
