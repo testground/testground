@@ -24,11 +24,14 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random)
 - **Narrative**
   - **Warm up**
-    - a
+    - All nodes boot up
+    - Each node as it boots up, connects to the node that previously joined
+    - Nodes ran 5 random-walk queries to populate their Routing Tables
   - **Act I**
-    - b
+    - Each node calls Find Peers `n-find-peers` times
 
 ### `Test:` Find Providers
 
