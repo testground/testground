@@ -47,7 +47,7 @@ type LocalDockerRunnerConfig struct {
 	Unstarted bool `toml:"no_start"`
 	// Background avoids tailing the output of containers, and displaying it as
 	// log messages (default: true).
-	Background bool `toml:"tail"`
+	Background bool `toml:"background"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -340,7 +340,7 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger) (id string
 
 			err := cli.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
 			if err != nil {
-				log.Errorf("starting redis container failed", "containerId", container.ID)
+				log.Errorw("starting redis container failed", "containerId", container.ID)
 				return "", err
 			}
 		}
