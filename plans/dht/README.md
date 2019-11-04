@@ -24,6 +24,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `bucket-size` - Kademlia DHT bucket size  
   - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random)
 - **Narrative**
   - **Warm up**
@@ -37,6 +38,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `bucket-size` - Kademlia DHT bucket size
   - `p-providing` - Percentage of nodes providing a record
   - `p-resolving` - Percentage of nodes trying to resolve the network a record
   - `p-failing` - Percentage of nodes trying to resolve a record that hasn't been provided  
@@ -56,6 +58,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `bucket-size` - Kademlia DHT bucket size  
   - `n-provides` - The number of provide calls that are done by each node
   - `i-provides` - The interval between each provide call (in seconds)
 - **Narrative**
