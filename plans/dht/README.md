@@ -37,16 +37,26 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `p-providing` - Percentage of nodes providing a record
+  - `p-resolving` - Percentage of nodes trying to resolve the network a record
+  - `p-failing` - Percentage of nodes trying to resolve a record that hasn't been provided  
 - **Narrative**
   - **Warm up**
-    - a
+    - All nodes boot up
+    - Each node as it boots up, connects to the node that previously joined
+    - Nodes ran 5 random-walk queries to populate their Routing Tables
   - **Act I**
-    - b
+    - `p-providing` of the nodes provide a record and store its key on redis
+  - **Act II**  
+    - `p-resolving` of the nodes attempt to resolve the records provided before
+    - `p-failing` of the nodes attempt to resolve records that do not exist
+
 
 ### `Test:` Providing Records
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
+  - `n-provides` - The number of 
 - **Narrative**
   - **Warm up**
     - a
