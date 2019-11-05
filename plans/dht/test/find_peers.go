@@ -14,6 +14,9 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 )
 
+// NOTE: Needs to run with latest kad-dht. Use:
+// go build . && ./testground run dht/find-peers --builder=docker:go --runner="local:docker" --dep="github.com/libp2p/go-libp2p-kad-dht=master"
+
 // FindPeers is the Find Peers Test Case
 func FindPeers(runenv *runtime.RunEnv) {
 	// Test Parameters

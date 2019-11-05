@@ -17,6 +17,7 @@ func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kad
 	// Test Parameters
 	var (
 		bucketSize = runenv.IntParamD("bucket_size", 20)
+		randomWalk = runenv.BooleanParamD("random_walk", false)
 	)
 
 	node, err := libp2p.New(ctx)
@@ -25,10 +26,13 @@ func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kad
 		return nil, nil, err
 	}
 
-	// TODO enable/disable random-walk based on test parameter
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(bucketSize),
+	}
+
+	if !randomWalk {
+		dhtOptions = append(dhtOptions, dhtopts.DisableAutoBootstrap())
 	}
 
 	dht, err := kaddht.New(ctx, node, dhtOptions...)
