@@ -22,6 +22,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 	// Test Parameters
 	var (
 		timeout = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
+		// nFindPeers = runenv.IntParamD("n_find_peers", 10)
 	)
 
 	/// --- Warm up
