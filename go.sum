@@ -171,7 +171,9 @@ github.com/ipfs/go-todocounter v0.0.2 h1:9UBngSQhylg2UDcxSAtpkT+rEWFr26hDPXVStE8
 github.com/ipfs/go-todocounter v0.0.2/go.mod h1:l5aErvQc8qKE2r7NDMjmq5UNAvuZy0rC8BHOplkWvZ4=
 github.com/ipfs/iptb v1.4.0/go.mod h1:1rzHpCYtNp87/+hTxG5TfCVn/yMY3dKnLn8tBiMfdmg=
 github.com/ipfs/iptb-plugins v0.2.0/go.mod h1:J2wpKQKaLa9eQC8sQtSkjdjbUfdQEAHXqnbj86f55gI=
+github.com/ipfs/testground/plans/dht v0.0.0-20191104170635-66991422449a h1:NfkfVOoz5+GI/BVAYZnN5hmJUoSOaWNxa8H+ExPSQns=
 github.com/ipfs/testground/plans/dht v0.0.0-20191104170635-66991422449a/go.mod h1:n0SbEWkmo//+55kWd2YXjtr1K9RsJPvRNBzWUFwboMg=
+github.com/ipfs/testground/plans/dht v0.0.0-20191105130754-5e798c69ec62 h1:b/uvE7TPFsHTO//eNTVDCiyK4PZrfsoKlLUPdoaYN1I=
 github.com/ipfs/testground/plans/smlbench v0.0.0-20191021055434-2033a9495c93/go.mod h1:X+NxvklrqFNw142WnTEm3c8BSZpMLnzAIRMakNenuPs=
 github.com/jackpal/gateway v1.0.5 h1:qzXWUJfuMdlLMtt0a3Dgt+xkWQiA5itDEITVJtuSwMc=
 github.com/jackpal/gateway v1.0.5/go.mod h1:lTpwd4ACLXmpyiCTRtfiNyVnUmqT9RivzCDQetPfnjA=

@@ -9,48 +9,30 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	datastore "github.com/ipfs/go-datastore"
-	libp2p "github.com/libp2p/go-libp2p"
+	utils "github.com/ipfs/testground/plans/dht/utils"
 	host "github.com/libp2p/go-libp2p-core/host"
 	peer "github.com/libp2p/go-libp2p-core/peer"
-	dht "github.com/libp2p/go-libp2p-kad-dht"
-	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
 
 // FindPeers is the Find Peers Test Case
 func FindPeers(runenv *runtime.RunEnv) {
 	// Test Parameters
-
 	var (
-		timeout    = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
-		bucketSize = runenv.IntParamD("bucket_size", 20)
+		timeout = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
 	)
 
+	/// --- Warm up
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	/// --- Warm up
-
-	node, err := libp2p.New(context.Background())
+	node, dht, err := utils.CreateDhtNode(ctx, runenv)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
+
 	myNodeID := node.ID()
-
 	runenv.Message("I am %s with addrs: %v", myNodeID, node.Addrs())
-
-	// TODO enable/disable random-walk based on test parameter
-	dhtOptions := []dhtopts.Option{
-		dhtopts.Datastore(datastore.NewMapDatastore()),
-		dhtopts.BucketSize(bucketSize),
-	}
-
-	dht, err := dht.New(context.Background(), node, dhtOptions...)
-	if err != nil {
-		runenv.Abort(err)
-		return
-	}
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()

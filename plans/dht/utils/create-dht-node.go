@@ -1,0 +1,40 @@
+package utils
+
+import (
+	"context"
+
+	"github.com/ipfs/testground/sdk/runtime"
+
+	datastore "github.com/ipfs/go-datastore"
+	libp2p "github.com/libp2p/go-libp2p"
+	host "github.com/libp2p/go-libp2p-core/host"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
+)
+
+// CreateDhtNode creates a libp2p Node and a DHT on top of it
+func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kaddht.IpfsDHT, error) {
+	// Test Parameters
+	var (
+		bucketSize = runenv.IntParamD("bucket_size", 20)
+	)
+
+	node, err := libp2p.New(ctx)
+	if err != nil {
+		runenv.Abort(err)
+		return nil, nil, err
+	}
+
+	// TODO enable/disable random-walk based on test parameter
+	dhtOptions := []dhtopts.Option{
+		dhtopts.Datastore(datastore.NewMapDatastore()),
+		dhtopts.BucketSize(bucketSize),
+	}
+
+	dht, err := kaddht.New(ctx, node, dhtOptions...)
+	if err != nil {
+		runenv.Abort(err)
+		return nil, nil, err
+	}
+	return node, dht, nil
+}
