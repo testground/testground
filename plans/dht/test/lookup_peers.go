@@ -19,23 +19,10 @@ import (
 )
 
 func LookupPeers(runenv *runtime.RunEnv) {
-	timeout := func() time.Duration {
-		if t, ok := runenv.IntParam("timeout_secs"); !ok {
-			return 30 * time.Second
-		} else {
-			return time.Duration(t) * time.Second
-		}
-	}()
-
-	// TODO Make parameter getting nicer by providing typed accessors in the
-	// RunEnv (à la urfave/cli), that accept a second argument (default value).
-	bucketSize := func() int {
-		if t, ok := runenv.IntParam("bucket_size"); !ok {
-			return 20
-		} else {
-			return t
-		}
-	}()
+	var (
+		timeout    = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
+		bucketSize = runenv.IntParamD("bucket_size", 20)
+	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
