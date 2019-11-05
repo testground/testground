@@ -39,8 +39,9 @@ func FindPeers(runenv *runtime.RunEnv) {
 		runenv.Abort(err)
 		return
 	}
+	myNodeID := node.ID()
 
-	runenv.Message("I am %s with addrs: %v", node.ID(), node.Addrs())
+	runenv.Message("I am %s with addrs: %v", myNodeID, node.Addrs())
 
 	// TODO enable/disable random-walk based on test parameter
 	dhtOptions := []dhtopts.Option{
@@ -68,11 +69,12 @@ func FindPeers(runenv *runtime.RunEnv) {
 	defer cancelSub()
 
 	var toDial []*peer.AddrInfo
+	// Grab list of other peers that are available for this Run
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
 		case ai := <-peerCh:
 			id1, _ := ai.ID.MarshalBinary()
-			id2, _ := node.ID().MarshalBinary()
+			id2, _ := myNodeID.MarshalBinary()
 			if bytes.Compare(id1, id2) >= 0 {
 				// skip over dialing ourselves, and prevent TCP simultaneous
 				// connect (known to fail) by only dialing peers whose peer ID
@@ -89,6 +91,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 		}
 	}
 
+	// Dial to all the other peers
 	for _, ai := range toDial {
 		err = node.Connect(ctx, *ai)
 		if err != nil {
@@ -101,12 +104,11 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	/// --- Act I
 
-	// TODO: Instrument libp2p dht to get:
-	// - Number of peers dialed
-	// - Number of dials along the way that failed
-
 	for i, id := range node.Peerstore().PeersWithAddrs() {
 		t := time.Now()
+		// TODO: Instrument libp2p dht to get:
+		// - Number of peers dialed
+		// - Number of dials along the way that failed
 
 		// TODO call FindPeer `n-find-peers` times, each time a different peer
 		if _, err := dht.FindPeer(ctx, id); err != nil {
