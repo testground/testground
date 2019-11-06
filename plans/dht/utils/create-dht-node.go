@@ -22,7 +22,6 @@ func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kad
 
 	node, err := libp2p.New(ctx)
 	if err != nil {
-		runenv.Abort(err)
 		return nil, nil, err
 	}
 
@@ -37,7 +36,6 @@ func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kad
 
 	dht, err := kaddht.New(ctx, node, dhtOptions...)
 	if err != nil {
-		runenv.Abort(err)
 		return nil, nil, err
 	}
 	return node, dht, nil

@@ -203,9 +203,8 @@ func (re *RunEnv) BooleanParam(name string) (b bool, ok bool) {
 	s, ok := re.TestInstanceParams[name]
 	if s == "true" {
 		return true, ok
-	} else {
-		return false, ok
 	}
+	return false, ok
 }
 
 // BooleanParamD returns a Boolean parameter, or the default value if not set.

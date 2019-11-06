@@ -12,7 +12,6 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 ## Plan Parameters
 
 - **Network Parameters**
-  - `Region` - Region or Regions where the test should be run at (default to single region)
   - `N` - Number of nodes that are spawned for the test (from 10 to 1000000)
 - **Image Parameters**
   - Single Image - The go-libp2p commit that is being tested
@@ -24,8 +23,8 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
-  - `bucket-size` - Kademlia DHT bucket size  
-  - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random)
+  - `bucket-size` - Kademlia DHT bucket size
+  - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random that is not yet in our Routing table)
 - **Narrative**
   - **Warm up**
     - All nodes boot up
@@ -41,7 +40,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
   - `bucket-size` - Kademlia DHT bucket size
   - `p-providing` - Percentage of nodes providing a record
   - `p-resolving` - Percentage of nodes trying to resolve the network a record
-  - `p-failing` - Percentage of nodes trying to resolve a record that hasn't been provided  
+  - `p-failing` - Percentage of nodes trying to resolve a record that hasn't been provided
 - **Narrative**
   - **Warm up**
     - All nodes boot up
@@ -49,7 +48,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
     - Nodes ran 5 random-walk queries to populate their Routing Tables
   - **Act I**
     - `p-providing` of the nodes provide a record and store its key on redis
-  - **Act II**  
+  - **Act II**
     - `p-resolving` of the nodes attempt to resolve the records provided before
     - `p-failing` of the nodes attempt to resolve records that do not exist
 
@@ -58,7 +57,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Test Parameters**
   - `random-walk` - Automatic random-walk On/Off
-  - `bucket-size` - Kademlia DHT bucket size  
+  - `bucket-size` - Kademlia DHT bucket size
   - `n-provides` - The number of provide calls that are done by each node
   - `i-provides` - The interval between each provide call (in seconds)
 - **Narrative**

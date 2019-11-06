@@ -9,9 +9,9 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	utils "github.com/ipfs/testground/plans/dht/utils"
-	host "github.com/libp2p/go-libp2p-core/host"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 // NOTE: Needs to run with latest kad-dht. Use:
