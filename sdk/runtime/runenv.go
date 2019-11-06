@@ -120,29 +120,29 @@ func (re *RunEnv) initLoggers() {
 	re.slogger = re.logger.Sugar()
 }
 
+func unpackParams(packed string) map[string]string {
+	spltparams := strings.Split(packed, "|")
+	params := make(map[string]string, len(spltparams))
+	for _, s := range spltparams {
+		v := strings.Split(s, "=")
+		if len(v) != 2 {
+			continue
+		}
+		params[v[0]] = v[1]
+	}
+	return params
+}
+
+func toInt(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return -1
+	}
+	return v
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
-	toInt := func(s string) int {
-		v, err := strconv.Atoi(s)
-		if err != nil {
-			return -1
-		}
-		return v
-	}
-
-	unpackParams := func(packed string) map[string]string {
-		spltparams := strings.Split(packed, "|")
-		params := make(map[string]string, len(spltparams))
-		for _, s := range spltparams {
-			v := strings.Split(s, "=")
-			if len(v) != 2 {
-				continue
-			}
-			params[v[0]] = v[1]
-		}
-		return params
-	}
-
 	re := &RunEnv{
 		TestPlan:           os.Getenv(EnvTestPlan),
 		TestCase:           os.Getenv(EnvTestCase),
@@ -159,6 +159,36 @@ func CurrentRunEnv() *RunEnv {
 	re.initLoggers()
 
 	return re
+}
+
+// ParseRunEnv parses a list of environment variables into a RunEnv.
+func ParseRunEnv(env []string) (*RunEnv, error) {
+	// TODO: validate
+	envMap := make(map[string]string, len(env))
+	for _, s := range env {
+		i := strings.IndexByte(s, '=')
+		if i <= 0 {
+			return nil, fmt.Errorf("invalid env variable in RunEnv: %s", s)
+		}
+		key, value := s[:i], s[i+1:]
+		envMap[key] = value
+	}
+	re := &RunEnv{
+		TestPlan:           envMap[EnvTestPlan],
+		TestCase:           envMap[EnvTestCase],
+		TestRun:            envMap[EnvTestRun],
+		TestTag:            envMap[EnvTestTag],
+		TestBranch:         envMap[EnvTestBranch],
+		TestRepo:           envMap[EnvTestRepo],
+		TestCaseSeq:        toInt(envMap[EnvTestCaseSeq]),
+		TestInstanceCount:  toInt(envMap[EnvTestInstanceCount]),
+		TestInstanceRole:   envMap[EnvTestInstanceRole],
+		TestInstanceParams: unpackParams(envMap[EnvTestInstanceParams]),
+	}
+
+	re.initLoggers()
+
+	return re, nil
 }
 
 // StringParam returns a string parameter, or "" if the parameter is not set.
