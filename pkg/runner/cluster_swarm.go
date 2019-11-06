@@ -232,6 +232,10 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, fmt.Errorf("failed while tailing logs: %w", err)
 	}
 
+	// Docker multiplexes STDOUT and STDERR streams inside the single IO stream
+	// returned by ServiceLogs. We need to use docker functions to separate
+	// those strands, and because we don't care about treating STDOUT and STDERR
+	// separately, we consolidate them into the same io.Writer.
 	rpipe, wpipe := io.Pipe()
 	go func() {
 		_, err := stdcopy.StdCopy(wpipe, wpipe, rc)

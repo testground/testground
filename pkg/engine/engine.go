@@ -95,7 +95,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	case nil:
 		fmt.Println("loading env from", path)
 	case *os.PathError:
-		// TODO no .env.toml file located, maybe print a warning.
+		fmt.Println("warn: no .env.toml found; some components may not work")
 	}
 
 	return e, nil
