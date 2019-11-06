@@ -15,16 +15,15 @@ require (
 	github.com/docker/docker v1.4.2-0.20190910181529-415f8ecb65e8
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/imdario/mergo v0.3.7
+	github.com/ipfs/testground/plans/dht v0.0.0-20191106194925-0d10fef12a43 // indirect
+	github.com/ipfs/testground/plans/smlbench v0.0.0-20191021055434-2033a9495c93 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
-	github.com/kr/pretty v0.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20190803045625-94edacc10f9b
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/morikuni/aec v0.0.0-20170113033406-39771216ff4c // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
@@ -33,12 +32,8 @@ require (
 	github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776 // indirect
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/urfave/cli v1.22.0
-	go.opencensus.io v0.22.1 // indirect
-	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0
-	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190927073244-c990c680b611 // indirect
 	google.golang.org/grpc v1.23.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
