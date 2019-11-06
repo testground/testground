@@ -26,7 +26,8 @@ func FindPeers(runenv *runtime.RunEnv) {
 		nFindPeers = runenv.IntParamD("n_find_peers", 1)
 	)
 
-	/// --- Set up
+	/// --- Set upA
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -47,11 +48,11 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	/// --- Tear down
 
-	// Set a state barrier.
-	end := sync.State("end")
-	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
-
 	defer func() {
+		// Set a state barrier.
+		end := sync.State("end")
+		doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
+
 		// Signal we're done on the end state.
 		_, err = writer.SignalEntry(end)
 		if err != nil {
@@ -68,14 +69,10 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	/// --- Warm up
 
-	runenv.Message("Gonna SYNC")
-
 	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
 		runenv.Abort(fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err))
 		return
 	}
-
-	runenv.Message("Going to dial to my buds")
 
 	// TODO: Revisit this - This assumed that it is ok to put in memory every single peer.AddrInfo that participates in this test
 	peerCh := make(chan *peer.AddrInfo, 16)
@@ -125,6 +122,19 @@ func FindPeers(runenv *runtime.RunEnv) {
 		}
 	}
 
+Loop:
+	for {
+		select {
+		case <-time.After(200 * time.Millisecond):
+			if dht.RoutingTable().Size() > 0 {
+				break Loop
+			}
+		case <-ctx.Done():
+			runenv.Abort(fmt.Errorf("got no peers in routing table"))
+			return
+		}
+	}
+
 	/// --- Act I
 
 	for i := 0; i < nFindPeers; i++ {
@@ -134,6 +144,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 		)
 
 		// This search is suboptimal -> TODO check if go-libp2p has funcs or maps to help make this faster
+	Outer:
 		for _, anotherPeer := range toDial {
 			for _, connectedPeer := range node.Peerstore().PeersWithAddrs() {
 				apID, _ := anotherPeer.ID.MarshalBinary()
@@ -144,7 +155,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 				// found a peer from list that we are not yet connected
 				peerToFind = anotherPeer
 				gotOne = true
-				break
+				break Outer
 			}
 			if gotOne {
 				gotOne = false
