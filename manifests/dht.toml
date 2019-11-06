@@ -1,7 +1,7 @@
 name = "dht"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-source_path = "file:${TESTGROUND_BASEDIR}/plans/dht"
+source_path = "file:${TESTGROUND_SRCDIR}/plans/dht"
 
 [build_strategies."docker:go"]
 enabled = true
@@ -29,7 +29,7 @@ enabled = true
 # seq 0
 [[testcases]]
 name = "lookup-peers"
-instances = { min = 2, max = 100, default = 50 }
+instances = { min = 2, max = 200, default = 50 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }

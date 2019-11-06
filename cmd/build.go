@@ -3,7 +3,7 @@ package cmd
 import (
 	"errors"
 
-	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/davecgh/go-spew/spew"
@@ -17,7 +17,7 @@ var builders = func() []string {
 	}
 
 	names := make([]string, 0, len(b))
-	for k, _ := range b {
+	for k := range b {
 		names = append(names, k)
 	}
 	return names
@@ -75,7 +75,7 @@ func buildCommand(c *cli.Context) error {
 	return nil
 }
 
-func parseBuildInput(c *cli.Context) (*build.Input, error) {
+func parseBuildInput(c *cli.Context) (*api.BuildInput, error) {
 	var (
 		deps = c.StringSlice("dep")
 		cfg  = c.StringSlice("build-cfg")
@@ -95,7 +95,7 @@ func parseBuildInput(c *cli.Context) (*build.Input, error) {
 		return nil, err
 	}
 
-	in := &build.Input{
+	in := &api.BuildInput{
 		Dependencies: dependencies,
 		BuildConfig:  config,
 	}

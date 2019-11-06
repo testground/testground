@@ -111,6 +111,7 @@ Now test that everything is installed correctly by running
 > testground
 attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
 successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+
 NAME:
    testground - A new cli application
 
@@ -131,12 +132,13 @@ NAME:
 
 ### Running the tests locally with TestGround
 
-To run a test locally, you can use the `testground run` command. Check what Plans and Tests are available by running the `list` command:
+To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
 ```
 > testground list
 attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
 successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+
 dht/lookup-peers
 dht/lookup-providers
 dht/store-get-value
