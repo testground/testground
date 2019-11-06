@@ -12,7 +12,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 ## Plan Parameters
 
 - **Network Parameters**
-  - `N` - Number of nodes that are spawned for the test (from 10 to 1000000)
+  - `instances` - Number of nodes that are spawned for the test (from 10 to 1000000)
 - **Image Parameters**
   - Single Image - The go-libp2p commit that is being tested
   - Image Resources CPU & Ram
@@ -22,9 +22,10 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 ### `Test:` Find Peers
 
 - **Test Parameters**
-  - `random-walk` - Automatic random-walk On/Off
-  - `bucket-size` - Kademlia DHT bucket size
-  - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random that is not yet in our Routing table)
+  - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
+  - `random-walk` - Run random-walk manually 5 times (true/false, default: false)
+  - `bucket-size` - Kademlia DHT bucket size (default: 20)
+  - `n-find-peers` - Number of times a Find Peers call is executed from each node (picking another node PeerId at random that is not yet in our Routing table) (default: 1)
 - **Narrative**
   - **Warm up**
     - All nodes boot up
@@ -36,8 +37,9 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 ### `Test:` Find Providers
 
 - **Test Parameters**
-  - `random-walk` - Automatic random-walk On/Off
-  - `bucket-size` - Kademlia DHT bucket size
+  - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
+  - `random-walk` - Run random-walk manually 5 times (true/false, default: false)
+  - `bucket-size` - Kademlia DHT bucket size (default: 20)
   - `p-providing` - Percentage of nodes providing a record
   - `p-resolving` - Percentage of nodes trying to resolve the network a record
   - `p-failing` - Percentage of nodes trying to resolve a record that hasn't been provided
@@ -56,8 +58,9 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 ### `Test:` Provide Stress
 
 - **Test Parameters**
-  - `random-walk` - Automatic random-walk On/Off
-  - `bucket-size` - Kademlia DHT bucket size
+  - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
+  - `random-walk` - Run random-walk manually 5 times (true/false, default: false)
+  - `bucket-size` - Kademlia DHT bucket size (default: 20)
   - `n-provides` - The number of provide calls that are done by each node
   - `i-provides` - The interval between each provide call (in seconds)
 - **Narrative**

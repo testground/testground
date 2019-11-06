@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"os"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -12,12 +13,16 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
 
+func init() {
+	os.Setenv("IPFS_LOGGING", "debug")
+}
+
 // CreateDhtNode creates a libp2p Node and a DHT on top of it
 func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kaddht.IpfsDHT, error) {
 	// Test Parameters
 	var (
-		bucketSize = runenv.IntParamD("bucket_size", 20)
-		randomWalk = runenv.BooleanParamD("random_walk", false)
+		bucketSize  = runenv.IntParamD("bucket_size", 20)
+		autoRefresh = runenv.BooleanParamD("auto_refresh", true)
 	)
 
 	node, err := libp2p.New(ctx)
@@ -30,8 +35,8 @@ func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kad
 		dhtopts.BucketSize(bucketSize),
 	}
 
-	if !randomWalk {
-		dhtOptions = append(dhtOptions, dhtopts.DisableAutoBootstrap())
+	if !autoRefresh {
+		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
 	}
 
 	dht, err := kaddht.New(ctx, node, dhtOptions...)

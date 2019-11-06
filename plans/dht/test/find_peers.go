@@ -21,11 +21,12 @@ import (
 func FindPeers(runenv *runtime.RunEnv) {
 	// Test Parameters
 	var (
-		timeout = time.Duration(runenv.IntParamD("timeout_secs", 30)) * time.Second
-		// nFindPeers = runenv.IntParamD("n_find_peers", 10)
+		timeout    = time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
+		randomWalk = runenv.BooleanParamD("random_walk", false)
+		nFindPeers = runenv.IntParamD("n_find_peers", 1)
 	)
 
-	/// --- Warm up
+	/// --- Set up
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -38,20 +39,50 @@ func FindPeers(runenv *runtime.RunEnv) {
 	myNodeID := node.ID()
 	runenv.Message("I am %s with addrs: %v", myNodeID, node.Addrs())
 
+	// time.Sleep(5 * time.Minute)
+
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
-
-	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
-		runenv.Abort(err)
-		return
-	}
 	defer writer.Close()
 
+	/// --- Tear down
+
+	// Set a state barrier.
+	end := sync.State("end")
+	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
+
+	defer func() {
+		// Signal we're done on the end state.
+		_, err = writer.SignalEntry(end)
+		if err != nil {
+			runenv.Abort(err)
+			return
+		}
+
+		// Wait until all others have signalled.
+		if err := <-doneCh; err != nil {
+			runenv.Abort(err)
+			return
+		}
+	}()
+
+	/// --- Warm up
+
+	runenv.Message("Gonna SYNC")
+
+	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
+		runenv.Abort(fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err))
+		return
+	}
+
+	runenv.Message("Going to dial to my buds")
+
+	// TODO: Revisit this - This assumed that it is ok to put in memory every single peer.AddrInfo that participates in this test
 	peerCh := make(chan *peer.AddrInfo, 16)
 	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
 	defer cancelSub()
 
-	var toDial []*peer.AddrInfo
+	var toDial []peer.AddrInfo
 	// Grab list of other peers that are available for this Run
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
@@ -64,7 +95,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 				// is smaller than ours.
 				continue
 			}
-			toDial = append(toDial, ai)
+			toDial = append(toDial, *ai)
 
 		case <-time.After(timeout):
 			// TODO need a way to fail a distributed test immediately. No point
@@ -76,26 +107,57 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	// Dial to all the other peers
 	for _, ai := range toDial {
-		err = node.Connect(ctx, *ai)
+		err = node.Connect(ctx, ai)
 		if err != nil {
-			runenv.Abort(fmt.Errorf("error while dialing peer %v: %w", ai.Addrs, err))
+			runenv.Abort(fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err))
 			return
 		}
 	}
 
-	// TODO: Check if `random-walk` is enabled, if yes, run it 5 times
+	runenv.Message("Dialed all my buds")
+
+	// Check if `random-walk` is enabled, if yes, run it 5 times
+	for i := 0; randomWalk && i < 5; i++ {
+		err = dht.Bootstrap(ctx)
+		if err != nil {
+			runenv.Abort(fmt.Errorf("Could not run a random-walk: %w", err))
+			return
+		}
+	}
 
 	/// --- Act I
 
-	for i, id := range node.Peerstore().PeersWithAddrs() {
+	for i := 0; i < nFindPeers; i++ {
+		var (
+			peerToFind peer.AddrInfo
+			gotOne     = false
+		)
+
+		// This search is suboptimal -> TODO check if go-libp2p has funcs or maps to help make this faster
+		for _, anotherPeer := range toDial {
+			for _, connectedPeer := range node.Peerstore().PeersWithAddrs() {
+				apID, _ := anotherPeer.ID.MarshalBinary()
+				cpID, _ := connectedPeer.MarshalBinary()
+				if bytes.Compare(apID, cpID) >= 0 {
+					continue // already dialed to this one, next
+				}
+				// found a peer from list that we are not yet connected
+				peerToFind = anotherPeer
+				gotOne = true
+				break
+			}
+			if gotOne {
+				gotOne = false
+				break
+			}
+		}
+		// Find Peer dance
 		t := time.Now()
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-
-		// TODO call FindPeer `n-find-peers` times, each time a different peer
-		if _, err := dht.FindPeer(ctx, id); err != nil {
-			runenv.Abort(err)
+		if _, err := dht.FindPeer(ctx, peerToFind.ID); err != nil {
+			runenv.Message("FindPeer failed %w", err)
 			return
 		}
 
@@ -106,25 +168,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 		}, float64(time.Now().Sub(t).Nanoseconds()))
 	}
 
-	end := sync.State("end")
-
 	/// --- Ending the test
-
-	// Set a state barrier.
-	doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
-
-	// Signal we're done on the end state.
-	_, err = writer.SignalEntry(end)
-	if err != nil {
-		runenv.Abort(err)
-		return
-	}
-
-	// Wait until all others have signalled.
-	if err := <-doneCh; err != nil {
-		runenv.Abort(err)
-		return
-	}
 
 	runenv.OK()
 }
