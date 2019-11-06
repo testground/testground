@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"os"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -12,10 +11,6 @@ import (
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
-
-func init() {
-	os.Setenv("IPFS_LOGGING", "debug")
-}
 
 // CreateDhtNode creates a libp2p Node and a DHT on top of it
 func CreateDhtNode(ctx context.Context, runenv *runtime.RunEnv) (host.Host, *kaddht.IpfsDHT, error) {

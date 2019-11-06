@@ -134,9 +134,7 @@ Loop:
 	/// --- Act I
 
 	for i := 0; i < nFindPeers; i++ {
-		var (
-			peerToFind peer.AddrInfo
-		)
+		var peerToFind peer.AddrInfo
 
 		// This search is suboptimal -> TODO check if go-libp2p has funcs or maps to help make this faster
 	SelectPeer:
