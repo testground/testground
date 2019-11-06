@@ -68,7 +68,7 @@ func TestWatcherWriter(t *testing.T) {
 	}
 
 	peersCh := make(chan *peer.AddrInfo, 16)
-	cancel, err := watcher.Subscribe(PeerSubtree, TypedChan(peersCh))
+	cancel, err := watcher.Subscribe(PeerSubtree, peersCh)
 	defer cancel()
 
 	if err != nil {
