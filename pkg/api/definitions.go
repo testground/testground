@@ -10,8 +10,6 @@ type TestPlanDefinition struct {
 	TestCases       []*TestCase          `toml:"testcases"`
 }
 
-type ConfigMap map[string]interface{}
-
 // TestCase represents a configuration for a test case known by the system.
 type TestCase struct {
 	Name      string

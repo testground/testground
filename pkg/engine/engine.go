@@ -3,6 +3,8 @@ package engine
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 
@@ -50,6 +52,7 @@ type Engine struct {
 		src  string
 		work string
 	}
+	env *api.EnvConfig
 }
 
 type EngineConfig struct {
@@ -84,6 +87,16 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 
 	e.dirs.src = srcdir
 	e.dirs.work = workdir
+
+	// load the .env.toml file.
+	e.env = new(api.EnvConfig)
+	path := filepath.Join(srcdir, ".env.toml")
+	switch _, err := toml.DecodeFile(path, e.env); err.(type) {
+	case nil:
+		fmt.Println("loading env from", path)
+	case *os.PathError:
+		// TODO no .env.toml file located, maybe print a warning.
+	}
 
 	return e, nil
 }
@@ -161,17 +174,29 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput)
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
-	// Get the base configuration of the build strategy.
+	// Compile all configurations to coalesce. Precedence (highest to lowest):
+	//  1. CLI --run-param, --build-param flags.
+	//  2. .env.toml.
+	//  3. Test plan definition.
+	//  4. Builder defaults (applied by the builder).
+	var cfgs []map[string]interface{}
+
+	// 3. Get the base configuration of the build strategy.
 	planCfg, ok := plan.BuildStrategies[builder]
 	if !ok {
 		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
 	}
+	cfgs = append(cfgs, planCfg)
 
-	// Compile all configurations to coalesce.
-	cfgs := []map[string]interface{}{planCfg}
+	// 2. Get the env config for the builder.
+	envCfg, ok := e.env.BuildStrategies[builder]
+	if ok {
+		cfgs = append(cfgs, envCfg)
+	}
+
+	// 1. Get overrides from the CLI.
 	if overrides := input.BuildConfig; overrides != nil {
 		// We have config overrides.
-		// TODO type conversion.
 		cfgs = append(cfgs, overrides.(map[string]interface{}))
 	}
 
@@ -181,9 +206,11 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput)
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
+	input.BuildID = uuid.New().String()
 	input.Directories = e
 	input.TestPlan = plan
 	input.BuildConfig = cfg
+	input.EnvConfig = *e.env
 
 	return bm.Build(input)
 }
@@ -217,17 +244,29 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 		return nil, err
 	}
 
-	// Get the base configuration of the run strategy.
+	// Compile all configurations to coalesce. Precedence (highest to lowest):
+	//  1. CLI --run-param, --build-param flags.
+	//  2. .env.toml.
+	//  3. Test plan definition.
+	//  4. Runner defaults (applied by the runner).
+	var cfgs []map[string]interface{}
+
+	// 3. Get the base configuration of the run strategy.
 	planCfg, ok := plan.RunStrategies[runner]
 	if !ok {
 		return nil, fmt.Errorf("test plan does not support runner: %s", runner)
 	}
+	cfgs = append(cfgs, planCfg)
 
-	// Compile all configurations to coalesce.
-	cfgs := []map[string]interface{}{planCfg}
+	// 2. Get the env config for the runner.
+	envCfg, ok := e.env.RunStrategies[runner]
+	if ok {
+		cfgs = append(cfgs, envCfg)
+	}
+
+	// 1. Get overrides from the CLI.
 	if overrides := input.RunnerConfig; overrides != nil {
 		// We have config overrides.
-		// TODO type conversions.
 		cfgs = append(cfgs, overrides.(map[string]interface{}))
 	}
 
