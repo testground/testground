@@ -30,29 +30,35 @@ func (e *Engine) WorkDir() string {
 	return e.dirs.work
 }
 
-// locateSrcDir attempts to locate the source directory for the testground.
+// locateSrcDir attempts to locate the source directory for the testground. We
+// need to know this directory in order to build test plans.
 func locateSrcDir() (string, error) {
-	// 1. If the env variable is set, we use its value, checking if it points to the repo.
+	// 1. If the env variable is set, we use its value, checking if it points to
+	// the repo.
 	if v, ok := os.LookupEnv(EnvTestgroundSrcDir); ok && isTestgroundRepo(v) {
-		fmt.Printf("resolved testground base dir from env variable: %s\n", v)
+		fmt.Printf("resolved testground source dir from env variable: %s\n", v)
 		return v, nil
 	}
 
-	// 2. Fallback to the working directory.
-	path, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
+	fmt.Printf("attempting to guess testground source directory; for better control set ${%s}\n", EnvTestgroundSrcDir)
 
-	for len(path) > 1 {
-		fmt.Printf("attempting to guess testground base directory; for better control set ${%s}\n", EnvTestgroundSrcDir)
-		if path = filepath.Dir(path); isTestgroundRepo(path) {
-			os.Setenv(EnvTestgroundSrcDir, path)
-			fmt.Printf("successfully located testground base directory: %s\n", path)
-			return path, nil
+	// 2. Try the executable directory.
+	// 3. Try the working directory.
+	for _, dirFn := range []func() (string, error){os.Executable, os.Getwd} {
+		path, err := dirFn()
+		if err != nil {
+			return "", err
+		}
+
+		for len(path) > 1 {
+			if isTestgroundRepo(path) {
+				os.Setenv(EnvTestgroundSrcDir, path)
+				fmt.Printf("successfully located testground source directory: %s\n", path)
+				return path, nil
+			}
+			path = filepath.Dir(path)
 		}
 	}
-
 	return "", ErrUnknownSrcDir
 }
 

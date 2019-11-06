@@ -88,28 +88,30 @@ We kindly ask you to read through the SPEC first and give this project a run fir
 
 ### Setup
 
-Ensure that you are running go 1.13 or later (for gomod support)
+Ensure that you are running go 1.13 or later (for gomod support):
 
 ```sh
 > go version
 go version go1.13.1 darwin/amd64
 ```
 
-Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
+Then, onto getting the actual Testground code. Download the repo and build it:
 
 ```sh
-> go get github.com/ipfs/testground
-# ..fetch and install logs
-> cd $GOPATH/src/github.com/ipfs/testground
+> git clone https://github.com/ipfs/testground.git
+> cd testground
+> go build .
 ```
 
-This command may take a couple of minutes to complete. If successful, it will end with no message.
+This command may take a couple of minutes to complete. If successful, it will
+end with no message.
 
-Now test that everything is installed correctly by running
+Now, test that everything is installed correctly by running the following from
+within the source directory:
 
 ```sh
-> TESTGROUND_SRCDIR=`pwd` testground
-resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+> ./testground
+resolved testground base dir from env variable: /path/to/source/ipfs/testground
 NAME:
    testground - A new cli application
 
@@ -127,6 +129,19 @@ NAME:
       --vv        super verbose output (equivalent to DEBUG log level)
      --help, -h  show help
 ```
+
+#### How testground guesses the source directory
+
+In order to build test plans, Testground needs to know where its source
+directory is located. Testground can infer the path in the following
+circumstances:
+
+1. When calling testground from PATH while situated in the source directory, or
+   subdirectory thereof.
+2. If the testground executable is situated in the source directory (such as
+   when you do `go build .`), or a subdirectory thereof.
+
+For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
 
 ### Setting an environment file
 
@@ -152,7 +167,7 @@ dht      smlbench
 Then do
 
 ```
-> TESTGROUND_SRCDIR=`pwd` testground run dht/lookup-peers --builder=docker:go
+> testground run dht/lookup-peers --builder=docker:go
 ..
 ```
 
