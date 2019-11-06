@@ -256,16 +256,16 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			}
 
 			var finished uint64
-			statuses := make(map[swarm.TaskState]uint64, replicas)
+			status := make(map[swarm.TaskState]uint64, replicas)
 			for _, t := range tasks {
 				s := t.Status.State
-				switch statuses[s]++; s {
+				switch status[s]++; s {
 				case swarm.TaskStateShutdown, swarm.TaskStateComplete, swarm.TaskStateFailed, swarm.TaskStateRejected:
 					finished++
 				}
 			}
 
-			logging.S().Infow("task status", "statuses", statuses)
+			logging.S().Infow("task status", "status", status)
 
 			if finished == replicas {
 				rc.Close()
