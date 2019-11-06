@@ -1,0 +1,26 @@
+## This is an example .env.toml to illustrate how the testground's .env.toml is
+## formatted and used.
+
+# The aws table specifies credentials and settings for the AWS integration,
+# which may be used by several components.
+#
+["aws"]
+access_key_id = "<aws access key id>"
+secret_access_key = "<aws secret access key>"
+region = "<aws region>"
+
+# You can set parameter for run or build strategies that apply in your
+# environment. They will be applied with the following precedence (highest
+# to lowest):
+#
+#   1. CLI --run-param, --build-param flags.
+#   2. .env.toml.
+#   3. Test plan definition.
+#   4. Runner defaults (applied by the runner).
+#
+[run_strategies."cluster:swarm"]
+docker_endpoint = "tcp://localhost:4545"
+docker_tls = false
+docker_tls_ca_cert_path = "/"
+docker_tls_cert_path = "/"
+docker_tls_key_path = "/"
