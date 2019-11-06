@@ -28,25 +28,36 @@ enabled = true
 
 # seq 0
 [[testcases]]
-name = "lookup-peers"
-instances = { min = 2, max = 200, default = 50 }
+name = "find-peers"
+instances = { min = 2, max = 200, default = 25 }
 
   [testcases.params]
+  auto_refresh = { type = "bool", desc = "", unit = "bool" }
+  random_walk = { type = "bool", desc = "", unit = "bool" }
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers" }
   timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
 
 # seq 1
 [[testcases]]
-name = "lookup-providers"
-instances = { min = 2, max = 100, default = 50 }
+name = "find-providers"
+instances = { min = 2, max = 250, default = 25 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
 
 # seq 2
 [[testcases]]
+name = "provide-stress"
+instances = { min = 2, max = 250, default = 25 }
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+
+# seq 3
+[[testcases]]
 name = "store-get-value"
-instances = { min = 2, max = 100, default = 50 }
+instances = { min = 2, max = 250, default = 25 }
 roles = ["storer", "fetcher"]
 
   [testcases.params]

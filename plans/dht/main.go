@@ -1,13 +1,14 @@
 package main
 
 import (
-  "github.com/ipfs/testground/sdk/runtime"
-  test "github.com/ipfs/testground/plans/dht/test"
+	test "github.com/ipfs/testground/plans/dht/test"
+	"github.com/ipfs/testground/sdk/runtime"
 )
 
 var testCases = []func(*runtime.RunEnv){
-	test.LookupPeers,
-	test.LookupProviders,
+	test.FindPeers,
+	test.FindProviders,
+	test.ProvideStress,
 	test.StoreGetValue,
 }
 
