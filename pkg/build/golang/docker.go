@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
@@ -58,9 +59,17 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
 	}
 
+	// TODO support specifying a docker endpoint + TLS parameters from env.
+	// raulk: I don't see a need for this now, as we certainly want to do builds
+	// locally, and push the image to a registry.
+	cliopts := []client.Opt{
+		client.WithHost("unix:///var/run/docker.sock"),
+		client.WithAPIVersionNegotiation(),
+	}
+
 	var (
 		id          = build.CanonicalBuildID(in)
-		cli, err    = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		cli, err    = client.NewClientWithOpts(cliopts...)
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	)
 	defer cancel()
@@ -228,10 +237,13 @@ AWS:
 
 	// Tag the image under the AWS ECR repository.
 	tag := uri + ":" + in.BuildID
+	logging.S().Infow("tagging image", "tag", tag)
 	if err = client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
 	}
 
+	// TODO for some reason, this push is way slower than the equivalent via the
+	// docker CLI. Needs investigation.
 	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
 		RegistryAuth: aws.ECR.EncodeAuthToken(auth),
 	})
