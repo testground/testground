@@ -287,6 +287,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	input.RunnerConfig = cfg
 	input.Seq = seq
 	input.TestPlan = plan
+	input.EnvConfig = *e.env
 
 	return run.Run(input)
 }

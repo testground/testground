@@ -6,6 +6,10 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/docker/docker/api/types/filters"
+
+	"github.com/ipfs/testground/pkg/aws"
+
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
@@ -59,19 +63,15 @@ type ClusterSwarmRunner struct{}
 // the test has run.
 func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	var (
-		image    = input.ArtifactPath
-		seq      = input.Seq
-		deferred []func() error
-		log      = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+		image = input.ArtifactPath
+		seq   = input.Seq
+		log   = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+
+		// global timeout of 1 minute.
+		ctx, cancelFn = context.WithTimeout(context.Background(), 1*time.Minute)
 	)
 
-	defer func() {
-		for i := len(deferred) - 1; i >= 0; i-- {
-			if err := deferred[i](); err != nil {
-				log.Errorw("error while calling deferred functions", "error", err)
-			}
-		}
-	}()
+	defer cancelFn()
 
 	var (
 		cfg   = defaultClusterSwarmConfig
@@ -109,29 +109,33 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
 	}
 
-	// Temp Redis fix
-	env = append(env, "REDIS_HOST=172.31.14.166")
-
 	// Create a docker client.
 	var opts []client.Opt
 	if cfg.DockerTLS {
 		opts = append(opts, client.WithTLSClientConfig(cfg.DockerTLSCACertPath, cfg.DockerTLSCertPath, cfg.DockerTLSKeyPath))
 	}
 
-	opts = append(opts, client.WithHost(cfg.DockerEndpoint))
-	opts = append(opts, client.WithAPIVersionNegotiation())
+	opts = append(opts, client.WithHost(cfg.DockerEndpoint), client.WithAPIVersionNegotiation())
 	cli, err := client.NewClientWithOpts(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	// Configure the service.
 	var (
 		sname    = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
 		replicas = uint64(input.Instances)
 	)
 
-	log.Infow("creating service", "name", sname, "replicas", replicas)
+	// first check if redis is running.
+	svcs, err := cli.ServiceList(ctx, types.ServiceListOptions{
+		Filters: filters.NewArgs(filters.Arg("name", "testground-redis")),
+	})
+
+	if len(svcs) == 0 {
+		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
+	}
+
+	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
 
 	spec := swarm.ServiceSpec{
 		Networks: []swarm.NetworkAttachmentConfig{
@@ -166,15 +170,29 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		},
 	}
 
-	scopts := types.ServiceCreateOptions{QueryRegistry: true}
+	logging.S().Infof("fetching an authorization token from AWS ECR")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
+	// Get an authorization token from ECR
+	auth, err := aws.ECR.GetAuthToken(input.EnvConfig.AWS)
+	if err != nil {
+		return nil, err
+	}
+
+	logging.S().Infof("fetched an authorization token from AWS ECR")
+
+	scopts := types.ServiceCreateOptions{
+		QueryRegistry:       true,
+		EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
+	}
+
+	logging.S().Infow("creating the service on docker swarm", "name", sname, "image", image, "replicas", replicas)
 
 	resp, err := cli.ServiceCreate(ctx, spec, scopts)
 	if err != nil {
 		return nil, err
 	}
+
+	logging.S().Infow("service created successfully", "id", resp.ID)
 
 	return &api.RunOutput{RunnerID: resp.ID}, nil
 }
