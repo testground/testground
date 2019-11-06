@@ -145,7 +145,7 @@ func (w *Watcher) Close() error {
 	var result *multierror.Error
 	for _, st := range w.subtrees {
 		for sub := range st {
-			multierror.Append(result, sub.stop())
+			result = multierror.Append(result, sub.stop())
 		}
 	}
 	w.subtrees = nil
