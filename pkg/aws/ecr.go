@@ -1,0 +1,110 @@
+package aws
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"strings"
+
+	"github.com/docker/docker/api/types"
+
+	"github.com/ipfs/testground/pkg/api"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ecr"
+)
+
+// ECR is a singleton object to namespace ECR operations.
+var ECR = &ecrsvc{}
+
+type ecrsvc struct{}
+
+// GetLogin returns the ECR login details for usage with the Docker API.
+func (*ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err error) {
+	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
+	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
+	sess, err := session.NewSession(config)
+	if err != nil {
+		return types.AuthConfig{}, err
+	}
+
+	svc := ecr.New(sess)
+	svc.AddDebugHandlers()
+
+	token, err := svc.GetAuthorizationToken(nil)
+	if err != nil {
+		return types.AuthConfig{}, err
+	} else if len(token.AuthorizationData) == 0 {
+		return types.AuthConfig{}, fmt.Errorf("ecr: got zero auth tokens")
+	}
+
+	data := token.AuthorizationData[0]
+	bytes, err := base64.RawStdEncoding.DecodeString(*data.AuthorizationToken)
+	if err != nil {
+		return types.AuthConfig{}, fmt.Errorf("ecr: failed to decode base64: %w", err)
+	}
+
+	splt := strings.Split(string(bytes), ":")
+	if len(splt) != 2 {
+		return types.AuthConfig{}, fmt.Errorf("ecr: unexpected format for auth token: %v", splt)
+	}
+
+	var (
+		user     = splt[0]
+		pwd      = splt[1]
+		endpoint = *data.ProxyEndpoint
+	)
+
+	auth = types.AuthConfig{
+		Username:      user,
+		Password:      pwd,
+		ServerAddress: endpoint,
+	}
+
+	return auth, nil
+}
+
+func (*ecrsvc) EncodeAuthToken(token types.AuthConfig) string {
+	// Marshal the token and encode it into base64. That's how registries expect
+	// the Authentication token to be passed.
+	// See https://forums.docker.com/t/how-to-create-registryauth-for-private-registry-login-credentials/29235
+	t, _ := json.Marshal(token)
+	return base64.URLEncoding.EncodeToString(t)
+}
+
+func (*ecrsvc) EnsureRepository(cfg api.AWSConfig, name string) (uri string, err error) {
+	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
+	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
+	sess, err := session.NewSession(config)
+	if err != nil {
+		return "", err
+	}
+
+	svc := ecr.New(sess)
+	svc.AddDebugHandlers()
+
+	// Check if the repository exists.
+	d, err := svc.DescribeRepositories(&ecr.DescribeRepositoriesInput{RepositoryNames: []*string{&name}})
+
+	// ErrCodeRepositoryNotFoundException is the code we expect if the repository doesn't exist.
+	// If we get a different error, abort.
+	if err != nil && err.(awserr.Error).Code() != ecr.ErrCodeRepositoryNotFoundException {
+		return "", err
+	}
+	if len(d.Repositories) > 0 {
+		// The repository exists. Pick the first match.
+		return *d.Repositories[0].RepositoryUri, nil
+	}
+
+	c, err := svc.CreateRepository(&ecr.CreateRepositoryInput{RepositoryName: &name})
+	if err != nil {
+		return "", err
+	} else if c.Repository == nil {
+		return "", fmt.Errorf("ecr: newly created repository was nil")
+	}
+
+	return *c.Repository.RepositoryUri, nil
+}

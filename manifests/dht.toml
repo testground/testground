@@ -18,12 +18,10 @@ exec_pkg = "."
 [run_strategies."local:docker"]
 enabled = true
 
-# TODO: local:exec is not ready yet
 [run_strategies."local:exec"]
 enabled = true
 
-# TODO: local:exec is not ready yet
-[run_strategies."cluster:nomad"]
+[run_strategies."cluster:swarm"]
 enabled = true
 
 # seq 0
