@@ -128,6 +128,18 @@ NAME:
      --help, -h  show help
 ```
 
+### Setting an environment file
+
+Testground automatically loads an `.env.toml` file at root of your source
+directory. It contains environment settings, such as:
+
+* AWS secrets and settings.
+* Builder and runner options. These are merged with values supplied via CLI, test plan manifests, and defaults.
+
+You can initialize a new `.env.toml` file by copying the prototype
+[`env-example.toml`](env-example.toml) supplied in this repo to your testground
+source root. Refer to the comments in that example for explanations of usage.
+
 ### Running the tests locally with TestGround
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
