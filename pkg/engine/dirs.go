@@ -46,7 +46,6 @@ func locateSrcDir() (string, error) {
 
 	for len(path) > 1 {
 		fmt.Printf("attempting to guess testground base directory; for better control set ${%s}\n", EnvTestgroundSrcDir)
-		fmt.Println(path)
 		if isTestgroundRepo(path) {
 			os.Setenv(EnvTestgroundSrcDir, path)
 			fmt.Printf("successfully located testground base directory: %s\n", path)
