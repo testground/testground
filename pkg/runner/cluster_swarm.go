@@ -93,6 +93,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		TestCaseSeq:        seq,
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
+		TestSidecar:        true,
 	}
 
 	// Serialize the runenv into env variables to pass to docker.

@@ -28,6 +28,7 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/sync v0.0.0-00010101000000-000000000000
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -37,6 +38,8 @@ require (
 	github.com/otiai10/copy v1.0.2
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/urfave/cli v1.22.1
+	github.com/vishvananda/netlink v1.0.0
+	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect

@@ -101,6 +101,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		TestCaseSeq:        seq,
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
+		TestSidecar:        true,
 	}
 
 	// Serialize the runenv into env variables to pass to docker.
@@ -144,6 +145,9 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, err
 	}
 
+	// Ensure that we have a testground-sidecar container; if not, we'll
+	// create it.
+	_, err = ensureSidecarContainer(cli, log, controlNetworkID)
 	if err != nil {
 		return nil, err
 	}
@@ -331,6 +335,26 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 			Image:      "redis",
 			Entrypoint: []string{"redis-server"},
 			Cmd:        []string{"--notify-keyspace-events", "$szxK"},
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(controlNetworkID),
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return container.ID, err
+}
+
+// ensureSidecarContainer ensures there's a testground-sidecar container started.
+func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+		ContainerName: "testground-sidecar",
+		ContainerConfig: &container.Config{
+			Image:      "ipfs/testground",
+			Entrypoint: []string{"testground"},
+			Cmd:        []string{"sidecar", "--runner", "docker"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),

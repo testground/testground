@@ -22,6 +22,7 @@ const (
 	EnvTestRun            = "TEST_RUN"
 	EnvTestRepo           = "TEST_REPO"
 	EnvTestCaseSeq        = "TEST_CASE_SEQ"
+	EnvTestSidecar        = "TEST_SIDECAR"
 	EnvTestInstanceCount  = "TEST_INSTANCE_COUNT"
 	EnvTestInstanceRole   = "TEST_INSTANCE_ROLE"
 	EnvTestInstanceParams = "TEST_INSTANCE_PARAMS"
@@ -45,6 +46,9 @@ type RunEnv struct {
 	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
 	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
 
+	// true if the test has access to the sidecar.
+	TestSidecar bool `json:"test_sidecar,omitempty"`
+
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
@@ -60,6 +64,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 	}
 
 	out := map[string]string{
+		EnvTestSidecar:        strconv.FormatBool(re.TestSidecar),
 		EnvTestPlan:           re.TestPlan,
 		EnvTestBranch:         re.TestBranch,
 		EnvTestCase:           re.TestCase,
@@ -141,9 +146,15 @@ func toInt(s string) int {
 	return v
 }
 
+func toBool(s string) bool {
+	v, _ := strconv.ParseBool(s)
+	return v
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
 	re := &RunEnv{
+		TestSidecar:        toBool(os.Getenv(EnvTestSidecar)),
 		TestPlan:           os.Getenv(EnvTestPlan),
 		TestCase:           os.Getenv(EnvTestCase),
 		TestRun:            os.Getenv(EnvTestRun),
@@ -174,6 +185,7 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		envMap[key] = value
 	}
 	re := &RunEnv{
+		TestSidecar:        toBool(envMap[EnvTestSidecar]),
 		TestPlan:           envMap[EnvTestPlan],
 		TestCase:           envMap[EnvTestCase],
 		TestRun:            envMap[EnvTestRun],
@@ -266,6 +278,7 @@ func RandomRunEnv() *RunEnv {
 
 	return &RunEnv{
 		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
+		TestSidecar:        false,
 		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
 		TestCaseSeq:        int(rand.Uint32()),
