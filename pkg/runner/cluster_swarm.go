@@ -143,7 +143,9 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		Filters: filters.NewArgs(filters.Arg("name", "testground-redis")),
 	})
 
-	if len(svcs) == 0 {
+	if err != nil {
+		return nil, err
+	} else if len(svcs) == 0 {
 		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
 	}
 
@@ -241,7 +243,11 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	// which in turns signals that the runner is now finished.
 	go func() {
 		var errCnt int
-		for range time.Tick(2 * time.Second) {
+
+		tick := time.NewTicker(2 * time.Second)
+		defer tick.Stop()
+
+		for range tick.C {
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			tasks, err := cli.TaskList(ctx, types.TaskListOptions{
 				Filters: filters.NewArgs(filters.Arg("service", serviceID)),

@@ -234,6 +234,9 @@ AWS:
 	// Ensure the repo exists, or create it. Get the full URI to the repo, so we
 	// can tag images.
 	uri, err := aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
+	if err != nil {
+		return err
+	}
 
 	// Tag the image under the AWS ECR repository.
 	tag := uri + ":" + in.BuildID
