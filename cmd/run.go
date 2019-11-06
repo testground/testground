@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
@@ -39,10 +40,13 @@ var RunCommand = cli.Command{
 			},
 			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
+		cli.BoolFlag{
+			Name:  "no-build, nb",
+			Usage: "do not perform a build; requires --artifact-path option to be provided",
+		},
 		cli.StringFlag{
-			Name:  "nomad-api, n",
-			Value: "http://127.0.0.1:5000",
-			Usage: "the url of the Nomad endpoint (unused for now)",
+			Name:  "artifact-path, a",
+			Usage: "artifact path",
 		},
 		cli.IntFlag{
 			Name:  "instances, i",
@@ -67,12 +71,14 @@ func runCommand(c *cli.Context) error {
 
 	// Extract flags and arguments.
 	var (
-		testcase   = c.Args().First()
-		builderId  = c.Generic("builder").(*EnumValue).String()
-		runnerId   = c.Generic("runner").(*EnumValue).String()
-		runcfg     = c.StringSlice("run-cfg")
-		instances  = c.Int("instances")
-		testparams = c.StringSlice("test-param")
+		testcase     = c.Args().First()
+		builderId    = c.Generic("builder").(*EnumValue).String()
+		runnerId     = c.Generic("runner").(*EnumValue).String()
+		runcfg       = c.StringSlice("run-cfg")
+		instances    = c.Int("instances")
+		testparams   = c.StringSlice("test-param")
+		artifactPath = c.String("artifact-path")
+		noBuild      = c.Bool("no-build")
 	)
 
 	// Validate this test case was provided.
@@ -88,17 +94,28 @@ func runCommand(c *cli.Context) error {
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 
-	// Now that we've verified that the test plan and the test case exist, build
-	// the testplan.
-	buildIn, err := parseBuildInput(c)
-	if err != nil {
-		return fmt.Errorf("error while parsing build input: %w", err)
+	if noBuild && artifactPath == "" {
+		return errors.New("artifact-path is required when skipping the build")
 	}
 
-	// Trigger the build job.
-	buildOut, err := _engine.DoBuild(comp[0], builderId, buildIn)
-	if err != nil {
-		return fmt.Errorf("error while building test plan: %w", err)
+	if !noBuild && artifactPath != "" {
+		logging.S().Warn("artifact-path will be ignored, as we're performing a build")
+	}
+
+	if !c.Bool("no-build") {
+		// Now that we've verified that the test plan and the test case exist, build
+		// the testplan.
+		in, err := parseBuildInput(c)
+		if err != nil {
+			return fmt.Errorf("error while parsing build input: %w", err)
+		}
+
+		// Trigger the build job.
+		out, err := _engine.DoBuild(comp[0], builderId, in)
+		if err != nil {
+			return fmt.Errorf("error while building test plan: %w", err)
+		}
+		artifactPath = out.ArtifactPath
 	}
 
 	// Process run cfg override.
@@ -120,7 +137,7 @@ func runCommand(c *cli.Context) error {
 	// Prepare the run job.
 	runIn := &api.RunInput{
 		Instances:    instances,
-		ArtifactPath: buildOut.ArtifactPath,
+		ArtifactPath: artifactPath,
 		RunnerConfig: cfgOverride,
 		Parameters:   parameters,
 	}
