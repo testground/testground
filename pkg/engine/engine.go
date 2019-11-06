@@ -52,7 +52,7 @@ type Engine struct {
 		src  string
 		work string
 	}
-	env *api.EnvConfig
+	env api.EnvConfig
 }
 
 type EngineConfig struct {
@@ -89,12 +89,11 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	e.dirs.work = workdir
 
 	// load the .env.toml file.
-	e.env = new(api.EnvConfig)
 	path := filepath.Join(srcdir, ".env.toml")
-	switch _, err := toml.DecodeFile(path, e.env); err.(type) {
-	case nil:
+	switch _, err := toml.DecodeFile(path, &e.env); {
+	case err == nil:
 		fmt.Println("loading env from", path)
-	case *os.PathError:
+	case os.IsNotExist(err):
 		fmt.Println("warn: no .env.toml found; some components may not work")
 	}
 
@@ -210,7 +209,7 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput)
 	input.Directories = e
 	input.TestPlan = plan
 	input.BuildConfig = cfg
-	input.EnvConfig = *e.env
+	input.EnvConfig = e.env
 
 	return bm.Build(input)
 }
@@ -287,7 +286,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	input.RunnerConfig = cfg
 	input.Seq = seq
 	input.TestPlan = plan
-	input.EnvConfig = *e.env
+	input.EnvConfig = e.env
 
 	return run.Run(input)
 }

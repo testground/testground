@@ -216,14 +216,11 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 func (b *DockerGoBuilder) pushToRegistry(ctx context.Context, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	cfg := in.BuildConfig.(*DockerGoBuilderConfig)
 
-	switch cfg.RegistryType {
-	case "aws":
-		goto AWS
-	default:
+	// We only support aws at this time.
+	if cfg.RegistryType != "aws" {
 		return fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
-AWS:
 	// Get a Docker registry authentication token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 	if err != nil {

@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
@@ -40,13 +39,9 @@ var RunCommand = cli.Command{
 			},
 			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
-		cli.BoolFlag{
-			Name:  "no-build, nb",
-			Usage: "do not perform a build; requires --artifact-path option to be provided",
-		},
 		cli.StringFlag{
-			Name:  "artifact-path, a",
-			Usage: "artifact path",
+			Name:  "use-build, ub",
+			Usage: "specifies the artifact to use (from a previous build)",
 		},
 		cli.IntFlag{
 			Name:  "instances, i",
@@ -77,8 +72,7 @@ func runCommand(c *cli.Context) error {
 		runcfg       = c.StringSlice("run-cfg")
 		instances    = c.Int("instances")
 		testparams   = c.StringSlice("test-param")
-		artifactPath = c.String("artifact-path")
-		noBuild      = c.Bool("no-build")
+		artifactPath = c.String("use-build")
 	)
 
 	// Validate this test case was provided.
@@ -94,15 +88,7 @@ func runCommand(c *cli.Context) error {
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 
-	if noBuild && artifactPath == "" {
-		return errors.New("artifact-path is required when skipping the build")
-	}
-
-	if !noBuild && artifactPath != "" {
-		logging.S().Warn("artifact-path will be ignored, as we're performing a build")
-	}
-
-	if !c.Bool("no-build") {
+	if artifactPath == "" {
 		// Now that we've verified that the test plan and the test case exist, build
 		// the testplan.
 		in, err := parseBuildInput(c)

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/docker/docker/api/types"
-
 	"github.com/ipfs/testground/pkg/api"
+
+	"github.com/docker/docker/api/types"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -22,18 +22,26 @@ var ECR = &ecrsvc{}
 
 type ecrsvc struct{}
 
-// GetLogin returns the ECR login details for usage with the Docker API.
-func (*ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err error) {
+// newService creates a new ECR backend service stub.
+func (*ecrsvc) newService(cfg api.AWSConfig) (*ecr.ECR, error) {
 	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
 	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
 	sess, err := session.NewSession(config)
 	if err != nil {
-		return types.AuthConfig{}, err
+		return nil, err
 	}
 
 	svc := ecr.New(sess)
 	svc.AddDebugHandlers()
+	return svc, nil
+}
 
+// GetLogin returns the ECR login details for usage with the Docker API.
+func (e *ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err error) {
+	svc, err := e.newService(cfg)
+	if err != nil {
+		return types.AuthConfig{}, err
+	}
 	token, err := svc.GetAuthorizationToken(nil)
 	if err != nil {
 		return types.AuthConfig{}, err
@@ -67,7 +75,7 @@ func (*ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err error
 	return auth, nil
 }
 
-func (*ecrsvc) EncodeAuthToken(token types.AuthConfig) string {
+func (e *ecrsvc) EncodeAuthToken(token types.AuthConfig) string {
 	// Marshal the token and encode it into base64. That's how registries expect
 	// the Authentication token to be passed.
 	// See https://forums.docker.com/t/how-to-create-registryauth-for-private-registry-login-credentials/29235
@@ -75,16 +83,11 @@ func (*ecrsvc) EncodeAuthToken(token types.AuthConfig) string {
 	return base64.URLEncoding.EncodeToString(t)
 }
 
-func (*ecrsvc) EnsureRepository(cfg api.AWSConfig, name string) (uri string, err error) {
-	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
-	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
-	sess, err := session.NewSession(config)
+func (e *ecrsvc) EnsureRepository(cfg api.AWSConfig, name string) (uri string, err error) {
+	svc, err := e.newService(cfg)
 	if err != nil {
 		return "", err
 	}
-
-	svc := ecr.New(sess)
-	svc.AddDebugHandlers()
 
 	// Check if the repository exists.
 	d, err := svc.DescribeRepositories(&ecr.DescribeRepositoriesInput{RepositoryNames: []*string{&name}})

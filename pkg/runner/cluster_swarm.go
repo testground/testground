@@ -252,8 +252,8 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		defer tick.Stop()
 
 		for range tick.C {
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			tasks, err := cli.TaskList(ctx, types.TaskListOptions{
+			tctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			tasks, err := cli.TaskList(tctx, types.TaskListOptions{
 				Filters: filters.NewArgs(filters.Arg("service", serviceID)),
 			})
 			cancel()
