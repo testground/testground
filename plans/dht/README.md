@@ -13,7 +13,7 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 - **Network Parameters**
   - `Region` - Region or Regions where the test should be run at (default to single region)
-  - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
+  - `N` - Number of nodes that are spawned for the test (from 10 to 1000000)
 - **Image Parameters**
   - Single Image - The go-libp2p commit that is being tested
   - Image Resources CPU & Ram
