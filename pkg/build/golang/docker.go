@@ -219,6 +219,8 @@ func (b *DockerGoBuilder) pushToRegistry(ctx context.Context, client *client.Cli
 	switch cfg.RegistryType {
 	case "aws":
 		goto AWS
+	default:
+		return fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
 AWS:
