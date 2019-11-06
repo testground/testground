@@ -243,6 +243,9 @@ AWS:
 	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
 		return err
 	}
+
+	// replace the artifact path by the pushed image.
+	out.ArtifactPath = tag
 	return nil
 }
 

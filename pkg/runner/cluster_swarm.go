@@ -1,23 +1,24 @@
 package runner
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"reflect"
 	"time"
 
-	"github.com/docker/docker/api/types/filters"
-
-	"github.com/ipfs/testground/pkg/aws"
-
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/imdario/mergo"
 )
@@ -31,6 +32,10 @@ var (
 type ClusterSwarmRunnerConfig struct {
 	// LogLevel sets the log level in the test containers (default: not set).
 	LogLevel string `toml:"log_level"`
+
+	// Background avoids tailing the output of containers, and displaying it as
+	// log messages (default: true).
+	Background bool `toml:"background"`
 
 	// DockerEndpoint is the URL of the docker swarm manager endpoint, e.g.
 	// "tcp://manager:2376"
@@ -49,11 +54,19 @@ type ClusterSwarmRunnerConfig struct {
 
 	// DockerTLSKeyPath is our private key. Only used if DockerTLS = true.
 	DockerTLSKeyPath string `toml:"docker_tls_key_path"`
+
+	// RemoveService removes the service after all instances have finished and
+	// all logs have been piped. Only used when running in foreground mode
+	// (background = false).
+	RemoveService bool `toml:"rm_service"`
 }
 
 // defaultClusterSwarmConfig is the default configuration. Incoming configurations will be
 // merged with this object.
-var defaultClusterSwarmConfig = ClusterSwarmRunnerConfig{}
+var defaultClusterSwarmConfig = ClusterSwarmRunnerConfig{
+	Background:    false,
+	RemoveService: true,
+}
 
 // ClusterSwarmRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
@@ -66,11 +79,10 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		image = input.ArtifactPath
 		seq   = input.Seq
 		log   = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
-
-		// global timeout of 1 minute.
-		ctx, cancelFn = context.WithTimeout(context.Background(), 1*time.Minute)
 	)
 
+	// global timeout of 1 minute for the scheduling.
+	ctx, cancelFn := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancelFn()
 
 	var (
@@ -172,7 +184,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 	logging.S().Infof("fetching an authorization token from AWS ECR")
 
-	// Get an authorization token from ECR
+	// Get an authorization token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(input.EnvConfig.AWS)
 	if err != nil {
 		return nil, err
@@ -181,20 +193,106 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	logging.S().Infof("fetched an authorization token from AWS ECR")
 
 	scopts := types.ServiceCreateOptions{
-		QueryRegistry:       true,
+		QueryRegistry: true,
+		// the registry auth will be propagated to all docker swarm nodes so
+		// they can fetch the image properly.
 		EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
 	}
 
 	logging.S().Infow("creating the service on docker swarm", "name", sname, "image", image, "replicas", replicas)
 
+	// Now create the docker swarm service.
 	resp, err := cli.ServiceCreate(ctx, spec, scopts)
 	if err != nil {
 		return nil, err
 	}
 
-	logging.S().Infow("service created successfully", "id", resp.ID)
+	serviceID := resp.ID
 
-	return &api.RunOutput{RunnerID: resp.ID}, nil
+	logging.S().Infow("service created successfully", "id", serviceID)
+
+	out := &api.RunOutput{RunnerID: serviceID}
+
+	// If we are running in background mode, return immediately.
+	if cfg.Background {
+		return out, nil
+	}
+
+	// Tail the service until all instances are done, then remove the service if
+	// the flag has been set.
+	rc, err := cli.ServiceLogs(context.Background(), serviceID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Since:      "2019-01-01T00:00:00",
+		Follow:     true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed while tailing logs: %w", err)
+	}
+
+	rpipe, wpipe := io.Pipe()
+	go func() {
+		_, err := stdcopy.StdCopy(wpipe, wpipe, rc)
+		_ = wpipe.CloseWithError(err)
+	}()
+
+	// This goroutine monitors the state of tasks every two seconds. When all
+	// tasks are shutdown, we are done here. We close the logs io.ReadCloser,
+	// which in turns signals that the runner is now finished.
+	go func() {
+		var errCnt int
+		for range time.Tick(2 * time.Second) {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			tasks, err := cli.TaskList(ctx, types.TaskListOptions{
+				Filters: filters.NewArgs(filters.Arg("service", serviceID)),
+			})
+			cancel()
+
+			if err != nil {
+				if errCnt++; errCnt > 3 {
+					rc.Close()
+					return
+				}
+			}
+
+			var finished uint64
+			statuses := make(map[swarm.TaskState]uint64, replicas)
+			for _, t := range tasks {
+				s := t.Status.State
+				switch statuses[s]++; s {
+				case swarm.TaskStateShutdown, swarm.TaskStateComplete, swarm.TaskStateFailed, swarm.TaskStateRejected:
+					finished++
+				}
+			}
+
+			logging.S().Infow("task status", "statuses", statuses)
+
+			if finished == replicas {
+				rc.Close()
+				return
+			}
+		}
+	}()
+
+	scanner := bufio.NewScanner(rpipe)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
+	}
+
+	if cfg.RemoveService {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+
+		logging.S().Infow("removing service", "service", serviceID)
+
+		if err := cli.ServiceRemove(ctx, serviceID); err == nil {
+			logging.S().Infow("service removed", "service", serviceID)
+		} else {
+			logging.S().Errorf("removing the service failed: %w", err)
+		}
+	}
+
+	return out, nil
 }
 
 func (*ClusterSwarmRunner) ID() string {

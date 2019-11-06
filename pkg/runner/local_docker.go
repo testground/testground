@@ -229,7 +229,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
-				Since:      "2019-01-02T00:00:00",
+				Since:      "2019-01-01T00:00:00",
 				Follow:     true,
 			})
 			defer cancel()
