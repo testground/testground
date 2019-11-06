@@ -39,18 +39,20 @@ func locateSrcDir() (string, error) {
 	}
 
 	// 2. Fallback to the working directory.
-	path, err := os.Executable()
+	path, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 
 	for len(path) > 1 {
 		fmt.Printf("attempting to guess testground base directory; for better control set ${%s}\n", EnvTestgroundSrcDir)
-		if path = filepath.Dir(path); isTestgroundRepo(path) {
+		fmt.Println(path)
+		if isTestgroundRepo(path) {
 			os.Setenv(EnvTestgroundSrcDir, path)
 			fmt.Printf("successfully located testground base directory: %s\n", path)
 			return path, nil
 		}
+		path = filepath.Dir(path)
 	}
 
 	return "", ErrUnknownSrcDir
