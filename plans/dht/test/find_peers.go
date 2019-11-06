@@ -74,7 +74,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	// TODO: Revisit this - This assumed that it is ok to put in memory every single peer.AddrInfo that participates in this test
 	peerCh := make(chan *peer.AddrInfo, 16)
-	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
+	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
 	defer cancelSub()
 
 	var toDial []peer.AddrInfo
