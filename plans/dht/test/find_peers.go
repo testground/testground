@@ -15,7 +15,7 @@ import (
 )
 
 // NOTE: Needs to run with latest kad-dht. Use:
-// go build . && ./testground run dht/find-peers --builder=docker:go --runner="local:docker" --dep="github.com/libp2p/go-libp2p-kad-dht=master"
+//  go build . && TESTGROUND_BASEDIR=`pwd` ./testground run dht/find-peers --builder=docker:go --runner="local:docker" --dep="github.com/libp2p/go-libp2p-kad-dht=master" --build-cfg bypass_cache=true
 
 // FindPeers is the Find Peers Test Case
 func FindPeers(runenv *runtime.RunEnv) {
@@ -39,8 +39,6 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	myNodeID := node.ID()
 	runenv.Message("I am %s with addrs: %v", myNodeID, node.Addrs())
-
-	// time.Sleep(5 * time.Minute)
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
@@ -95,8 +93,6 @@ func FindPeers(runenv *runtime.RunEnv) {
 			toDial = append(toDial, *ai)
 
 		case <-time.After(timeout):
-			// TODO need a way to fail a distributed test immediately. No point
-			// making it run elsewhere beyond this point.
 			runenv.Abort(fmt.Errorf("no new peers in %d seconds", timeout/time.Second))
 			return
 		}
@@ -140,26 +136,20 @@ Loop:
 	for i := 0; i < nFindPeers; i++ {
 		var (
 			peerToFind peer.AddrInfo
-			gotOne     = false
 		)
 
 		// This search is suboptimal -> TODO check if go-libp2p has funcs or maps to help make this faster
-	Outer:
+	SelectPeer:
 		for _, anotherPeer := range toDial {
 			for _, connectedPeer := range node.Peerstore().PeersWithAddrs() {
 				apID, _ := anotherPeer.ID.MarshalBinary()
 				cpID, _ := connectedPeer.MarshalBinary()
-				if bytes.Compare(apID, cpID) >= 0 {
+				if bytes.Compare(apID, cpID) == 0 {
 					continue // already dialed to this one, next
 				}
 				// found a peer from list that we are not yet connected
 				peerToFind = anotherPeer
-				gotOne = true
-				break Outer
-			}
-			if gotOne {
-				gotOne = false
-				break
+				break SelectPeer
 			}
 		}
 		// Find Peer dance

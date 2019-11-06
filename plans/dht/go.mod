@@ -16,7 +16,7 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.0.0-20190921111954-a84ff142a5a3
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-core v0.2.3
-	github.com/libp2p/go-libp2p-kad-dht v0.2.2
+	github.com/libp2p/go-libp2p-kad-dht v0.3.0
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/multiformats/go-multiaddr-dns v0.1.1 // indirect
