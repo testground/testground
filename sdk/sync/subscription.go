@@ -21,7 +21,7 @@ type subscription struct {
 	client  *redis.Client
 	ps      *redis.PubSub
 
-	outCh   typedChan
+	outCh   reflect.Value
 	inCh    <-chan *redis.Message
 	closeCh chan struct{}
 	closeWg sync.WaitGroup
