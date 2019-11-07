@@ -58,14 +58,20 @@ type ClusterSwarmRunnerConfig struct {
 	// RemoveService removes the service after all instances have finished and
 	// all logs have been piped. Only used when running in foreground mode
 	// (background = false).
-	RemoveService bool `toml:"rm_service"`
+	//
+	// NOTE: this has to be a pointer so that mergo can distinguish false from
+	// zero values.
+	RemoveService *bool `toml:"rm_service"`
 }
 
 // defaultClusterSwarmConfig is the default configuration. Incoming configurations will be
 // merged with this object.
 var defaultClusterSwarmConfig = ClusterSwarmRunnerConfig{
-	Background:    false,
-	RemoveService: true,
+	Background: false,
+	RemoveService: func() *bool { // hacky hackerson
+		v := true
+		return &v
+	}(),
 }
 
 // ClusterSwarmRunner is a runner that creates a Docker service to launch as
@@ -289,7 +295,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		fmt.Println(scanner.Text())
 	}
 
-	if cfg.RemoveService {
+	if *cfg.RemoveService {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 
