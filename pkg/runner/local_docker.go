@@ -178,7 +178,9 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	}
 
 	if !cfg.KeepContainers {
-		defer deleteContainers(cli, log, containers)
+		defer deleteContainers(cli, log, containers) //nolint
+		// ^^ nolint: this method already logs errors; this is a cleanup action,
+		// if an error is returned, there's nothing we can do anyway.
 	}
 
 	// If an error occurred interim, delete all containers, and abort.
