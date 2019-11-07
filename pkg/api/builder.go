@@ -20,6 +20,11 @@ type Builder interface {
 
 // BuildInput encapsulates the input options for building a test plan.
 type BuildInput struct {
+	// BuildID is a unique ID for this build.
+	BuildID string
+	// EnvConfig is the env configuration of the engine. Not a pointer to force
+	// a copy.
+	EnvConfig EnvConfig
 	// Directories providers accessors to directories managed by the runtime.
 	Directories Directories
 	// TestPlan is the metadata of the test plan being built.

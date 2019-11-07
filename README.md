@@ -88,30 +88,29 @@ We kindly ask you to read through the SPEC first and give this project a run fir
 
 ### Setup
 
-Ensure that you are running go 1.13 or later (for gomod support)
+Ensure that you are running go 1.13 or later (for gomod support):
 
 ```sh
 > go version
 go version go1.13.1 darwin/amd64
 ```
 
-Then, onto getting the actual Test Ground code. Download the repo and install the dependencies
+Then, onto getting the actual Testground code. Download the repo and build it:
 
 ```sh
-> go get github.com/ipfs/testground
-# ..fetch and install logs
-> cd $GOPATH/src/github.com/ipfs/testground
+> git clone https://github.com/ipfs/testground.git
+> cd testground
+> go build .
 ```
 
 This command may take a couple of minutes to complete. If successful, it will end with no message.
 
-Now test that everything is installed correctly by running
+Now, test that everything is installed correctly by running the following from within the source directory:
 
 ```sh
-> testground
+> ./testground
 attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
 successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
-
 NAME:
    testground - A new cli application
 
@@ -130,6 +129,16 @@ NAME:
      --help, -h  show help
 ```
 
+#### How testground guesses the source directory
+
+In order to build test plans, Testground needs to know where its source directory is located. Testground can infer the path in the following circumstances:
+
+1. When calling testground from PATH while situated in the source directory, or subdirectory thereof.
+2. If the testground executable is situated in the source directory (such as when you do `go build .`), or a subdirectory thereof.
+
+For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
+
+
 ### Running the tests locally with TestGround
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
@@ -138,6 +147,7 @@ To run a test locally, you can use the `testground run` command. Check what Test
 > testground list
 attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
 successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+
 
 dht/lookup-peers
 dht/lookup-providers
@@ -182,6 +192,17 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 ```
 
 ### Running a Test Plan on the TestGround Cloud Infrastructure
+
+#### Setting an environment file
+
+Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
+
+* AWS secrets and settings.
+* Builder and runner options. These are merged with values supplied via CLI, test plan manifests, and defaults.
+
+You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
+
+#### Running in the Cloud
 
 `To be Written once such infrastructure exists..soon™`
 

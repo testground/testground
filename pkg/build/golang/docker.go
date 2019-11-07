@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
@@ -39,19 +41,35 @@ type DockerGoBuilderConfig struct {
 	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
 	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
 	BypassCache   bool   `toml:"bypass_cache" overridable:"yes"`
+
+	// PushRegistry, if true, will push the resulting image to a Docker
+	// registry.
+	PushRegistry bool `toml:"push_registry" overridable:"yes"`
+
+	// RegistryType is the type of registry this builder will push the generated
+	// Docker image to, if PushRegistry is true.
+	RegistryType string `toml:"registry_type" overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) {
-	cfg, ok := opts.BuildConfig.(*DockerGoBuilderConfig)
+func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
+	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
-		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", opts.BuildConfig)
+		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
+	}
+
+	// TODO support specifying a docker endpoint + TLS parameters from env.
+	// raulk: I don't see a need for this now, as we certainly want to do builds
+	// locally, and push the image to a registry.
+	cliopts := []client.Opt{
+		client.WithHost("unix:///var/run/docker.sock"),
+		client.WithAPIVersionNegotiation(),
 	}
 
 	var (
-		id          = build.CanonicalBuildID(opts)
-		cli, err    = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		id          = build.CanonicalBuildID(in)
+		cli, err    = client.NewClientWithOpts(cliopts...)
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
 	)
 	defer cancel()
@@ -71,17 +89,17 @@ func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) 
 	}
 
 	// Create a temp dir, and copy the source into it.
-	tmp, err := ioutil.TempDir("", opts.TestPlan.Name)
+	tmp, err := ioutil.TempDir("", in.TestPlan.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed while creating temp dir: %w", err)
 	}
 	defer os.RemoveAll(tmp)
 
 	var (
-		plansrc        = opts.TestPlan.SourcePath
-		sdksrc         = filepath.Join(opts.Directories.SourceDir(), "/sdk")
-		dockerfilesrc  = filepath.Join(opts.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
-		installipfssrc = filepath.Join(opts.Directories.SourceDir(), "pkg", "build", "install-ipfs.sh")
+		plansrc        = in.TestPlan.SourcePath
+		sdksrc         = filepath.Join(in.Directories.SourceDir(), "/sdk")
+		dockerfilesrc  = filepath.Join(in.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
+		installipfssrc = filepath.Join(in.Directories.SourceDir(), "pkg", "build", "install-ipfs.sh")
 
 		plandst        = filepath.Join(tmp, "plan")
 		sdkdst         = filepath.Join(tmp, "sdk")
@@ -140,7 +158,7 @@ func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) 
 
 	// If we have version overrides, apply them.
 	var replaces []string
-	for mod, ver := range opts.Dependencies {
+	for mod, ver := range in.Dependencies {
 		// TODO(RK): allow to override target of replaces, so we can test against forks.
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, mod, ver))
 	}
@@ -164,28 +182,85 @@ func (b *DockerGoBuilder) Build(opts *api.BuildInput) (*api.BuildOutput, error) 
 		return nil, err
 	}
 
-	args := map[string]*string{
-		"GO_VERSION":        &cfg.GoVersion,
-		"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
-		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
+	opts := types.ImageBuildOptions{
+		Tags: []string{id, in.BuildID},
+		BuildArgs: map[string]*string{
+			"GO_VERSION":        &cfg.GoVersion,
+			"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
+			"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
+		},
 	}
 
-	buildOpts := types.ImageBuildOptions{
-		Tags:      []string{id},
-		BuildArgs: args,
-	}
-
-	resp, err := cli.ImageBuild(ctx, tar, buildOpts)
+	// Build the image.
+	resp, err := cli.ImageBuild(ctx, tar, opts)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
+	// Pipe the docker output to stdout.
 	if err := util.PipeDockerOutput(resp.Body, os.Stdout); err != nil {
 		return nil, err
 	}
 
-	return &api.BuildOutput{ArtifactPath: id}, nil
+	out := &api.BuildOutput{ArtifactPath: in.BuildID}
+
+	if cfg.PushRegistry {
+		err := b.pushToRegistry(ctx, cli, in, out)
+		return out, err
+	}
+
+	return out, nil
+}
+
+func (b *DockerGoBuilder) pushToRegistry(ctx context.Context, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+	cfg := in.BuildConfig.(*DockerGoBuilderConfig)
+
+	// We only support aws at this time.
+	if cfg.RegistryType != "aws" {
+		return fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+	}
+
+	// Get a Docker registry authentication token from AWS ECR.
+	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
+	if err != nil {
+		return err
+	}
+
+	// AWS ECR repository name is testground-<plan_name>.
+	repo := fmt.Sprintf("testground-%s", in.TestPlan.Name)
+
+	// Ensure the repo exists, or create it. Get the full URI to the repo, so we
+	// can tag images.
+	uri, err := aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
+	if err != nil {
+		return err
+	}
+
+	// Tag the image under the AWS ECR repository.
+	tag := uri + ":" + in.BuildID
+	logging.S().Infow("tagging image", "tag", tag)
+	if err = client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
+		return err
+	}
+
+	// TODO for some reason, this push is way slower than the equivalent via the
+	// docker CLI. Needs investigation.
+	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+		RegistryAuth: aws.ECR.EncodeAuthToken(auth),
+	})
+	if err != nil {
+		return err
+	}
+
+	// Pipe the docker output to stdout.
+	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+		return err
+	}
+
+	// replace the artifact path by the pushed image.
+	out.ArtifactPath = tag
+	return nil
 }
 
 func validateSdkDir(dir string) error {

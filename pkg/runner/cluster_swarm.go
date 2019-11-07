@@ -1,1 +1,318 @@
 package runner
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"reflect"
+	"time"
+
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/aws"
+	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/util"
+	"github.com/ipfs/testground/sdk/runtime"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/swarm"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
+
+	"github.com/imdario/mergo"
+)
+
+var (
+	_ api.Runner = &ClusterSwarmRunner{}
+)
+
+// ClusterSwarmRunnerConfig is the configuration object of this runner. Boolean
+// values are expressed in a way that zero value (false) is the default setting.
+type ClusterSwarmRunnerConfig struct {
+	// LogLevel sets the log level in the test containers (default: not set).
+	LogLevel string `toml:"log_level"`
+
+	// Background avoids tailing the output of containers, and displaying it as
+	// log messages (default: true).
+	Background bool `toml:"background"`
+
+	// DockerEndpoint is the URL of the docker swarm manager endpoint, e.g.
+	// "tcp://manager:2376"
+	DockerEndpoint string `toml:"docker_endpoint"`
+
+	// DockerTLS indicates whether client TLS is enabled.
+	DockerTLS bool `toml:"docker_tls"`
+
+	// DockerTLSCACertPath is the path to the CA Certificate. Only used if
+	// DockerTLS = true.
+	DockerTLSCACertPath string `toml:"docker_tls_ca_cert_path"`
+
+	// DockerTLSCertPath is the path to our client cert, signed by the CA. Only
+	// used if DockerTLS = true.
+	DockerTLSCertPath string `toml:"docker_tls_cert_path"`
+
+	// DockerTLSKeyPath is our private key. Only used if DockerTLS = true.
+	DockerTLSKeyPath string `toml:"docker_tls_key_path"`
+
+	// RemoveService removes the service after all instances have finished and
+	// all logs have been piped. Only used when running in foreground mode
+	// (background = false).
+	RemoveService bool `toml:"rm_service"`
+}
+
+// defaultClusterSwarmConfig is the default configuration. Incoming configurations will be
+// merged with this object.
+var defaultClusterSwarmConfig = ClusterSwarmRunnerConfig{
+	Background:    false,
+	RemoveService: true,
+}
+
+// ClusterSwarmRunner is a runner that creates a Docker service to launch as
+// many replicated instances of a container as the run job indicates.
+type ClusterSwarmRunner struct{}
+
+// TODO runner option to keep containers alive instead of deleting them after
+// the test has run.
+func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
+	var (
+		image = input.ArtifactPath
+		seq   = input.Seq
+		log   = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+	)
+
+	// global timeout of 1 minute for the scheduling.
+	ctx, cancelFn := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancelFn()
+
+	var (
+		cfg   = defaultClusterSwarmConfig
+		incfg = input.RunnerConfig.(*ClusterSwarmRunnerConfig)
+	)
+
+	// Merge the incoming configuration with the default configuration.
+	if err := mergo.Merge(&cfg, incfg, mergo.WithOverride); err != nil {
+		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	}
+
+	// Sanity check.
+	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
+		return nil, fmt.Errorf("invalid test case seq %d for plan %s", seq, input.TestPlan.Name)
+	}
+
+	// Get the test case.
+	testcase := input.TestPlan.TestCases[seq]
+
+	// Build a runenv.
+	runenv := &runtime.RunEnv{
+		TestPlan:           input.TestPlan.Name,
+		TestCase:           testcase.Name,
+		TestRun:            input.RunID,
+		TestCaseSeq:        seq,
+		TestInstanceCount:  input.Instances,
+		TestInstanceParams: input.Parameters,
+	}
+
+	// Serialize the runenv into env variables to pass to docker.
+	env := util.ToOptionsSlice(runenv.ToEnvVars())
+
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+	}
+
+	// Create a docker client.
+	var opts []client.Opt
+	if cfg.DockerTLS {
+		opts = append(opts, client.WithTLSClientConfig(cfg.DockerTLSCACertPath, cfg.DockerTLSCertPath, cfg.DockerTLSKeyPath))
+	}
+
+	opts = append(opts, client.WithHost(cfg.DockerEndpoint), client.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		sname    = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
+		replicas = uint64(input.Instances)
+	)
+
+	// first check if redis is running.
+	svcs, err := cli.ServiceList(ctx, types.ServiceListOptions{
+		Filters: filters.NewArgs(filters.Arg("name", "testground-redis")),
+	})
+
+	if err != nil {
+		return nil, err
+	} else if len(svcs) == 0 {
+		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
+	}
+
+	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
+
+	spec := swarm.ServiceSpec{
+		Networks: []swarm.NetworkAttachmentConfig{
+			{Target: "data"},
+			{Target: "control"},
+		},
+		Mode: swarm.ServiceMode{
+			Replicated: &swarm.ReplicatedService{
+				Replicas: &replicas,
+			},
+		},
+		Annotations: swarm.Annotations{Name: sname},
+		TaskTemplate: swarm.TaskSpec{
+			ContainerSpec: &swarm.ContainerSpec{
+				Image: image,
+				Env:   env,
+			},
+			RestartPolicy: &swarm.RestartPolicy{
+				Condition: swarm.RestartPolicyConditionNone,
+			},
+			Resources: &swarm.ResourceRequirements{
+				Reservations: &swarm.Resources{
+					MemoryBytes: 60 * 1024 * 1024,
+				},
+				Limits: &swarm.Resources{
+					MemoryBytes: 30 * 1024 * 1024,
+				},
+			},
+			Placement: &swarm.Placement{
+				MaxReplicas: 200,
+			},
+		},
+	}
+
+	logging.S().Infof("fetching an authorization token from AWS ECR")
+
+	// Get an authorization token from AWS ECR.
+	auth, err := aws.ECR.GetAuthToken(input.EnvConfig.AWS)
+	if err != nil {
+		return nil, err
+	}
+
+	logging.S().Infof("fetched an authorization token from AWS ECR")
+
+	scopts := types.ServiceCreateOptions{
+		QueryRegistry: true,
+		// the registry auth will be propagated to all docker swarm nodes so
+		// they can fetch the image properly.
+		EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
+	}
+
+	logging.S().Infow("creating the service on docker swarm", "name", sname, "image", image, "replicas", replicas)
+
+	// Now create the docker swarm service.
+	resp, err := cli.ServiceCreate(ctx, spec, scopts)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceID := resp.ID
+
+	logging.S().Infow("service created successfully", "id", serviceID)
+
+	out := &api.RunOutput{RunnerID: serviceID}
+
+	// If we are running in background mode, return immediately.
+	if cfg.Background {
+		return out, nil
+	}
+
+	// Tail the service until all instances are done, then remove the service if
+	// the flag has been set.
+	rc, err := cli.ServiceLogs(context.Background(), serviceID, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Since:      "2019-01-01T00:00:00",
+		Follow:     true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed while tailing logs: %w", err)
+	}
+
+	// Docker multiplexes STDOUT and STDERR streams inside the single IO stream
+	// returned by ServiceLogs. We need to use docker functions to separate
+	// those strands, and because we don't care about treating STDOUT and STDERR
+	// separately, we consolidate them into the same io.Writer.
+	rpipe, wpipe := io.Pipe()
+	go func() {
+		_, err := stdcopy.StdCopy(wpipe, wpipe, rc)
+		_ = wpipe.CloseWithError(err)
+	}()
+
+	// This goroutine monitors the state of tasks every two seconds. When all
+	// tasks are shutdown, we are done here. We close the logs io.ReadCloser,
+	// which in turns signals that the runner is now finished.
+	go func() {
+		var errCnt int
+
+		tick := time.NewTicker(2 * time.Second)
+		defer tick.Stop()
+
+		for range tick.C {
+			tctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			tasks, err := cli.TaskList(tctx, types.TaskListOptions{
+				Filters: filters.NewArgs(filters.Arg("service", serviceID)),
+			})
+			cancel()
+
+			if err != nil {
+				if errCnt++; errCnt > 3 {
+					rc.Close()
+					return
+				}
+			}
+
+			var finished uint64
+			status := make(map[swarm.TaskState]uint64, replicas)
+			for _, t := range tasks {
+				s := t.Status.State
+				switch status[s]++; s {
+				case swarm.TaskStateShutdown, swarm.TaskStateComplete, swarm.TaskStateFailed, swarm.TaskStateRejected:
+					finished++
+				}
+			}
+
+			logging.S().Infow("task status", "status", status)
+
+			if finished == replicas {
+				rc.Close()
+				return
+			}
+		}
+	}()
+
+	scanner := bufio.NewScanner(rpipe)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
+	}
+
+	if cfg.RemoveService {
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+		defer cancel()
+
+		logging.S().Infow("removing service", "service", serviceID)
+
+		if err := cli.ServiceRemove(ctx, serviceID); err == nil {
+			logging.S().Infow("service removed", "service", serviceID)
+		} else {
+			logging.S().Errorf("removing the service failed: %w", err)
+		}
+	}
+
+	return out, nil
+}
+
+func (*ClusterSwarmRunner) ID() string {
+	return "cluster:swarm"
+}
+
+func (*ClusterSwarmRunner) ConfigType() reflect.Type {
+	return reflect.TypeOf(ClusterSwarmRunnerConfig{})
+}
+
+func (*ClusterSwarmRunner) CompatibleBuilders() []string {
+	return []string{"docker:go"}
+}

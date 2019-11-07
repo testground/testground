@@ -164,7 +164,6 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		}
 		hcfg := &container.HostConfig{
 			NetworkMode: container.NetworkMode(networkID),
-			AutoRemove:  !cfg.KeepContainers,
 		}
 
 		// Create the container.
@@ -178,10 +177,16 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		containers = append(containers, res.ID)
 	}
 
+	if !cfg.KeepContainers {
+		defer deleteContainers(cli, log, containers) //nolint
+		// ^^ nolint: this method already logs errors; this is a cleanup action,
+		// if an error is returned, there's nothing we can do anyway.
+	}
+
 	// If an error occurred interim, delete all containers, and abort.
 	if err != nil {
 		log.Error(err)
-		return nil, deleteContainers(cli, log, containers)
+		return nil, err
 	}
 
 	// Start the containers, unless the NoStart option is specified.
@@ -229,7 +234,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
-				Since:      "2019-01-02T00:00:00",
+				Since:      "2019-01-01T00:00:00",
 				Follow:     true,
 			})
 			defer cancel()

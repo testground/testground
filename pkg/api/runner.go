@@ -27,10 +27,13 @@ type Runner interface {
 
 // RunInput encapsulates the input options for running a test plan.
 type RunInput struct {
-	// Directories providers accessors to directories managed by the runtime.
-	Directories Directories
 	// RunID is the run id assigned to this job by the Engine.
 	RunID string
+	// EnvConfig is the env configuration of the engine. Not a pointer to force
+	// a copy.
+	EnvConfig EnvConfig
+	// Directories providers accessors to directories managed by the runtime.
+	Directories Directories
 	// TestPlan is the definition of the test plan containing the test case to
 	// run.
 	TestPlan *TestPlanDefinition
