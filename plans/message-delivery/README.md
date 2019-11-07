@@ -10,7 +10,6 @@
 ## Plan Parameters
 
 - **Network Parameters**
-  - `Region` - Region or Regions where the test should be run at (default to single region)
   - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
 - **Image Parameters**
   - GO_IPFS_VERSION - The go-ipfs version number or commit that is being tested
@@ -27,13 +26,12 @@
   - S_SUBSCRIBERS - Number of nodes that are subscribing 
 - **Narrative**
   - **Warm up**
-    - a
+    - Spin up `N` nodes
+    - Connect each node to a previous node (ring shape network)
   - **Act I**
     - b
   - **Act II**
     - c
-  - **Act III**
-    - d
 
 ### `Test:` Network with High Churn
 
