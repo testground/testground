@@ -26,13 +26,12 @@
   - S_SUBSCRIBERS - Number of nodes that are subscribing 
 - **Narrative**
   - **Warm up**
-    - a
+    - Spin up `N` nodes
+    - Connect each node to a previous node (ring shape network)
   - **Act I**
     - b
   - **Act II**
     - c
-  - **Act III**
-    - d
 
 ### `Test:` Network with High Churn
 
