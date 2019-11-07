@@ -206,21 +206,19 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 	out := &api.BuildOutput{ArtifactPath: in.BuildID}
 
 	if cfg.PushRegistry {
-		err := b.pushToRegistry(ctx, cli, in, out)
+		if cfg.RegistryType != "aws" {
+			// We only support aws at this time.
+			return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+		}
+
+		err := b.pushToAWSRegistry(ctx, cli, in, out)
 		return out, err
 	}
 
 	return out, nil
 }
 
-func (b *DockerGoBuilder) pushToRegistry(ctx context.Context, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
-	cfg := in.BuildConfig.(*DockerGoBuilderConfig)
-
-	// We only support aws at this time.
-	if cfg.RegistryType != "aws" {
-		return fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
-	}
-
+func (b *DockerGoBuilder) pushToAWSRegistry(ctx context.Context, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	// Get a Docker registry authentication token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 	if err != nil {
