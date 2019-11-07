@@ -50,7 +50,7 @@ func (e *ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err err
 	}
 
 	data := token.AuthorizationData[0]
-	bytes, err := base64.RawStdEncoding.DecodeString(*data.AuthorizationToken)
+	bytes, err := base64.URLEncoding.DecodeString(*data.AuthorizationToken)
 	if err != nil {
 		return types.AuthConfig{}, fmt.Errorf("ecr: failed to decode base64: %w", err)
 	}
