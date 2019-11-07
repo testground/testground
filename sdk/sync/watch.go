@@ -13,17 +13,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-type typedChan reflect.Value
-
-// TypedChan wraps a typed channel for use with this watcher. Thank you, Go.
-func TypedChan(val interface{}) typedChan {
-	v := reflect.ValueOf(val)
-	if k := v.Kind(); k != reflect.Chan {
-		panic("value is not a channel")
-	}
-	return typedChan(v)
-}
-
 // Watcher exposes methods to watch subtrees within the sync tree of this test.
 type Watcher struct {
 	lk       sync.RWMutex
@@ -53,11 +42,12 @@ func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
 // Subscribe watches a subtree and emits updates on the specified channel.
 //
 // The element type of the channel must match the payload type of the Subtree.
-// Wrap the channel in the TypedChan() function before passing it into this
-// method.
-func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func() error, err error) {
-	typ := reflect.Value(ch).Type().Elem()
-	if err = subtree.AssertType(typ); err != nil {
+func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() error, err error) {
+	chV := reflect.ValueOf(ch)
+	if k := chV.Kind(); k != reflect.Chan {
+		return nil, fmt.Errorf("value is not a channel: %T", ch)
+	}
+	if err = subtree.AssertType(chV.Type().Elem()); err != nil {
 		return nil, err
 	}
 
@@ -74,7 +64,7 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch typedChan) (cancel func() error
 		subtree: subtree,
 		client:  w.client,
 		root:    root,
-		outCh:   ch,
+		outCh:   chV,
 	}
 
 	w.subtrees[subtree][sub] = struct{}{}
@@ -155,7 +145,7 @@ func (w *Watcher) Close() error {
 	var result *multierror.Error
 	for _, st := range w.subtrees {
 		for sub := range st {
-			multierror.Append(result, sub.stop())
+			result = multierror.Append(result, sub.stop())
 		}
 	}
 	w.subtrees = nil

@@ -103,15 +103,14 @@ Then, onto getting the actual Testground code. Download the repo and build it:
 > go build .
 ```
 
-This command may take a couple of minutes to complete. If successful, it will
-end with no message.
+This command may take a couple of minutes to complete. If successful, it will end with no message.
 
-Now, test that everything is installed correctly by running the following from
-within the source directory:
+Now, test that everything is installed correctly by running the following from within the source directory:
 
 ```sh
 > ./testground
-resolved testground base dir from env variable: /path/to/source/ipfs/testground
+attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
+successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 NAME:
    testground - A new cli application
 
@@ -132,50 +131,24 @@ NAME:
 
 #### How testground guesses the source directory
 
-In order to build test plans, Testground needs to know where its source
-directory is located. Testground can infer the path in the following
-circumstances:
+In order to build test plans, Testground needs to know where its source directory is located. Testground can infer the path in the following circumstances:
 
-1. When calling testground from PATH while situated in the source directory, or
-   subdirectory thereof.
-2. If the testground executable is situated in the source directory (such as
-   when you do `go build .`), or a subdirectory thereof.
+1. When calling testground from PATH while situated in the source directory, or subdirectory thereof.
+2. If the testground executable is situated in the source directory (such as when you do `go build .`), or a subdirectory thereof.
 
 For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
 
-### Setting an environment file
-
-Testground automatically loads an `.env.toml` file at root of your source
-directory. It contains environment settings, such as:
-
-* AWS secrets and settings.
-* Builder and runner options. These are merged with values supplied via CLI, test plan manifests, and defaults.
-
-You can initialize a new `.env.toml` file by copying the prototype
-[`env-example.toml`](env-example.toml) supplied in this repo to your testground
-source root. Refer to the comments in that example for explanations of usage.
 
 ### Running the tests locally with TestGround
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
 ```
-> ls plans
-dht      smlbench
-```
+> testground list
+attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
+successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 
-Then do
 
-```
-> testground run dht/lookup-peers --builder=docker:go
-..
-```
-
-To check which Test Plan and Test Cases are available do:
-
-```
-> TESTGROUND_SRCDIR=`pwd` testground list
-resolved testground base dir from env variable: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 dht/lookup-peers
 dht/lookup-providers
 dht/store-get-value
@@ -187,7 +160,7 @@ smlbench/store-get-value
 This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
 
 ```
-> TESTGROUND_BASEDIR=`pwd` testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
+> testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
 ...
 ```
 
@@ -219,6 +192,17 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 ```
 
 ### Running a Test Plan on the TestGround Cloud Infrastructure
+
+#### Setting an environment file
+
+Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
+
+* AWS secrets and settings.
+* Builder and runner options. These are merged with values supplied via CLI, test plan manifests, and defaults.
+
+You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
+
+#### Running in the Cloud
 
 `To be Written once such infrastructure exists..soon™`
 

@@ -161,13 +161,24 @@ func CurrentRunEnv() *RunEnv {
 	return re
 }
 
-// StringParam returns a string parameter.
+// StringParam returns a string parameter, or "" if the parameter is not set.
+// The second return value indicates if the parameter was set.
 func (re *RunEnv) StringParam(name string) (s string, ok bool) {
 	v, ok := re.TestInstanceParams[name]
 	return v, ok
 }
 
-// IntParam returns an int parameter.
+// StringParamD returns a string parameter, or the default value if not set.
+func (re *RunEnv) StringParamD(name string, def string) string {
+	s, ok := re.StringParam(name)
+	if !ok {
+		return def
+	}
+	return s
+}
+
+// IntParam returns an int parameter, or -1 if the parameter is not set. The
+// second return value indicates if the parameter was set.
 func (re *RunEnv) IntParam(name string) (i int, ok bool) {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
@@ -175,6 +186,34 @@ func (re *RunEnv) IntParam(name string) (i int, ok bool) {
 	}
 	i, err := strconv.Atoi(v)
 	return i, err == nil
+}
+
+// IntParamD returns an int parameter, or the default value if not set.
+func (re *RunEnv) IntParamD(name string, def int) int {
+	i, ok := re.IntParam(name)
+	if !ok {
+		return def
+	}
+	return i
+}
+
+// BooleanParam returns the Boolean value of the parameter, or false if not passed
+// The second return value indicates if the parameter was set.
+func (re *RunEnv) BooleanParam(name string) (b bool, ok bool) {
+	s, ok := re.TestInstanceParams[name]
+	if s == "true" {
+		return true, ok
+	}
+	return false, ok
+}
+
+// BooleanParamD returns a Boolean parameter, or the default value if not set.
+func (re *RunEnv) BooleanParamD(name string, def bool) bool {
+	b, ok := re.BooleanParam(name)
+	if !ok {
+		return def
+	}
+	return b
 }
 
 // // ExtractRunEnv extracts the test context from a context.Context object.
