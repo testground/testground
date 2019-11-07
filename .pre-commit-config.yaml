@@ -1,0 +1,18 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.4.0
+    hooks:
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.21.0
+    hooks:
+      - id: golangci-lint
+  - repo: git://github.com/dnephin/pre-commit-golang
+    rev: master
+    hooks:
+      - id: go-fmt
+      - id: go-vet
