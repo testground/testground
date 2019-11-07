@@ -76,3 +76,27 @@ func L() *zap.Logger {
 func S() *zap.SugaredLogger {
 	return sugared
 }
+
+// Logging is a simple mixin for types with attached loggers.
+type Logging struct {
+	logger  *zap.Logger
+	sugared *zap.SugaredLogger
+}
+
+// NewLogging is a convenience method for constructing a Logging.
+func NewLogging(logger *zap.Logger) Logging {
+	return Logging{
+		logger:  logger,
+		sugared: logger.Sugar(),
+	}
+}
+
+// L returns the raw logger.
+func (l *Logging) L() *zap.Logger {
+	return l.logger
+}
+
+// S returns the sugared logger.
+func (l *Logging) S() *zap.SugaredLogger {
+	return l.sugared
+}
