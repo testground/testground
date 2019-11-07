@@ -33,20 +33,20 @@ func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
 		port = os.Getenv(EnvRedisPort)
 	)
 
-	// Try to resolve the "testground-redis" host from Docker's DNS first.
-	// Fall back to attempting to use `host.docker.internal` which is
-	// only available in macOS and Windows.
-	for _, h := range []string{RedisHostname, HostHostname} {
-		if addrs, err := net.LookupHost(h); err == nil && len(addrs) > 0 {
-			host = h
-			break
-		}
-	}
-
 	if host == "" {
-		// if none of these is available, try to use localhost in a desperate
-		// attempt to make it work (useful for local:exec runners).
+		// fallback on localhost (useful for local:exec runners).
 		host = "localhost"
+
+		// Try to resolve the "testground-redis" host from Docker's DNS.
+		//
+		// Fall back to attempting to use `host.docker.internal` which
+		// is only available in macOS and Windows.
+		for _, h := range []string{RedisHostname, HostHostname} {
+			if addrs, err := net.LookupHost(h); err == nil && len(addrs) > 0 {
+				host = h
+				break
+			}
+		}
 	}
 
 	if port == "" {
