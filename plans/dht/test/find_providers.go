@@ -32,9 +32,6 @@ func FindProviders(runenv *runtime.RunEnv) {
 		return
 	}
 
-	// Some time for the DHT to warm up
-	time.Sleep(time.Duration(5) * time.Second)
-
 	/// --- Act I
 
 	// TODO, only `p-providing` of the nodes provide a record and store its key on redis
@@ -67,9 +64,6 @@ func FindProviders(runenv *runtime.RunEnv) {
 	}
 
 	runenv.Message("Provided a bunch of CIDs")
-
-	// Some time for the broadcast to happen
-	time.Sleep(time.Duration(5) * time.Second)
 
 	/// --- Act II
 
