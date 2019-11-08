@@ -48,4 +48,17 @@ The results are presented below.
 
 ## Results
 
-(benchmark is still running; will update PR once it's finished.)
+Load settings:
+
+> 100000 requests completed in 3.38 seconds
+> 1000 parallel clients
+> 512 bytes payload
+> keep alive: 1
+
+* `GET` clocks in at 32331.07 req/sec average.
+* `SET` clocks in at 29629.63 req/sec average.
+* `INCR` clocks in at 29515.94 req/sec average.
+* `SADD` clocks in at 29943.64 req/sec average.
+
+**Full benchmarks at
+[redis-benchmarks-20191108.log](redis-benchmarks-20191108.log).**
