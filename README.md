@@ -158,22 +158,21 @@ To run a test locally, you can use the `testground run` command. Check what Test
 
 ```
 > testground list
-attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
-successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
-
-
-dht/lookup-peers
-dht/lookup-providers
+attempting to guess testground source directory; for better control set ${TESTGROUND_SRCDIR}
+successfully located testground source directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+warn: no .env.toml found; some components may not work
+dht/find-peers
+dht/find-providers
+dht/provide-stress
 dht/store-get-value
-smlbench/lookup-peers
-smlbench/lookup-providers
-smlbench/store-get-value
+smlbench/simple-add
+smlbench/simple-add-get
 ```
 
 This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
 
 ```
-> testground -vv run dht/lookup-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
+> testground run dht/find-peers --builder=docker:go --runner=local:docker --build-cfg bypass_cache=true
 ...
 ```
 
