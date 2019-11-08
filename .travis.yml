@@ -23,6 +23,7 @@ stages:
 
 before_script:
   - go install github.com/golangci/golangci-lint/cmd/golangci-lint
+  - sudo pip install --upgrade pip
 
 jobs:
   include:
