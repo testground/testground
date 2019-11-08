@@ -1,0 +1,35 @@
+name = "data-exchange"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file:${TESTGROUND_SRCDIR}/plans/data-transfer-seeds-leeches"
+
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/data-transfer-seeds-leeches"
+exec_pkg = "."
+
+# TODO: exec:go is not ready yet
+[build_strategies."exec:go"]
+enabled = true
+module_path = "github.com/ipfs/testground/plans/data-transfer-seeds-leeches"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."local:exec"]
+enabled = true
+
+[run_strategies."cluster:swarm"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "transfer"
+instances = { min = 2, max = 64, default = 2 }
+
+  [testcases.params]
+  leech_count = { type = "int", desc = "number of leech nodes", unit = "peers" }
+  timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
+  file_size = { type = "int", desc = "file size", unit = "bytes"}
