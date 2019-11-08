@@ -30,11 +30,11 @@ name = "find-peers"
 instances = { min = 2, max = 200, default = 5 }
 
   [testcases.params]
-  auto_refresh = { type = "bool", desc = "", unit = "bool" }
-  random_walk = { type = "bool", desc = "", unit = "bool" }
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers" }
-  timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
+  auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = "true" }
+  random_walk   = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = "false" }
+  bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = "20" }
+  n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = "1" }
+  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = "30" }
 
 # seq 1
 [[testcases]]
