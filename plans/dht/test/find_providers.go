@@ -31,12 +31,13 @@ func FindProviders(runenv *runtime.RunEnv) {
 	defer watcher.Close()
 	defer writer.Close()
 
-
 	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
+
+	defer TearDown(ctx, runenv, watcher, writer)
 
 	/// --- Act I
 
@@ -61,8 +62,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 		cidsToNotPublish = append(cidsToNotPublish, cid.NewCidV0(mhv))
 	}
 
-	for i := 0; i < nCidsToPublish; i++ {
-		err := dht.Provide(ctx, cidsToPublish[i], true)
+	for _, c := range cidsToPublish {
+		err := dht.Provide(ctx, c, true)
 		if err != nil {
 			runenv.Abort(fmt.Errorf("Failed on .Provide - %w", err))
 			return
@@ -75,8 +76,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 
 	// TODO, only `p-resolving` of the nodes attempt to resolve the records provided before
 
-	for i := 0; i < nCidsToPublish; i++ {
-		peerInfos, err := dht.FindProviders(ctx, cidsToPublish[i])
+	for _, c := range cidsToPublish {
+		peerInfos, err := dht.FindProviders(ctx, c)
 		if err != nil {
 			runenv.Abort(fmt.Errorf("Failed on .FindProviders - %w", err))
 			return
@@ -91,8 +92,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 
 	// TODO, only `p-failing` of the nodes attempt to resolve records that do not exist
 
-	for i := 0; i < nCidsToNotPublish; i++ {
-		peerInfos, err := dht.FindProviders(ctx, cidsToNotPublish[i])
+	for _, c := range cidsToNotPublish {
+		peerInfos, err := dht.FindProviders(ctx, c)
 		if err != nil {
 			runenv.Abort(err)
 			return
@@ -105,6 +106,5 @@ func FindProviders(runenv *runtime.RunEnv) {
 
 	runenv.Message("Correctly didn't found providers for CIDs that are not available in the network")
 
-	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }

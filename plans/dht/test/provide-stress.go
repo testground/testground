@@ -36,6 +36,8 @@ func ProvideStress(runenv *runtime.RunEnv) {
 		return
 	}
 
+	defer TearDown(ctx, runenv, watcher, writer)
+
 	/// --- Act I
 	// Each node calls Provide for `i-provides` until it reaches a total of `n-provides`
 
@@ -70,6 +72,5 @@ Loop:
 
 	runenv.Message("Provided all scheduled CIDs")
 
-	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }

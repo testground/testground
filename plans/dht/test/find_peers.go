@@ -36,6 +36,8 @@ func FindPeers(runenv *runtime.RunEnv) {
 		return
 	}
 
+	defer TearDown(ctx, runenv, watcher, writer)
+
 	/// --- Act I
 
 	for i := 0; i < nFindPeers; i++ {
@@ -74,6 +76,5 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	/// --- Ending the test
 
-	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }
