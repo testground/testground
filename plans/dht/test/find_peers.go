@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"time"
 
@@ -21,7 +22,10 @@ func FindPeers(runenv *runtime.RunEnv) {
 		autoRefresh = runenv.BooleanParamD("auto_refresh", true)
 	)
 
-	ctx, node, dht, toDial, err := SetUp(runenv, timeout, randomWalk, bucketSize, autoRefresh)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	node, dht, toDial, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh)
 	if err != nil {
 		runenv.Abort(err)
 		return

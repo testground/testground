@@ -15,15 +15,12 @@ import (
 )
 
 // SetUp sets up the elements necessary for the test cases
-func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucketSize int, autoRefresh bool) (context.Context, host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, error) {
+func SetUp(ctx context.Context, runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucketSize int, autoRefresh bool) (host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, error) {
 	/// --- Set up
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
 
 	node, dht, err := CreateDhtNode(ctx, runenv, bucketSize, autoRefresh)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
@@ -57,7 +54,7 @@ func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucke
 	runenv.Message("I am %s with addrs: %v", myNodeID, node.Addrs())
 
 	if _, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err)
+		return nil, nil, nil, fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err)
 	}
 
 	// TODO: Revisit this - This assumed that it is ok to put in memory every single peer.AddrInfo that participates in this test
@@ -81,7 +78,7 @@ func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucke
 			toDial = append(toDial, *ai)
 
 		case <-time.After(timeout):
-			return nil, nil, nil, nil, fmt.Errorf("no new peers in %d seconds", timeout/time.Second)
+			return nil, nil, nil, fmt.Errorf("no new peers in %d seconds", timeout/time.Second)
 		}
 	}
 
@@ -89,7 +86,7 @@ func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucke
 	for _, ai := range toDial {
 		err = node.Connect(ctx, ai)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
+			return nil, nil, nil, fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
 		}
 	}
 
@@ -99,21 +96,21 @@ func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucke
 	for i := 0; randomWalk && i < 5; i++ {
 		err = dht.Bootstrap(ctx)
 		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("Could not run a random-walk: %w", err)
+			return nil, nil, nil, fmt.Errorf("Could not run a random-walk: %w", err)
 		}
 	}
 
 Loop:
 	for {
 		select {
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			if dht.RoutingTable().Size() > 0 {
 				break Loop
 			}
 		case <-ctx.Done():
-			return nil, nil, nil, nil, fmt.Errorf("got no peers in routing table")
+			return nil, nil, nil, fmt.Errorf("got no peers in routing table")
 		}
 	}
 
-	return ctx, node, dht, toDial, nil
+	return node, dht, toDial, nil
 }

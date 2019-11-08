@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -22,14 +23,17 @@ func FindProviders(runenv *runtime.RunEnv) {
 		// pFailing    = runenv.IntParamD("p_failing", 10)
 	)
 
-	ctx, _, dht, _, err := SetUp(runenv, timeout, randomWalk, bucketSize, autoRefresh)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
 	// Some time for the DHT to warm up
-	time.Sleep(time.Duration(20) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 
 	/// --- Act I
 
@@ -65,7 +69,7 @@ func FindProviders(runenv *runtime.RunEnv) {
 	runenv.Message("Provided a bunch of CIDs")
 
 	// Some time for the broadcast to happen
-	time.Sleep(time.Duration(20) * time.Second)
+	time.Sleep(time.Duration(5) * time.Second)
 
 	/// --- Act II
 
@@ -83,6 +87,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 		}
 	}
 
+	runenv.Message("Found a ton of providers for the CIDs I was looking for")
+
 	// TODO, only `p-failing` of the nodes attempt to resolve records that do not exist
 
 	for i := 0; i < nCidsToNotPublish; i++ {
@@ -96,6 +102,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 			return
 		}
 	}
+
+	runenv.Message("Correctly didn't found providers for CIDs that are not available in the network")
 
 	runenv.OK()
 }

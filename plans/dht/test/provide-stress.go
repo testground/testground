@@ -10,8 +10,6 @@ import (
 func ProvideStress(runenv *runtime.RunEnv) {
 	fmt.Printf("Not implemented yet")
 
-	/// --- Warm Up
-
 	/// --- Act I
 
 	/// --- Act II
