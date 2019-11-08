@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/imdario/mergo v0.3.7
-	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-goa84ff142a5a3
+	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20190803045625-94edacc10f9b
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -34,6 +34,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2 // indirect
 	github.com/urfave/cli v1.22.0
 	go.opencensus.io v0.22.1 // indirect
+	go.uber.org/atomic v1.5.0 // indirect
 	go.uber.org/multierr v1.2.0 // indirect
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
