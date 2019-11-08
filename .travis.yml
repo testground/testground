@@ -7,11 +7,6 @@ go:
 notifications:
   email: false
 
-os:
-  - linux
-  - osx
-  - windows
-
 stages:
   - check
   - build
