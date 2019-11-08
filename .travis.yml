@@ -18,13 +18,11 @@ stages:
   - test
   - run
 
-before_script:
-  - go install github.com/golangci/golangci-lint/cmd/golangci-lint
-
 jobs:
   include:
     - stage: check
       script:
+        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
         - golangci-lint run       # run a bunch of code checkers/linters in parallel
 
     - stage: build
@@ -33,10 +31,35 @@ jobs:
 
     - stage: test
       script:
-        - sudo pip install --upgrade pip
         - go test -v -race ./...  # Run all the tests with the race detector enabled
 
-    - stage: run                  # Run two test plans with and without docker just to confirm they complete
+    # Run two test plans with and without docker just to confirm they complete
+    - stage: run
+      os: linux
       script:
         - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+
+    - stage: run
+      os: osx
+      script:
+        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+
+    - stage: run
+      os: windows
+      script:
+        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+
+    - stage: run
+      os: linux
+      script:
+        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
+
+    - stage: run
+      os: osx
+      script:
+        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
+
+    - stage: run
+      os: windows
+      script:
         - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
