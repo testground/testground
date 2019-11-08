@@ -19,4 +19,5 @@ var Commands = []cli.Command{
 	RunCommand,
 	ListCommand,
 	BuildCommand,
+	DescribeCommand,
 }
