@@ -8,6 +8,7 @@ import (
 	"github.com/ipfs/go-cid"
 	ipfsUtil "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 // ProvideStress implements the Provide Stress test case
@@ -25,7 +26,11 @@ func ProvideStress(runenv *runtime.RunEnv) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh)
+	watcher, writer := sync.MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
 	if err != nil {
 		runenv.Abort(err)
 		return
@@ -65,5 +70,6 @@ Loop:
 
 	runenv.Message("Provided all scheduled CIDs")
 
+	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }

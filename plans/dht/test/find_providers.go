@@ -8,6 +8,7 @@ import (
 	"github.com/ipfs/go-cid"
 	ipfsUtil "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 // FindProviders implements the Find Providers Test case
@@ -26,7 +27,12 @@ func FindProviders(runenv *runtime.RunEnv) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh)
+	watcher, writer := sync.MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+
+	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
 	if err != nil {
 		runenv.Abort(err)
 		return
@@ -99,5 +105,6 @@ func FindProviders(runenv *runtime.RunEnv) {
 
 	runenv.Message("Correctly didn't found providers for CIDs that are not available in the network")
 
+	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }

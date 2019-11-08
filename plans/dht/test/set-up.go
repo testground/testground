@@ -15,38 +15,13 @@ import (
 )
 
 // SetUp sets up the elements necessary for the test cases
-func SetUp(ctx context.Context, runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucketSize int, autoRefresh bool) (host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, error) {
+func SetUp(ctx context.Context, runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucketSize int, autoRefresh bool, watcher *sync.Watcher, writer *sync.Writer) (host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, error) {
 	/// --- Set up
 
 	node, dht, err := CreateDhtNode(ctx, runenv, bucketSize, autoRefresh)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-
-	watcher, writer := sync.MustWatcherWriter(runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	/// --- Tear down
-
-	defer func() {
-		// Set a state barrier.
-		end := sync.State("end")
-		doneCh := watcher.Barrier(ctx, end, int64(runenv.TestInstanceCount))
-
-		// Signal we're done on the end state.
-		_, err = writer.SignalEntry(end)
-		if err != nil {
-			runenv.Abort(err)
-			return
-		}
-
-		// Wait until all others have signalled.
-		if err := <-doneCh; err != nil {
-			runenv.Abort(err)
-			return
-		}
-	}()
 
 	/// --- Warm up
 

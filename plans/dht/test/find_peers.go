@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 )
@@ -25,7 +26,11 @@ func FindPeers(runenv *runtime.RunEnv) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	node, dht, toDial, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh)
+	watcher, writer := sync.MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	node, dht, toDial, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
 	if err != nil {
 		runenv.Abort(err)
 		return
@@ -69,5 +74,6 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	/// --- Ending the test
 
+	defer TearDown(ctx, runenv, watcher, writer)
 	runenv.OK()
 }
