@@ -70,9 +70,10 @@ func locateWorkDir() (string, error) {
 	}
 
 	// 2. Use "$HOME/.testground" as the work directory.
-	home, ok := os.LookupEnv("HOME")
-	if !ok {
-		return "", errors.New("$HOME env variable not declared; cannot calculate work directory")
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
 	}
 	p := path.Join(home, ".testground")
 	return p, ensureDir(p)

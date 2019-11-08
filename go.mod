@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/imdario/mergo v0.3.7
-	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
+	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-goa84ff142a5a3
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20190803045625-94edacc10f9b
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -38,7 +38,6 @@ require (
 	go.uber.org/zap v1.10.0
 	golang.org/x/net v0.0.0-20190926025831-c00fd9afed17 // indirect
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190927073244-c990c680b611 // indirect
 	google.golang.org/grpc v1.23.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.4 // indirect
