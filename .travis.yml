@@ -39,33 +39,39 @@ jobs:
       script:
         - go test -v -race ./...  # Run all the tests with the race detector enabled
 
-    # Run two test plans with and without docker just to confirm they complete
+    # Run two test plans as a smoke test
     - stage: run
+      name: "smlbench/simple-add linux - no docker"
       os: linux
       script:
         - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
 
     - stage: run
+      name: "smlbench/simple-add osx - no docker"
       os: osx
       script:
         - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
 
     - stage: run
+      name: "smlbench/simple-add windows - no docker"
       os: windows
       script:
         - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
 
     - stage: run
+      name: "smlbench/simple-add linux - with docker"
       os: linux
       script:
         - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
 
     - stage: run
+      name: "smlbench/simple-add osx - with docker"
       os: osx
       script:
         - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
 
     - stage: run
+      name: "smlbench/simple-add windows - with docker"
       os: windows
       script:
         - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
