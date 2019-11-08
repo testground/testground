@@ -1,28 +1,44 @@
-## Inspired by https://gist.github.com/y0ssar1an/df2dab474520c4086926f672c52db139
-
 language: go
+cache: false
 
 go:
   - 1.13.x
 
-# Only clone the most recent commit.
 git:
   depth: 1
 
-# Anything in before_script that returns a nonzero exit code will flunk the
-# build and immediately stop. It's sorta like having set -e enabled in bash.
-# Make sure you've pinned the version of golangci-lint by running this command
-# in your project directory:
-#   GO111MODULE=on go get github.com/golangci/golangci-lint@v1.21.0
-# You should see this line in your go.mod file:
-#   github.com/golangci/golangci-lint v1.21.0
+notifications:
+  email: false
+
+os:
+  - linux
+  - osx
+  - windows
+
+stages:
+  - check
+  - build
+  - test
+  - run
+
 before_script:
   - go install github.com/golangci/golangci-lint/cmd/golangci-lint
 
-# script always runs to completion (set +e). If we have linter issues AND a
-# failing test, we want to see both. Configure golangci-lint with a
-# .golangci.yml file at the top level of your repo.
-script:
-  - golangci-lint run       # run a bunch of code checkers/linters in parallel
-  - go build ./...          # build the project
-  - go test -v -race ./...  # Run all the tests with the race detector enabled
+jobs:
+  include:
+    - stage: check
+      script:
+        - golangci-lint run       # run a bunch of code checkers/linters in parallel
+
+    - stage: build
+      script:
+        - go build ./...          # build the project
+
+    - stage: test
+      script:
+        - go test -v -race ./...  # Run all the tests with the race detector enabled
+
+    - stage: run                  # Run two test plans with and without docker just to confirm they complete
+      script:
+        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker

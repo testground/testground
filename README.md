@@ -1,6 +1,7 @@
 # InterPlanetary TestGround
 
-![](https://img.shields.io/badge/go-%3E%3D1.13.0-blue.svg?style=flat-square)
+![](https://img.shields.io/badge/go-%3E%3D1.13.0-blue.svg)
+[![](https://travis-ci.com/ipfs/testground.svg?branch=master)](https://travis-ci.com/ipfs/testground)
 
 > ⚠️ **Heavy WIP.** beware of the Dragons 🐉..
 
