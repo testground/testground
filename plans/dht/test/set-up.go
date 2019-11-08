@@ -106,7 +106,7 @@ func SetUp(runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucke
 Loop:
 	for {
 		select {
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(500 * time.Millisecond):
 			if dht.RoutingTable().Size() > 0 {
 				break Loop
 			}
