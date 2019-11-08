@@ -155,12 +155,47 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
 	}
 
+	// Create the network.
+
+	log.Infow("creating network", "name", sname)
+
+	networkSpec := types.NetworkCreate{
+		Driver:         "overlay",
+		CheckDuplicate: true,
+		EnableIPv6:     true, // TODO: params?
+		Internal:       true,
+		Attachable:     true,
+		Scope:          "swarm",
+		Labels: map[string]string{
+			"testground.plan":     input.TestPlan.Name,
+			"testground.testcase": testcase.Name,
+			"testground.runid":    input.RunID,
+			"testground.name":     "default", // default name. TODO: allow multiple networks.
+		},
+	}
+
+	networkResp, err := cli.NetworkCreate(ctx, sname+"-default", networkSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	networkID := networkResp.ID
+	defer func() {
+		if err := cli.NetworkRemove(ctx, networkID); err != nil {
+			log.Errorw("removing network", "name", sname)
+		}
+	}()
+
+	log.Infow("network created successfully", "id", networkID)
+
+	// Create the service.
+
 	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
 
-	spec := swarm.ServiceSpec{
+	serviceSpec := swarm.ServiceSpec{
 		Networks: []swarm.NetworkAttachmentConfig{
-			{Target: "data"},
 			{Target: "control"},
+			{Target: networkID},
 		},
 		Mode: swarm.ServiceMode{
 			Replicated: &swarm.ReplicatedService{
@@ -172,6 +207,11 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			ContainerSpec: &swarm.ContainerSpec{
 				Image: image,
 				Env:   env,
+				Labels: map[string]string{
+					"testground.plan":     input.TestPlan.Name,
+					"testground.testcase": testcase.Name,
+					"testground.runid":    input.RunID,
+				},
 			},
 			RestartPolicy: &swarm.RestartPolicy{
 				Condition: swarm.RestartPolicyConditionNone,
@@ -210,12 +250,12 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	logging.S().Infow("creating the service on docker swarm", "name", sname, "image", image, "replicas", replicas)
 
 	// Now create the docker swarm service.
-	resp, err := cli.ServiceCreate(ctx, spec, scopts)
+	serviceResp, err := cli.ServiceCreate(ctx, serviceSpec, scopts)
 	if err != nil {
 		return nil, err
 	}
 
-	serviceID := resp.ID
+	serviceID := serviceResp.ID
 
 	logging.S().Infow("service created successfully", "id", serviceID)
 
