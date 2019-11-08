@@ -20,7 +20,6 @@ stages:
 
 before_script:
   - go install github.com/golangci/golangci-lint/cmd/golangci-lint
-  - sudo pip install --upgrade pip
 
 jobs:
   include:
@@ -34,6 +33,7 @@ jobs:
 
     - stage: test
       script:
+        - sudo pip install --upgrade pip
         - go test -v -race ./...  # Run all the tests with the race detector enabled
 
     - stage: run                  # Run two test plans with and without docker just to confirm they complete
