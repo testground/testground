@@ -3,7 +3,7 @@
 Each testing **Plan** contains:
 - An **overview** of what we are looking to achieve with the test (roughly ~1 paragraph).
 - **What we are looking to expect to be able to optimize** by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
-- The **plan parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)
+- The **plan parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc). These show up on the plan manifest.toml
 - The Tests. Each contains
   - A set of **test parameters** that are customizable for each test.
   - A **narrative** for each Test that describes on how the network will set up itself (_Warm Up_ phase) and how the actors will play their multiple roles (in _Acts_).
@@ -21,19 +21,28 @@ Each testing **Plan** contains:
 
 ## Plan Parameters
 
-- **Network Parameters**
-  - `Region` - Region or Regions where the test should be run at (default to single region)
-- **Image Parameters**
-  - b
+- **Base**
+  - `name` - The name of the plan
+  - `plan-source` - Where to find the source code for the plan
+  - `defaults` - The default provisioner, builder and runner
+- **Provision**
+  - `aws-region` - One or more aws regions where the test should be run at (default to single region)
+  - `machine-size` - The type of machine to instantiate
+- **Builder**
+  - `go-ipfs-version` - The version of go-ipfs to get built
+- **Runner**
+  - `instances` - number of instances
+  - `bandwidth` - The bandwidth that each runner should have available
 
 ## Tests
 
 ### `Test:` _NAME_
 
-- **Test Parameters**
+**Test Parameters**
   - n/a
-- **Narrative**
-  - **Warm up**
+
+**Narrative**
+  - **Warm up / Set up Phase**
     - a
   - **Act I**
     - b

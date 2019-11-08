@@ -1,62 +1,81 @@
+[[base]]
 name = "dht"
-# hashicorp/go-getter URLs, so in the future we can support fetching test plans
-# from GitHub.
+# hashicorp/go-getter URLs, so in the future we fetch plans from anywhere
 source_path = "file:${TESTGROUND_SRCDIR}/plans/dht"
+    [defaults]
+    provisioner = "terraform:aws"
+    builder = "docker:go"
+    runner = "local:docker"
 
-[build_strategies."docker:go"]
-enabled = true
-go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "."
+[[provisioners]]
+    [provisioner_strategies. "vagrant:local"]
+    enabled = true
 
-# TODO: exec:go is not ready yet
-[build_strategies."exec:go"]
-enabled = true
-module_path = "github.com/ipfs/testground/plans/dht"
-exec_pkg = "."
+    [provisioner_strategies. "terraform:aws"]
+    enabled = true
 
-[run_strategies."local:docker"]
-enabled = true
+    [provisioner_strategies. "terraform:aws:docker-swarm"]
+    enabled = true
 
-[run_strategies."local:exec"]
-enabled = true
+    [provisioner_strategies. "terraform:do"]
+    enabled = true
 
-[run_strategies."cluster:swarm"]
-enabled = true
+    [provisioner_strategies. "ansible:aws"]
+    enabled = true
+
+    [provisioner_strategies. "neighboors:boxes"]
+    enabled = true
+
+[[builders]]
+    [build_strategies."docker:go"]
+    enabled = true
+    go_version = "1.13"
+    exec_pkg = "."
+
+    [build_strategies."packer:go"]
+    enabled = true
+    go_version = "1.13"
+    exec_pkg = "."
+
+    # TODO: exec:go is not ready yet
+    [build_strategies."exec:go"]
+    enabled = false
+    exec_pkg = "."
+
+[[runners]]
+instances = { min = 2, max = 200, default = 25 }
+    [run_strategies."docker:go"]
+    enabled = true
+
+    [run_strategies."exec:go"]
+    enabled = true
 
 # seq 0
 [[testcases]]
 name = "find-peers"
-instances = { min = 2, max = 200, default = 25 }
 
-  [testcases.params]
-  auto_refresh = { type = "bool", desc = "", unit = "bool" }
-  random_walk = { type = "bool", desc = "", unit = "bool" }
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers" }
-  timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
+    [testcases.params]
+    auto_refresh = { type = "bool", desc = "", unit = "bool" }
+    random_walk = { type = "bool", desc = "", unit = "bool" }
+    bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+    n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers" }
+    timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
 
 # seq 1
 [[testcases]]
 name = "find-providers"
-instances = { min = 2, max = 250, default = 25 }
-
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
 
 # seq 2
 [[testcases]]
 name = "provide-stress"
-instances = { min = 2, max = 250, default = 25 }
-
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
 
 # seq 3
 [[testcases]]
 name = "store-get-value"
-instances = { min = 2, max = 250, default = 25 }
 roles = ["storer", "fetcher"]
-
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
