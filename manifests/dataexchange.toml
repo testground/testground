@@ -31,5 +31,6 @@ instances = { min = 2, max = 64, default = 2 }
 
   [testcases.params]
   leech_count = { type = "int", desc = "number of leech nodes", unit = "peers" }
+  passive_count = { type = "int", desc = "number of passive nodes (neither leech nor seed)", unit = "peers" }
   timeout_secs = { type = "int", desc = "timeout", unit = "seconds"}
   file_size = { type = "int", desc = "file size", unit = "bytes"}

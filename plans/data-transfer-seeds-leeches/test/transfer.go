@@ -31,6 +31,7 @@ func Transfer(runenv *runtime.RunEnv) {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
 	leechCount := runenv.IntParamD("leech_count", 1)
+	passiveCount := runenv.IntParamD("passive_count", 0)
 	fileSize := runenv.IntParamD("file_size", 200*1024*1024)
 
 	/// --- Set up
@@ -69,15 +70,17 @@ func Transfer(runenv *runtime.RunEnv) {
 
 	// Note: seq starts at 1 (not 0)
 	isLeech := seq <= int64(leechCount)
+	isSeed := seq > int64(leechCount+passiveCount)
 	if isLeech {
 		runenv.Message("I am a leech")
-	} else {
+	} else if isSeed {
 		runenv.Message("I am a seed")
+	} else {
+		runenv.Message("I am a passive node (neither leech nor seed)")
 	}
 
 	var rootCid cid.Cid
-	// If this is a seed
-	if !isLeech {
+	if isSeed {
 		// Generate a file of the given size and add it to the datastore
 		rootCid, err := setupSeed(ctx, node, fileSize)
 		if err != nil {
@@ -90,9 +93,7 @@ func Transfer(runenv *runtime.RunEnv) {
 			runenv.Abort(fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err))
 			return
 		}
-	} else {
-		// This is a leech
-
+	} else if isLeech {
 		// Get the root CID from a seed
 		rootCidCh := make(chan *cid.Cid, 1)
 		cancelRootCidSub, err := watcher.Subscribe(RootCidSubtree, rootCidCh)
