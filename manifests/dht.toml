@@ -1,7 +1,7 @@
 name = "dht"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-source_path = "file:${TESTGROUND_SRCDIR}/plans/dht"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/dht"
 
 [build_strategies."docker:go"]
 enabled = true

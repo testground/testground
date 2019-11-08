@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"time"
 
@@ -62,8 +63,17 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 	// TODO support specifying a docker endpoint + TLS parameters from env.
 	// raulk: I don't see a need for this now, as we certainly want to do builds
 	// locally, and push the image to a registry.
+	// aschmahmann: No host config parameters means we need some OS check
+
+	var host string
+	if runtime.GOOS == "windows" {
+		host = "npipe:////./pipe/docker_engine"
+	} else {
+		host = "unix:///var/run/docker.sock"
+	}
+
 	cliopts := []client.Opt{
-		client.WithHost("unix:///var/run/docker.sock"),
+		client.WithHost(host),
 		client.WithAPIVersionNegotiation(),
 	}
 
