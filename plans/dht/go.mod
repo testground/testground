@@ -10,7 +10,9 @@ replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 
 require (
 	github.com/btcsuite/btcd v0.0.0-20190926002857-ba530c4abb35 // indirect
+	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.1.0
+	github.com/ipfs/go-ipfs-util v0.0.1
 	github.com/ipfs/go-todocounter v0.0.2 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
 	github.com/ipfs/testground/sdk/sync v0.0.0-20190921111954-a84ff142a5a3
