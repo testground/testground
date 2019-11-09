@@ -1,11 +1,14 @@
+notifications:
+  email: false
+
 language: go
 cache: false
 
 go:
   - 1.13.x
 
-notifications:
-  email: false
+services:
+    - docker
 
 stages:
   - check
