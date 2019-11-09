@@ -44,37 +44,39 @@ jobs:
 
     # Run two test plans as a smoke test
     - stage: run
-      name: "smlbench/simple-add linux - no docker"
+      name: "dht/find-peers linux - no docker"
       os: linux
       script:
-        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
 
     - stage: run
-      name: "smlbench/simple-add osx - no docker"
+      name: "dht/find-peers osx - no docker"
       os: osx
       script:
-        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
 
     - stage: run
-      name: "smlbench/simple-add windows - no docker"
+      name: "dht/find-peers windows - no docker"
       os: windows
       script:
-        - go run main.go run smlbench/simple-add --builder=exec:go --runner=local:exec
+        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
 
     - stage: run
-      name: "smlbench/simple-add linux - with docker"
+      name: "dht/find-peers linux - with docker"
       os: linux
       script:
-        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
+        - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
 
-    - stage: run
-      name: "smlbench/simple-add osx - with docker"
-      os: osx
-      script:
-        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
+          # Travis does not support Docker on Mac OS X
+          #    - stage: run
+          #      name: "dht/find-peers osx - with docker"
+          #      os: osx
+          #      script:
+          #        - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
 
-    - stage: run
-      name: "smlbench/simple-add windows - with docker"
-      os: windows
-      script:
-        - go run main.go run smlbench/simple-add --builder=docker:go --runner=local:docker
+          # Travis does not support Docker on Windows
+          # - stage: run
+          # name: "dht/find-peers windows - with docker"
+          # os: windows
+          # script:
+          # - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
