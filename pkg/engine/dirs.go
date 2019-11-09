@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"runtime"
 	"path/filepath"
 )
 
@@ -30,6 +31,17 @@ func (e *Engine) WorkDir() string {
 	return e.dirs.work
 }
 
+// isNotRootDir checks if a certain path is a root or not. For Unix-like
+// systems, it just checks it's longer than one character (usually "/").
+// On Windows, we need to check if it's not a drive, such as "C:/".
+func isNotRootDir(path string) bool {
+	if runtime.GOOS != "windows" {
+		return len(path) > 1
+	}
+
+	return filepath.VolumeName(path) != path[:len(path) - 1]
+}
+
 // locateSrcDir attempts to locate the source directory for the testground. We
 // need to know this directory in order to build test plans.
 func locateSrcDir() (string, error) {
@@ -50,7 +62,7 @@ func locateSrcDir() (string, error) {
 			return "", err
 		}
 
-		for len(path) > 1 {
+		for isNotRootDir(path) {
 			if isTestgroundRepo(path) {
 				os.Setenv(EnvTestgroundSrcDir, path)
 				fmt.Printf("successfully located testground source directory: %s\n", path)
