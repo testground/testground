@@ -133,13 +133,16 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
-			log.Errorw("removing network", "network", dataNetworkID, "error", err)
-		}
-	}()
+	// Unless we're keeping the containers, delete the network when we're done.
+	if !cfg.KeepContainers {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
+				log.Errorw("removing network", "network", dataNetworkID, "error", err)
+			}
+		}()
+	}
 
 	// Ensure we have a control network.
 	controlNetworkID, err := ensureControlNetwork(cli, log)
@@ -186,7 +189,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		containers = append(containers, res.ID)
 
 		// TODO: Remove this when we get the sidecar working. It'll do this for us.
-		_, err = attachContainerToNetwork(cli, res.ID, dataNetworkID)
+		err = attachContainerToNetwork(cli, res.ID, dataNetworkID)
 		if err != nil {
 			break
 		}
@@ -455,21 +458,17 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 }
 
 // attachContainerToNetwork attaches the provided container to the specified
-// network, returning a callback function that dissolves the attachment.
-func attachContainerToNetwork(cli *client.Client, containerID string, networkID string) (func() error, error) {
+// network.
+func attachContainerToNetwork(cli *client.Client, containerID string, networkID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	return cli.NetworkConnect(ctx, networkID, containerID, nil)
+}
 
-	if err := cli.NetworkConnect(ctx, networkID, containerID, nil); err != nil {
-		return nil, err
-	}
-	discFn := func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		return cli.NetworkDisconnect(ctx, networkID, containerID, true)
-	}
-	return discFn, nil
+func detachContainerFromNetwork(cli *client.Client, containerID string, networkID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return cli.NetworkDisconnect(ctx, networkID, containerID, true)
 }
 
 func (*LocalDockerRunner) ID() string {
