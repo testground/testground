@@ -12,10 +12,10 @@ import (
 
 // CreateRandomFile creates a file of the specified size (in bytes) within the
 // specified directory path
-func CreateRandomFile(runenv *runtime.RunEnv, directoryPath string, size int64) *os.File {
+func CreateRandomFile(runenv *runtime.RunEnv, directoryPath string, size int64) (*os.File, error) {
 	file, err := ioutil.TempFile(directoryPath, runenv.TestPlan)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	buf := bufio.NewWriter(file)
@@ -23,25 +23,25 @@ func CreateRandomFile(runenv *runtime.RunEnv, directoryPath string, size int64) 
 	for written < size {
 		w, err := io.CopyN(buf, rand.Reader, size-written)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 		written += w
 	}
 
 	err = buf.Flush()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	err = file.Sync()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	_, err = file.Seek(0, 0)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return file
+	return file, nil
 }
