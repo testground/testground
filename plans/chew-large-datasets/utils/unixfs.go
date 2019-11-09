@@ -32,7 +32,6 @@ func GetPathToUnixfsFile(path string) (files.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
 	stat, err := file.Stat()
 	if err != nil {
