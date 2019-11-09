@@ -40,4 +40,3 @@ COPY --from=0 /testground /usr/local/bin/testground
 ENV PATH="/usr/local/bin:${PATH}"
 
 ENTRYPOINT [ "/usr/local/bin/testground" ]
-CMD ["sidecar"]
