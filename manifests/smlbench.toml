@@ -16,24 +16,20 @@ go_ipfs_version = "0.4.22"
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/smlbench"
-exec_pkg = "exec"
+exec_pkg = "."
 
-# TODO: Runs with local go-ipfs install  
+# TODO: Runs with local go-ipfs install
 [build_strategies."exec:go"]
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/smlbench"
-exec_pkg = "exec"
+exec_pkg = "."
 
 [run_strategies."local:docker"]
 enabled = true
 
 # TODO
 [run_strategies."local:exec"]
-enabled = true
-
-# TODO
-[run_strategies."cluster:nomad"]
 enabled = true
 
 # seq 0
