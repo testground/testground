@@ -1,7 +1,7 @@
 name = "chew-large-datasets"
 
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
-source_path = "file:${TESTGROUND_BASEDIR}/plans/chew-large-datasets"
+source_path = "file:${TESTGROUND_SRCDIR}/plans/chew-large-datasets"
 
 [build_strategies."docker:go"]
 enabled = true
