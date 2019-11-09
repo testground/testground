@@ -8,7 +8,8 @@ go:
   - 1.13.x
 
 services:
-    - docker
+  - docker
+  - redis-server
 
 stages:
   - check
