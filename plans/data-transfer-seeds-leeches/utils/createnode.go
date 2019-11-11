@@ -31,6 +31,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Adapted from the netflix/p2plab repo under an Apache-2 license.
+// Original source code located at https://github.com/Netflix/p2plab/blob/master/peer/peer.go
 type Node struct {
 	Host    host.Host
 	Bitswap *bs.Bitswap
