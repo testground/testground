@@ -12,8 +12,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/docker/docker/pkg/stdcopy"
-
 	"go.uber.org/zap"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -25,7 +23,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
 	"github.com/logrusorgru/aurora"
 )
@@ -293,24 +293,24 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
 	log.Infow("deleting containers", "ids", ids)
+
+	errs := make(chan error)
 	for _, id := range ids {
-		if err != nil {
-			break
+		go func(id string) {
+			log.Debugw("deleting container", "id", id)
+			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
+		}(id)
+	}
+
+	var merr *multierror.Error
+	for i := 0; i < len(ids); i++ {
+		if err := <-errs; err != nil {
+			log.Errorw("failed while deleting container", "error", err)
+			merr = multierror.Append(merr, <-errs)
 		}
-
-		log.Debugw("deleting container", "id", id)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		err = cli.ContainerRemove(ctx, id, types.ContainerRemoveOptions{
-			Force: true,
-		})
-		cancel()
 	}
-
-	if err != nil {
-		log.Errorw("failed while deleting containers", "error", err)
-	}
-
-	return err
+	close(errs)
+	return merr.ErrorOrNil()
 }
 
 func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
@@ -327,7 +327,7 @@ func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string
 	if len(networks) > 0 {
 		network := networks[0]
 
-		log.Infow("control container found", "networkID", network.ID)
+		log.Infow("control network found", "networkID", network.ID)
 
 		return network.ID, nil
 	}
@@ -465,6 +465,7 @@ func attachContainerToNetwork(cli *client.Client, containerID string, networkID 
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
+//nolint this function is unused, but it may come in handy.
 func detachContainerFromNetwork(cli *client.Client, containerID string, networkID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

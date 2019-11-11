@@ -20,6 +20,7 @@ require (
 	github.com/gorilla/mux v1.7.3 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.1 // indirect
 	github.com/hashicorp/go-getter v1.4.0
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.7
 	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
 	github.com/kr/pretty v0.1.0 // indirect
