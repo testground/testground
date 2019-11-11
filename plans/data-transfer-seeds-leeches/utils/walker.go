@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Adapted from the netflix/p2plab repo under an Apache-2 license.
+// Original source code located at https://github.com/Netflix/p2plab/blob/master/dag/walker.go
 func Walk(ctx context.Context, c cid.Cid, ng ipld.NodeGetter) error {
 	nd, err := ng.Get(ctx, c)
 	if err != nil {
