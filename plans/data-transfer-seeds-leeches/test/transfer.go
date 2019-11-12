@@ -32,6 +32,7 @@ func Transfer(runenv *runtime.RunEnv) {
 	timeout := time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
 	leechCount := runenv.IntParamD("leech_count", 1)
 	passiveCount := runenv.IntParamD("passive_count", 0)
+	requestStagger := time.Duration(runenv.IntParamD("request_stagger", 0)) * time.Millisecond
 	fileSize := runenv.IntParamD("file_size", 200*1024*1024)
 
 	/// --- Set up
@@ -139,6 +140,11 @@ func Transfer(runenv *runtime.RunEnv) {
 	start := time.Now()
 
 	if isLeech {
+		// Stagger the start of the first request from each leech
+		// Note: seq starts from 1 (not 0)
+		startDelay := time.Duration(seq-1) * requestStagger
+		time.Sleep(startDelay)
+
 		node.FetchGraph(ctx, rootCid)
 	}
 
