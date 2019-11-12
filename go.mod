@@ -12,6 +12,7 @@ replace (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
+	github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 	github.com/Microsoft/hcsshim v0.8.7-0.20191108204903-32862ca3495e // indirect
 	github.com/aws/aws-sdk-go v1.25.32
 	github.com/containerd/containerd v1.3.0 // indirect
