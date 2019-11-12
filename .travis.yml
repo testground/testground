@@ -3,6 +3,11 @@ notifications:
 
 language: go
 
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $HOME/gopath/pkg/mod
+
 go:
   - 1.13.x
 
