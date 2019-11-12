@@ -12,7 +12,7 @@ replace (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
-	github.com/Microsoft/hcsshim v0.8.7-0.20191108204903-32862ca3495e
+	github.com/Microsoft/hcsshim v0.8.7-0.20191108204903-32862ca3495e // indirect
 	github.com/aws/aws-sdk-go v1.25.32
 	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
@@ -39,6 +39,5 @@ require (
 	github.com/urfave/cli v1.22.1
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 )
