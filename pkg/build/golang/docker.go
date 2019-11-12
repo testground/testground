@@ -11,19 +11,25 @@ import (
 	"strings"
 	"time"
 
+	gobuild "go/build"
+
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/build"
+	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 
 	"github.com/hashicorp/go-getter"
 	"github.com/otiai10/copy"
+	"go.uber.org/zap"
 )
 
 var (
@@ -49,6 +55,19 @@ type DockerGoBuilderConfig struct {
 	// RegistryType is the type of registry this builder will push the generated
 	// Docker image to, if PushRegistry is true.
 	RegistryType string `toml:"registry_type" overridable:"yes"`
+
+	// GoProxyMode specifies one of "on", "off", "custom".
+	//
+	//   * The "local" mode will start a proxy container (if one doesn't exist
+	//     yet) with bridge networking, and will configure the build to use
+	//     that proxy.
+	//   * The "direct" mode sets the `GOPROXY=direct` env var on the go build.
+	//   * The "remote" mode specifies a custom proxy. The `GoProxyURL` field
+	//     must be non-empty.
+	GoProxyMode string `toml:"go_proxy_mode" overridable:"yes"`
+
+	// GoProxyURL specifies the URL of the proxy when GoProxyMode = "custom".
+	GoProxyURL string `toml:"go_proxy_url" overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
@@ -69,6 +88,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 	}
 
 	var (
+		log         = logging.S().With("buildId", in.BuildID)
 		id          = build.CanonicalBuildID(in)
 		cli, err    = client.NewClientWithOpts(cliopts...)
 		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
@@ -97,13 +117,13 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 	defer os.RemoveAll(tmp)
 
 	var (
-		plansrc        = in.TestPlan.SourcePath
-		sdksrc         = filepath.Join(in.Directories.SourceDir(), "/sdk")
-		dockerfilesrc  = filepath.Join(in.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
+		plansrc       = in.TestPlan.SourcePath
+		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
+		dockerfilesrc = filepath.Join(in.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
 
-		plandst        = filepath.Join(tmp, "plan")
-		sdkdst         = filepath.Join(tmp, "sdk")
-		dockerfiledst  = filepath.Join(tmp, "Dockerfile")
+		plandst       = filepath.Join(tmp, "plan")
+		sdkdst        = filepath.Join(tmp, "sdk")
+		dockerfiledst = filepath.Join(tmp, "Dockerfile")
 	)
 
 	// Copy the plan's source; go-getter will create the dir.
@@ -171,18 +191,35 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
 
-	tar, err := archive.TarWithOptions(tmp, &archive.TarOptions{})
+	// The testground-build network is used to connect build services (like the
+	// GOPROXY) to the build container.
+	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build")
 	if err != nil {
-		return nil, err
+		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+		cfg.GoProxyMode = "direct"
+	}
+
+	// Set up the go proxy wiring. This will start a goproxy container if
+	// necessary, attaching it to the testground-build network.
+	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
+	if warn != nil {
+		log.Warnf("warning while setting up the go proxy: %s", warn)
 	}
 
 	opts := types.ImageBuildOptions{
-		Tags: []string{id, in.BuildID},
+		Tags:        []string{id, in.BuildID},
+		NetworkMode: "testground-build",
 		BuildArgs: map[string]*string{
 			"GO_VERSION":        &cfg.GoVersion,
 			"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
 			"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
+			"GO_PROXY":          &proxyURL,
 		},
+	}
+
+	tar, err := archive.TarWithOptions(tmp, &archive.TarOptions{})
+	if err != nil {
+		return nil, err
 	}
 
 	// Build the image.
@@ -205,14 +242,22 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 			return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 		}
 
-		err := b.pushToAWSRegistry(ctx, cli, in, out)
+		err := pushToAWSRegistry(ctx, log, cli, in, out)
 		return out, err
 	}
 
 	return out, nil
 }
 
-func (b *DockerGoBuilder) pushToAWSRegistry(ctx context.Context, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+func (*DockerGoBuilder) ID() string {
+	return "docker:go"
+}
+
+func (*DockerGoBuilder) ConfigType() reflect.Type {
+	return reflect.TypeOf(DockerGoBuilderConfig{})
+}
+
+func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	// Get a Docker registry authentication token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 	if err != nil {
@@ -231,7 +276,7 @@ func (b *DockerGoBuilder) pushToAWSRegistry(ctx context.Context, client *client.
 
 	// Tag the image under the AWS ECR repository.
 	tag := uri + ":" + in.BuildID
-	logging.S().Infow("tagging image", "tag", tag)
+	log.Infow("tagging image", "tag", tag)
 	if err = client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
 	}
@@ -253,6 +298,59 @@ func (b *DockerGoBuilder) pushToAWSRegistry(ctx context.Context, client *client.
 	// replace the artifact path by the pushed image.
 	out.ArtifactPath = tag
 	return nil
+}
+
+// setupGoProxy sets up a goproxy container, if and only if the build
+// configuration requires it.
+//
+// If an error occurs, it is reduced to a warning, and we fall back to direct
+// mode (i.e. no proxy, not even Google's default one).
+func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+	switch strings.TrimSpace(cfg.GoProxyMode) {
+	case "direct":
+		proxyURL = "direct"
+
+	case "remote":
+		if cfg.GoProxyURL == "" {
+			warn = fmt.Errorf("custom proxy mode specified, but no proxy URL was supplied; falling back to direct proxy mode")
+			proxyURL = "direct"
+			break
+		}
+
+		proxyURL = cfg.GoProxyURL
+		log.Infof("go proxy custom mode enabled; using url: %s", proxyURL)
+
+	case "local":
+		fallthrough
+
+	default:
+		mnt := mount.Mount{
+			Type:   mount.TypeBind,
+			Source: gobuild.Default.GOPATH,
+			Target: "/go",
+		}
+
+		log.Infof("go proxy enabled; ensuring testground-goproxy container is started")
+
+		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-goproxy",
+			ContainerConfig: &container.Config{
+				Image: "goproxy/goproxy",
+			},
+			HostConfig: &container.HostConfig{
+				Mounts:      []mount.Mount{mnt},
+				NetworkMode: container.NetworkMode(buildNetworkID),
+			},
+		})
+		if err != nil {
+			warn = fmt.Errorf("error while creating goproxy container: %w; falling back to direct proxy mode", err)
+			proxyURL = "direct"
+			break
+		}
+		proxyURL = "http://testground-goproxy:8081"
+	}
+
+	return proxyURL, warn
 }
 
 func validateSdkDir(dir string) error {
@@ -299,12 +397,4 @@ func imageExists(ctx context.Context, cli *client.Client, id string) (bool, erro
 		return false, err
 	}
 	return len(summary) > 0, nil
-}
-
-func (*DockerGoBuilder) ID() string {
-	return "docker:go"
-}
-
-func (*DockerGoBuilder) ConfigType() reflect.Type {
-	return reflect.TypeOf(DockerGoBuilderConfig{})
 }

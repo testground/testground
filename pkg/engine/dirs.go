@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"runtime"
 	"path/filepath"
+	"runtime"
 )
 
 const (
@@ -39,7 +39,7 @@ func isNotRootDir(path string) bool {
 		return len(path) > 1
 	}
 
-	return filepath.VolumeName(path) != path[:len(path) - 1]
+	return filepath.VolumeName(path) != path[:len(path)-1]
 }
 
 // locateSrcDir attempts to locate the source directory for the testground. We
