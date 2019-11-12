@@ -20,7 +20,7 @@ services:
 # the testground logic, not the test plan itself. So it's fine.
 jobs:
   include:
-    - stage: build_check_test_run
+    - stage: lint_build_check_test_run
       os: linux
       script:
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
