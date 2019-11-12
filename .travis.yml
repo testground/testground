@@ -3,12 +3,6 @@ notifications:
 
 language: go
 
-cache:
-  directories:
-    - $HOME/.cache/go-build
-    - $TRAVIS_BUILD_DIR
-    - $GOPATH/pkg/mod
-
 go:
   - 1.13.x
 
@@ -58,7 +52,7 @@ jobs:
       name: "dht/find-peers linux - no docker"
       os: linux
       script:
-        - ./testground run dht/find-peers --builder=exec:go --runner=local:exec
+        - go run dht/find-peers --builder=exec:go --runner=local:exec
 
     - stage: run
       name: "dht/find-peers linux - with docker"
