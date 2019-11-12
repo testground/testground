@@ -5,6 +5,7 @@ language: go
 
 cache:
   directories:
+    - $HOME/.cache/go-build
     - $TRAVIS_BUILD_DIR
     - $GOPATH/pkg/mod
 
