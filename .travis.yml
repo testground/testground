@@ -24,7 +24,7 @@ jobs:
     - stage: build_check_test
       os: linux
       script:
-        - go mod graph
+        - echo -en 'travis_fold:start:go mod graph\\r' && go mod graph && echo -en 'travis_fold:end:go mod graph\\r'
         - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
         - golangci-lint run       # run a bunch of code checkers/linters in parallel
         - go build ./...          # build the project
@@ -34,7 +34,7 @@ jobs:
     - stage: build_check_test
       os: windows
       script:
-        - go mod graph
+        - echo -en 'travis_fold:start:go mod graph\\r' && go mod graph && echo -en 'travis_fold:end:go mod graph\\r'
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
         - go build .
@@ -57,13 +57,14 @@ jobs:
       name: "dht/find-peers linux - no docker"
       os: linux
       script:
-        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec
+        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
-    - stage: run
-      name: "dht/find-peers linux - with docker"
-      os: linux
-      script:
-        - go run main.go -vv run dht/find-peers --builder=docker:go --runner=local:docker --build-cfg go_proxy_mode=direct
+# The docker build does not work properly on Travis.
+#    - stage: run
+#      name: "dht/find-peers linux - with docker"
+#      os: linux
+#      script:
+#        - go run main.go -vv run dht/find-peers --builder=docker:go --runner=local:docker --build-cfg go_proxy_mode=direct
 
 # Services are not supported on Travis (Docker + Redis) when in Mac OS X
 #    - stage: run
