@@ -38,7 +38,6 @@ jobs:
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
         - go build .
-        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
 # Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
 # We also currently don't have any tests that would catch any bugs.
