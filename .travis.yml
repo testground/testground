@@ -25,7 +25,7 @@ jobs:
       os: linux
       script:
         - go mod graph
-        - pushd .. && go install github.com/golangci/golangci-lint/cmd/golangci-lint && popd
+        - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
         - golangci-lint run       # run a bunch of code checkers/linters in parallel
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
