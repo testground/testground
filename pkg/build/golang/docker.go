@@ -58,9 +58,9 @@ type DockerGoBuilderConfig struct {
 
 	// GoProxyMode specifies one of "on", "off", "custom".
 	//
-	//   * The "local" mode will start a proxy container (if one doesn't exist
-	//     yet) with bridge networking, and will configure the build to use
-	//     that proxy.
+	//   * The "local" mode (default) will start a proxy container (if one
+	//     doesn't exist yet) with bridge networking, and will configure the
+	//     build to use that proxy.
 	//   * The "direct" mode sets the `GOPROXY=direct` env var on the go build.
 	//   * The "remote" mode specifies a custom proxy. The `GoProxyURL` field
 	//     must be non-empty.
