@@ -23,7 +23,7 @@ jobs:
     - stage: build_check_test_run
       os: linux
       script:
-        - echo 'travis_fold:start:go mod graph' && go mod graph && echo 'travis_fold:end:go mod graph'
+        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
         - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
         - golangci-lint run       # run a bunch of code checkers/linters in parallel
         - go build ./...          # build the project
@@ -34,11 +34,11 @@ jobs:
     - stage: build_check_test_run
       os: windows
       script:
-        - echo 'travis_fold:start:go mod graph' && go mod graph && echo 'travis_fold:end:go mod graph'
+        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
         - go build .
-        - testground -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
+        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
 # Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
 # We also currently don't have any tests that would catch any bugs.
