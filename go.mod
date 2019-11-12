@@ -39,5 +39,6 @@ require (
 	github.com/urfave/cli v1.22.1
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20190916202348-b4ddaad3f8a3
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
 )
