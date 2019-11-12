@@ -15,13 +15,9 @@ services:
   - docker
   - redis-server
 
-stages:
-  - build_check_test
-  - run
-
 jobs:
   include:
-    - stage: build_check_test
+    - stage: build_check_test_run
       os: linux
       script:
         - echo -en 'travis_fold:start:go mod graph\\r' && go mod graph && echo -en 'travis_fold:end:go mod graph\\r'
@@ -30,14 +26,16 @@ jobs:
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
         - go build .
+        - ./testground -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
-    - stage: build_check_test
+    - stage: build_check_test_run
       os: windows
       script:
         - echo -en 'travis_fold:start:go mod graph\\r' && go mod graph && echo -en 'travis_fold:end:go mod graph\\r'
         - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
         - go build .
+        - testground -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
 # Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
 # We also currently don't have any tests that would catch any bugs.
@@ -50,14 +48,15 @@ jobs:
 #        - go test -v -race ./...  # Run all the tests with the race detector enabled
 #        - go build .
 
-    #
-    # Run two test plans as a smoke test
-    #
-    - stage: run
-      name: "dht/find-peers linux - no docker"
-      os: linux
-      script:
-        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
+# This smoke run has been moved to the build_check_test_run to avoid having to rebuild the codebase.
+#    #
+#    # Run two test plans as a smoke test
+#    #
+#    - stage: run
+#      name: "dht/find-peers linux - no docker"
+#      os: linux
+#        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
+#      script:
 
 # The docker build does not work properly on Travis.
 #    - stage: run
