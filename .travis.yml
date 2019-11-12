@@ -31,7 +31,7 @@ jobs:
         - go build .
         - ./testground -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
-    - stage: build_check_test_run
+    - stage: lint_build_check_test_run
       os: windows
       script:
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
