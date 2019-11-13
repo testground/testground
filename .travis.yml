@@ -2,7 +2,11 @@ notifications:
   email: false
 
 language: go
-cache: false
+
+cache:
+  directories:
+    - $HOME/.cache/go-build
+    - $HOME/gopath/pkg/mod
 
 go:
   - 1.13.x
@@ -11,44 +15,57 @@ services:
   - docker
   - redis-server
 
-stages:
-  - check
-  - build
-  - test
-  - run
-
+# NOTE: The smoke test itself will fail because the Travis redis instance does
+# not have keyspace notifications enabled. But we're interested in exercising
+# the testground logic, not the test plan itself. So it's fine.
 jobs:
   include:
-    - stage: check
-      script:
-        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
-        - golangci-lint run       # run a bunch of code checkers/linters in parallel
-
-    - stage: build
-      script:
-        - go build ./...          # build the project
-
-    - stage: test
+    - stage: lint_build_check_test_run
       os: linux
       script:
+        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
+        - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
+        - golangci-lint run       # run a bunch of code checkers/linters in parallel
+        - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
+        - go build .
+        - ./testground -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
 
-    - stage: test
-      os: osx
-      script:
-        - go test -v -race ./...  # Run all the tests with the race detector enabled
-
-    - stage: test
+    - stage: lint_build_check_test_run
       os: windows
       script:
+        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
+        - go build ./...          # build the project
         - go test -v -race ./...  # Run all the tests with the race detector enabled
+        - go build .
 
-    # Run two test plans as a smoke test
-    - stage: run
-      name: "dht/find-peers linux - no docker"
-      os: linux
-      script:
-        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
+# Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
+# We also currently don't have any tests that would catch any bugs.
+#    - stage: test
+#      os: osx
+#      script:
+#        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
+#        - golangci-lint run       # run a bunch of code checkers/linters in parallel
+#        - go build ./...          # build the project
+#        - go test -v -race ./...  # Run all the tests with the race detector enabled
+#        - go build .
+
+# This smoke run has been moved to the build_check_test_run to avoid having to rebuild the codebase.
+#    #
+#    # Run two test plans as a smoke test
+#    #
+#    - stage: run
+#      name: "dht/find-peers linux - no docker"
+#      os: linux
+#        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
+#      script:
+
+# The docker build does not work properly on Travis.
+#    - stage: run
+#      name: "dht/find-peers linux - with docker"
+#      os: linux
+#      script:
+#        - go run main.go -vv run dht/find-peers --builder=docker:go --runner=local:docker --build-cfg go_proxy_mode=direct
 
 # Services are not supported on Travis (Docker + Redis) when in Mac OS X
 #    - stage: run
@@ -62,12 +79,6 @@ jobs:
 #      os: windows
 #      script:
 #        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
-
-    - stage: run
-      name: "dht/find-peers linux - with docker"
-      os: linux
-      script:
-        - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
 
 # Services are not supported on Travis (Docker + Redis) when in Mac OS X
 #    - stage: run

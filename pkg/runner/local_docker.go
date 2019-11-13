@@ -5,29 +5,26 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/errgroup"
-
-	"go.uber.org/zap"
-
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
 	"github.com/logrusorgru/aurora"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -73,19 +70,10 @@ type LocalDockerRunner struct{}
 // the test has run.
 func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	var (
-		image    = input.ArtifactPath
-		seq      = input.Seq
-		deferred []func() error
-		log      = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		image = input.ArtifactPath
+		seq   = input.Seq
+		log   = logging.S().With("runner", "local:docker", "run_id", input.RunID)
 	)
-
-	defer func() {
-		for i := len(deferred) - 1; i >= 0; i-- {
-			if err := deferred[i](); err != nil {
-				log.Errorw("error while calling deferred functions", "error", err)
-			}
-		}
-	}()
 
 	var (
 		cfg   = defaultConfig
@@ -129,7 +117,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, err
 	}
 
-	dataNetworkID, err := newDataNetwork(cli, runenv, "default")
+	dataNetworkID, err := newDataNetwork(cli, logging.S(), runenv, "default")
 	if err != nil {
 		return nil, err
 	}
@@ -150,9 +138,12 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, err
 	}
 
-	// Ensure that we have a testground-redis container; if not, we'll create
-	// it.
+	// Ensure that we have a testground-redis container; if not, create it.
 	_, err = ensureRedisContainer(cli, log, controlNetworkID)
+	if err != nil {
+		return nil, err
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -314,147 +305,41 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 }
 
 func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
-		Filters: filters.NewArgs(filters.Arg("name", "testground-control")),
-	})
-	if err != nil {
-		return "", nil
-	}
-
-	if len(networks) > 0 {
-		network := networks[0]
-
-		log.Infow("control network found", "networkID", network.ID)
-
-		return network.ID, nil
-	}
-
-	res, err := cli.NetworkCreate(ctx, "testground-control", types.NetworkCreate{
-		Internal:   true,
-		Driver:     "bridge",
-		Attachable: true,
-	})
-	if err != nil {
-		return "", err
-	}
-	return res.ID, nil
+	return docker.EnsureBridgeNetwork(context.Background(), log, cli, "testground-control")
 }
 
-func newDataNetwork(cli *client.Client, env *runtime.RunEnv, name string) (id string, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	res, err := cli.NetworkCreate(
-		ctx,
+func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
+	return docker.NewBridgeNetwork(
+		context.Background(),
+		cli,
 		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
-		types.NetworkCreate{
-			Internal:   true,
-			Driver:     "bridge",
-			Attachable: true,
-			Labels: map[string]string{
-				"testground.plan":     env.TestPlan,
-				"testground.testcase": env.TestCase,
-				"testground.runid":    env.TestRun,
-				"testground.name":     name,
-			},
+		map[string]string{
+			"testground.plan":     env.TestPlan,
+			"testground.testcase": env.TestCase,
+			"testground.runid":    env.TestRun,
+			"testground.name":     name,
 		},
 	)
-	if err != nil {
-		return "", err
-	}
-	return res.ID, nil
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.
-func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNetwork string) (id string, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	log.Debug("checking state of redis container")
-
-	// Check if a testground-redis container exists.
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("name", "testground-redis")),
+func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+		ContainerName: "testground-redis",
+		ContainerConfig: &container.Config{
+			Image:      "redis",
+			Entrypoint: []string{"redis-server"},
+			Cmd:        []string{"--notify-keyspace-events", "$szxK"},
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(controlNetworkID),
+		},
 	})
 	if err != nil {
 		return "", err
 	}
 
-	if len(containers) > 0 {
-		container := containers[0]
-
-		log.Infow("redis container found",
-			"containerId", container.ID, "state", container.State)
-
-		if len(container.NetworkSettings.Networks) != 1 {
-			return "", fmt.Errorf("redis container should have exactly one network; consider deleting container %s", container.ID)
-		}
-
-		if net, ok := container.NetworkSettings.Networks["testground-control"]; !ok || net.NetworkID != controlNetwork {
-			return "", fmt.Errorf("expected redis container to be connected to the testground control network; consider deleting container %s", container.ID)
-		}
-
-		switch container.State {
-		case "running":
-		default:
-			ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
-			defer func(fn context.CancelFunc) { fn() }(cancel)
-
-			log.Infof("redis container isn't running; starting")
-
-			err := cli.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
-			if err != nil {
-				log.Errorw("starting redis container failed", "containerId", container.ID)
-				return "", err
-			}
-		}
-		return container.ID, nil
-	}
-
-	log.Infow("redis container not found; creating")
-
-	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	out, err := cli.ImagePull(ctx, "redis", types.ImagePullOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	if err := util.PipeDockerOutput(out, os.Stdout); err != nil {
-		return "", err
-	}
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	res, err := cli.ContainerCreate(ctx, &container.Config{
-		Image:      "redis",
-		Entrypoint: []string{"redis-server"},
-		Cmd:        []string{"--notify-keyspace-events", "$szxK"},
-	}, &container.HostConfig{
-		NetworkMode: container.NetworkMode(controlNetwork),
-	}, nil, "testground-redis")
-
-	if err != nil {
-		return "", err
-	}
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	log.Infow("starting new redis container", "id", res.ID)
-
-	err = cli.ContainerStart(ctx, res.ID, types.ContainerStartOptions{})
-	if err == nil {
-		log.Infow("started redis container", "id", res.ID)
-	}
-
-	return res.ID, err
+	return container.ID, err
 }
 
 // attachContainerToNetwork attaches the provided container to the specified

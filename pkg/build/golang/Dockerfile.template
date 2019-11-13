@@ -16,6 +16,8 @@ ARG GO_IPFS_VERSION
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
 ARG TESTPLAN_EXEC_PKG
+# GO_PROXY is the go proxy that will be used, or direct by default.
+ARG GO_PROXY=direct
 
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 # PLAN_DIR is the location containing the plan source inside the container.
@@ -32,15 +34,16 @@ COPY /plan/go.mod ${PLAN_DIR}
 COPY /sdk/sync/go.mod /sdk/sync/go.mod
 COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
 COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
+
 # Download deps.
 RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY=direct \
+    && go env -w GOPROXY="${GO_PROXY}" \
     && go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
 RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY=direct \
+    && go env -w GOPROXY="${GO_PROXY}" \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
 
 #:::
