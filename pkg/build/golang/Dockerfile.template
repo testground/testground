@@ -37,13 +37,13 @@ COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 
 # Download deps.
 RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY=${GO_PROXY} \
+    && go env -w GOPROXY="${GO_PROXY}" \
     && go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
 RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY=${GO_PROXY} \
+    && go env -w GOPROXY="${GO_PROXY}" \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
 
 #:::
