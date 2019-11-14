@@ -147,7 +147,7 @@ func InstanceFromContainer(ctx context.Context, c *dockermanager.Container) (*In
 			return nil, err
 		}
 	}
-	inst, err := NewInstance(runenv, c.ID, network)
+	inst, err := NewInstance(runenv, info.Config.Hostname, network)
 	if err != nil {
 		netlinkHandle.Delete()
 		return nil, err
