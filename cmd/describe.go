@@ -39,7 +39,11 @@ func describeCommand(c *cli.Context) error {
 		return errors.New("unrecognized format for term;" + termExplanation)
 	}
 
-	plan := _engine.TestCensus().PlanByName(pl)
+	engine, err := GetEngine()
+	if err != nil {
+		return err
+	}
+	plan := engine.TestCensus().PlanByName(pl)
 	if plan == nil {
 		return errors.New("plan not found")
 	}

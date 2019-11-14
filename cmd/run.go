@@ -6,20 +6,16 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
 )
 
 var runners = func() []string {
-	r := _engine.ListRunners()
-	if len(r) == 0 {
-		panic("no runners loaded")
-	}
-
-	names := make([]string, 0, len(r))
-	for k := range r {
-		names = append(names, k)
+	names := make([]string, 0, len(engine.AllRunners))
+	for _, r := range engine.AllRunners {
+		names = append(names, r.ID())
 	}
 	return names
 }()
@@ -64,6 +60,11 @@ func runCommand(c *cli.Context) error {
 		return errors.New("missing test name")
 	}
 
+	engine, err := GetEngine()
+	if err != nil {
+		return err
+	}
+
 	// Extract flags and arguments.
 	var (
 		testcase     = c.Args().First()
@@ -97,7 +98,7 @@ func runCommand(c *cli.Context) error {
 		}
 
 		// Trigger the build job.
-		out, err := _engine.DoBuild(comp[0], builderId, in)
+		out, err := engine.DoBuild(comp[0], builderId, in)
 		if err != nil {
 			return fmt.Errorf("error while building test plan: %w", err)
 		}
@@ -128,6 +129,6 @@ func runCommand(c *cli.Context) error {
 		Parameters:   parameters,
 	}
 
-	_, err = _engine.DoRun(comp[0], comp[1], runnerId, runIn)
+	_, err = engine.DoRun(comp[0], comp[1], runnerId, runIn)
 	return err
 }
