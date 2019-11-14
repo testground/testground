@@ -12,8 +12,7 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 )
 
-var eventFilter = filters.NewArgs(
-	filters.Arg("type", "container"),
+var baseFilters = filters.NewArgs(
 	filters.Arg("status", "start"),
 	filters.Arg("status", "stop"),
 )
@@ -94,7 +93,7 @@ func (dm *Manager) Manage(
 ) error {
 
 	// Construct the filter.
-	filters := eventFilter.Clone()
+	filters := baseFilters.Clone()
 	for _, l := range labels {
 		filters.Add("label", l)
 	}
@@ -167,6 +166,7 @@ func (dm *Manager) Manage(
 	}
 
 	// Manage new containers.
+	filters.Add("type", "container")
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
 		Filters: filters,
 		Since:   now.String(), // skip containers we're already managing.
