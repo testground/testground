@@ -132,9 +132,8 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
 	}
 
-	// Create the network.
-
-	log.Infow("creating network", "name", sname)
+	// Create the data network.
+	log.Infow("creating data network", "name", sname)
 
 	networkSpec := types.NetworkCreate{
 		Driver:         "overlay",
