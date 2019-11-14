@@ -19,15 +19,11 @@ COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.
-RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY=direct \
-    && go mod download
+RUN cd ${PLAN_DIR} && go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
-RUN cd / \
-    && go env -w GOPROXY=direct \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
+RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
 
 #:::
 #::: RUNTIME CONTAINER
