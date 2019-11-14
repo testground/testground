@@ -10,11 +10,11 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, labels map[string]string) (id string, err error) {
+func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, internal bool, labels map[string]string) (id string, err error) {
 	res, err := cli.NetworkCreate(ctx, name, types.NetworkCreate{
 		Driver:     "bridge",
 		Attachable: true,
-		Internal:   true,
+		Internal:   internal,
 		Labels:     labels,
 	})
 	if err != nil {
@@ -23,7 +23,7 @@ func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, labe
 	return res.ID, nil
 }
 
-func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) (id string, err error) {
+func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool) (id string, err error) {
 	opts := types.NetworkListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg("name", name),
@@ -41,5 +41,5 @@ func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *clien
 		return network.ID, nil
 	}
 
-	return NewBridgeNetwork(ctx, cli, name, nil)
+	return NewBridgeNetwork(ctx, cli, name, internal, nil)
 }

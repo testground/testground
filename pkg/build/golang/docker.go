@@ -193,7 +193,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 
 	// The testground-build network is used to connect build services (like the
 	// GOPROXY) to the build container.
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build")
+	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
 	if err != nil {
 		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
 		cfg.GoProxyMode = "direct"
