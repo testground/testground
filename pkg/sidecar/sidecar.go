@@ -83,9 +83,11 @@ func Run(runnerName string) error {
 			if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
 				return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
 			}
-			_, err := instance.Writer.SignalEntry(cfg.State)
-			if err != nil {
-				return err
+			if cfg.State != "" {
+				_, err := instance.Writer.SignalEntry(cfg.State)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
