@@ -12,11 +12,6 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 )
 
-var baseFilters = filters.NewArgs(
-	filters.Arg("status", "start"),
-	filters.Arg("status", "stop"),
-)
-
 // Manager is a convenient wrapper around the docker client.
 type Manager struct {
 	logging.Logging
@@ -92,12 +87,6 @@ func (dm *Manager) Manage(
 	labels ...string,
 ) error {
 
-	// Construct the filter.
-	filters := baseFilters.Clone()
-	for _, l := range labels {
-		filters.Add("label", l)
-	}
-
 	// Manage workers.
 	managers := make(map[string]struct {
 		done   chan struct{}
@@ -151,10 +140,15 @@ func (dm *Manager) Manage(
 
 	// Manage existing containers.
 	now := time.Now()
+
+	listFilter := filters.NewArgs()
+	for _, l := range labels {
+		listFilter.Add("label", l)
+	}
 	nodes, err := dm.Client.ContainerList(ctx, types.ContainerListOptions{
 		Quiet:   true,
 		Limit:   -1,
-		Filters: filters,
+		Filters: listFilter,
 	})
 
 	if err != nil {
@@ -165,11 +159,15 @@ func (dm *Manager) Manage(
 		start(n.ID)
 	}
 
+	eventFilter := listFilter.Clone()
+	eventFilter.Add("type", "container")
+	eventFilter.Add("status", "start")
+	eventFilter.Add("status", "stop")
+
 	// Manage new containers.
-	filters.Add("type", "container")
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
-		Filters: filters,
-		Since:   now.String(), // skip containers we're already managing.
+		Filters: eventFilter,
+		Since:   now.Format(time.RFC3339Nano),
 	})
 
 	for {

@@ -27,4 +27,5 @@ var Commands = []cli.Command{
 	ListCommand,
 	BuildCommand,
 	DescribeCommand,
+	SidecarCommand,
 }
