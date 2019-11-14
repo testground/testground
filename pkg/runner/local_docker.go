@@ -305,7 +305,7 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 }
 
 func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	return docker.EnsureBridgeNetwork(context.Background(), log, cli, "testground-control")
+	return docker.EnsureBridgeNetwork(context.Background(), log, cli, "testground-control", true)
 }
 
 func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
@@ -313,6 +313,7 @@ func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.Run
 		context.Background(),
 		cli,
 		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
+		true,
 		map[string]string{
 			"testground.plan":     env.TestPlan,
 			"testground.testcase": env.TestCase,
