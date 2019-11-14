@@ -55,6 +55,7 @@ func Run(runnerName string) error {
 		if _, err = instance.Writer.SignalEntry(netInitState); err != nil {
 			return err
 		}
+		instance.S().Infof("waiting for all networks to be ready")
 		if err := <-instance.Watcher.Barrier(
 			ctx,
 			netInitState,
@@ -62,6 +63,7 @@ func Run(runnerName string) error {
 		); err != nil {
 			return err
 		}
+		instance.S().Infof("all networks ready")
 
 		// Now let the test case tell us how to configure the network.
 		subtree := sync.NetworkSubtree(instance.Hostname)
@@ -77,6 +79,7 @@ func Run(runnerName string) error {
 		}()
 
 		for cfg := range networkChanges {
+			instance.S().Infow("applying network change", "network", cfg)
 			if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
 				return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
 			}
