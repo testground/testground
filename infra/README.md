@@ -27,7 +27,8 @@ Steps:
 
 - 1. Install the Terraform CLI [Terraform](https://www.terraform.io/).
 - 2. Get some AWS credentitals (Access Key ID and Secret Access Key). If you don't have a key pair, you can create one in the EC2 dashboard in the AWS web console.
-- 3. Go into the Terraform directory and create a file with the name `terraform.tfvars`. It should look like:
+- 3. `cd terraform` and run `terraform init` to install all the deps necessary
+- 4. Create a file with the name `terraform.tfvars`. It should look like:
 
 ```
 key_name = <ssh key pair name registered in AWS>
@@ -36,7 +37,7 @@ tag      = <name for your cluster, use only alphanumeric chars and underscores>
 
 The tag is used to name your cluster. It must be unique. Be careful not to re-use a tag that is already in-use, or your cluster might get joined into another one.
 
-- 4. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
+- 5. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
 
 Other notes:
 
