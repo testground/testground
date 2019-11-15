@@ -206,7 +206,11 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 
 ### Running a Test Plan on the TestGround Cloud Infrastructure
 
-#### Setting an environment file
+#### Getting your own backend running (create a cluster in AWS)
+
+Follow the tutorial in the [infra folder](./infra)
+
+#### Link your local TestGround envinronment with your Docker Swarm Cluster running in AWS
 
 Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
 
@@ -217,7 +221,7 @@ You can initialize a new `.env.toml` file by copying the prototype [`env-example
 
 #### Running in the Cloud
 
-`To be Written once such infrastructure exists..soon™`
+`To be Written once such infrastructure exists..soon™` Notes so far on https://github.com/ipfs/testground/pull/126
 
 ## Contributing
 
