@@ -14,7 +14,11 @@ var ListCommand = cli.Command{
 }
 
 func listCommand(c *cli.Context) error {
-	plans := _engine.TestCensus().ListPlans()
+	engine, err := GetEngine()
+	if err != nil {
+		return err
+	}
+	plans := engine.TestCensus().ListPlans()
 	for _, tp := range plans {
 		for _, c := range tp.TestCases {
 			fmt.Println(tp.Name + "/" + c.Name)

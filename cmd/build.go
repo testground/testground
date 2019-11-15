@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/davecgh/go-spew/spew"
@@ -11,14 +12,9 @@ import (
 )
 
 var builders = func() []string {
-	b := _engine.ListBuilders()
-	if len(b) == 0 {
-		panic("no builders loaded")
-	}
-
-	names := make([]string, 0, len(b))
-	for k := range b {
-		names = append(names, k)
+	names := make([]string, 0, len(engine.AllBuilders))
+	for _, b := range engine.AllBuilders {
+		names = append(names, b.ID())
 	}
 	return names
 }()
@@ -60,12 +56,17 @@ func buildCommand(c *cli.Context) error {
 		builder = c.Generic("builder").(*EnumValue).String()
 	)
 
+	engine, err := GetEngine()
+	if err != nil {
+		return err
+	}
+
 	in, err := parseBuildInput(c)
 	if err != nil {
 		return err
 	}
 
-	out, err := _engine.DoBuild(plan, builder, in)
+	out, err := engine.DoBuild(plan, builder, in)
 	if err != nil {
 		return err
 	}
