@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -16,6 +17,38 @@ import (
 
 // SetUp sets up the elements necessary for the test cases
 func SetUp(ctx context.Context, runenv *runtime.RunEnv, timeout time.Duration, randomWalk bool, bucketSize int, autoRefresh bool, watcher *sync.Watcher, writer *sync.Writer) (host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, error) {
+	// TODO: just put the hostname inside the runenv?
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	if runenv.TestSidecar {
+		// Wait for the network to be ready.
+		//
+		// Technically, we don't need to do this as configuring the network will
+		// block on it being ready.
+		err := <-watcher.Barrier(ctx, "network-initialized", int64(runenv.TestInstanceCount))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to initialize network: %w", err)
+		}
+
+		writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+			Network: "default",
+			Enable:  true,
+			Default: sync.LinkShape{
+				Latency:   100 * time.Millisecond,
+				Bandwidth: 1 << 20, // 1Mib
+			},
+			State: "network-configured",
+		})
+
+		err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to configure network: %w", err)
+		}
+	}
+
 	/// --- Set up
 
 	node, dht, err := CreateDhtNode(ctx, runenv, bucketSize, autoRefresh)
