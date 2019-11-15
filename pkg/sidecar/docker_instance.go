@@ -3,6 +3,7 @@ package sidecar
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -14,33 +15,6 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
-
-func NewDockerManager() (InstanceManager, error) {
-	docker, err := dockermanager.NewManager()
-	if err != nil {
-		return nil, err
-	}
-	return (*DockerInstanceManager)(docker), nil
-}
-
-type DockerInstanceManager dockermanager.Manager
-
-func (d *DockerInstanceManager) Manage(
-	ctx context.Context,
-	worker func(ctx context.Context, inst *Instance) error,
-) error {
-	return (*dockermanager.Manager)(d).Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
-		inst, err := InstanceFromContainer(ctx, container)
-		if err != nil {
-			return err
-		}
-		return worker(ctx, inst)
-	}, "testground.runid")
-}
-
-func (d *DockerInstanceManager) Close() error {
-	return (*dockermanager.Manager)(d).Close()
-}
 
 // dockerLinks maps a set of container networks to container link devices.
 func dockerLinks(nl *netlink.Handle, nsettings *types.NetworkSettings) (map[string]netlink.Link, error) {
@@ -62,21 +36,63 @@ func dockerLinks(nl *netlink.Handle, nsettings *types.NetworkSettings) (map[stri
 	return linkMap, nil
 }
 
-// GetInstance gets a handle to the instance associated with the given
-// container.
-func InstanceFromContainer(ctx context.Context, c *dockermanager.Container) (*Instance, error) {
-	// Get the state/config of the cluster
-	info, err := c.Inspect(ctx)
+type DockerInstanceManager struct {
+	redis   net.IP
+	manager *dockermanager.Manager
+}
+
+func NewDockerManager() (InstanceManager, error) {
+	// TODO: Generalize this to a list of services.
+	redisIp, err := net.ResolveIPAddr("ip4", "testground-redis")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve redis host: %w", err)
+	}
+
+	docker, err := dockermanager.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
+	return &DockerInstanceManager{
+		manager: docker,
+		redis:   redisIp.IP,
+	}, nil
+}
+
+func (d *DockerInstanceManager) Manage(
+	ctx context.Context,
+	worker func(ctx context.Context, inst *Instance) error,
+) error {
+	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+		inst, err := d.manageContainer(ctx, container)
+		if err != nil {
+			return fmt.Errorf("when initializing the container: %w", err)
+		}
+		err = worker(ctx, inst)
+		if err != nil {
+			return fmt.Errorf("container worker failed: %w", err)
+		}
+		return nil
+	}, "testground.runid")
+}
+
+func (d *DockerInstanceManager) Close() error {
+	return d.manager.Close()
+}
+
+func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *dockermanager.Container) (inst *Instance, err error) {
+	// Get the state/config of the cluster
+	info, err := container.Inspect(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("inspect failed: %w", err)
+	}
+
 	if !info.State.Running {
-		return nil, fmt.Errorf("container not running: %s", c.ID)
+		return nil, fmt.Errorf("not running")
 	}
 
 	// TODO: cache this?
-	networks, err := c.Manager.NetworkList(ctx, types.NetworkListOptions{
+	networks, err := container.Manager.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg(
 				"label",
@@ -85,40 +101,44 @@ func InstanceFromContainer(ctx context.Context, c *dockermanager.Container) (*In
 		),
 	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list networks: %w", err)
 	}
 
 	// Construct the runtime environment
 
 	runenv, err := runtime.ParseRunEnv(info.Config.Env)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
 
 	// Get a netlink handle.
-	nshandle, err := netns.GetFromPath(info.NetworkSettings.SandboxKey)
+	nshandle, err := netns.GetFromPid(info.State.Pid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup the net namespace of %s: %s", c.ID, err)
+		return nil, fmt.Errorf("failed to lookup the net namespace: %s", err)
 	}
+	defer nshandle.Close()
 
 	netlinkHandle, err := netlink.NewHandleAt(nshandle)
 	// TODO: is this safe?
-	nshandle.Close() // always close this once we have a netlink handle.
-
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get handle to network namespace: %w", err)
 	}
+
+	defer func() {
+		if err != nil {
+			netlinkHandle.Delete()
+		}
+	}()
 
 	// Map _current_ networks to links.
 	links, err := dockerLinks(netlinkHandle, info.NetworkSettings)
 	if err != nil {
-		netlinkHandle.Delete()
-		return nil, err
+		return nil, fmt.Errorf("failed to enumerate links: %w", err)
 	}
 
 	// Finally, construct the network manager.
 	network := &DockerNetwork{
-		container:      c,
+		container:      container,
 		activeLinks:    make(map[string]*NetlinkLink, len(info.NetworkSettings.Networks)),
 		availableLinks: make(map[string]string, len(networks)),
 		nl:             netlinkHandle,
@@ -135,29 +155,61 @@ func InstanceFromContainer(ctx context.Context, c *dockermanager.Container) (*In
 		reverseIndex[id] = name
 	}
 
+	// TODO: Some of this code could be factored out into helpers.
+
+	// Get the routes to redis. We need to keep these.
+	redisRoutes, err := netlinkHandle.RouteGet(d.redis)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+	}
+
 	for id, link := range links {
-		name, ok := reverseIndex[id]
-		if !ok {
-			// not a network we want to manage.
+		if name, ok := reverseIndex[id]; ok {
+			// manage this network
+			network.activeLinks[name], err = NewNetlinkLink(netlinkHandle, link)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"failed to initialize link %s (%s): %w",
+					name,
+					link.Attrs().Name,
+					err,
+				)
+			}
 			continue
 		}
-		network.activeLinks[name], err = NewNetlinkLink(netlinkHandle, link)
+
+		// We've found a control network (or some other network).
+
+		// Get the current routes.
+		linkRoutes, err := netlinkHandle.RouteList(link, netlink.FAMILY_ALL)
 		if err != nil {
-			netlinkHandle.Delete()
-			return nil, err
+			return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
+		}
+
+		// Add specific routes to redis if redis uses this link.
+		for _, route := range redisRoutes {
+			if route.LinkIndex != link.Attrs().Index {
+				continue
+			}
+			if err := netlinkHandle.RouteAdd(&route); err != nil {
+				return nil, fmt.Errorf("failed to add new route: %w", err)
+			}
+			break
+		}
+
+		// Remove the original routes
+		for _, route := range linkRoutes {
+			if err := netlinkHandle.RouteDel(&route); err != nil {
+				return nil, fmt.Errorf("failed to remove existing route: %w", err)
+			}
 		}
 	}
-	inst, err := NewInstance(runenv, info.Config.Hostname, network)
-	if err != nil {
-		netlinkHandle.Delete()
-		return nil, err
-	}
-	return inst, nil
+	return NewInstance(runenv, info.Config.Hostname, network)
 }
 
 type DockerNetwork struct {
 	container      *dockermanager.Container
-	activeLinks    map[string]*NetlinkLink // id -> link handle
+	activeLinks    map[string]*NetlinkLink // name -> link handle
 	availableLinks map[string]string       // name -> id
 	nl             *netlink.Handle
 }
@@ -177,8 +229,8 @@ func (dn *DockerNetwork) ListAvailable() []string {
 
 func (dn *DockerNetwork) ListActive() []string {
 	networks := make([]string, 0, len(dn.activeLinks))
-	for name, id := range dn.availableLinks {
-		if _, ok := dn.activeLinks[id]; ok {
+	for name := range dn.availableLinks {
+		if _, ok := dn.activeLinks[name]; ok {
 			networks = append(networks, name)
 		}
 	}
@@ -191,7 +243,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 		return fmt.Errorf("unsupported network: %s", cfg.Network)
 	}
 
-	link, ok := dn.activeLinks[netId]
+	link, ok := dn.activeLinks[cfg.Network]
 
 	// Are we _disabling_ the network?
 	if !cfg.Enable {

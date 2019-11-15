@@ -17,6 +17,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
@@ -358,12 +359,20 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
+			// To lookup namespaces. Can't use SandboxKey for some reason.
+			PidMode: "host",
+			// We need _both_ to actually get a network namespace handle.
+			// We may be able to drop sys_admin if we drop netlink
+			// sockets that we're not using.
+			CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+			// needed to talk to docker.
+			Mounts: []mount.Mount{{
+				Type:   mount.TypeBind,
+				Source: "/var/run/docker.sock", // TODO: don't hardcode this.
+				Target: "/var/run/docker.sock",
+			}},
 		},
 	})
-	if err != nil {
-		return "", err
-	}
-
 	return container.ID, err
 }
 

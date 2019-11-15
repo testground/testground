@@ -161,8 +161,8 @@ func (dm *Manager) Manage(
 
 	eventFilter := listFilter.Clone()
 	eventFilter.Add("type", "container")
-	eventFilter.Add("status", "start")
-	eventFilter.Add("status", "stop")
+	eventFilter.Add("event", "start")
+	eventFilter.Add("event", "stop")
 
 	// Manage new containers.
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{

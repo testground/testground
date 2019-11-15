@@ -28,9 +28,9 @@ type Network interface {
 	ListAvailable() []string
 }
 
-func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (inst *Instance, err error) {
+func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
 	// Get a redis reader/writer.
-	watcher, writer, err := sync.WatcherWriter(inst.RunEnv)
+	watcher, writer, err := sync.WatcherWriter(runenv)
 	if err != nil {
 		return nil, err
 	}

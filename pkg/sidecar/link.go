@@ -33,7 +33,7 @@ func NewNetlinkLink(handle *netlink.Handle, link netlink.Link) (*NetlinkLink, er
 	root.Defcls = defaultHandle
 
 	if err := handle.QdiscAdd(root); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to set root qdisc: %w", err)
 	}
 
 	l := &NetlinkLink{Link: link, handle: handle}
@@ -76,16 +76,18 @@ func (l *NetlinkLink) init(idx uint16) error {
 
 	if err := l.handle.ClassAdd(netlink.NewHtbClass(
 		bandwidthAttrs,
-		netlink.HtbClassAttrs{},
+		netlink.HtbClassAttrs{
+			Rate: math.MaxUint64,
+		},
 	)); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize bandwidth class: %w", err)
 	}
 
 	if err := l.handle.QdiscAdd(netlink.NewNetem(
 		latencyAttrs,
 		netlink.NetemQdiscAttrs{},
 	)); err != nil {
-		return err
+		return fmt.Errorf("failed to initialize latency qdisc: %w", err)
 	}
 
 	return nil
@@ -94,6 +96,9 @@ func (l *NetlinkLink) init(idx uint16) error {
 // Sets the bandwidth (in bytes per second).
 func (l *NetlinkLink) setBandwidth(idx uint16, rate uint64) error {
 	bandwidthHandle, _ := handlesForIndex(idx)
+	if rate == 0 {
+		rate = math.MaxUint64
+	}
 	return l.handle.ClassChange(netlink.NewHtbClass(
 		netlink.ClassAttrs{
 			LinkIndex: l.Attrs().Index,

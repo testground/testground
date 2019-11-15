@@ -29,7 +29,7 @@ func Run(runnerName string) error {
 
 	manager, err := runner()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to initialize sidecar: %s", err)
 	}
 
 	defer manager.Close()
@@ -53,7 +53,7 @@ func Run(runnerName string) error {
 		// Wait for all the sidecars to enter the "network-initialized" state.
 		const netInitState = "network-initialized"
 		if _, err = instance.Writer.SignalEntry(netInitState); err != nil {
-			return err
+			return fmt.Errorf("failed to signal network ready: %w", err)
 		}
 		instance.S().Infof("waiting for all networks to be ready")
 		if err := <-instance.Watcher.Barrier(
@@ -61,7 +61,7 @@ func Run(runnerName string) error {
 			netInitState,
 			int64(instance.RunEnv.TestInstanceCount),
 		); err != nil {
-			return err
+			return fmt.Errorf("failed to wait for network ready: %w", err)
 		}
 		instance.S().Infof("all networks ready")
 
@@ -70,7 +70,7 @@ func Run(runnerName string) error {
 		networkChanges := make(chan *sync.NetworkConfig, 16)
 		closeSub, err := instance.Watcher.Subscribe(subtree, networkChanges)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to subscribe to network changes: %s", err)
 		}
 		defer func() {
 			if err := closeSub(); err != nil {
@@ -86,7 +86,11 @@ func Run(runnerName string) error {
 			if cfg.State != "" {
 				_, err := instance.Writer.SignalEntry(cfg.State)
 				if err != nil {
-					return err
+					return fmt.Errorf(
+						"failed to signal network state change %s: %w",
+						cfg.State,
+						err,
+					)
 				}
 			}
 		}
