@@ -29,15 +29,9 @@
         name: control
         driver: overlay
         attachable: yes
+        enable_ipv6: no
         ipam_config:
           - subnet: 10.1.0.0/16
-    - name: Create testground overlay data network
-      docker_network:
-        name: data
-        driver: overlay
-        attachable: yes
-        ipam_config:
-          - subnet: 10.2.0.0/16
 - hosts: redis
   become: yes
   gather_facts: yes
@@ -113,6 +107,8 @@
           - --notify-keyspace-events $szxK
           - --save ""
           - --appendonly no
+        networks:
+          - control
         placement:
           constraints:
             - node.labels.TGRole == redis
