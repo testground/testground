@@ -35,6 +35,8 @@ key_name = <ssh key pair name registered in AWS>
 tag      = <name for your cluster, use only alphanumeric chars and underscores>
 ```
 
+You can create/register the key pair at the [EC2 Dashboard, Network & Security](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#KeyPairs:sort=keyName)
+
 The tag is used to name your cluster. It must be unique. Be careful not to re-use a tag that is already in-use, or your cluster might get joined into another one.
 
 - 5. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
