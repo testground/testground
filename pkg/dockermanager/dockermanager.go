@@ -87,11 +87,13 @@ func (dm *Manager) Manage(
 	labels ...string,
 ) error {
 
-	// Manage workers.
-	managers := make(map[string]struct {
+	type workerHandle struct {
 		done   chan struct{}
 		cancel context.CancelFunc
-	})
+	}
+
+	// Manage workers.
+	managers := make(map[string]workerHandle)
 
 	defer func() {
 		// cancel the remaining managers
@@ -121,10 +123,7 @@ func (dm *Manager) Manage(
 
 		cctx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})
-		managers[container] = struct {
-			done   chan struct{}
-			cancel context.CancelFunc
-		}{
+		managers[container] = workerHandle{
 			done:   done,
 			cancel: cancel,
 		}
