@@ -7,6 +7,9 @@ replace (
 	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
 	github.com/ipfs/testground/sdk/sync => ./sdk/sync
 	github.com/miekg/dns => github.com/miekg/dns v1.0.14
+
+	// Fix builds on windows.
+	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 => golang.org/x/sys v0.0.0-20190920190810-ef0ce1748380
 )
 
 require (
@@ -18,7 +21,7 @@ require (
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v1.4.2-0.20191112174331-c83188248e9c
+	github.com/docker/docker v1.4.2-0.20191117130006-10866714412a
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
@@ -29,10 +32,12 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
 	github.com/ipfs/testground/sdk/sync v0.0.0-00010101000000-000000000000
-	github.com/libp2p/go-libp2p-kad-dht v0.3.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/onsi/ginkgo v1.8.0 // indirect
+	github.com/onsi/gomega v1.5.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
