@@ -230,7 +230,7 @@ ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaw
 Then, all you need to do is use cluster:swarm runner, example:
 
 ```
-./testground run dht/find-peers --builder=docker:go --runner=cluster:swarm --build-cfg bypass_cache=true
+./testground -vv run dht/find-peers --builder=docker:go --runner=cluster:swarm --build-cfg bypass_cache=true --build-cfg push_registry=true --build-cfg registry_type=aws
 ```
 
 ## Contributing
