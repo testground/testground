@@ -112,4 +112,18 @@
         placement:
           constraints:
             - node.labels.TGRole == redis
+    - name: Start sidecar service
+      docker_swarm_service:
+        name: testground-sidecar
+        image: testground
+        mode: global
+        command: testground
+        args:
+          - sidecar
+          - --runner docker
+        networks:
+          - control
+        placement:
+          constraints:
+            - node.labels.TGRole == worker
 
