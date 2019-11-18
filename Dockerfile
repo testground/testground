@@ -19,7 +19,7 @@ COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.
-RUN cd ${PLAN_DIR} && go mod download
+RUN cd / && go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
