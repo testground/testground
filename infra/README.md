@@ -32,11 +32,11 @@ Steps:
 - 5. Create a file with the name `terraform.tfvars`. It should look like:
 
 ```
-key_name = <ssh key pair name registered in AWS>
-tag      = <name for your cluster, use only alphanumeric chars and underscores>
+key_name = "<ssh key pair name registered in AWS>"
+tag      = "<name for your cluster, use only alphanumeric chars and underscores>"
 ```
 
-You can create/register the key pair at the The tag is used to name your cluster. It must be unique. Be careful not to re-use a tag that is already in-use, or your cluster might get joined into another one.
+The tag is used to name your cluster. It must be unique. Be careful not to re-use a tag that is already in-use, or your cluster might get joined into another one.
 
 - 5. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
 
@@ -54,7 +54,7 @@ For now, the following steps are necessary to configure the cluster:
 - 1. ssh to the manager machine
 - 2. `cd ~/testground-aws-setup/infra/`
 - 3. `git pull` (get latest scripts)
-- 2. `cd ansible`
+- 2. `cd aws/ansible`
 - 4. `./list-hosts.sh` (confirm that all the machines are there)
 - 5. `./ping-all.sh` (confirm that there is connectivity to all the machines)
 - 6. `./make-inventory.sh` (generated inventory.ini file)
