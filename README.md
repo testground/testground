@@ -219,9 +219,19 @@ Testground automatically loads an `.env.toml` file at root of your source direct
 
 You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
 
-#### Running in the Cloud
+#### Running a test case in a AWS backend
 
-`To be Written once such infrastructure exists..soon™` Notes so far on https://github.com/ipfs/testground/pull/126
+Once you have done the step above, you will need to create an SSH tunnel to the AWS instanced created with the `terraform apply` call. To do so:
+
+```
+ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaws.com>
+```
+
+Then, all you need to do is use cluster:swarm runner, example:
+
+```
+./testground run dht/find-peers --builder=docker:go --runner=cluster:swarm --build-cfg bypass_cache=true
+```
 
 ## Contributing
 
