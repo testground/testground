@@ -19,9 +19,10 @@ variable "aws_amis" {
 }
 
 variable "tag" {
-  description = "Used to set AWS TG tag"
+  description = "Used to set AWS TestGround tag (TG)"
 }
 
+# Information about the different types of instances
 # https://www.ec2instances.info/?region=us-west-2
 
 variable "aws_instance_type_manager" {
