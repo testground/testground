@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"strings"
+
 	"github.com/ipfs/testground/pkg/sidecar"
 	"github.com/urfave/cli"
 )
@@ -10,10 +12,13 @@ var SidecarCommand = cli.Command{
 	Usage:  "runs the sidecar daemon",
 	Action: sidecarCommand,
 	Flags: []cli.Flag{
-		cli.StringFlag{
+		cli.GenericFlag{
 			Name:     "runner, r",
 			Required: true,
-			Usage:    `Specifies the runner that will be scheduling tasks that should be managed by this sidecar. Options: docker`,
+			Usage:    `Specifies the runner that will be scheduling tasks that should be managed by this sidecar. Options: ` + strings.Join(sidecar.GetRunners(), ", "),
+			Value: &EnumValue{
+				Allowed: sidecar.GetRunners(),
+			},
 		},
 	},
 }

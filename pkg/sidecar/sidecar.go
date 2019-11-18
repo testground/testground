@@ -15,11 +15,21 @@ var runners = map[string]func() (InstanceManager, error){
 	// TODO: local
 }
 
+// GetRunners lists the available sidecar environments.
+func GetRunners() []string {
+	names := make([]string, 0, len(runners))
+	for r := range runners {
+		names = append(names, r)
+	}
+	return names
+}
+
 type InstanceManager interface {
 	io.Closer
 	Manage(context.Context, func(context.Context, *Instance) error) error
 }
 
+// Run runs the sidecar in the given runner environment.
 func Run(runnerName string) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
