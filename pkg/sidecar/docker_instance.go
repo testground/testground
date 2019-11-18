@@ -121,7 +121,6 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 	defer nshandle.Close()
 
 	netlinkHandle, err := netlink.NewHandleAt(nshandle)
-	// TODO: is this safe?
 	if err != nil {
 		return nil, fmt.Errorf("failed to get handle to network namespace: %w", err)
 	}
