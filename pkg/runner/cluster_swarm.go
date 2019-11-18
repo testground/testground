@@ -19,8 +19,6 @@ import (
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
-
-	"github.com/imdario/mergo"
 )
 
 var (
@@ -55,23 +53,10 @@ type ClusterSwarmRunnerConfig struct {
 	// DockerTLSKeyPath is our private key. Only used if DockerTLS = true.
 	DockerTLSKeyPath string `toml:"docker_tls_key_path"`
 
-	// RemoveService removes the service after all instances have finished and
+	// KeepService keeps the service after all instances have finished and
 	// all logs have been piped. Only used when running in foreground mode
-	// (background = false).
-	//
-	// NOTE: this has to be a pointer so that mergo can distinguish false from
-	// zero values.
-	RemoveService *bool `toml:"rm_service"`
-}
-
-// defaultClusterSwarmConfig is the default configuration. Incoming configurations will be
-// merged with this object.
-var defaultClusterSwarmConfig = ClusterSwarmRunnerConfig{
-	Background: false,
-	RemoveService: func() *bool { // hacky hackerson
-		v := true
-		return &v
-	}(),
+	// (default is background mode).
+	KeepService bool `toml:"keep_service"`
 }
 
 // ClusterSwarmRunner is a runner that creates a Docker service to launch as
@@ -85,21 +70,12 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		image = input.ArtifactPath
 		seq   = input.Seq
 		log   = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+		cfg   = *input.RunnerConfig.(*ClusterSwarmRunnerConfig)
 	)
 
 	// global timeout of 1 minute for the scheduling.
 	ctx, cancelFn := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancelFn()
-
-	var (
-		cfg   = defaultClusterSwarmConfig
-		incfg = input.RunnerConfig.(*ClusterSwarmRunnerConfig)
-	)
-
-	// Merge the incoming configuration with the default configuration.
-	if err := mergo.Merge(&cfg, incfg, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("error while merging configurations: %w", err)
-	}
 
 	// Sanity check.
 	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
@@ -181,6 +157,11 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 	networkID := networkResp.ID
 	defer func() {
+		if cfg.KeepService {
+			log.Info("skipping removing the data network due to user request")
+			// if we are keeping the service, we must also keep the network.
+			return
+		}
 		if err := cli.NetworkRemove(ctx, networkID); err != nil {
 			log.Errorw("removing network", "name", sname)
 		}
@@ -335,7 +316,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		fmt.Println(scanner.Text())
 	}
 
-	if *cfg.RemoveService {
+	if !cfg.KeepService {
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 
@@ -346,6 +327,8 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		} else {
 			logging.S().Errorf("removing the service failed: %w", err)
 		}
+	} else {
+		log.Info("skipping removing the service due to user request")
 	}
 
 	return out, nil
