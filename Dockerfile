@@ -9,9 +9,6 @@ ARG GO_VERSION=1.13.4
 # TODO: Not sure how this interplays with image caching.
 FROM golang:${GO_VERSION}-buster
 
-# GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION
-
 # Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
 # inside sdk.
 COPY /sdk/sync/go.mod /sdk/sync/go.mod
