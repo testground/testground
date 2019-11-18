@@ -87,6 +87,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		TestCaseSeq:        seq,
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
+		TestSidecar:        false,
 	}
 
 	// Spawn as many instances as the input parameters require.

@@ -22,6 +22,7 @@ const (
 	EnvTestRun            = "TEST_RUN"
 	EnvTestRepo           = "TEST_REPO"
 	EnvTestCaseSeq        = "TEST_CASE_SEQ"
+	EnvTestSidecar        = "TEST_SIDECAR"
 	EnvTestInstanceCount  = "TEST_INSTANCE_COUNT"
 	EnvTestInstanceRole   = "TEST_INSTANCE_ROLE"
 	EnvTestInstanceParams = "TEST_INSTANCE_PARAMS"
@@ -45,6 +46,9 @@ type RunEnv struct {
 	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
 	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
 
+	// true if the test has access to the sidecar.
+	TestSidecar bool `json:"test_sidecar,omitempty"`
+
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
@@ -60,6 +64,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 	}
 
 	out := map[string]string{
+		EnvTestSidecar:        strconv.FormatBool(re.TestSidecar),
 		EnvTestPlan:           re.TestPlan,
 		EnvTestBranch:         re.TestBranch,
 		EnvTestCase:           re.TestCase,
@@ -120,30 +125,36 @@ func (re *RunEnv) initLoggers() {
 	re.slogger = re.logger.Sugar()
 }
 
+func unpackParams(packed string) map[string]string {
+	spltparams := strings.Split(packed, "|")
+	params := make(map[string]string, len(spltparams))
+	for _, s := range spltparams {
+		v := strings.Split(s, "=")
+		if len(v) != 2 {
+			continue
+		}
+		params[v[0]] = v[1]
+	}
+	return params
+}
+
+func toInt(s string) int {
+	v, err := strconv.Atoi(s)
+	if err != nil {
+		return -1
+	}
+	return v
+}
+
+func toBool(s string) bool {
+	v, _ := strconv.ParseBool(s)
+	return v
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
-	toInt := func(s string) int {
-		v, err := strconv.Atoi(s)
-		if err != nil {
-			return -1
-		}
-		return v
-	}
-
-	unpackParams := func(packed string) map[string]string {
-		spltparams := strings.Split(packed, "|")
-		params := make(map[string]string, len(spltparams))
-		for _, s := range spltparams {
-			v := strings.Split(s, "=")
-			if len(v) != 2 {
-				continue
-			}
-			params[v[0]] = v[1]
-		}
-		return params
-	}
-
 	re := &RunEnv{
+		TestSidecar:        toBool(os.Getenv(EnvTestSidecar)),
 		TestPlan:           os.Getenv(EnvTestPlan),
 		TestCase:           os.Getenv(EnvTestCase),
 		TestRun:            os.Getenv(EnvTestRun),
@@ -159,6 +170,37 @@ func CurrentRunEnv() *RunEnv {
 	re.initLoggers()
 
 	return re
+}
+
+// ParseRunEnv parses a list of environment variables into a RunEnv.
+func ParseRunEnv(env []string) (*RunEnv, error) {
+	// TODO: validate
+	envMap := make(map[string]string, len(env))
+	for _, s := range env {
+		i := strings.IndexByte(s, '=')
+		if i <= 0 {
+			return nil, fmt.Errorf("invalid env variable in RunEnv: %s", s)
+		}
+		key, value := s[:i], s[i+1:]
+		envMap[key] = value
+	}
+	re := &RunEnv{
+		TestSidecar:        toBool(envMap[EnvTestSidecar]),
+		TestPlan:           envMap[EnvTestPlan],
+		TestCase:           envMap[EnvTestCase],
+		TestRun:            envMap[EnvTestRun],
+		TestTag:            envMap[EnvTestTag],
+		TestBranch:         envMap[EnvTestBranch],
+		TestRepo:           envMap[EnvTestRepo],
+		TestCaseSeq:        toInt(envMap[EnvTestCaseSeq]),
+		TestInstanceCount:  toInt(envMap[EnvTestInstanceCount]),
+		TestInstanceRole:   envMap[EnvTestInstanceRole],
+		TestInstanceParams: unpackParams(envMap[EnvTestInstanceParams]),
+	}
+
+	re.initLoggers()
+
+	return re, nil
 }
 
 // StringParam returns a string parameter, or "" if the parameter is not set.
@@ -236,6 +278,7 @@ func RandomRunEnv() *RunEnv {
 
 	return &RunEnv{
 		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
+		TestSidecar:        false,
 		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
 		TestCaseSeq:        int(rand.Uint32()),

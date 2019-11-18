@@ -17,6 +17,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
@@ -101,6 +102,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		TestCaseSeq:        seq,
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
+		TestSidecar:        true,
 	}
 
 	// Serialize the runenv into env variables to pass to docker.
@@ -144,6 +146,9 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		return nil, err
 	}
 
+	// Ensure that we have a testground-sidecar container; if not, we'll
+	// create it.
+	_, err = ensureSidecarContainer(cli, log, controlNetworkID)
 	if err != nil {
 		return nil, err
 	}
@@ -340,6 +345,34 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 		return "", err
 	}
 
+	return container.ID, err
+}
+
+// ensureSidecarContainer ensures there's a testground-sidecar container started.
+func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+		ContainerName: "testground-sidecar",
+		ContainerConfig: &container.Config{
+			Image:      "ipfs/testground",
+			Entrypoint: []string{"testground"},
+			Cmd:        []string{"sidecar", "--runner", "docker"},
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(controlNetworkID),
+			// To lookup namespaces. Can't use SandboxKey for some reason.
+			PidMode: "host",
+			// We need _both_ to actually get a network namespace handle.
+			// We may be able to drop sys_admin if we drop netlink
+			// sockets that we're not using.
+			CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+			// needed to talk to docker.
+			Mounts: []mount.Mount{{
+				Type:   mount.TypeBind,
+				Source: "/var/run/docker.sock", // TODO: don't hardcode this.
+				Target: "/var/run/docker.sock",
+			}},
+		},
+	})
 	return container.ID, err
 }
 
