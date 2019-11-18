@@ -206,7 +206,11 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 
 ### Running a Test Plan on the TestGround Cloud Infrastructure
 
-#### Setting an environment file
+#### Getting your own backend running (create a cluster in AWS)
+
+Follow the tutorial in the [infra folder](./infra)
+
+#### Link your local TestGround envinronment with your Docker Swarm Cluster running in AWS
 
 Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
 
@@ -215,9 +219,19 @@ Testground automatically loads an `.env.toml` file at root of your source direct
 
 You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
 
-#### Running in the Cloud
+#### Running a test case in a AWS backend
 
-`To be Written once such infrastructure exists..soon™`
+Once you have done the step above, you will need to create an SSH tunnel to the AWS instanced created with the `terraform apply` call. To do so:
+
+```
+ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaws.com>
+```
+
+Then, all you need to do is use cluster:swarm runner, example:
+
+```
+./testground run dht/find-peers --builder=docker:go --runner=cluster:swarm --build-cfg bypass_cache=true
+```
 
 ## Contributing
 
