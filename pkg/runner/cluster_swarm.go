@@ -138,10 +138,10 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	networkSpec := types.NetworkCreate{
 		Driver:         "overlay",
 		CheckDuplicate: true,
-		EnableIPv6:     true, // TODO: params?
-		Internal:       true,
-		Attachable:     true,
-		Scope:          "swarm",
+		// EnableIPv6:     true, // TODO(steb): this breaks.
+		Internal:   true,
+		Attachable: true,
+		Scope:      "swarm",
 		Labels: map[string]string{
 			"testground.plan":     input.TestPlan.Name,
 			"testground.testcase": testcase.Name,
