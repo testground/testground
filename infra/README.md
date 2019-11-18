@@ -54,7 +54,7 @@ For now, the following steps are necessary to configure the cluster:
 - 1. ssh to the manager machine
 - 2. `cd ~/testground-aws-setup/infra/`
 - 3. `git pull` (get latest scripts)
-- 2. `cd aws/ansible`
+- 2. `cd ansible`
 - 4. `./list-hosts.sh` (confirm that all the machines are there)
 - 5. `./ping-all.sh` (confirm that there is connectivity to all the machines)
 - 6. `./make-inventory.sh` (generated inventory.ini file)
