@@ -42,23 +42,19 @@ You can create/register the key pair at the The tag is used to name your cluster
 
 Other notes:
 
-When you ssh, make sure you log in as the `ubuntu` user, and use ssh agent forwarding (with your private key loaded into your ssh-agent using `ssh-add <key-file>`). eg:
-
-```
-ssh -A ubuntu@<public IP address>
-```
-
-You can always run `terraform output` to get the address again from the local terraform state.
-
-Use `terraform destroy` to remove the cluster from AWS.
+- When you ssh, make sure you log in as the `ubuntu` user, and use ssh agent forwarding eg: `ssh -A ubuntu@<public IP address>`
+- You will need to specify the right key to the ssh command, a convinient way to do this is by telling your ssh-agent about it with `ssh-add  <key-file>`)
+- You can always run `terraform output` to get the address again from the local terraform state
+- Use `terraform destroy` to remove the cluster from AWS
 
 ## Configuring the backend with Ansible
 
 For now, the following steps are necessary to configure the cluster:
 
 - 1. ssh to the manager machine
-- 2. `cd ~/testground-aws-setup/infra/aws/ansible`
+- 2. `cd ~/testground-aws-setup/infra/`
 - 3. `git pull` (get latest scripts)
+- 2. `cd ansible`
 - 4. `./list-hosts.sh` (confirm that all the machines are there)
 - 5. `./ping-all.sh` (confirm that there is connectivity to all the machines)
 - 6. `./make-inventory.sh` (generated inventory.ini file)
@@ -66,3 +62,5 @@ For now, the following steps are necessary to configure the cluster:
 - 8. `./setup-docker-swarm.sh`
 
 At this point, the cluster should be ready for use.
+
+You can now follow the steps on [Run on Cloud Infra](../README.md#running-a-test-plan-on-the-testground-cloud-infrastructure) to learn how to link your local TestGround with the remote Docker Swarm cluster and run your tests there.
