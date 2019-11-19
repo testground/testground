@@ -58,9 +58,14 @@ For now, the following steps are necessary to configure the cluster:
 - 4. `./list-hosts.sh` (confirm that all the machines are there)
 - 5. `./ping-all.sh` (confirm that there is connectivity to all the machines)
 - 6. `./make-inventory.sh` (generated inventory.ini file)
-- 7. `./setup-filebeat.sh`
-- 8. `./setup-docker-swarm.sh`
+- 7. `./setup-apache.sh`
+- 8. `./setup-ssh.sh`
+- 9. `./setup-filebeat.sh`
+- 10. `./setup-docker-swarm.sh`
 
-At this point, the cluster should be ready for use.
+
+At this point, the cluster should be ready for use. You should be able to adjust
+the number of workers in the AWS EC2 Autoscaling group, and new workers will
+automatically join the Docker Swarm.
 
 You can now follow the steps on [Run on Cloud Infra](../README.md#running-a-test-plan-on-the-testground-cloud-infrastructure) to learn how to link your local TestGround with the remote Docker Swarm cluster and run your tests there.

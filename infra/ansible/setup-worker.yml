@@ -1,0 +1,53 @@
+---
+- hosts: workers:&local
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Get hosts
+      debug: var=ansible_play_hosts
+    - name: Get hostname
+      debug: var=ansible_facts.hostname
+    - name: Add keys to authorized_keys
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: http://172.16.0.10/authorized_keys
+    - name: get filebeat.yml from http server on manager
+      get_url:
+        url: http://172.16.0.10/filebeat.yml
+        dest: /etc/filebeat/filebeat.yml
+        owner: root
+        group: root
+        mode: '0600'
+    - name: ensure filebeat is running
+      systemd:
+        name: filebeat
+        enabled: yes
+        state: started
+    - name: Identify manager node
+      set_fact:
+        manager: "{{ groups['manager'][0] }}"
+    - name: Dump manager
+      debug: var=manager
+    - name: get docker-swarm-vars.yml from http server on manager
+      get_url:
+        url: http://172.16.0.10/docker-swarm-vars.yml
+        dest: /tmp/docker-swarm-vars.yml
+    - name: load vars from file
+      include_vars:
+        file: /tmp/docker-swarm-vars.yml
+    - name: Dump join_token
+      debug: var=join_token
+    - name: Join Docker Swarm as worker
+      docker_swarm:
+        state: join
+        advertise_addr: "{{ ansible_facts.default_ipv4.address }}"
+        join_token: "{{ join_token }}"
+        remote_addrs: [ "{{ manager }}:2377" ]
+    - name: call cgi script on manager to label node as worker
+      uri:
+        url: http://172.16.0.10/cgi-bin/register-worker.cgi
+        method: POST
+        body_format: form-urlencoded
+        body:
+          worker: "{{ ansible_facts.hostname }}"

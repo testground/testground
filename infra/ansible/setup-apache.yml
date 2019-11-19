@@ -1,0 +1,43 @@
+---
+- hosts: manager
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Give www-data access to docker
+      user:
+        name: www-data
+        groups: docker
+        append: yes
+    - name: Enable apache on manager
+      import_role:
+        name: geerlingguy.apache
+      vars:
+        apache_listen_ip: "*"
+        apache_remove_default_vhost: true
+        apache_mods_enabled:
+          - cgi.load
+        apache_vhosts:
+          - servername: "manager.local"
+            documentroot: /var/www/vhosts/manager
+            extra_parameters: |
+              ScriptAlias /cgi-bin/ "/var/www/vhosts/manager/cgi-bin/"
+              <Directory "/var/www/vhosts/manager/cgi-bin/">
+                 Require all granted
+                 Options +ExecCGI
+                 AddHandler cgi-script .cgi
+              </Directory>
+    - name: Create cgi-bin directory if it does not exist
+      file:
+        path: /var/www/vhosts/manager/cgi-bin
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
+    - name: copy cgi script
+      copy:
+        src: register-worker.cgi
+        dest: /var/www/vhosts/manager/cgi-bin/register-worker.cgi
+        owner: www-data
+        group: www-data
+        mode: '0744'

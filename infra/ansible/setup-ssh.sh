@@ -8,6 +8,4 @@ if [ -z "$TAG" ]; then
 	exit 1
 fi
 
-LOCAL=$(hostname | sed s/ip-// | sed s/-/./g)
-
-ansible-playbook -i tg-tag.aws_ec2.yml make-inventory.yml --extra-vars "tg_hosts=tag_TG_$TAG" --extra-vars "local=$LOCAL"
+ansible-playbook -i inventory.ini setup-ssh.yml --extra-vars "region=$REGION"

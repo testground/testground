@@ -1,0 +1,35 @@
+---
+- hosts: manager
+  become: yes
+  tasks:
+    - name: Generate ssh key on manager for access to other nodes
+      openssh_keypair:
+        path: /home/ubuntu/.ssh/id_rsa
+        owner: ubuntu
+        group: ubuntu
+    - name: Add key to authorized_keys
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: "{{ lookup('file', '/home/ubuntu/.ssh/id_rsa.pub') }}"
+    - name: Create apache directory if it does not exist
+      file:
+        path: /var/www/vhosts/manager
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+    - name: write authorized_keys for workers, put on webserver
+      copy:
+        src: /home/ubuntu/.ssh/authorized_keys
+        dest: /var/www/vhosts/manager/authorized_keys
+        owner: www-data
+        group: www-data
+        mode: '0644'
+- hosts: redis:workers
+  tasks:
+    - name: Add key to authorized_keys
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: "{{ lookup('file', '/home/ubuntu/.ssh/id_rsa.pub') }}"

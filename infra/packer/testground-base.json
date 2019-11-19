@@ -1,7 +1,8 @@
 {
   "variables": {
     "aws_access_key": "",
-    "aws_secret_key": ""
+    "aws_secret_key": "",
+    "destination_regions": "eu-central-1,us-west-2"
   },
   "builders": [{
     "type": "amazon-ebs",
@@ -17,20 +18,24 @@
       "owners": ["099720109477"],
       "most_recent": true
     },
+    "ami_regions": "{{user `destination_regions`}}",
     "instance_type": "t2.micro",
     "ssh_username": "ubuntu",
-    "ami_name": "testground-base {{timestamp}}"
+    "ami_name": "testground-base {{timestamp}}",
+    "tags": {
+      "Name": "tg-base-v2-dev"
+    }
   }],
   "provisioners": [
     {
       "type": "file",
-      "source": "filebeat.yml",
-      "destination": "/tmp/filebeat.yml"
+      "source": "tweak-ansible.sh",
+      "destination": "/tmp/tweak-ansible.sh"
     },
     {
       "type": "file",
-      "source": "tweak-ansible.sh",
-      "destination": "/tmp/tweak-ansible.sh"
+      "source": "testground-setup-worker.service",
+      "destination": "/tmp/testground-setup-worker.service"
     },
     {
       "type": "shell",
@@ -39,6 +44,8 @@
         "sudo apt-get update",
         "sudo apt-get install -y redis-server",
         "sudo systemctl disable redis-server",
+        "sudo apt-get install -y apache2",
+        "sudo systemctl disable apache2",
         "sudo apt-get install -y build-essential",
         "wget https://dl.google.com/go/go1.13.1.linux-amd64.tar.gz",
         "sudo tar -C /usr/local -xzf go1.13.1.linux-amd64.tar.gz",
@@ -54,8 +61,6 @@
         "echo 'deb https://artifacts.elastic.co/packages/7.x/apt stable main' | sudo tee -a /etc/apt/sources.list.d/elastic-7.x.list",
         "sudo apt-get update",
         "sudo apt-get install -y filebeat",
-        "sudo mv /tmp/filebeat.yml /etc/filebeat/filebeat.yml",
-        "sudo chown root. /etc/filebeat/filebeat.yml",
         "sudo update-rc.d filebeat defaults 95 10",
         "sudo apt-add-repository --yes --update ppa:ansible/ansible",
         "sudo apt-get install -y ansible python3-pip python-pip",
@@ -69,15 +74,18 @@
         "sudo apt-get install -y mosh",
         "git clone https://github.com/ipfs/testground.git",
         "cp -a testground testground-aws-setup",
-        "cd testground-aws-setup; git checkout infra/ansible; cd ..",
-        "git clone https://github.com/jimpick/testground-misc-scripts.git",
+        "cd testground-aws-setup; git checkout infra/auto-worker-setup; cd ..",
         "sudo systemctl start docker",
         "sudo docker pull redis",
         "sudo docker pull golang:1.13-buster",
         "sudo docker pull busybox:1.31.0-glibc",
         "sudo docker pull debian",
         "sudo chown -R ubuntu. .",
-        "bash -l -c 'cd testground && go build'"
+        "bash -l -c 'cd testground && go build'",
+        "ansible-galaxy install geerlingguy.apache",
+        "sudo cp /tmp/testground-setup-worker.service /lib/systemd/system",
+        "sudo chmod +x /lib/systemd/system/testground-setup-worker.service",
+        "sudo sudo systemctl enable testground-setup-worker"
       ]
     }
   ]

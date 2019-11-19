@@ -1,0 +1,11 @@
+[Unit]
+Description=Auto-setup Testground worker nodes
+
+[Service]
+WorkingDirectory=/home/ubuntu/testground-aws-setup/infra/ansible
+User=ubuntu
+Group=ubuntu
+ExecStart=/home/ubuntu/testground-aws-setup/infra/ansible/setup-worker.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -24,6 +24,20 @@
         join_token: "{{ docker_swarm_out.swarm_facts.JoinTokens.Worker }}"
     - name: Dump join_token
       debug: var=join_token
+    - name: Create apache directory if it does not exist
+      file:
+        path: /var/www/vhosts/manager
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+    - name: write docker-swarm-vars.yml for workers, put on webserver
+      template:
+        src: docker-swarm-vars.yml.j2
+        dest: /var/www/vhosts/manager/docker-swarm-vars.yml
+        owner: www-data
+        group: www-data
+        mode: '0644'
     - name: Create testground overlay control network
       docker_network:
         name: control

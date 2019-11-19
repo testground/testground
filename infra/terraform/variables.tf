@@ -12,10 +12,9 @@ variable "aws_availability_zone" {
   default     = "us-west-2c"
 }
 
-variable "aws_amis" {
-  default = {
-    us-west-2 = "ami-064b63239ad1b80b5"
-  }
+variable "aws_ami" {
+  description = "Tag for AWS AMI"
+  default     = "tg-base-v1"
 }
 
 variable "tag" {
@@ -42,5 +41,5 @@ variable "aws_instance_type_worker" {
 
 variable "workers" {
   description = "Number of worker nodes"
-  default     = 2
+  default     = 0
 }
