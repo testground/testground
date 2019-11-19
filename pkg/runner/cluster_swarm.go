@@ -207,6 +207,9 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			},
 			Placement: &swarm.Placement{
 				MaxReplicas: 200,
+				Constraints: []string{
+					"node.labels.TGRole==worker",
+				},
 			},
 		},
 	}
