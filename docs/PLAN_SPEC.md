@@ -57,6 +57,7 @@ The testing Plans linked below have been identified as the most valuable sets of
 - 08. [`Plan:` Bitswap specifics](https://github.com/ipfs/testground/pull/82)
 - 09. [`Plan:` Data Transfer with variable connectivity](https://github.com/ipfs/testground/pull/87)
 - 10. [`Plan:` go-libp2p DHT](../plans/dht)
+- 11. [`Plan:` Interop](https://github.com/ipfs/testground/issues/138)
 
 There are 2 other test plans that were created to test the functionality of TestGround and to be used as a demo. These are:
 
