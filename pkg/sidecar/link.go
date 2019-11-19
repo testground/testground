@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 var (
 	rootHandle    = netlink.MakeHandle(1, 0)
 	defaultHandle = netlink.MakeHandle(1, 2)
 )
-
-var errMaxLatency = fmt.Errorf("latency can be at most %s", math.MaxUint32*time.Microsecond)
 
 // Link abstracts operations over a network interface.
 type NetlinkLink struct {
@@ -96,29 +96,20 @@ func (l *NetlinkLink) init(idx uint16) error {
 }
 
 // Sets the bandwidth (in bytes per second).
-func (l *NetlinkLink) setBandwidth(idx uint16, rate uint64) error {
+func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
 	bandwidthHandle, _ := handlesForIndex(idx)
-	if rate == 0 {
-		rate = math.MaxUint64
-	}
 	return l.handle.ClassChange(netlink.NewHtbClass(
 		netlink.ClassAttrs{
 			LinkIndex: l.Attrs().Index,
 			Parent:    rootHandle,
 			Handle:    bandwidthHandle,
 		},
-		netlink.HtbClassAttrs{
-			Rate: rate,
-		},
+		attrs,
 	))
 }
 
 // Sets the latency.
-func (l *NetlinkLink) setLatency(idx uint16, latency time.Duration) error {
-	targetLatency := latency.Microseconds()
-	if targetLatency > math.MaxUint32 {
-		return errMaxLatency
-	}
+func (l *NetlinkLink) setNetem(idx uint16, attrs netlink.NetemQdiscAttrs) error {
 	bandwidthHandle, latencyHandle := handlesForIndex(idx)
 	return l.handle.QdiscChange(netlink.NewNetem(
 		netlink.QdiscAttrs{
@@ -126,18 +117,46 @@ func (l *NetlinkLink) setLatency(idx uint16, latency time.Duration) error {
 			Parent:    bandwidthHandle,
 			Handle:    latencyHandle,
 		},
-		netlink.NetemQdiscAttrs{
-			Latency: uint32(targetLatency),
-		},
+		attrs,
 	))
 }
 
-func (l *NetlinkLink) SetBandwidth(rate uint64) error {
-	return l.setBandwidth(0, rate)
+func toUs(t time.Duration) uint32 {
+	us := t.Microseconds()
+	if us > math.MaxUint32 {
+		// might as well just chop this off.
+		// This is ~1 hour
+		us = math.MaxUint32
+	}
+	return uint32(us)
 }
 
-func (l *NetlinkLink) SetLatency(latency time.Duration) error {
-	return l.setLatency(0, latency)
+func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
+	rate := shape.Bandwidth
+	if rate == 0 {
+		rate = math.MaxUint64
+	}
+
+	if err := l.setHtb(0, netlink.HtbClassAttrs{
+		Rate: rate,
+	}); err != nil {
+		return err
+	}
+
+	if err := l.setNetem(0, netlink.NetemQdiscAttrs{
+		Jitter:        toUs(shape.Jitter),
+		Latency:       toUs(shape.Latency),
+		Loss:          shape.Loss,
+		CorruptProb:   shape.Corrupt,
+		CorruptCorr:   shape.CorruptCorr,
+		ReorderProb:   shape.Reorder,
+		ReorderCorr:   shape.ReorderCorr,
+		Duplicate:     shape.Duplicate,
+		DuplicateCorr: shape.DuplicateCorr,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (l *NetlinkLink) SetAddr(ip *net.IPNet) error {

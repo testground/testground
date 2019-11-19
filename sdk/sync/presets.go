@@ -30,16 +30,53 @@ var PeerSubtree = &Subtree{
 	},
 }
 
+type FilterAction int
+
+const (
+	Accept FilterAction = iota
+	Reject
+	Drop
+)
+
 // LinkShape defines how traffic should be shaped.
 type LinkShape struct {
 	// Latency is the egress latency
 	Latency time.Duration
 
+	// Jitter is the egress jitter
+	Jitter time.Duration
+
 	// Bandwidth is egress bytes per second
 	Bandwidth uint64
 
 	// Drop all inbound traffic.
-	Filter bool
+	// TODO: Not implemented
+	Filter FilterAction
+
+	// Loss is the egress packet loss (%)
+	Loss float32
+
+	// Corrupt is the egress packet corruption probability (%)
+	Corrupt float32
+
+	// Corrupt is the egress packet corruption correlation (%)
+	CorruptCorr float32
+
+	// Reorder is the probability that an egress packet will be reordered (%)
+	//
+	// Reordered packets will skip the latency delay and be sent
+	// immediately. You must specify a non-zero Latency for this option to
+	// make sense.
+	Reorder float32
+
+	// ReorderCorr is the egress packet reordering correlation (%)
+	ReorderCorr float32
+
+	// Duplicate is the percentage of packets that are duplicated (%)
+	Duplicate float32
+
+	// DuplicateCorr is the correlation between egress packet duplication (%)
+	DuplicateCorr float32
 }
 
 // LinkRule applies a LinkShape to a subnet.

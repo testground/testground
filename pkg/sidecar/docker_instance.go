@@ -303,11 +303,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
 	}
 
-	// TODO: is 0 rate correct? How do I set "don't limit". Do I need to delete the rule?
-	if err := link.SetBandwidth(cfg.Default.Bandwidth); err != nil {
-		return err
-	}
-	if err := link.SetLatency(cfg.Default.Latency); err != nil {
+	if err := link.Shape(cfg.Default); err != nil {
 		return err
 	}
 	return nil
