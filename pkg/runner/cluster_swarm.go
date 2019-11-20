@@ -65,7 +65,7 @@ type ClusterSwarmRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
+func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		image = input.ArtifactPath
 		seq   = input.Seq
@@ -162,8 +162,14 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			// if we are keeping the service, we must also keep the network.
 			return
 		}
-		if err := cli.NetworkRemove(ctx, networkID); err != nil {
-			log.Errorw("removing network", "name", sname)
+		err = retry(5, 1*time.Second, func() error {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			return cli.NetworkRemove(ctx, networkID)
+		})
+		if err != nil {
+			log.Errorw("couldn't remove network", "network", networkID, "err", err)
 		}
 	}()
 
@@ -347,4 +353,20 @@ func (*ClusterSwarmRunner) ConfigType() reflect.Type {
 
 func (*ClusterSwarmRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
+}
+
+func retry(attempts int, sleep time.Duration, f func() error) (err error) {
+	for i := 0; ; i++ {
+		err = f()
+		if err == nil {
+			return
+		}
+
+		if i >= (attempts - 1) {
+			break
+		}
+
+		time.Sleep(sleep)
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }

@@ -3,6 +3,7 @@ package golang
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -72,7 +73,7 @@ type DockerGoBuilderConfig struct {
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
+func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
@@ -230,7 +231,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput) (*api.BuildOutput, error) {
 	defer resp.Body.Close()
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(resp.Body, os.Stdout); err != nil {
+	if err := util.PipeDockerOutput(resp.Body, output); err != nil {
 		return nil, err
 	}
 
@@ -309,7 +310,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
-		log.Infof("[go_proxy_mode=direct] no goproxy container will be started")
+		log.Debugf("[go_proxy_mode=direct] no goproxy container will be started")
 
 	case "remote":
 		if cfg.GoProxyURL == "" {
@@ -331,7 +332,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 			Target: "/go",
 		}
 
-		log.Infof("[go_proxy_mode=local] ensuring testground-goproxy container is started")
+		log.Debugf("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
 
 		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",

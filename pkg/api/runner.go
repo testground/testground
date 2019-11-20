@@ -1,7 +1,10 @@
 package api
 
 import (
+	"io"
 	"reflect"
+
+	"github.com/ipfs/testground/pkg/config"
 )
 
 // Runner is the interface to be implemented by all runners. A runner takes a
@@ -15,7 +18,7 @@ type Runner interface {
 	ID() string
 
 	// Run runs a test case.
-	Run(job *RunInput) (*RunOutput, error)
+	Run(job *RunInput, outputWriter io.Writer) (*RunOutput, error)
 
 	// ConfigType returns the configuration type of this runner.
 	ConfigType() reflect.Type
@@ -31,7 +34,7 @@ type RunInput struct {
 	RunID string
 	// EnvConfig is the env configuration of the engine. Not a pointer to force
 	// a copy.
-	EnvConfig EnvConfig
+	EnvConfig config.EnvConfig
 	// Directories providers accessors to directories managed by the runtime.
 	Directories Directories
 	// TestPlan is the definition of the test plan containing the test case to
@@ -54,5 +57,5 @@ type RunInput struct {
 type RunOutput struct {
 	// TODO.
 	// RunnerID is the ID of the runner used.
-	RunnerID string
+	RunnerID string `json:"runnerId"`
 }

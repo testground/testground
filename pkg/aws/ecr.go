@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/config"
 
 	"github.com/docker/docker/api/types"
 
@@ -23,7 +23,7 @@ var ECR = &ecrsvc{}
 type ecrsvc struct{}
 
 // newService creates a new ECR backend service stub.
-func (*ecrsvc) newService(cfg api.AWSConfig) (*ecr.ECR, error) {
+func (*ecrsvc) newService(cfg config.AWSConfig) (*ecr.ECR, error) {
 	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
 	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
 	sess, err := session.NewSession(config)
@@ -37,7 +37,7 @@ func (*ecrsvc) newService(cfg api.AWSConfig) (*ecr.ECR, error) {
 }
 
 // GetLogin returns the ECR login details for usage with the Docker API.
-func (e *ecrsvc) GetAuthToken(cfg api.AWSConfig) (auth types.AuthConfig, err error) {
+func (e *ecrsvc) GetAuthToken(cfg config.AWSConfig) (auth types.AuthConfig, err error) {
 	svc, err := e.newService(cfg)
 	if err != nil {
 		return types.AuthConfig{}, err
@@ -83,7 +83,7 @@ func (e *ecrsvc) EncodeAuthToken(token types.AuthConfig) string {
 	return base64.URLEncoding.EncodeToString(t)
 }
 
-func (e *ecrsvc) EnsureRepository(cfg api.AWSConfig, name string) (uri string, err error) {
+func (e *ecrsvc) EnsureRepository(cfg config.AWSConfig, name string) (uri string, err error) {
 	svc, err := e.newService(cfg)
 	if err != nil {
 		return "", err

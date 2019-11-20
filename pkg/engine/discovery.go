@@ -13,7 +13,7 @@ import (
 // discoverTestPlans scans the manifest directory for test plans, enrolls them
 // all into the engine, and returns a slice of all hits.
 func (e *Engine) discoverTestPlans() ([]*api.TestPlanDefinition, error) {
-	glob := filepath.Join(e.dirs.src, "/manifests/*.toml")
+	glob := filepath.Join(e.envcfg.SrcDir, "/manifests/*.toml")
 	manifests, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, err

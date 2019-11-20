@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 
+	"github.com/ipfs/testground/client"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/urfave/cli"
 )
 
@@ -56,22 +57,31 @@ func buildCommand(c *cli.Context) error {
 		builder = c.Generic("builder").(*EnumValue).String()
 	)
 
-	engine, err := GetEngine()
+	api, cancel, err := setupClient()
 	if err != nil {
 		return err
 	}
+	defer cancel()
 
 	in, err := parseBuildInput(c)
 	if err != nil {
 		return err
 	}
 
-	out, err := engine.DoBuild(plan, builder, in)
+	req := &client.BuildRequest{
+		Dependencies: in.Dependencies,
+		BuildConfig:  in.BuildConfig,
+		Plan:         plan,
+		Builder:      builder,
+	}
+
+	resp, err := api.Build(context.Background(), req)
 	if err != nil {
 		return err
 	}
+	defer resp.Close()
 
-	spew.Dump(out)
+	_, _ = client.ProcessBuildResponse(resp)
 
 	return nil
 }

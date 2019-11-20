@@ -5,6 +5,7 @@ import (
 	"io"
 	"text/tabwriter"
 
+	"github.com/ipfs/testground/pkg/config"
 	"github.com/mitchellh/go-wordwrap"
 )
 
@@ -12,10 +13,10 @@ import (
 // Its name must be unique within a test census.
 type TestPlanDefinition struct {
 	Name            string
-	SourcePath      string               `toml:"source_path"`
-	BuildStrategies map[string]ConfigMap `toml:"build_strategies"`
-	RunStrategies   map[string]ConfigMap `toml:"run_strategies"`
-	TestCases       []*TestCase          `toml:"testcases"`
+	SourcePath      string                      `toml:"source_path"`
+	BuildStrategies map[string]config.ConfigMap `toml:"build_strategies"`
+	RunStrategies   map[string]config.ConfigMap `toml:"run_strategies"`
+	TestCases       []*TestCase                 `toml:"testcases"`
 }
 
 // TestCase represents a configuration for a test case known by the system.
