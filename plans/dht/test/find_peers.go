@@ -1,69 +1,84 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-
-	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-// FindPeers is the Find Peers Test Case
 func FindPeers(runenv *runtime.RunEnv) {
-	// Test Parameters
-	var (
-		timeout     = time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
-		randomWalk  = runenv.BooleanParamD("random_walk", false)
-		nFindPeers  = runenv.IntParamD("n_find_peers", 1)
-		bucketSize  = runenv.IntParamD("bucket_size", 20)
-		autoRefresh = runenv.BooleanParamD("auto_refresh", true)
-	)
+	opts := &SetupOpts{
+		Timeout:     time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
+		RandomWalk:  runenv.BooleanParamD("random_walk", false),
+		NFindPeers:  runenv.IntParamD("n_find_peers", 1),
+		BucketSize:  runenv.IntParamD("bucket_size", 20),
+		AutoRefresh: runenv.BooleanParamD("auto_refresh", true),
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
-	node, dht, toDial, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
+	_, dht, all, _, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
-	defer TearDown(ctx, runenv, watcher, writer)
+	defer Teardown(ctx, runenv, watcher, writer)
 
-	/// --- Act I
+	if err = Connect(ctx, runenv, dht, opts, all...); err != nil {
+		runenv.Abort(err)
+		return
+	}
 
-	for i := 0; i < nFindPeers; i++ {
-		var peerToFind peer.AddrInfo
+	if err = WaitRoutingTable(ctx, runenv, dht); err != nil {
+		runenv.Abort(err)
+		return
+	}
 
-		// This search is suboptimal -> TODO check if go-libp2p has funcs or maps to help make this faster
-	SelectPeer:
-		for _, anotherPeer := range toDial {
-			for _, connectedPeer := range node.Peerstore().PeersWithAddrs() {
-				apID, _ := anotherPeer.ID.MarshalBinary()
-				cpID, _ := connectedPeer.MarshalBinary()
-				if bytes.Compare(apID, cpID) == 0 {
-					continue // already dialed to this one, next
-				}
-				// found a peer from list that we are not yet connected
-				peerToFind = anotherPeer
-				break SelectPeer
-			}
+	if opts.RandomWalk {
+		if err = RandomWalk(ctx, runenv, dht); err != nil {
+			runenv.Abort(err)
+			return
 		}
-		// Find Peer dance
+	}
+
+	// Perform FIND_PEER N times.
+	attempted := make(map[peer.ID]struct{}, opts.NFindPeers)
+	for i := 0; i < opts.NFindPeers; i++ {
+		var next peer.ID
+		for _, p := range all {
+			if _, ok := attempted[p.ID]; ok {
+				continue
+			}
+			next = p.ID
+			break
+		}
+
+		if next == "" {
+			// We don't have enough
+			runenv.Abort(fmt.Errorf("insufficient peers in test case; FIND_PEERS iterations: %d, # peers: %d", opts.NFindPeers, len(all)))
+			return
+		}
+
+		attempted[next] = struct{}{}
+
 		t := time.Now()
+
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		if _, err := dht.FindPeer(ctx, peerToFind.ID); err != nil {
-			runenv.Message("FindPeer failed %w", err)
+		if _, err := dht.FindPeer(ctx, next); err != nil {
+			runenv.Abort(fmt.Errorf("find peer failed: %s", err))
 			return
 		}
 
@@ -72,9 +87,8 @@ func FindPeers(runenv *runtime.RunEnv) {
 			Unit:           "ns",
 			ImprovementDir: -1,
 		}, float64(time.Now().Sub(t).Nanoseconds()))
-	}
 
-	/// --- Ending the test
+	}
 
 	runenv.OK()
 }

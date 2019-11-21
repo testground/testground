@@ -5,106 +5,111 @@ import (
 	"fmt"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ipfs/go-cid"
-	ipfsUtil "github.com/ipfs/go-ipfs-util"
+	u "github.com/ipfs/go-ipfs-util"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-// FindProviders implements the Find Providers Test case
 func FindProviders(runenv *runtime.RunEnv) {
-	// Test Parameters
-	var (
-		timeout     = time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
-		randomWalk  = runenv.BooleanParamD("random_walk", false)
-		bucketSize  = runenv.IntParamD("bucket_size", 20)
-		autoRefresh = runenv.BooleanParamD("auto_refresh", true)
-		// pProviding  = runenv.IntParamD("p_providing", 10)
-		// pResolving  = runenv.IntParamD("p_resolving", 10)
-		// pFailing    = runenv.IntParamD("p_failing", 10)
-	)
+	opts := &SetupOpts{
+		Timeout:        time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
+		RandomWalk:     runenv.BooleanParamD("random_walk", false),
+		NFindPeers:     runenv.IntParamD("n_find_peers", 1),
+		BucketSize:     runenv.IntParamD("bucket_size", 20),
+		AutoRefresh:    runenv.BooleanParamD("auto_refresh", true),
+		NodesProviding: runenv.IntParamD("nodes_providing", 10),
+		RecordCount:    runenv.IntParamD("record_count", 5),
+	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
-	_, dht, _, err := SetUp(ctx, runenv, timeout, randomWalk, bucketSize, autoRefresh, watcher, writer)
+	_, dht, _, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
-	defer TearDown(ctx, runenv, watcher, writer)
+	defer Teardown(ctx, runenv, watcher, writer)
 
-	/// --- Act I
+	// Calculate the CIDs we're dealing with.
+	cids := func() (out []cid.Cid) {
+		for i := 0; i < opts.RecordCount; i++ {
+			c := fmt.Sprintf("CID %d", i)
+			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
+		}
+		return out
+	}()
 
-	// TODO, only `p-providing` of the nodes provide a record and store its key on redis
+	// If we're a member of the providing cohort, let's provide those CIDs to
+	// the network.
+	switch {
+	case seq <= int64(opts.NodesProviding):
+		g := errgroup.Group{}
+		for i, cid := range cids {
+			c := cid
+			g.Go(func() error {
+				t := time.Now()
+				err := dht.Provide(ctx, c, true)
 
-	var (
-		cidsToPublish     []cid.Cid
-		nCidsToPublish    = 5
-		cidsToNotPublish  []cid.Cid
-		nCidsToNotPublish = 5
-	)
+				if err == nil {
+					runenv.Message("Provided CID: %s", c)
+					runenv.EmitMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("time-to-provide-%d", i),
+						Unit:           "ns",
+						ImprovementDir: -1,
+					}, float64(time.Now().Sub(t).Nanoseconds()))
+				}
 
-	for i := 0; i < nCidsToPublish; i++ {
-		v := fmt.Sprintf("%d -- gonna publish", i)
-		mhv := ipfsUtil.Hash([]byte(v))
-		cidsToPublish = append(cidsToPublish, cid.NewCidV0(mhv))
-	}
+				return err
+			})
+		}
 
-	for i := 0; i < nCidsToNotPublish; i++ {
-		v := fmt.Sprintf("%d -- not gonna publish", i)
-		mhv := ipfsUtil.Hash([]byte(v))
-		cidsToNotPublish = append(cidsToNotPublish, cid.NewCidV0(mhv))
-	}
+		if err := g.Wait(); err != nil {
+			runenv.Abort(fmt.Errorf("failed while providing: %s", err))
+		} else {
+			runenv.OK()
+		}
 
-	for _, c := range cidsToPublish {
-		err := dht.Provide(ctx, c, true)
-		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed on .Provide - %w", err))
-			return
+	default:
+		g := errgroup.Group{}
+		for i, cid := range cids {
+			c := cid
+			g.Go(func() error {
+				t := time.Now()
+				pids, err := dht.FindProviders(ctx, c)
+
+				if err == nil {
+					runenv.EmitMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("time-to-find-%d", i),
+						Unit:           "ns",
+						ImprovementDir: -1,
+					}, float64(time.Now().Sub(t).Nanoseconds()))
+
+					runenv.EmitMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("peers-found-%d", i),
+						Unit:           "peers",
+						ImprovementDir: 1,
+					}, float64(len(pids)))
+				}
+
+				return err
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			runenv.Abort(fmt.Errorf("failed while finding providerss: %s", err))
+		} else {
+			runenv.OK()
 		}
 	}
 
-	runenv.Message("Provided a bunch of CIDs")
-
-	/// --- Act II
-
-	// TODO, only `p-resolving` of the nodes attempt to resolve the records provided before
-
-	for _, c := range cidsToPublish {
-		peerInfos, err := dht.FindProviders(ctx, c)
-		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed on .FindProviders - %w", err))
-			return
-		}
-		if len(peerInfos) < 1 {
-			runenv.Abort(fmt.Errorf("Should have found Providers - %w", err))
-			return
-		}
-	}
-
-	runenv.Message("Found a ton of providers for the CIDs I was looking for")
-
-	// TODO, only `p-failing` of the nodes attempt to resolve records that do not exist
-
-	for _, c := range cidsToNotPublish {
-		peerInfos, err := dht.FindProviders(ctx, c)
-		if err != nil {
-			runenv.Abort(err)
-			return
-		}
-		if len(peerInfos) > 0 {
-			runenv.Abort(fmt.Errorf("Should'nt have found Providers %w", err))
-			return
-		}
-	}
-
-	runenv.Message("Correctly didn't found providers for CIDs that are not available in the network")
-
-	runenv.OK()
 }
