@@ -117,7 +117,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 			select {
 			case <-ticker.C:
 				last, err = w.client.Get(k).Int64()
-				if err != nil {
+				if err != nil && err != redis.Nil {
 					err = fmt.Errorf("error occured in barrier: %w", err)
 					resCh <- err
 					return
