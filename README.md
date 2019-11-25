@@ -83,22 +83,10 @@ Refer to the [specification](docs/SPEC.md) document.
     └── src_generate.go
 ```
 
-## Contributing & Testing
+## Usage
 
-We kindly ask you to read through the [SPEC](docs/SPEC.md) first and give this
-project a run first in your local machine. It is a fast moving project at the
-moment, and it might require some tinkering and experimentation to compensate
+We kindly ask you to read through the [SPEC](docs/SPEC.md) first and give this project a run first in your local machine. It is a fast moving project at the moment, and it might require some tinkering and experimentation to compensate
 for the lack of documentation.
-
-If you plan to contribute code, make sure to install the
-[pre-commit](https://github.com/pre-commit/pre-commit) tool, which manages our
-pre-commit hooks for things like linters, go fmt, go vet, etc.
-
-We provide a `Makefile` rule to facilitate the setup:
-
-```sh
-$ make init
-```
 
 ### Setup
 
@@ -234,6 +222,14 @@ Then, all you need to do is use cluster:swarm runner, example:
 ```
 
 ## Contributing
+
+If you plan to contribute code, make sure to install the [pre-commit](https://github.com/pre-commit/pre-commit) tool, which manages our pre-commit hooks for things like linters, go fmt, go vet, etc.
+
+We provide a `Makefile` rule to facilitate the setup:
+
+```sh
+$ make init
+```
 
 [![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
 
