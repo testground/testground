@@ -113,7 +113,7 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 
 #### Getting your own backend running (create a cluster in AWS)
 
-Follow the tutorial in the [infra folder](./infra)
+Follow the tutorial in the [infra folder](../infra)
 
 #### Link your local TestGround envinronment with your Docker Swarm Cluster running in AWS
 
