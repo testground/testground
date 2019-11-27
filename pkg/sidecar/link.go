@@ -18,7 +18,25 @@ var (
 	defaultHandle = netlink.MakeHandle(1, 2)
 )
 
-// Link abstracts operations over a network interface.
+// NetlinkLink abstracts operations over a network interface.
+//
+// NetlinkLink shapes the egress traffic on the link using TC. To do so, it
+// configures the following TC tree:
+//
+//     [________HTB Qdisc_________] - root
+//        0 |      1 |     n | ...  - queue; 0 is the default.
+//     [HTB Class]                  - bandwidth (rate limiting)
+//          |
+//     [Netem Qdisc]                - latency, jitter, etc. (per-packet attributes)
+//
+// At the moment, only one queue is supported. When support for multiple subnets
+// is added, additional classes/queues will be added per-subnet.
+//
+// NetlinkLink also supports setting the network device up/down and changing the
+// IP address.
+//
+// NOTE: Not all run environments will react well to the IP address changing.
+// Don't use this feature with docker.
 type NetlinkLink struct {
 	netlink.Link
 	handle *netlink.Handle
@@ -95,7 +113,7 @@ func (l *NetlinkLink) init(idx uint16) error {
 	return nil
 }
 
-// Sets the bandwidth (in bytes per second).
+// Sets link's HTB class attributes. See tc-htb(8).
 func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
 	bandwidthHandle, _ := handlesForIndex(idx)
 	return l.handle.ClassChange(netlink.NewHtbClass(
@@ -108,7 +126,7 @@ func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
 	))
 }
 
-// Sets the latency.
+// Sets link's Netem queuing disciplines attributes. See tc-netem(8).
 func (l *NetlinkLink) setNetem(idx uint16, attrs netlink.NetemQdiscAttrs) error {
 	bandwidthHandle, latencyHandle := handlesForIndex(idx)
 	return l.handle.QdiscChange(netlink.NewNetem(
@@ -121,7 +139,7 @@ func (l *NetlinkLink) setNetem(idx uint16, attrs netlink.NetemQdiscAttrs) error 
 	))
 }
 
-func toUs(t time.Duration) uint32 {
+func toMicroseconds(t time.Duration) uint32 {
 	us := t.Microseconds()
 	if us > math.MaxUint32 {
 		// might as well just chop this off.
@@ -131,11 +149,15 @@ func toUs(t time.Duration) uint32 {
 	return uint32(us)
 }
 
+// Shape applies the link "shape" to the link, setting the bandwidth, latency,
+// jitter, etc.
 func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
 	rate := shape.Bandwidth
 	if rate == 0 {
 		rate = math.MaxUint64
 	}
+
+	// TODO: eventually, we'll have a queue per-subnet to allow shaping per-subnet.
 
 	if err := l.setHtb(0, netlink.HtbClassAttrs{
 		Rate: rate,
@@ -144,8 +166,8 @@ func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
 	}
 
 	if err := l.setNetem(0, netlink.NetemQdiscAttrs{
-		Jitter:        toUs(shape.Jitter),
-		Latency:       toUs(shape.Latency),
+		Jitter:        toMicroseconds(shape.Jitter),
+		Latency:       toMicroseconds(shape.Latency),
 		Loss:          shape.Loss,
 		CorruptProb:   shape.Corrupt,
 		CorruptCorr:   shape.CorruptCorr,
@@ -159,14 +181,18 @@ func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
 	return nil
 }
 
+// Set the links address.
+// NOTE: This won't work in docker; use docker connect/disconnect.
 func (l *NetlinkLink) SetAddr(ip *net.IPNet) error {
 	return l.handle.AddrReplace(l.Link, &netlink.Addr{IPNet: ip})
 }
 
+// Up sets the link up.
 func (l *NetlinkLink) Up() error {
 	return l.handle.LinkSetUp(l.Link)
 }
 
+// Down takes the link down.
 func (l *NetlinkLink) Down() error {
 	return l.handle.LinkSetDown(l.Link)
 }
