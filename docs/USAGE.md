@@ -1,6 +1,6 @@
 # Usage
 
-We kindly ask you to read through the [SPEC](docs/SPEC.md) first and give this project a run first in your local machine. It is a fast moving project at the moment, and it might require some tinkering and experimentation to compensate for the lack of documentation.
+We kindly ask you to read through the [SPEC](./SPEC.md) first and give this project a run first in your local machine. It is a fast moving project at the moment, and it might require some tinkering and experimentation to compensate for the lack of documentation.
 
 ## Setup
 
@@ -113,7 +113,7 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 
 #### Getting your own backend running (create a cluster in AWS)
 
-Follow the tutorial in the [infra folder](./infra)
+Follow the tutorial in the [infra folder](../infra)
 
 #### Link your local TestGround envinronment with your Docker Swarm Cluster running in AWS
 
