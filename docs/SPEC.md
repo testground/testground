@@ -351,4 +351,4 @@ This section proposes the outline of an implementation plan to realise this desi
 
 ## Test inventory
 
-See [Test Inventory](./test-inventory.md)
+See [Test Inventory](./TEST_INVENTORY.md)
