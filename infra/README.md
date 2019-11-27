@@ -15,7 +15,7 @@ In this directory, you will find:
 
 The packer directory contains a Hashicorp Packer template used to build the base AMI disk image for AWS. See [packer.io](https://www.packer.io/) for information on how to use Packer.
 
-**Note: If you are using the Protocol Labs Test Ground Infra AWS account, there will be an AMI image already published. You won't have to create one yourself.
+**Note**: If you are using the Protocol Labs Test Ground Infra AWS account, there will be an AMI image already published. You won't have to create one yourself.
 
 ## Instantiating the backend with Terraform
 
@@ -25,11 +25,11 @@ The default cluster sets up a "manager" machine, another machine to run redis, a
 
 Steps:
 
-- 1. Install the Terraform CLI [Terraform](https://www.terraform.io/).
-- 2. Create a `~/.aws` folder to store your AWS credentials (Access Key ID and Secret Access Key). See how [here](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
-- 3. Register a SSH Key Pair at the EC2 dashboard in the AWS web console ([EC2 Dashboard, Network & Security](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#KeyPairs:sort=keyName)).
-- 4. `cd terraform` and run `terraform init` to install all the deps necessary
-- 5. Create a file with the name `terraform.tfvars`. It should look like:
+1. Install the Terraform CLI [Terraform](https://www.terraform.io/).
+2. Create a `~/.aws` folder to store your AWS credentials (Access Key ID and Secret Access Key). See how [here].(https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html)
+3. Register a SSH Key Pair at the EC2 dashboard in the AWS web console ([EC2 Dashboard, Network & Security](https://us-west-2.console.aws.amazon.com/ec2/home?region=us-west-2#KeyPairs:sort=keyName)).
+4. `cd terraform` and run `terraform init` to install all the deps necessary
+5. Create a file with the name `terraform.tfvars`. It should look like:
 
 ```
 key_name = "<ssh key pair name registered in AWS>"
@@ -38,7 +38,7 @@ tag      = "<name for your cluster, use only alphanumeric chars and underscores>
 
 The tag is used to name your cluster. It must be unique. Be careful not to re-use a tag that is already in-use, or your cluster might get joined into another one.
 
-- 6. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
+6. To set up the resources on AWS, simple run `terraform apply`. Terraform will ask for you to type in `yes` as a confirmation step. The final output from Terraform will contain the public DNS name you can ssh to get into the manager node.
 
 Other notes:
 
@@ -51,15 +51,15 @@ Other notes:
 
 For now, the following steps are necessary to configure the cluster:
 
-- 1. ssh to the manager machine
-- 2. `cd ~/testground-aws-setup/infra/`
-- 3. `git pull` (get latest scripts)
-- 2. `cd ansible`
-- 4. `./list-hosts.sh` (confirm that all the machines are there)
-- 5. `./ping-all.sh` (confirm that there is connectivity to all the machines)
-- 6. `./make-inventory.sh` (generated inventory.ini file)
-- 7. `./setup-filebeat.sh`
-- 8. `./setup-docker-swarm.sh`
+1. ssh to the manager machine
+2. `cd ~/testground-aws-setup/infra/`
+3. `git pull` (get latest scripts)
+4. `cd ansible`
+5. `./list-hosts.sh` (confirm that all the machines are there)
+6. `./ping-all.sh` (confirm that there is connectivity to all the machines)
+7. `./make-inventory.sh` (generated inventory.ini file)
+8. `./setup-filebeat.sh`
+9. `./setup-docker-swarm.sh`
 
 At this point, the cluster should be ready for use.
 
