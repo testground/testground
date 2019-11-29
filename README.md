@@ -27,9 +27,10 @@ The current TestGround Team is composed of:
 
 - @raulk - Lead Architect, Engineer, Developer
 - @daviddias - Engineer, Developer, acting as interim PM for the project
-- @jimpick - Engineer, Developer, Infrastructure Lead
-- @nonsense - Engineer, Developer, TestGround as a Service Lead
-- Soon™ @hacdias - Engineer, Developer
+- @nonsense - Engineer, Developer, TestGround as a Service / Infrastructure Lead
+- @jimpick - Engineer, Developer
+- @stebalien - Engineer, Developer
+- @hacdias - Engineer, Developer
 - you! Yes, you can contribute as well, however, do understand that this is a brand new and fast moving project and so contributing might require extra time to onboard
 
 To learn how this team works together read [HOW_WE_WORK](./docs/HOW_WE_WORK.md)
