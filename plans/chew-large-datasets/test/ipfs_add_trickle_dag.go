@@ -33,11 +33,12 @@ func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
 		return
 	}
 
-	addOptions := coreopts.UnixfsAddOption([]coreopts.UnixfsAddSettings{
-		coreopts.UnixfsAddSettings.Layout(1), // 1 for Trickle Dag https://godoc.org/github.com/ipfs/interface-go-ipfs-core/options#Layout
-	})
+	addOptions := func(settings *coreopts.UnixfsAddSettings) error {
+		settings.Layout = coreopts.TrickleLayout
+		return nil
+	}
 
-	cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile, addOptions...)
+	cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile, addOptions)
 	if err != nil {
 		runenv.Abort(fmt.Errorf("Could not add File: %s", err))
 		return
