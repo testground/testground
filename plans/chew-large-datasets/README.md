@@ -129,9 +129,9 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
-    - `ipfs add --copy` on the folder with Random Data (the --copy will use the FileStore)
+    - `ipfs add --nocopy` on the folder with Random Data (the --nocopy will use the FileStore)
     - Verify that all files are listed on the Manifest with `ipfs filestore ls`
   - **Act II**
     - Generate 10 more random files.
-    - `ipfs add --copy` again
+    - `ipfs add --nocopy` again
     - Verify that all files are listed on the Manifest with `ipfs filestore ls`
