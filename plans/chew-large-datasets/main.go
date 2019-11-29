@@ -7,8 +7,8 @@ import (
 
 var testCases = []func(*runtime.RunEnv){
 	test.IpfsAddDefaults,
-	test.IpfsAddDirSharding,
 	test.IpfsAddTrickleDag,
+	test.IpfsAddDirSharding,
 	test.IpfsMfs,
 	test.IpfsMfsDirSharding,
 	test.IpfsUrlStore,
