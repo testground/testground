@@ -73,7 +73,7 @@ If you plan to contribute code, make sure to install the [pre-commit](https://gi
 We provide a `Makefile` rule to facilitate the setup:
 
 ```sh
-$ make init
+$ make pre-commit
 ```
 
 [![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
