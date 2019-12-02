@@ -1,5 +1,7 @@
 # TestGround Roadmap
 
+## **DISCLAIMER:** This Roadmap is still very much WIP. For a `"State of TestGround Update"` and `"Functional Roadmap"`, consult [`State of TestGround - Mid Q4 2019 (Team Only)`](https://docs.google.com/document/d/1lpifz6CSEYhas1a3ZpgCcDWAFl9Ysmr7o_JH0n8Vny0/edit#heading=h.8djx5icip69b)
+
 # Q4 2019
 
 ## 🚀 Major Goals to Achieve
