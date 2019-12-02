@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -256,6 +257,40 @@ func (re *RunEnv) BooleanParamD(name string, def bool) bool {
 		return def
 	}
 	return b
+}
+
+// StringArrayParam returns an array of string parameter, or an empty array
+// if it does not exist. The second returns value indicates if the parameter
+// was (un)set or (in)valid.
+func (re *RunEnv) StringArrayParam(name string) (a []string, ok bool) {
+	a = []string{}
+	ok = re.JSONParam(name, &a)
+	return a, ok
+}
+
+// StringArrayParamD returns an array of string parameter or the default one
+// if the parameter was not set or is invalid.
+func (re *RunEnv) StringArrayParamD(name string, def []string) []string {
+	a := []string{}
+	if ok := re.JSONParam(name, &a); !ok {
+		return def
+	}
+	return a
+}
+
+// JSONParam unmarshals a JSON parameter in an arbitrary interface.
+// It returns if the parameter was (un)set or (in)valid.
+func (re *RunEnv) JSONParam(name string, v interface{}) (ok bool) {
+	s, ok := re.TestInstanceParams[name]
+	if !ok {
+		return false
+	}
+
+	if err := json.Unmarshal([]byte(s), v); err != nil {
+		return false
+	}
+
+	return true
 }
 
 // // ExtractRunEnv extracts the test context from a context.Context object.
