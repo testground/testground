@@ -16,8 +16,11 @@ type TgWriter struct {
 	output io.Writer
 }
 
+// Msg defines a protocol message struct sent from the Testground daemon to the Testground client.
+// For a given request, clients should expect between 1 and `n` `progress` messages, and
+// exactly 1 `result` message.
 type Msg struct {
-	Type    string      `json:"type"` // progress or result
+	Type    string      `json:"type"` // progress or result or error
 	Payload interface{} `json:"payload,omitempty"`
 	Error   *Error      `json:"error,omitempty"`
 }

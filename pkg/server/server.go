@@ -35,7 +35,7 @@ type Server struct {
 // * GET /describe: sends a `describe` request to the daemon. describes a test plan or test case.
 // * POST /build: sends a `build` request to the daemon. builds a test plan.
 // * POST /run: sends a `run` request to the daemon. (builds and) runs test case with name `<testplan>/<testcase>`.
-// A type-safe client for this server can be found in the `client` package.
+// A type-safe client for this server can be found in the `pkg/daemon/client` package.
 func New(listenAddr string) *Server {
 	srv := &Server{}
 

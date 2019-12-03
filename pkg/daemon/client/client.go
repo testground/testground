@@ -15,7 +15,7 @@ import (
 )
 
 // Client is the API client that performs all operations
-// against a testground server.
+// against a Testground server.
 type Client struct {
 	// client used to send and receive http requests.
 	client   *http.Client
@@ -48,6 +48,7 @@ func (c *Client) List(ctx context.Context) (io.ReadCloser, error) {
 // Describe sends `describe` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
+// The response is a stream of `Msg` protocol messages. See `ProcessDescribeResponse()` for specifics.
 func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -61,6 +62,7 @@ func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadClose
 // Build sends `build` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
+// The response is a stream of `Msg` protocol messages. See `ProcessBuildResponse()` for specifics.
 func (c *Client) Build(ctx context.Context, r *BuildRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -74,6 +76,7 @@ func (c *Client) Build(ctx context.Context, r *BuildRequest) (io.ReadCloser, err
 // Run sends `run` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
+// The response is a stream of `Msg` protocol messages.
 func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -84,19 +87,7 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
-func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {
-	req, err := http.NewRequest(method, "http://"+c.endpoint+path, body)
-	req = req.WithContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp.Body, nil
-}
-
+// ProcessBuildResponse parses a response from a `build` call
 func ProcessBuildResponse(r io.ReadCloser) (string, error) {
 	var msg tgwriter.Msg
 
@@ -133,6 +124,7 @@ func ProcessBuildResponse(r io.ReadCloser) (string, error) {
 	}
 }
 
+// ProcessDescribeResponse parses a response from a `describe` call
 func ProcessDescribeResponse(r io.ReadCloser) error {
 	var msg tgwriter.Msg
 
@@ -161,4 +153,17 @@ func ProcessDescribeResponse(r io.ReadCloser) error {
 			return errors.New("unknown message type")
 		}
 	}
+}
+
+func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {
+	req, err := http.NewRequest(method, "http://"+c.endpoint+path, body)
+	req = req.WithContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
 }
