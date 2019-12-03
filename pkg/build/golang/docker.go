@@ -235,7 +235,15 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		return nil, err
 	}
 
-	out := &api.BuildOutput{ArtifactPath: in.BuildID}
+	deps, err := parseDependenciesFromDocker(cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
+	}
+
+	out := &api.BuildOutput{
+		ArtifactPath: in.BuildID,
+		Dependencies: deps,
+	}
 
 	if cfg.PushRegistry {
 		if cfg.RegistryType != "aws" {
