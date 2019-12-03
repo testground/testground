@@ -27,7 +27,7 @@ func listCommand(ctx *cli.Context) error {
 
 	resp, err := api.List(context.Background())
 	if err != nil {
-		return err
+		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()
 

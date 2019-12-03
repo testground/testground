@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -37,7 +38,7 @@ func (srv *Server) buildHandler(w http.ResponseWriter, r *http.Request, log *zap
 	tgw := tgwriter.New(w)
 	out, err := engine.DoBuild(req.Plan, req.Builder, in, tgw)
 	if err != nil {
-		log.Errorw("engine build error", "err", err)
+		errf(tgw, log, fmt.Errorf("engine build error: %s", err))
 		return
 	}
 

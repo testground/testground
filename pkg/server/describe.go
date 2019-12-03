@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -48,7 +49,7 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 
 	plan := engine.TestCensus().PlanByName(pl)
 	if plan == nil {
-		errf(tgw, log, errors.New("plan not found"), "name", pl)
+		errf(tgw, log, fmt.Errorf("plan not found, name: %s ; term: %s", pl, term))
 		return
 	}
 
@@ -58,7 +59,7 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 	} else if _, tcbn, ok := plan.TestCaseByName(tc); ok {
 		cases = []*api.TestCase{tcbn}
 	} else {
-		errf(tgw, log, errors.New("test case not found"), "name", tc)
+		errf(tgw, log, fmt.Errorf("test case not found: %s", tc))
 		return
 	}
 

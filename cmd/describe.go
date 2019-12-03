@@ -3,9 +3,9 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ipfs/testground/pkg/daemon/client"
-	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/server"
 	"github.com/urfave/cli"
 )
@@ -37,7 +37,7 @@ func describeCommand(ctx *cli.Context) error {
 	}
 	resp, err := api.Describe(context.Background(), req)
 	if err != nil {
-		logging.S().Fatal(err.Error())
+		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()
 

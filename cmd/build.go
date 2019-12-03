@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/daemon/client"
@@ -77,13 +78,12 @@ func buildCommand(c *cli.Context) error {
 
 	resp, err := api.Build(context.Background(), req)
 	if err != nil {
-		return err
+		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()
 
-	_, _ = client.ProcessBuildResponse(resp)
-
-	return nil
+	_, err = client.ProcessBuildResponse(resp)
+	return err
 }
 
 func parseBuildInput(c *cli.Context) (*api.BuildInput, error) {

@@ -109,7 +109,7 @@ func runCommand(c *cli.Context) error {
 
 		resp, err := api.Build(context.Background(), req)
 		if err != nil {
-			return err
+			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
 
 		artifactPath, err = client.ProcessBuildResponse(resp)
@@ -146,7 +146,7 @@ func runCommand(c *cli.Context) error {
 
 	resp, err := api.Run(context.Background(), runReq)
 	if err != nil {
-		return err
+		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()
 
