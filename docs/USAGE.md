@@ -143,3 +143,77 @@ Then, all you need to do is use cluster:swarm runner, example:
     --build-cfg registry_type=aws
 ```
 
+## Creating a test case in Go
+
+You can create test cases in any language. However, if you want to create one in Go, you can simply create a directory under `plans/` with the name of the test plan. We are going to use `test-plan`.
+
+Inside, you should create a `main.go` file which will be the main entrypoint, as well as set up Go modules by creating a `go.mod` file. The main file should look something like:
+
+```go
+package main
+
+import (
+	test "github.com/ipfs/testground/plans/test-plan/test"
+	"github.com/ipfs/testground/sdk/runtime"
+)
+
+var testCases = []func(*runtime.RunEnv){
+   test.MyTest1,
+   test.MyTest2,
+   // add any other tests you have in ./test
+}
+
+func main() {
+	runenv := runtime.CurrentRunEnv()
+	if runenv.TestCaseSeq < 0 {
+		panic("test case sequence number not set")
+	}
+
+	// Demux to the right test case.
+	testCases[runenv.TestCaseSeq](runenv)
+}
+```
+
+Each test, in this case, will be created under the subdirectory `./test`. For example, for `test.MyTest1`, it must be a function with the following signature:
+
+```go
+func MyTest1(runenv *runtime.RunEnv) {
+	// Your test...
+}
+```
+
+Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), such as `runenv.Ok()` and `runenv.Abort(error)`.
+
+To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/ipfs/testground/sdk/runtime).
+
+### To get a simple string parameter
+
+To use `myparam`, you should pass it to the test as `--test-param myparam="some value"`.
+
+```go
+func MyTest1(runenv *runtime.RunEnv) {
+   param, ok := runenv.StringParam("myparam")
+   if !ok {
+      // Param was not set
+   }
+}
+```
+
+### To get custom types
+
+You can pass custom JSON like parameters, for example, if you want to send a map from strings to strings, you could do it like this:
+
+```
+testground run test-plan/my-test-1 \
+   --test-param myparam='{"key1": "value1", "key2": "value2"}'
+```
+
+And then you could get it like this:
+
+```go
+v := map[string]string{}
+ok := runenv.JSONParam("myparam", &v)
+
+fmt.Println(v)
+// map[key1:value1 key2:value2]
+```
