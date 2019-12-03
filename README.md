@@ -47,7 +47,7 @@ To learn how this team works together read [HOW_WE_WORK](./docs/HOW_WE_WORK.md)
 │   ├── SPEC.md
 │   ├── ...
 ├── main.go                         # TestGround entrypoint file
-├── cmd                             # TestGround CLI comamnds
+├── cmd                             # TestGround CLI commands
 │   ├── all.go
 │   ├── ...
 ├── sdk                             # SDK available to each test plan
