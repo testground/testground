@@ -287,7 +287,6 @@ func (re *RunEnv) JSONParam(name string, v interface{}) (ok bool) {
 	}
 
 	if err := json.Unmarshal([]byte(s), v); err != nil {
-		fmt.Println(err)
 		return false
 	}
 
