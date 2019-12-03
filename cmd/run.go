@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/client"
+	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 

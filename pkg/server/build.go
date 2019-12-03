@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/ipfs/testground/client"
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/tgwriter"
 	"go.uber.org/zap"
 )

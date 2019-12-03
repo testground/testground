@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/client"
 	"github.com/ipfs/testground/pkg/config"
+	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/inproc"
 	"github.com/urfave/cli"
 )
