@@ -1,5 +1,7 @@
 # `Plan:` The go-libp2p DHT behaves
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests directly
 
 ## What is being optimized (min/max, reach)

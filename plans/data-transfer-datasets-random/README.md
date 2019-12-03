@@ -1,5 +1,7 @@
 # `Plan:` Data Transfer of Random DataSets (Bitswap/GraphSync)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 Create an environment in which data transfer is stress tested. This test is not about content discovery or connectivity, it is assumed that all nodes are dialable by each other and that these are executed in an homogeneous network (same CPU, Memory, Bandwidth).
 
 ## What is being optimized (min/max, reach)
