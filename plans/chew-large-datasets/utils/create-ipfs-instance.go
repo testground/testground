@@ -37,7 +37,10 @@ func setupPlugins(externalPluginsPath string) error {
 	return nil
 }
 
-func createTempRepo(ctx context.Context) (string, error) {
+// AddRepoOptions allows to add custom options to repository settings.
+type AddRepoOptions func(*config.Config) error
+
+func createTempRepo(ctx context.Context, addFn AddRepoOptions) (string, error) {
 	repoPath, err := ioutil.TempDir("", "ipfs-shell")
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp dir: %s", err)
@@ -47,6 +50,14 @@ func createTempRepo(ctx context.Context) (string, error) {
 	cfg, err := config.Init(ioutil.Discard, 2048)
 	if err != nil {
 		return "", err
+	}
+
+	// Applies custom configuration to the options
+	if addFn != nil {
+		err := addFn(cfg)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Create the repo with the config
@@ -87,13 +98,13 @@ func createNode(ctx context.Context, repoPath string) (iCore.CoreAPI, error) {
 }
 
 // CreateIpfsInstance spawns a node to be used just for this run (i.e. creates a tmp repo)
-func CreateIpfsInstance(ctx context.Context) (iCore.CoreAPI, error) {
+func CreateIpfsInstance(ctx context.Context, repoOpts AddRepoOptions) (iCore.CoreAPI, error) {
 	if err := setupPlugins(""); err != nil {
 		return nil, err
 	}
 
 	// Create a Temporary Repo
-	repoPath, err := createTempRepo(ctx)
+	repoPath, err := createTempRepo(ctx, repoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp repo: %s", err)
 	}

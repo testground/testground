@@ -15,7 +15,7 @@ func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
 	var size int64 = 1024 * 1024
 
 	ctx, _ := context.WithCancel(context.Background())
-	ipfs, err := utils.CreateIpfsInstance(ctx)
+	ipfs, err := utils.CreateIpfsInstance(ctx, nil)
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
