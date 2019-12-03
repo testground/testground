@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/smlbench2
+module github.com/ipfs/testground/plans/data-transfer-datasets-random
 
 go 1.13
 

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	utils "github.com/ipfs/testground/plans/smlbench2/utils"
+	utils "github.com/ipfs/testground/plans/data-transfer-datasets-random/utils"
 	iptb "github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
@@ -60,13 +60,11 @@ func main() {
 	if err != nil {
 		runenv.Abort(err)
 	}
-	fmt.Println("Jim peerID", peerID)
 
 	swarmAddrs, err := localNode.SwarmAddrs()
 	if err != nil {
 		runenv.Abort(err)
 	}
-	fmt.Println("Jim swarmAddrs", swarmAddrs)
 
 	ID, err := peer.IDB58Decode(peerID)
 	if err != nil {
@@ -146,23 +144,20 @@ func main() {
 
 		// Connect to other peers
 		peerCh := make(chan *peer.AddrInfo, 16)
-		cancel, err := watcher.Subscribe(sync.PeerSubtree, sync.TypedChan(peerCh))
+		cancel, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
 		if err != nil {
 			runenv.Abort(err)
 		}
 		defer cancel()
 
 		var events int
-		fmt.Println("Jim testinstancecount", runenv.TestInstanceCount)
 		for i := 0; i < runenv.TestInstanceCount; i++ {
 			select {
 			case ai := <-peerCh:
 				events++
-				fmt.Println("Jim connect1", events, ai)
 				if ai.ID == ID {
 					continue
 				}
-				fmt.Println("Jim connect2", ai)
 
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
@@ -194,14 +189,13 @@ func main() {
 		fmt.Println("State: added")
 
 		cidCh := make(chan *cid.Cid, 0)
-		cancel, err = watcher.Subscribe(cidSubtree, sync.TypedChan(cidCh))
+		cancel, err = watcher.Subscribe(cidSubtree, cidCh)
 		if err != nil {
 			runenv.Abort(err)
 		}
 		defer cancel()
 		select {
 		case c := <-cidCh:
-			fmt.Println("Jim cid", c)
 			cancel()
 			// Get the content from the adder node
 			tstarted := time.Now()
