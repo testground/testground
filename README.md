@@ -70,20 +70,6 @@ To learn how this team works together read [HOW_WE_WORK](./docs/HOW_WE_WORK.md)
 
 Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a contribution.
 
-If you plan to contribute code, make sure to install the [pre-commit](https://github.com/pre-commit/pre-commit) tool, which manages our pre-commit hooks for things like linters, go fmt, go vet, etc.
-
-We provide a `Makefile` rule to facilitate the setup:
-
-```sh
-$ make pre-commit
-```
-
-[![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
-
-This repository falls under the IPFS [Code of Conduct](https://github.com/ipfs/community/blob/master/code-of-conduct.md).
-
-You can contact us on the freenode #ipfs-dev channel or attend one of our [weekly calls](https://github.com/ipfs/team-mgmt/issues/674).
-
 ## License
 
 Dual-licensed: [MIT](./LICENSE-MIT), [Apache Software License v2](./LICENSE-APACHE), by way of the [Permissive License Stack](https://protocol.ai/blog/announcing-the-permissive-license-stack/).
