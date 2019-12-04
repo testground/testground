@@ -12,6 +12,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// IpfsAddDirSharding IPFS Add Directory Sharding Test
 func IpfsAddDirSharding(runenv *runtime.RunEnv) {
 	ctx, _ := context.WithCancel(context.Background())
 	ipfs, err := utils.CreateIpfsInstance(ctx, func(cfg *config.Config) error {

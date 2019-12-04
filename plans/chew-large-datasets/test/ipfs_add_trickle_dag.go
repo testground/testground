@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// IpfsAddTrickleDag IPFS Add Trickle DAG Test
 func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
 	ctx, _ := context.WithCancel(context.Background())
 	ipfs, err := utils.CreateIpfsInstance(ctx, nil)
@@ -17,7 +18,7 @@ func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
 
-	err = utils.ForEachCase(runenv, func (unixfsFile files.Node, isDir bool) error {
+	err = utils.ForEachCase(runenv, func(unixfsFile files.Node, isDir bool) error {
 		t := "file"
 		if isDir {
 			t = "directory"
