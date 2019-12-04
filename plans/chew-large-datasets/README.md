@@ -115,7 +115,7 @@ The test parameters are the same for every test on this plan.
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
-    - `ipfs add --nocopy` on the folder with Random Data (the --nocopy will use the FileStore)
+    - `ipfs add --nocopy` on the folder with Random Data (the `--nocopy` will use the FileStore)
     - Verify that all files are listed on the Manifest with `ipfs filestore ls`
   - **Act II**
     - Generate 10 more random files.
