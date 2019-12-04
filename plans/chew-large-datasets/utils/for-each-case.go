@@ -9,36 +9,55 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-type DirectoryConfig struct {
+type testConfig struct {
 	Depth uint
 	Size  int64
 }
 
-type AddTestsConfig struct {
-	Sizes       []int64
-	Directories []DirectoryConfig
-}
-
-type dirConfig struct {
+type rawDirConfig struct {
 	Depth uint   `json:"depth"`
 	Size  string `json:"size"`
 }
 
-func (a *AddTestsConfig) ForEachSize(runenv *runtime.RunEnv, fn func(files.File) error) error {
-	for _, size := range a.Sizes {
+func ForEachCase(runenv *runtime.RunEnv, fn func(files.Node, bool) error) error {
+	a, err := getAddTestsConfig(runenv)
+	if err != err {
+		return fmt.Errorf("could not parse test parameters: %s", err)
+	}
+
+	for _, cfg := range a {
 		err := func() error {
-			file, err := CreateRandomFile(runenv, os.TempDir(), size)
+			path, err := CreateRandomDirectory(runenv, os.TempDir(), cfg.Depth)
 			if err != nil {
 				return err
 			}
-			defer os.Remove(file.Name())
 
-			unixfsFile, err := GetPathToUnixfsFile(file.Name())
+			if cfg.Depth != 0 {
+				defer os.RemoveAll(path)
+			}
+
+			file, err := CreateRandomFile(runenv, path, cfg.Size)
+			if err != nil {
+				return err
+			}
+
+			if cfg.Depth == 0 {
+				defer os.Remove(file.Name())
+			}
+
+			var unixfsFile files.Node
+
+			if cfg.Depth == 0 {
+				unixfsFile, err = GetPathToUnixfsFile(file.Name())
+			} else {
+				unixfsFile, err = GetPathToUnixfsDirectory(path)
+			}
+
 			if err != nil {
 				return fmt.Errorf("failed to get Unixfs file from path: %s", err)
 			}
 
-			err = fn(unixfsFile)
+			err = fn(unixfsFile, cfg.Depth != 0)
 			if err != nil {
 				return err
 			}
@@ -54,7 +73,7 @@ func (a *AddTestsConfig) ForEachSize(runenv *runtime.RunEnv, fn func(files.File)
 	return nil
 }
 
-func GetAddTestsConfig(runenv *runtime.RunEnv) (tests AddTestsConfig, err error) {
+func getAddTestsConfig(runenv *runtime.RunEnv) (tests []testConfig, err error) {
 	// --test-param file-sizes='["10GB"]'
 	sizes := runenv.StringArrayParamD("file-sizes", []string{"1MB", "1GB", "10GB"})
 
@@ -63,11 +82,14 @@ func GetAddTestsConfig(runenv *runtime.RunEnv) (tests AddTestsConfig, err error)
 		if err != nil {
 			return tests, err
 		}
-		tests.Sizes = append(tests.Sizes, int64(n))
+		tests = append(tests, testConfig{
+			Size:  int64(n),
+			Depth: 0,
+		})
 	}
 
 	// --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 100, "size": "1MB"}]
-	dirConfigs := []dirConfig{}
+	dirConfigs := []rawDirConfig{}
 	_ = runenv.JSONParam("dir-cfg", &dirConfigs)
 
 	for _, cfg := range dirConfigs {
@@ -76,12 +98,11 @@ func GetAddTestsConfig(runenv *runtime.RunEnv) (tests AddTestsConfig, err error)
 			return tests, err
 		}
 
-		tests.Directories = append(tests.Directories, DirectoryConfig{
+		tests = append(tests, testConfig{
 			Depth: cfg.Depth,
 			Size:  int64(n),
 		})
 	}
 
-	fmt.Println(tests)
 	return tests, nil
 }

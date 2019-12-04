@@ -6,15 +6,15 @@ import (
 
 	config "github.com/ipfs/go-ipfs-config"
 	uio "github.com/ipfs/go-unixfs/io"
-	"github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	files "github.com/ipfs/go-ipfs-files"
+	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
+	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
 func IpfsAddDirSharding(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo - IpfsAddDirSharing")
-
 	ctx, _ := context.WithCancel(context.Background())
-	_, err := utils.CreateIpfsInstance(ctx, func (cfg *config.Config) error {
+	ipfs, err := utils.CreateIpfsInstance(ctx, func (cfg *config.Config) error {
 		cfg.Experimental.ShardingEnabled = true
 		return nil
 	})
@@ -22,7 +22,35 @@ func IpfsAddDirSharding(runenv *runtime.RunEnv) {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
 
-	fmt.Printf("%v", uio.UseHAMTSharding)
+	if !uio.UseHAMTSharding {
+		runenv.Abort(fmt.Errorf("failed to enable sharding"))
+		return
+	}
+
+	err = utils.ForEachCase(runenv, func (unixfsFile files.Node, isDir bool) error {
+		t := "file"
+		if isDir {
+			t = "directory"
+		}
+
+		addOptions := func(settings *coreopts.UnixfsAddSettings) error {
+			settings.Layout = coreopts.TrickleLayout
+			return nil
+		}
+
+		cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile, addOptions)
+		if err != nil {
+			return fmt.Errorf("Could not add %s: %s", t, err)
+		}
+
+		fmt.Printf("Added %s to IPFS with CID %s\n", t, cidFile.String())
+		return nil
+	})
+
+	if err != nil {
+		runenv.Abort(err)
+		return
+	}
 
 	runenv.OK()
 }

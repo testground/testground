@@ -45,3 +45,27 @@ func CreateRandomFile(runenv *runtime.RunEnv, directoryPath string, size int64) 
 
 	return file, nil
 }
+
+// CreateRandomDirectory creates a nested directory with the specified depth within the specified
+// directory path. If depth is zero, the directory path is returned.
+func CreateRandomDirectory(runenv *runtime.RunEnv, directoryPath string, depth uint) (string, error) {
+	if depth == 0 {
+		return directoryPath, nil
+	}
+
+	base, err := ioutil.TempDir(directoryPath, runenv.TestPlan)
+	if err != nil {
+		return "", err
+	}
+
+	name := base
+	var i uint
+	for i = 1; i < depth; i++ {
+		name, err = ioutil.TempDir(name, "tg")
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return base, nil
+}

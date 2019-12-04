@@ -9,27 +9,28 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// go build && ./testground run chew-large-datasets/ipfs-add-defaults --runner local:exec --builder exec:go --build-cfg bypass_cache=true  --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 15, "size": "1MB"}]' --test-param file-sizes='["1MB"]'
+
 // IpfsAddDefaults IPFS Add Defaults Test
 func IpfsAddDefaults(runenv *runtime.RunEnv) {
-	cfg, err := utils.GetAddTestsConfig(runenv)
-	if err != nil {
-		runenv.Abort(err)
-		return
-	}
-
 	ctx, _ := context.WithCancel(context.Background())
 	ipfs, err := utils.CreateIpfsInstance(ctx, nil)
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
 
-	err = cfg.ForEachSize(runenv, func (unixfsFile files.File) error {
-		cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile)
-		if err != nil {
-			return fmt.Errorf("Could not add File: %s", err)
+	err = utils.ForEachCase(runenv, func (unixfsFile files.Node, isDir bool) error {
+		t := "file"
+		if isDir {
+			t = "directory"
 		}
 
-		fmt.Printf("Added file to IPFS with CID %s\n", cidFile.String())
+		cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile)
+		if err != nil {
+			return fmt.Errorf("Could not add %s: %s", t, err)
+		}
+
+		fmt.Printf("Added %s to IPFS with CID %s\n", t, cidFile.String())
 		return nil
 	})
 
