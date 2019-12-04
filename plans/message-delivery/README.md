@@ -1,5 +1,7 @@
 # `Plan:` Message Delivery (PubSub)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 ## What is being optimized (min/max, reach)
 
 - (Minimize) The time between publisher publishing a message and all subscribers receiving it

@@ -1,5 +1,7 @@
 # `Plan:` Nodes Connectivity (Transports, Hole Punching, Relay)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 Ensuring that a node can always connect to the rest of the network, if not completely isolated.
 
 ## What is being optimized (min/max, reach)

@@ -1,5 +1,7 @@
 # `Plan:` Naming (IPNS & its multiple routers)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 ## What is being optimized (min/max, reach)
 
 - (Minimize) The time it takes to publish an IPNS record.

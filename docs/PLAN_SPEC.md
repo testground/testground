@@ -1,6 +1,11 @@
 # TestGround testing Plan Specification
 
 Each testing **Plan** contains:
+- A **status badge**
+  - ![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square) - The spec and/or the implementation of the Test Plan is very much raw or rapidly changing.
+  - ![](https://img.shields.io/badge/status-stable-green.svg?style=flat-square) - We consider this test plan to close to final, it might be improved but it should not change fundamentally.
+  - ![](https://img.shields.io/badge/status-reliable-brightgreen.svg?style=flat-square) - This Test Plan has been fully implemented and it is currently used in the Test Suite of a project. The output of the Test Plans should be taken in with attention. 
+  - ![](https://img.shields.io/badge/status-deprecated-red.svg?style=flat-square) - This test plan is no longer in use.
 - An **overview** of what we are looking to achieve with the test (roughly ~1 paragraph).
 - **What we are looking to expect to be able to optimize** by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
 - The **plan parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)

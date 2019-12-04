@@ -1,5 +1,7 @@
 # `Plan:` Data Exchange with Datasets of Interest (BitSwap/GraphSync)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 This test resembles the previous one (Data Transfer of Random DataSets (Bitswap/GraphSync)) with a twist. It focuses the attention to the experience will have when using IPFS to access popular and/or interesting datasets. The current datasets that this test plan contemplates are:
 
 - Wikipedia Mirror
