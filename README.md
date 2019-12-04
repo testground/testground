@@ -68,6 +68,8 @@ To learn how this team works together read [HOW_WE_WORK](./docs/HOW_WE_WORK.md)
 
 ## Contributing
 
+Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a contribution.
+
 If you plan to contribute code, make sure to install the [pre-commit](https://github.com/pre-commit/pre-commit) tool, which manages our pre-commit hooks for things like linters, go fmt, go vet, etc.
 
 We provide a `Makefile` rule to facilitate the setup:
