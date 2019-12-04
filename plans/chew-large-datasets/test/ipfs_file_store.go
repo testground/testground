@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	config "github.com/ipfs/go-ipfs-config"
 	files "github.com/ipfs/go-ipfs-files"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
@@ -13,7 +14,10 @@ import (
 // IpfsFileStore IPFS File Store Test
 func IpfsFileStore(runenv *runtime.RunEnv) {
 	ctx, _ := context.WithCancel(context.Background())
-	ipfs, err := utils.CreateIpfsInstance(ctx, nil)
+	ipfs, err := utils.CreateIpfsInstance(ctx, func(cfg *config.Config) error {
+		cfg.Experimental.FilestoreEnabled = true
+		return nil
+	})
 	if err != nil {
 		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
 	}
