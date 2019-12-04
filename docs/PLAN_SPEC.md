@@ -4,8 +4,6 @@ Each testing **Plan** contains:
 - An **overview** of what we are looking to achieve with the test (roughly ~1 paragraph).
 - A **status badge**
   - ![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square) - A work-in-progress.
-  - ![](https://img.shields.io/badge/status-draft-yellow.svg?style=flat-square) - A test plan that is ready to review. It should be implementable.
-  - ![](https://img.shields.io/badge/status-reliable-green.svg?style=flat-square) - A test plan that has been implemented.
   - ![](https://img.shields.io/badge/status-stable-brightgreen.svg?style=flat-square) - We consider this test plan to close to final, it might be improved but it should not change fundamentally.
   - ![](https://img.shields.io/badge/status-permanent-blue.svg?style=flat-square) - This test plan will not change.
   - ![](https://img.shields.io/badge/status-deprecated-red.svg?style=flat-square) - This test plan is no longer in use.
