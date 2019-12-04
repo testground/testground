@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
-	uio "github.com/ipfs/go-unixfs/io"
 	files "github.com/ipfs/go-ipfs-files"
+	uio "github.com/ipfs/go-unixfs/io"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -14,7 +14,7 @@ import (
 
 func IpfsAddDirSharding(runenv *runtime.RunEnv) {
 	ctx, _ := context.WithCancel(context.Background())
-	ipfs, err := utils.CreateIpfsInstance(ctx, func (cfg *config.Config) error {
+	ipfs, err := utils.CreateIpfsInstance(ctx, func(cfg *config.Config) error {
 		cfg.Experimental.ShardingEnabled = true
 		return nil
 	})
@@ -27,7 +27,7 @@ func IpfsAddDirSharding(runenv *runtime.RunEnv) {
 		return
 	}
 
-	err = utils.ForEachCase(runenv, func (unixfsFile files.Node, isDir bool) error {
+	err = utils.ForEachCase(runenv, func(unixfsFile files.Node, isDir bool) error {
 		t := "file"
 		if isDir {
 			t = "directory"

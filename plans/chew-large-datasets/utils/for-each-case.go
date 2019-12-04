@@ -73,9 +73,21 @@ func ForEachCase(runenv *runtime.RunEnv, fn func(files.Node, bool) error) error 
 	return nil
 }
 
+var defaultDirConfigs = []rawDirConfig{
+	rawDirConfig{
+		Depth: 10,
+		Size:  "1MB",
+	},
+	rawDirConfig{
+		Depth: 15, // TODO: change to 100 after fixing 'name too long'
+		Size:  "1MB",
+	},
+}
+
 func getAddTestsConfig(runenv *runtime.RunEnv) (tests []testConfig, err error) {
-	// --test-param file-sizes='["10GB"]'
-	sizes := runenv.StringArrayParamD("file-sizes", []string{"1MB", "1GB", "10GB"})
+	// Usage: --test-param file-sizes='["10GB"]'
+	// TODO: change defaults after fixing 'too many open files'
+	sizes := runenv.StringArrayParamD("file-sizes", []string{"1MB", "10MB"})
 
 	for _, size := range sizes {
 		n, err := humanize.ParseBytes(size)
@@ -88,9 +100,12 @@ func getAddTestsConfig(runenv *runtime.RunEnv) (tests []testConfig, err error) {
 		})
 	}
 
-	// --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 100, "size": "1MB"}]
+	// Usage: --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 100, "size": "1MB"}]
 	dirConfigs := []rawDirConfig{}
-	_ = runenv.JSONParam("dir-cfg", &dirConfigs)
+	ok := runenv.JSONParam("dir-cfg", &dirConfigs)
+	if !ok {
+		dirConfigs = defaultDirConfigs
+	}
 
 	for _, cfg := range dirConfigs {
 		n, err := humanize.ParseBytes(cfg.Size)
