@@ -1,9 +1,0 @@
----
-- hosts: "{{ tg_hosts }}"
-  remote_user: ubuntu
-  gather_facts: no
-  tasks:
-    - name: get hostname
-      command: hostname --fqdn
-      register: hostname
-    - debug: var=hostname.stdout

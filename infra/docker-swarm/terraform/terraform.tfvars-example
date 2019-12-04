@@ -1,0 +1,5 @@
+cluster    = "$CLUSTER_NAME"
+key_name   = "tony"
+public_key = "$PUBLIC_KEY"
+workers    = 2
+
