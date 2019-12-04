@@ -23,13 +23,17 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
   - Image Resources CPU & Ram
   - Offline/Online - Specify if you want the node to run connected to the other nodes or not
 
+## Test Parameters
+
+The test parameters are the same for every test on this plan.
+
+- `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+- `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+
 ## Tests
 
 ### `Test:` IPFS Add Defaults
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -40,9 +44,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS Add Trickle DAG
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -53,9 +54,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS Add Dir Sharding
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -66,9 +64,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS MFS Write
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -83,9 +78,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS MFS Dir Sharding
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -101,9 +93,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS Url Store
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -120,9 +109,6 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS File Store
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
