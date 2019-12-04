@@ -79,7 +79,7 @@ var defaultDirConfigs = []rawDirConfig{
 		Size:  "1MB",
 	},
 	rawDirConfig{
-		Depth: 15, // TODO: change to 100 after fixing 'name too long'
+		Depth: 50,
 		Size:  "1MB",
 	},
 }
