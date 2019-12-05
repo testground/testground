@@ -342,6 +342,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 				Mounts:      []mount.Mount{mnt},
 				NetworkMode: container.NetworkMode(buildNetworkID),
 			},
+			PullImageIfMissing: true,
 		})
 		if err != nil {
 			warn = fmt.Errorf("[go_proxy_mode=local] error while creating goproxy container: %w; falling back to go_proxy_mode=direct", err)

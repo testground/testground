@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"github.com/ipfs/testground/pkg/util"
@@ -16,10 +17,11 @@ import (
 )
 
 type EnsureContainerOpts struct {
-	ContainerName    string
-	ContainerConfig  *container.Config
-	HostConfig       *container.HostConfig
-	NetworkingConfig *network.NetworkingConfig
+	ContainerName      string
+	ContainerConfig    *container.Config
+	HostConfig         *container.HostConfig
+	NetworkingConfig   *network.NetworkingConfig
+	PullImageIfMissing bool
 }
 
 // EnsureContainer ensures there's a container started of the specified kind.
@@ -65,13 +67,36 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 
 	log.Infow("container not found; creating")
 
-	out, err := cli.ImagePull(ctx, opts.ContainerConfig.Image, types.ImagePullOptions{})
-	if err != nil {
-		return nil, false, err
-	}
+	if opts.PullImageIfMissing {
+		out, err := cli.ImagePull(ctx, opts.ContainerConfig.Image, types.ImagePullOptions{})
+		if err != nil {
+			return nil, false, err
+		}
 
-	if err := util.PipeDockerOutput(out, os.Stdout); err != nil {
-		return nil, false, err
+		if err := util.PipeDockerOutput(out, os.Stdout); err != nil {
+			return nil, false, err
+		}
+	} else {
+		imageListOpts := types.ImageListOptions{
+			All: true,
+		}
+		images, err := cli.ImageList(ctx, imageListOpts)
+		if err != nil {
+			log.Errorw("retrieving list of images failed")
+			return nil, false, err
+		}
+		found := false
+		for _, summary := range images {
+			if summary.RepoTags[0] == opts.ContainerConfig.Image {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Errorw("image not found", "image", opts.ContainerConfig.Image)
+			err := errors.New("image not found")
+			return nil, false, err
+		}
 	}
 
 	res, err := cli.ContainerCreate(ctx,

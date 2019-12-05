@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -150,6 +151,10 @@ func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 	// create it.
 	_, err = ensureSidecarContainer(cli, log, controlNetworkID)
 	if err != nil {
+		if err.Error() == "image not found" {
+			newErr := errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
+			return nil, newErr
+		}
 		return nil, err
 	}
 
@@ -340,6 +345,7 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
 		},
+		PullImageIfMissing: true,
 	})
 	if err != nil {
 		return "", err
@@ -353,7 +359,7 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
-			Image:      "ipfs/testground",
+			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
 		},
@@ -372,7 +378,12 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 				Target: "/var/run/docker.sock",
 			}},
 		},
+		PullImageIfMissing: false, // Don't pull from Docker Hub
 	})
+	if err != nil {
+		return "", err
+	}
+
 	return container.ID, err
 }
 

@@ -72,6 +72,12 @@ smlbench/simple-add
 smlbench/simple-add-get
 ```
 
+Before you run your first test, you need to build a Docker image that provides the "sidecar"
+
+```
+> make docker-ipfs-testground
+```
+
 This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
 
 ```
