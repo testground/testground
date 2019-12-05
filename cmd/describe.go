@@ -18,13 +18,13 @@ var DescribeCommand = cli.Command{
 	Action:    describeCommand,
 }
 
-func describeCommand(ctx *cli.Context) error {
-	if ctx.NArg() == 0 {
-		_ = cli.ShowSubcommandHelp(ctx)
+func describeCommand(c *cli.Context) error {
+	if c.NArg() == 0 {
+		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("missing term to describe; " + server.TermExplanation)
 	}
 
-	term := ctx.Args().First()
+	term := c.Args().First()
 
 	api, cancel, err := setupClient()
 	if err != nil {
