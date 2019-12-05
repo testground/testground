@@ -55,7 +55,7 @@ In order to build test plans, Testground needs to know where its source director
 For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
 
 
-### Running the tests locally with TestGround
+### Running the tests locally with Testground
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
@@ -89,7 +89,7 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
 
-### Running a test outside of TestGround orchestrator
+### Running a test outside of Testground orchestrator
 
 You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
 
@@ -109,13 +109,13 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 # ... test output
 ```
 
-### Running a Test Plan on the TestGround Cloud Infrastructure
+### Running a Test Plan on the Testground Cloud Infrastructure
 
 #### Getting your own backend running (create a cluster in AWS)
 
 Follow the tutorial in the [infra folder](../infra)
 
-#### Link your local TestGround envinronment with your Docker Swarm Cluster running in AWS
+#### Link your local Testground envinronment with your Docker Swarm Cluster running in AWS
 
 Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
 
