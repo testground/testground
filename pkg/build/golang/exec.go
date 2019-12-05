@@ -2,6 +2,7 @@ package golang
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -33,7 +34,7 @@ type ExecGoBuilderConfig struct {
 }
 
 // Build builds a testplan written in Go and outputs an executable.
-func (b *ExecGoBuilder) Build(input *api.BuildInput) (*api.BuildOutput, error) {
+func (b *ExecGoBuilder) Build(input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	cfg, ok := input.BuildConfig.(*ExecGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type ExecGoBuilderConfig, was: %T", input.BuildConfig)

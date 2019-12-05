@@ -3,8 +3,7 @@ package engine
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"reflect"
 	"sync"
 
@@ -14,6 +13,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
+	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/runner"
 )
 
@@ -23,7 +23,7 @@ var AllBuilders = []api.Builder{
 	&golang.ExecGoBuilder{},
 }
 
-// AllRunners enumerates all builders known to the system.
+// AllRunners enumerates all runners known to the system.
 var AllRunners = []api.Runner{
 	&runner.LocalDockerRunner{},
 	&runner.LocalExecutableRunner{},
@@ -47,17 +47,13 @@ type Engine struct {
 	builders map[string]api.Builder
 	// runners binds runners to their identifying key.
 	runners map[string]api.Runner
-	// dirs stores the path of important directories.
-	dirs struct {
-		src  string
-		work string
-	}
-	env api.EnvConfig
+	envcfg  *config.EnvConfig
 }
 
 type EngineConfig struct {
-	Builders []api.Builder
-	Runners  []api.Runner
+	Builders  []api.Builder
+	Runners   []api.Runner
+	EnvConfig *config.EnvConfig
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
@@ -65,6 +61,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		census:   newTestCensus(),
 		builders: make(map[string]api.Builder, len(cfg.Builders)),
 		runners:  make(map[string]api.Runner, len(cfg.Runners)),
+		envcfg:   cfg.EnvConfig,
 	}
 
 	for _, b := range cfg.Builders {
@@ -75,35 +72,19 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	srcdir, err := locateSrcDir()
-	if err != nil {
-		return nil, err
-	}
-
-	workdir, err := locateWorkDir()
-	if err != nil {
-		return nil, err
-	}
-
-	e.dirs.src = srcdir
-	e.dirs.work = workdir
-
-	// load the .env.toml file.
-	path := filepath.Join(srcdir, ".env.toml")
-	switch _, err := toml.DecodeFile(path, &e.env); {
-	case err == nil:
-		fmt.Println("loading env from", path)
-	case os.IsNotExist(err):
-		fmt.Println("warn: no .env.toml found; some components may not work")
-	}
-
 	return e, nil
 }
 
 func NewDefaultEngine() (*Engine, error) {
+	envcfg, err := config.GetEnvConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &EngineConfig{
-		Builders: AllBuilders,
-		Runners:  AllRunners,
+		Builders:  AllBuilders,
+		Runners:   AllRunners,
+		EnvConfig: envcfg,
 	}
 
 	e, err := NewEngine(cfg)
@@ -161,7 +142,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput) (*api.BuildOutput, error) {
+func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
@@ -188,7 +169,7 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput)
 	cfgs = append(cfgs, planCfg)
 
 	// 2. Get the env config for the builder.
-	envCfg, ok := e.env.BuildStrategies[builder]
+	envCfg, ok := e.envcfg.BuildStrategies[builder]
 	if ok {
 		cfgs = append(cfgs, envCfg)
 	}
@@ -206,15 +187,15 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput)
 	}
 
 	input.BuildID = uuid.New().String()
-	input.Directories = e
+	input.Directories = e.envcfg
 	input.TestPlan = plan
 	input.BuildConfig = cfg
-	input.EnvConfig = e.env
+	input.EnvConfig = *e.envcfg
 
-	return bm.Build(input)
+	return bm.Build(input, output)
 }
 
-func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput) (*api.RunOutput, error) {
+func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
 	// Find the test plan.
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
@@ -258,7 +239,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	cfgs = append(cfgs, planCfg)
 
 	// 2. Get the env config for the runner.
-	envCfg, ok := e.env.RunStrategies[runner]
+	envCfg, ok := e.envcfg.RunStrategies[runner]
 	if ok {
 		cfgs = append(cfgs, envCfg)
 	}
@@ -286,9 +267,9 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	input.RunnerConfig = cfg
 	input.Seq = seq
 	input.TestPlan = plan
-	input.EnvConfig = e.env
+	input.EnvConfig = *e.envcfg
 
-	return run.Run(input)
+	return run.Run(input, output)
 }
 
 func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {

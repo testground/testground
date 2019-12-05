@@ -4,8 +4,6 @@ import (
 	"reflect"
 )
 
-type ConfigMap map[string]interface{}
-
 // Directories providers accessors to directories managed by the testground
 // runtime (engine).
 type Directories interface {

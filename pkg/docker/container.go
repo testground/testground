@@ -41,7 +41,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 	if len(containers) > 0 {
 		container := containers[0]
 
-		log.Infow("container found", "containerId", container.ID, "state", container.State)
+		log.Debugw("container found", "containerId", container.ID, "state", container.State)
 
 		switch container.State {
 		case "running":

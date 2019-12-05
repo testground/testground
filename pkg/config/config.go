@@ -1,4 +1,4 @@
-package engine
+package config
 
 import (
 	"bufio"
@@ -8,6 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -21,25 +23,67 @@ var (
 	ErrUnknownSrcDir = errors.New("unable to determine testground src dir")
 )
 
-// SourceDir is an accessor returning the source directory of this engine.
-func (e *Engine) SourceDir() string {
-	return e.dirs.src
+// EnvConfig represents an environment configuration read
+type EnvConfig struct {
+	AWS             AWSConfig            `toml:"aws"`
+	BuildStrategies map[string]ConfigMap `toml:"build_strategies"`
+	RunStrategies   map[string]ConfigMap `toml:"run_strategies"`
+	Daemon          DaemonConfig         `toml:"daemon"`
+	Client          ClientConfig         `toml:"client"`
+	SrcDir          string
+	WrkDir          string
 }
 
-// WorkDir is an accessor returning the work directory of this engine.
-func (e *Engine) WorkDir() string {
-	return e.dirs.work
+func (e EnvConfig) SourceDir() string {
+	return e.SrcDir
 }
 
-// isNotRootDir checks if a certain path is a root or not. For Unix-like
-// systems, it just checks it's longer than one character (usually "/").
-// On Windows, we need to check if it's not a drive, such as "C:/".
-func isNotRootDir(path string) bool {
-	if runtime.GOOS != "windows" {
-		return len(path) > 1
+func (e EnvConfig) WorkDir() string {
+	return e.WrkDir
+}
+
+type AWSConfig struct {
+	AccessKeyID     string `toml:"access_key_id"`
+	SecretAccessKey string `toml:"secret_access_key"`
+	Region          string `toml:"region"`
+}
+
+type DaemonConfig struct {
+	Listen string `toml:"listen"`
+}
+
+type ClientConfig struct {
+	Endpoint string `toml:"endpoint"`
+}
+
+type ConfigMap map[string]interface{}
+
+func GetEnvConfig() (*EnvConfig, error) {
+	ec := &EnvConfig{}
+
+	srcdir, err := locateSrcDir()
+	if err != nil {
+		return nil, err
 	}
 
-	return filepath.VolumeName(path) != path[:len(path)-1]
+	workdir, err := locateWorkDir()
+	if err != nil {
+		return nil, err
+	}
+
+	ec.SrcDir = srcdir
+	ec.WrkDir = workdir
+
+	// try to load the .env.toml file.
+	// .env.toml is not required
+	_, _ = toml.DecodeFile(filepath.Join(srcdir, ".env.toml"), ec)
+
+	applyDefaults(ec)
+
+	return ec, nil
+}
+
+func applyDefaults(ec *EnvConfig) {
 }
 
 // locateSrcDir attempts to locate the source directory for the testground. We
@@ -48,11 +92,8 @@ func locateSrcDir() (string, error) {
 	// 1. If the env variable is set, we use its value, checking if it points to
 	// the repo.
 	if v, ok := os.LookupEnv(EnvTestgroundSrcDir); ok && isTestgroundRepo(v) {
-		fmt.Printf("resolved testground source dir from env variable: %s\n", v)
 		return v, nil
 	}
-
-	fmt.Printf("attempting to guess testground source directory; for better control set ${%s}\n", EnvTestgroundSrcDir)
 
 	// 2. Try the executable directory.
 	// 3. Try the working directory.
@@ -65,7 +106,6 @@ func locateSrcDir() (string, error) {
 		for isNotRootDir(path) {
 			if isTestgroundRepo(path) {
 				os.Setenv(EnvTestgroundSrcDir, path)
-				fmt.Printf("successfully located testground source directory: %s\n", path)
 				return path, nil
 			}
 			path = filepath.Dir(path)
@@ -122,4 +162,15 @@ func ensureDir(path string) error {
 		return fmt.Errorf("path %s exists, and it is not a directory", path)
 	}
 	return nil
+}
+
+// isNotRootDir checks if a certain path is a root or not. For Unix-like
+// systems, it just checks it's longer than one character (usually "/").
+// On Windows, we need to check if it's not a drive, such as "C:/".
+func isNotRootDir(path string) bool {
+	if runtime.GOOS != "windows" {
+		return len(path) > 1
+	}
+
+	return filepath.VolumeName(path) != path[:len(path)-1]
 }

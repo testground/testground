@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/urfave/cli"
 )
 
@@ -56,24 +58,32 @@ func buildCommand(c *cli.Context) error {
 		builder = c.Generic("builder").(*EnumValue).String()
 	)
 
-	engine, err := GetEngine()
+	api, cancel, err := setupClient()
 	if err != nil {
 		return err
 	}
+	defer cancel()
 
 	in, err := parseBuildInput(c)
 	if err != nil {
 		return err
 	}
 
-	out, err := engine.DoBuild(plan, builder, in)
-	if err != nil {
-		return err
+	req := &client.BuildRequest{
+		Dependencies: in.Dependencies,
+		BuildConfig:  in.BuildConfig,
+		Plan:         plan,
+		Builder:      builder,
 	}
 
-	spew.Dump(out)
+	resp, err := api.Build(context.Background(), req)
+	if err != nil {
+		return fmt.Errorf("fatal error from daemon: %s", err)
+	}
+	defer resp.Close()
 
-	return nil
+	_, err = client.ProcessBuildResponse(resp)
+	return err
 }
 
 func parseBuildInput(c *cli.Context) (*api.BuildInput, error) {

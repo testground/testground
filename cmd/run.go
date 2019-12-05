@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/util"
 
@@ -60,11 +62,6 @@ func runCommand(c *cli.Context) error {
 		return errors.New("missing test name")
 	}
 
-	engine, err := GetEngine()
-	if err != nil {
-		return err
-	}
-
 	// Extract flags and arguments.
 	var (
 		testcase     = c.Args().First()
@@ -89,6 +86,12 @@ func runCommand(c *cli.Context) error {
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 
+	api, cancel, err := setupClient()
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
 	if artifactPath == "" {
 		// Now that we've verified that the test plan and the test case exist, build
 		// the testplan.
@@ -97,12 +100,22 @@ func runCommand(c *cli.Context) error {
 			return fmt.Errorf("error while parsing build input: %w", err)
 		}
 
-		// Trigger the build job.
-		out, err := engine.DoBuild(comp[0], builderId, in)
-		if err != nil {
-			return fmt.Errorf("error while building test plan: %w", err)
+		req := &client.BuildRequest{
+			Dependencies: in.Dependencies,
+			BuildConfig:  in.BuildConfig,
+			Plan:         comp[0],
+			Builder:      builderId,
 		}
-		artifactPath = out.ArtifactPath
+
+		resp, err := api.Build(context.Background(), req)
+		if err != nil {
+			return fmt.Errorf("fatal error from daemon: %s", err)
+		}
+
+		artifactPath, err = client.ProcessBuildResponse(resp)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Process run cfg override.
@@ -121,14 +134,26 @@ func runCommand(c *cli.Context) error {
 		return err
 	}
 
-	// Prepare the run job.
-	runIn := &api.RunInput{
+	runReq := &client.RunRequest{
+		Plan:         comp[0],
+		Case:         comp[1],
+		Runner:       runnerId,
 		Instances:    instances,
 		ArtifactPath: artifactPath,
-		RunnerConfig: cfgOverride,
 		Parameters:   parameters,
+		RunnerConfig: cfgOverride,
 	}
 
-	_, err = engine.DoRun(comp[0], comp[1], runnerId, runIn)
-	return err
+	resp, err := api.Run(context.Background(), runReq)
+	if err != nil {
+		return fmt.Errorf("fatal error from daemon: %s", err)
+	}
+	defer resp.Close()
+
+	scanner := bufio.NewScanner(resp)
+	for scanner.Scan() {
+		fmt.Println(scanner.Text())
+	}
+
+	return nil
 }
