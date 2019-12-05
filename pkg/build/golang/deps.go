@@ -1,14 +1,17 @@
 package golang
 
 import (
-	"bytes"
 	"context"
+	"io/ioutil"
+	"os"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/archive"
 )
 
 func parseDependencies(raw string) map[string]string {
@@ -39,43 +42,34 @@ func parseDependenciesFromDocker(cli *client.Client, imageID string) (map[string
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	ccfg := &container.Config{
-		Image: imageID,
-		Tty:   true,
-		Entrypoint: []string{
-			"cat",
-			"/testground_dep_list",
-		},
-	}
-
 	// Create container
-	res, err := cli.ContainerCreate(ctx, ccfg, nil, nil, "")
+	res, err := cli.ContainerCreate(ctx, &container.Config{Image: imageID}, nil, nil, "")
 	if err != nil {
 		return nil, err
 	}
 
-	// Start container
-	err = cli.ContainerStart(ctx, res.ID, types.ContainerStartOptions{})
+	// Copy file from container
+	tar, _, err := cli.CopyFromContainer(ctx, res.ID, "/testground_dep_list")
 	if err != nil {
 		return nil, err
 	}
 
-	// Get logs
-	reader, err := cli.ContainerLogs(ctx, res.ID, types.ContainerLogsOptions{
-		ShowStdout: true,
-		Since:      "2019-01-01T00:00:00",
-	})
+	dir, err := ioutil.TempDir("", res.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+
+	// Unpack the file
+	err = archive.Untar(tar, dir, &archive.TarOptions{NoLchown: true})
 	if err != nil {
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
-	_, err = buf.ReadFrom(reader)
+	deps, err := ioutil.ReadFile(path.Join(dir, "testground_dep_list"))
 	if err != nil {
 		return nil, err
 	}
-
-	dependencies := buf.String()
 
 	// Remove container
 	err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
@@ -83,5 +77,5 @@ func parseDependenciesFromDocker(cli *client.Client, imageID string) (map[string
 		return nil, err
 	}
 
-	return parseDependencies(dependencies), nil
+	return parseDependencies(string(deps)), nil
 }
