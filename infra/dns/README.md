@@ -1,6 +1,6 @@
-# Terraform: TestGround DNS
+# Terraform: Testground DNS
 
-A list of DNS zones used by the TestGround team:
+A list of DNS zones used by the Testground team:
 
 | Cloud | DNS Zone                                     |
 | ----- | -------------------------------------------- |
