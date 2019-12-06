@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -39,10 +38,7 @@ func parseDependencies(raw string) map[string]string {
 	return modules
 }
 
-func parseDependenciesFromDocker(cli *client.Client, imageID string) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
+func parseDependenciesFromDocker(ctx context.Context, cli *client.Client, imageID string) (map[string]string, error) {
 	// Create container
 	res, err := cli.ContainerCreate(ctx, &container.Config{Image: imageID}, nil, nil, "")
 	if err != nil {

@@ -235,7 +235,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		return nil, err
 	}
 
-	deps, err := parseDependenciesFromDocker(cli, in.BuildID)
+	deps, err := parseDependenciesFromDocker(ctx, cli, in.BuildID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
 	}
