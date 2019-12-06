@@ -90,12 +90,6 @@ ansible-galaxy install -r roles/external/requirements.yaml -p roles/external
 ansible-playbook setup.yaml
 ```
 
-5. Execute the Docker Services playbook
-
-```
-ansible-playbook docker-services.yaml
-```
-
 ---
 
 At this point, the cluster should be ready for use.
