@@ -49,6 +49,8 @@ type BuildOutput struct {
 	// ArtifactPath can be the docker image ID, a file location, etc. of the
 	// resulting artifact. It is builder-dependent.
 	ArtifactPath string
-	// Dependencies is a map of modules (as keys) to versions (as values).
+	// Dependencies is a map of modules (as keys) to versions (as values),
+	// containing the collapsed transitive upstream dependency set of this
+	// build.
 	Dependencies map[string]string
 }
