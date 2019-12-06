@@ -1,5 +1,5 @@
 cluster    = "$CLUSTER_NAME"
-key_name   = "tony"
+key_name   = "$YOUR_KEY_NAME"
 public_key = "$PUBLIC_KEY"
 workers    = 2
 
