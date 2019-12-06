@@ -6,6 +6,12 @@ resource "aws_instance" "manager" {
   vpc_security_group_ids = ["${aws_security_group.default.id}"]
   subnet_id              = aws_subnet.default.id
 
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = 100
+    delete_on_termination = false
+  }
+
   tags = merge(var.default_tags, map("Name", "testground-manager-${var.cluster}", "Role", "manager", "Cluster", var.cluster))
 }
 
