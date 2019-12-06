@@ -133,7 +133,17 @@ func (b *ExecGoBuilder) Build(input *api.BuildInput, output io.Writer) (*api.Bui
 		return nil, fmt.Errorf("failed to run the build; %w", err)
 	}
 
-	return &api.BuildOutput{ArtifactPath: path}, nil
+	cmd = exec.Command("go", "list", "-m", "all")
+	cmd.Dir = plandst
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
+	}
+
+	return &api.BuildOutput{
+		ArtifactPath: path,
+		Dependencies: parseDependencies(string(out)),
+	}, nil
 }
 
 func (*ExecGoBuilder) ID() string {
