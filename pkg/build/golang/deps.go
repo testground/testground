@@ -2,7 +2,6 @@ package golang
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -12,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
+	"go.uber.org/zap"
 )
 
 func parseDependencies(raw string) map[string]string {
@@ -38,7 +38,7 @@ func parseDependencies(raw string) map[string]string {
 	return modules
 }
 
-func parseDependenciesFromDocker(ctx context.Context, cli *client.Client, imageID string) (map[string]string, error) {
+func parseDependenciesFromDocker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, imageID string) (map[string]string, error) {
 	// Create container
 	res, err := cli.ContainerCreate(ctx, &container.Config{Image: imageID}, nil, nil, "")
 	if err != nil {
@@ -49,7 +49,7 @@ func parseDependenciesFromDocker(ctx context.Context, cli *client.Client, imageI
 		// Remove container
 		err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
-			fmt.Printf("error while removing container %s: %v", res.ID, err)
+			log.Warnf("error while removing container %s: %v", res.ID, err)
 		}
 	}()
 
