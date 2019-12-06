@@ -5,11 +5,12 @@ resource "aws_instance" "manager" {
   key_name               = aws_key_pair.key_pair.key_name
   vpc_security_group_ids = ["${aws_security_group.default.id}"]
   subnet_id              = aws_subnet.default.id
+  iam_instance_profile   = aws_iam_instance_profile.instance_profile.name
 
   root_block_device {
     volume_type           = "gp2"
     volume_size           = 100
-    delete_on_termination = false
+    delete_on_termination = true
   }
 
   tags = merge(var.default_tags, map("Name", "testground-manager-${var.cluster}", "Role", "manager", "Cluster", var.cluster))
