@@ -39,21 +39,18 @@ func parseDependencies(raw string) map[string]string {
 }
 
 func parseDependenciesFromDocker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, imageID string) (map[string]string, error) {
-	// Create container
 	res, err := cli.ContainerCreate(ctx, &container.Config{Image: imageID}, nil, nil, "")
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
-		// Remove container
 		err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
 			log.Warnf("error while removing container %s: %v", res.ID, err)
 		}
 	}()
 
-	// Copy file from container
 	tar, _, err := cli.CopyFromContainer(ctx, res.ID, "/testground_dep_list")
 	if err != nil {
 		return nil, err
@@ -65,7 +62,6 @@ func parseDependenciesFromDocker(ctx context.Context, log *zap.SugaredLogger, cl
 	}
 	defer os.RemoveAll(dir)
 
-	// Unpack the file
 	err = archive.Untar(tar, dir, &archive.TarOptions{NoLchown: true})
 	if err != nil {
 		return nil, err
