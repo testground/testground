@@ -46,7 +46,7 @@ RUN cd ${PLAN_DIR} \
 
 # Store module dependencies
 RUN cd ${PLAN_DIR} \
-  && go list -m all > ./testground_dep_list
+  && go list -m all > /testground_dep_list
 
 #:::
 #::: RUNTIME CONTAINER
@@ -55,7 +55,7 @@ RUN cd ${PLAN_DIR} \
 #FROM busybox:1.31.0-glibc # Doesn't work with prebuilt IPFS binaries
 FROM debian
 
-COPY --from=0 /plan/testground_dep_list /
+COPY --from=0 /testground_dep_list /
 COPY --from=0 /plan/testplan /
 RUN mkdir -p /usr/local/bin
 COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
