@@ -1,5 +1,7 @@
 # `Plan:` Chewing strategies for Large DataSets
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 IPFS supports an ever-growing set of ways in how a File or Files can be added to the Network (Regular IPFS Add, MFS Add, Sharding, Balanced DAG, Trickle DAG, File Store, URL Store). This test plan checks their performance
 
 ## What is being optimized (min/max, reach)

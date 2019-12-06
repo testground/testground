@@ -37,7 +37,7 @@ func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *clien
 
 	if len(networks) > 0 {
 		network := networks[0]
-		log.Infow(name+" network found", "networkId", network.ID)
+		log.Debugw("network found", "name", name, "id", network.ID)
 		return network.ID, nil
 	}
 

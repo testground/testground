@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"io"
 	"reflect"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -14,7 +15,7 @@ type NomadRunner struct {
 var _ api.Runner = (*NomadRunner)(nil)
 
 // TODO: NomadRunner.
-func (*NomadRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
+func (*NomadRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	// TODO
 	panic("unimplemented")
 }

@@ -24,3 +24,9 @@ docker_tls = false
 docker_tls_ca_cert_path = "/"
 docker_tls_cert_path = "/"
 docker_tls_key_path = "/"
+
+[daemon]
+listen = ":8080"
+
+[client]
+endpoint = "localhost:8080"

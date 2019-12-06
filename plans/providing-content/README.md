@@ -1,5 +1,7 @@
 # `Plan:` Providing Content (Content Routing / DHT)
 
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 ## What is being optimized (min/max, reach)
 
 ## Plan Parameters

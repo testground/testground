@@ -1,7 +1,10 @@
 package api
 
 import (
+	"io"
 	"reflect"
+
+	"github.com/ipfs/testground/pkg/config"
 )
 
 // Builder is the interface to be implemented by all builders. A builder takes a
@@ -12,7 +15,7 @@ type Builder interface {
 	ID() string
 
 	// Build performs a build.
-	Build(input *BuildInput) (*BuildOutput, error)
+	Build(input *BuildInput, output io.Writer) (*BuildOutput, error)
 
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type
@@ -24,7 +27,7 @@ type BuildInput struct {
 	BuildID string
 	// EnvConfig is the env configuration of the engine. Not a pointer to force
 	// a copy.
-	EnvConfig EnvConfig
+	EnvConfig config.EnvConfig
 	// Directories providers accessors to directories managed by the runtime.
 	Directories Directories
 	// TestPlan is the metadata of the test plan being built.
@@ -46,4 +49,8 @@ type BuildOutput struct {
 	// ArtifactPath can be the docker image ID, a file location, etc. of the
 	// resulting artifact. It is builder-dependent.
 	ArtifactPath string
+	// Dependencies is a map of modules (as keys) to versions (as values),
+	// containing the collapsed transitive upstream dependency set of this
+	// build.
+	Dependencies map[string]string
 }

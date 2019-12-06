@@ -1,6 +1,11 @@
-# TestGround testing Plan Specification
+# Testground testing Plan Specification
 
 Each testing **Plan** contains:
+- A **status badge**
+  - ![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square) - The spec and/or the implementation of the Test Plan is very much raw or rapidly changing.
+  - ![](https://img.shields.io/badge/status-stable-green.svg?style=flat-square) - We consider this test plan to close to final, it might be improved but it should not change fundamentally.
+  - ![](https://img.shields.io/badge/status-reliable-brightgreen.svg?style=flat-square) - This Test Plan has been fully implemented and it is currently used in the Test Suite of a project. The output of the Test Plans should be taken in with attention. 
+  - ![](https://img.shields.io/badge/status-deprecated-red.svg?style=flat-square) - This test plan is no longer in use.
 - An **overview** of what we are looking to achieve with the test (roughly ~1 paragraph).
 - **What we are looking to expect to be able to optimize** by running this test and therefore, a suggestion of what are The data points that must be gathered in order to assess if an improvement or regression has been made.-
 - The **plan parameters**. This include both Network Parameters (e.g. Number of Nodes) and Image Parameters (e.g. bucket_size, bitswap strategy, etc)
@@ -45,7 +50,7 @@ Each testing **Plan** contains:
 
 ## Testing Plans MVP
 
-The testing Plans linked below have been identified as the most valuable sets of tests to implement for the TestGround MVP. The goal of delivering a good characterization of the performance of IPFS in specific areas that can bolster our confidence level in shipping high quality releases of go-ipfs. Once the first 10 test Plans are written and TestGround fully deployed and operation, we will continue expanding the types of tests available.
+The testing Plans linked below have been identified as the most valuable sets of tests to implement for the Testground MVP. The goal of delivering a good characterization of the performance of IPFS in specific areas that can bolster our confidence level in shipping high quality releases of go-ipfs. Once the first 10 test Plans are written and TestGround fully deployed and operation, we will continue expanding the types of tests available.
 
 - 01. [`Plan:` Chewing strategies for Large DataSets](../plans/chew-large-datasets)
 - 02. [`Plan:` Data Transfer of Random DataSets (Bitswap/GraphSync)](../plans/data-transfer-datasets-random)
@@ -59,7 +64,7 @@ The testing Plans linked below have been identified as the most valuable sets of
 - 10. [`Plan:` go-libp2p DHT](../plans/dht)
 - 11. [`Plan:` Interop](https://github.com/ipfs/testground/issues/138)
 
-There are 2 other test plans that were created to test the functionality of TestGround and to be used as a demo. These are:
+There are 2 other test plans that were created to test the functionality of Testground and to be used as a demo. These are:
 
 - [smlbench](../plans/smlbench)
 - [dht](../plans/dht)

@@ -1,7 +1,6 @@
 package logging
 
 import (
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -39,14 +38,9 @@ func TerminalMode() {
 	cfg.Level = level
 	cfg.DisableCaller = true
 	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	cfg.EncoderConfig.EncodeTime = func() zapcore.TimeEncoder {
-		// close over the start time to protect it.
-		start := time.Now()
-		return func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			elapsed := t.Sub(start)
-			enc.AppendString(strconv.FormatFloat(elapsed.Seconds(), 'f', 5, 64) + "s")
-		}
-	}()
+	cfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		enc.AppendString(t.UTC().Format(time.StampMicro))
+	}
 
 	logger, err := cfg.Build()
 	if err != nil {

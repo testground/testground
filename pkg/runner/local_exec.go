@@ -25,7 +25,7 @@ type LocalExecutableRunner struct{}
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
+func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		plan        = input.TestPlan
 		seq         = input.Seq
@@ -46,11 +46,11 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 	// Check if a local Redis instance is running. If not, try to start it.
 	if _, err := net.Dial("tcp", "localhost:6379"); err == nil {
-		fmt.Println("local redis instance check: OK")
+		fmt.Fprintln(ow, "local redis instance check: OK")
 		close(redisWaitCh)
 	} else {
 		// Try to start a Redis instance.
-		fmt.Println("local redis instance check: FAIL; attempting to start one for this run")
+		fmt.Fprintln(ow, "local redis instance check: FAIL; attempting to start one for this run")
 
 		// This context gets cancelled when the runner has finished, which in
 		// turn signals the temporary Redis instance to shut down.
@@ -59,7 +59,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 
 		cmd := exec.CommandContext(ctx, "redis-server", "--notify-keyspace-events", "$szxK")
 		if err := cmd.Start(); err == nil {
-			fmt.Println("temporary redis instance started successfully")
+			fmt.Fprintln(ow, "temporary redis instance started successfully")
 		} else {
 			close(redisWaitCh)
 			return nil, fmt.Errorf("temporary redis instance failed to start: %w", err)
@@ -72,7 +72,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 		// to return.
 		go func() {
 			_ = cmd.Wait()
-			fmt.Println("temporary redis instance stopped successfully")
+			fmt.Fprintln(ow, "temporary redis instance stopped successfully")
 			close(redisWaitCh)
 		}()
 	}
@@ -119,13 +119,13 @@ func (*LocalExecutableRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
 			cmd.Env = env
 
 			if err := cmd.Start(); err != nil {
-				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), err)
+				fmt.Fprintln(ow, a.Index(color, "<< instance "+nstr+" >>"), err)
 				return
 			}
 			defer cmd.Wait() //nolint
 
 			for scanner.Scan() {
-				fmt.Println(a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
+				fmt.Fprintln(ow, a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
 			}
 		}(i)
 	}

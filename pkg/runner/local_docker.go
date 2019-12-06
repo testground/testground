@@ -69,7 +69,7 @@ type LocalDockerRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*LocalDockerRunner) Run(input *api.RunInput) (*api.RunOutput, error) {
+func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		image = input.ArtifactPath
 		seq   = input.Seq

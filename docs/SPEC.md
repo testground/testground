@@ -44,7 +44,7 @@ Moreover, this design can trivially integrate **existing test harnesses** such a
 
 _Legend: **new concept introduced**_
 
-This **testing infrastructure** will run the **IPFS test pipeline. **In the future it will power the libp2p test pipeline too.
+This **testing infrastructure** will run the **IPFS test pipeline**. In the future it will power the libp2p test pipeline too.
 
 The **IPFS test pipeline** is a collection of various batteries of tests that exercise IPFS in various manners. They capture metrics, logs, profiles, and other valuable data, to help engineers understand how the performance, stability and reliability of the system vary across commits.
 
@@ -351,4 +351,4 @@ This section proposes the outline of an implementation plan to realise this desi
 
 ## Test inventory
 
-See [Test Inventory](./test-inventory.md)
+See [Test Inventory](./TEST_INVENTORY.md)
