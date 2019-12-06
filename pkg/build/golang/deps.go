@@ -24,7 +24,7 @@ func parseDependencies(raw string) map[string]string {
 			continue
 		}
 
-		parts := strings.Split(module, " ")
+		parts := strings.SplitN(module, " ", 2)
 		path := strings.TrimSpace(parts[0])
 		version := ""
 
