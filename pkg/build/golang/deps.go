@@ -2,6 +2,7 @@ package golang
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -48,6 +49,14 @@ func parseDependenciesFromDocker(cli *client.Client, imageID string) (map[string
 		return nil, err
 	}
 
+	defer func() {
+		// Remove container
+		err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
+		if err != nil {
+			fmt.Printf("error while removing container %s: %v", res.ID, err)
+		}
+	}()
+
 	// Copy file from container
 	tar, _, err := cli.CopyFromContainer(ctx, res.ID, "/testground_dep_list")
 	if err != nil {
@@ -70,12 +79,5 @@ func parseDependenciesFromDocker(cli *client.Client, imageID string) (map[string
 	if err != nil {
 		return nil, err
 	}
-
-	// Remove container
-	err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
-	if err != nil {
-		return nil, err
-	}
-
 	return parseDependencies(string(deps)), nil
 }
