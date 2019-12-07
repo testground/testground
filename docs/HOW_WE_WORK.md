@@ -19,7 +19,7 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
   - **Inbox** - New issues or PRs that haven't been evaluated yet
   - **Icebox** - Low priority, un-prioritized Issues that are not immediate priorities.
   - **Blocked** - Issues that are blocked or discussion threads that are not currently active
-  - **Ready** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
+  - **Backlog** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
   - **In Progress** - Issues that someone is already tackling. Contributors should focus on a few things rather than many at once.
   - **Review/QA** - Issues open to the team for review and testing. Code is ready to be deployed pending feedback.
   - **OKR** - This column is just a location for the OKR cards to live until all the work under them is complete.
