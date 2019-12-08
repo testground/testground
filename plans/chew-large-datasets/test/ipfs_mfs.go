@@ -7,7 +7,7 @@ import (
 )
 
 func IpfsMfs(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo - IpfsMfs")
+	fmt.Printf("IpfsMfs - Not implemented yet")
 
 	runenv.OK()
 }
