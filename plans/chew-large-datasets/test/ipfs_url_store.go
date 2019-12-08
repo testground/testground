@@ -10,7 +10,6 @@ import (
 )
 
 func IpfsUrlStore(runenv *runtime.RunEnv) {
-	fmt.Printf("Yo - IpfsUrlStore")
 
 	ctx, _ := context.WithCancel(context.Background())
 	_, err := utils.CreateIpfsInstance(ctx, func(cfg *config.Config) error {
