@@ -48,6 +48,7 @@ func IpfsFileStore(runenv *runtime.RunEnv) {
 	}
 
 	// TODO: Act II and Act III
+    fmt.Printf("Test incomplete")
 
 	runenv.OK()
 }
