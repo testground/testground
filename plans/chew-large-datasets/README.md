@@ -27,35 +27,35 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS Add Defaults
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
     - If Online, connect to the other nodes running
-    - Generate the Random Data that follows what was specificied by the param `File Sizes`
+    - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
     - Add the files generated
 
 ### `Test:`  IPFS Add Trickle DAG
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
     - If Online, connect to the other nodes running
-    - Generate the Random Data that follows what was specificied by the params `File Sizes`
+    - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
     - Add the files generated
 
 ### `Test:`  IPFS Add Dir Sharding
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -66,9 +66,9 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS MFS Write
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -83,9 +83,9 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS MFS Dir Sharding
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -101,12 +101,12 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS Url Store
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
-    - The IPFS node/daemon is created 
+    - The IPFS node/daemon is created _with url store experiment enabled_
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
     - Set up an HTTP Server that serves the files created
@@ -120,18 +120,18 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS File Store
 
-- **Test Parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB, 100GB, 1TB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 100, size: 1MB}]`
+- **Test parameters**
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
+  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
 - **Narrative**
   - **Warm up**
-    - The IPFS node/daemon is created 
+    - The IPFS node/daemon is created _with file store experiment enabled_
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
-    - `ipfs add --copy` on the folder with Random Data (the --copy will use the FileStore)
+    - `ipfs add --nocopy` on the folder with Random Data (the `--nocopy` will use the FileStore)
     - Verify that all files are listed on the Manifest with `ipfs filestore ls`
   - **Act II**
     - Generate 10 more random files.
-    - `ipfs add --copy` again
+    - `ipfs add --nocopy` again
     - Verify that all files are listed on the Manifest with `ipfs filestore ls`

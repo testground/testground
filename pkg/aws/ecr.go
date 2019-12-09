@@ -24,8 +24,15 @@ type ecrsvc struct{}
 
 // newService creates a new ECR backend service stub.
 func (*ecrsvc) newService(cfg config.AWSConfig) (*ecr.ECR, error) {
-	creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
-	config := aws.NewConfig().WithRegion(cfg.Region).WithCredentials(creds)
+	config := aws.NewConfig()
+	if cfg.Region != "" {
+		config = config.WithRegion(cfg.Region)
+	}
+
+	if cfg.AccessKeyID != "" && cfg.SecretAccessKey != "" {
+		creds := credentials.NewStaticCredentials(cfg.AccessKeyID, cfg.SecretAccessKey, "")
+		config = config.WithCredentials(creds)
+	}
 	sess, err := session.NewSession(config)
 	if err != nil {
 		return nil, err

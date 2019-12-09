@@ -1,0 +1,84 @@
+name = "chew-large-datasets"
+
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
+source_path = "file:${TESTGROUND_SRCDIR}/plans/chew-large-datasets"
+
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/chew-large-datasets"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+# TODO
+[build_strategies."exec:go"]
+enabled = true
+module_path = "github.com/ipfs/testground/plans/chew-large-datasets"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = true
+
+# TODO
+[run_strategies."local:exec"]
+enabled = true
+
+# TODO
+[run_strategies."cluster:nomad"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "ipfs-add-defaults"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 1
+[[testcases]]
+name = "ipfs-add-trickle-dag"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 2
+[[testcases]]
+name = "ipfs-add-dir-sharding"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 3
+[[testcases]]
+name = "ipfs-mfs"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 4
+[[testcases]]
+name = "ipfs-mfs-dir-sharding"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 5
+[[testcases]]
+name = "ipfs-url-store"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
+# seq 6
+[[testcases]]
+name = "ipfs-file-store"
+instances = { min = 1, max = 1, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }

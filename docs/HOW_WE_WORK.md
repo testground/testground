@@ -1,8 +1,16 @@
 # How we work together
 
+## Weekly Sync
+
 We run a Weekly Sync at 4pm Tuesdays on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit?both) and stored at [meeting-notes](https://github.com/ipfs/testground/tree/master/_meeting-notes). This weekly is listed on the [IPFS Community Calendar](https://github.com/ipfs/community#community-calendar). Recordings can be found [here](https://drive.google.com/open?id=1VL57t9ZOtk5Yw-cQoG7TtKaf3agDsrLc)(currently only available to the team).
 
-We adhere to the [Go Contributing Guidelines](https://github.com/ipfs/community/blob/master/CONTRIBUTING_GO.md) and [Contributing Guidelines](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md) established for the IPFS Community.
+For each Weeky Sync, each contributor is responsible for:
+
+- Sharing an update on what was achieved, what got blocked and also what didn't get delivered and that was scheduled from the previous week assignments. It's fine to say "I didn't do X", there can be a multitude of reasons, from got blocked, didn't get time, etc. Even if it is a "I wasn't able to", that's fine as well as we will be able to identify it and pair you with someone that can help you learn how to do it.
+- Coming to the meeting with a set of tasks that you will be focusing int he following week (3 is a good number as a minimum). At the end of the meeting (last 15 minutes) we review those together and update if needed.
+- As we move through the Questions, each person that gets assigned an Action Items (AIs), has to c&p to their own assignments list.
+
+This guidelines make us great Weekly Sync citizens :)
 
 ## Work Tracker
 
@@ -11,7 +19,7 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
   - **Inbox** - New issues or PRs that haven't been evaluated yet
   - **Icebox** - Low priority, un-prioritized Issues that are not immediate priorities.
   - **Blocked** - Issues that are blocked or discussion threads that are not currently active
-  - **Ready** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
+  - **Backlog** - Upcoming Issues that are immediate priorities. Issues here should be prioritized top-to-bottom in the pipeline.
   - **In Progress** - Issues that someone is already tackling. Contributors should focus on a few things rather than many at once.
   - **Review/QA** - Issues open to the team for review and testing. Code is ready to be deployed pending feedback.
   - **OKR** - This column is just a location for the OKR cards to live until all the work under them is complete.
@@ -25,3 +33,7 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
 - Responsibilities:
   - Project Maintainer and/or Project Architect - Review issues on Inbox, break them down if necessary, move them into Ready when it is the right time. Also, label issues with priority and difficulty.
   - Contributors move issues between the Ready, In Progress and Review/QA Colums. Use help wanted and blocked labels in case they want to flag that work.
+  
+## Contributing Guildeines 
+
+Read [CONTRIBUTING.md](https://github.com/ipfs/testground/blob/master/CONTRIBUTING.md)
