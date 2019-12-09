@@ -1,5 +1,10 @@
+#- name: Swarm Init
+  #command: docker swarm init --advertise-addr {{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}
+
 - name: Swarm Init
-  command: docker swarm init --advertise-addr {{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}
+  docker_swarm:
+    state: present
+    advertise_addr: "{{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}"
 
 - name: Get Worker Token
   command: docker swarm join-token worker -q

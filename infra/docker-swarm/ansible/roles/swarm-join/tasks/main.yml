@@ -1,2 +1,9 @@
+#- name: Join Swarm Cluster as a Worker
+  #command: docker swarm join --token {{ token }} {{ manager }}:2377
+
 - name: Join Swarm Cluster as a Worker
-  command: docker swarm join --token {{ token }} {{ manager }}:2377
+  docker_swarm:
+    state: join
+    advertise_addr: "{{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}"
+    join_token: "{{ token }}"
+    remote_addrs: [ "{{ manager }}:2377" ]
