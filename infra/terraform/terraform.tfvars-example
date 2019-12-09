@@ -1,2 +1,0 @@
-key_name = "<ssh key pair name registered in AWS>"
-tag      = "<name for your cluster, use only alphanumeric chars and underscores>"

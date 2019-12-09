@@ -1,0 +1,29 @@
+#- name: Swarm Init
+  #command: docker swarm init --advertise-addr {{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}
+
+- name: Swarm Init
+  docker_swarm:
+    state: present
+    advertise_addr: "{{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}"
+
+- name: Get Worker Token
+  command: docker swarm join-token worker -q
+  register: worker_token
+
+- name: Get Manager node id 
+  shell: docker node ls | tail -1 | awk '{print $1}'
+  register: manager_id
+
+- name: Get Manager node private ip
+  command: docker node inspect --format '{{ '{{' }}.Status.Addr{{ '}}' }}' {{ manager_id.stdout }}
+  register: manager_ipv4
+
+- name: Show Worker Token
+  debug: var=worker_token.stdout
+
+- name: Manager Token
+  command: docker swarm join-token manager -q
+  register: manager_token
+
+- name: Show Manger Token
+  debug: var=manager_token.stdout

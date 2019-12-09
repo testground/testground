@@ -1,0 +1,9 @@
+[defaults]
+inventory = inventories/$CLUSTER_NAME
+roles_path = roles:roles/external
+retry_files_enabled = no
+host_key_checking = False
+private_key_file = ~/.ssh/$PRV_KEY_NAME
+
+[ssh_connection]
+pipelining = true
