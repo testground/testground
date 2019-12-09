@@ -7,20 +7,6 @@
     ipam_config:
       - subnet: 10.1.0.0/16
 
-- name: Pull ipfs/testground image
-  docker_image:
-    name: "ipfs/testground:latest"
-    source: pull
-    force_source: yes
-    state: present
-
-- name: Pull Redis image
-  docker_image:
-    name: "redis:latest"
-    source: pull
-    force_source: yes
-    state: present
-
 - name: Start Redis service
   docker_swarm_service:
     name: testground-redis

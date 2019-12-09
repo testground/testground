@@ -21,7 +21,7 @@ In this directory, you will find:
 
 The playbooks set up a "manager" machine, another machine to run Redis, and two worker machines for running tests on.
 
-1. Configure your AWS credentials
+1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
 2. Pick a cluster name. Cluster names must be unique within the same AWS account.
 

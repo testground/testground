@@ -1,6 +1,3 @@
-- name: Delete data
-  command: rm -rf /var/lib/filebeat
-
 - name: Ensure dependency is installed (Ubuntu).
   apt: name=apt-transport-https state=present
 
