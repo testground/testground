@@ -1,0 +1,18 @@
+---
+# defaults file for bootstrap
+
+# The user to use to connect to machines.
+bootstrap_user: root
+
+# Installed software to support modules flagged as "preview" (i.e. mysql_db).
+# "yes", "no" or unset are valid.
+bootstrap_preview: yes
+
+# Do you want to wait for the host to be available?
+bootstrap_wait_for_host: no
+
+# The number of retries you want tasks to do before failing.
+bootstrap_retries: 3
+
+# To update all packages installed by this roles, set `bootstrap_package_state` to `latest`.
+bootstrap_package_state: present

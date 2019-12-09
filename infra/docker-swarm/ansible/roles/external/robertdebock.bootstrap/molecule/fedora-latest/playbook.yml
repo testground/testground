@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  become: true
+
+  roles:
+    - ansible-role-bootstrap
+
+  tasks:
+    - name: test connection
+      ping:

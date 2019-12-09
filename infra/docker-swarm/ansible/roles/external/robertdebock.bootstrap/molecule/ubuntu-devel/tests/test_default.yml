@@ -1,0 +1,7 @@
+# Molecule managed
+---
+file:
+  /usr/bin/python:
+    exists: true
+    owner: root
+    group: root
