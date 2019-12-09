@@ -1,6 +1,6 @@
-# TestGround Roadmap
+# Testground Roadmap
 
-## **DISCLAIMER:** This Roadmap is still very much WIP. For a `"State of TestGround Update"` and `"Functional Roadmap"`, consult [`State of TestGround - Mid Q4 2019 (Team Only)`](https://docs.google.com/document/d/1lpifz6CSEYhas1a3ZpgCcDWAFl9Ysmr7o_JH0n8Vny0/edit#heading=h.8djx5icip69b). The primary milestone for the [`TestGround MVP is to Unblock go-ipfs 0.5.0`](https://github.com/ipfs/testground/issues/196)
+## **DISCLAIMER:** This Roadmap is still very much WIP. For a `"State of Testground Update"` and `"Functional Roadmap"`, consult [`State of Testground - Mid Q4 2019 (Team Only)`](https://docs.google.com/document/d/1lpifz6CSEYhas1a3ZpgCcDWAFl9Ysmr7o_JH0n8Vny0/edit#heading=h.8djx5icip69b). The primary milestone for the [`Testground MVP is to Unblock go-ipfs 0.5.0`](https://github.com/ipfs/testground/issues/196)
 
 # Q4 2019
 
@@ -15,12 +15,12 @@
 
 We have a format to spec out Test Plans and we've spec'ed out at least 10 Test Plans. These 10 Test Plans should directly contribute to increase the degree of confidence when shipping a go-ipfs Release 
 
-#### TestGround can levarage the Cloud to run its tests
+#### Testground can levarage the Cloud to run its tests
 
-- TestGround can run on Cloud Infrastructure as well as in local envinronment
+- Testground can run on Cloud Infrastructure as well as in local envinronment
 - A dashboard exists to visualize the result of the tests
 
-#### TestGround can simulate network conditions
+#### Testground can simulate network conditions
 
 For example: 
 - bottlenecks (networks with different bandwidth)
@@ -32,7 +32,7 @@ We started the quarter at 1 + 0.3 + 0.5
 
 ## OKRs
 
-Listed at [Q4 2019 IPFS OKRs - TestGround](https://docs.google.com/spreadsheets/d/1VeyiLvBdX_PrP394kU_lwkQZxfNwqMVX1f7K4ursSPM/edit#gid=96566767)
+Listed at [Q4 2019 IPFS OKRs - Testground](https://docs.google.com/spreadsheets/d/1VeyiLvBdX_PrP394kU_lwkQZxfNwqMVX1f7K4ursSPM/edit#gid=96566767)
 
 # Q1 2020
 
