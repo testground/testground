@@ -5,6 +5,6 @@ docker_users:
   - ubuntu
 
 filebeat:
-  version: 6.x
+  version: 7.x
   cloud_id: "{{ lookup('onepassword', 'Filebeat configuration', field='filebeat_cloud_id', vault='Test Infra') }}"
   cloud_auth: "{{ lookup('onepassword', 'Filebeat configuration', field='filebeat_cloud_auth', vault='Test Infra') }}"
