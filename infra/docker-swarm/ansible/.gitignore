@@ -1,2 +1,4 @@
 !inventories/group_vars/all.yaml
+roles/external
+!roles/external/requirements.yaml
 ansible.cfg
