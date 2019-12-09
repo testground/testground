@@ -78,13 +78,7 @@ eval $(op signin protocollabs)
 - Copy `ansible.cfg-example` to `ansible.cfg`
 - Update default inventory and private key file in `ansible.cfg`
 
-3. Install required external roles
-
-```
-ansible-galaxy install -r roles/external/requirements.yaml -p roles/external
-```
-
-4. Execute the setup playbook
+3. Execute the setup playbook
 
 ```
 ansible-playbook setup.yaml
@@ -102,4 +96,10 @@ You can now follow the steps on [Run on Cloud Infra](../README.md#running-a-test
 
 ```
 ansible all -m ping
+```
+
+- Install required external roles and vendor them if you change a version
+
+```
+ansible-galaxy install -r roles/external/requirements.yaml -p roles/external
 ```
