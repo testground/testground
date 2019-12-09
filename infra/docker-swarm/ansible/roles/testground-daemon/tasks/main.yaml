@@ -1,0 +1,51 @@
+- name: Create Testground config dir
+  file:
+    path: "/etc/testground"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0700
+    state: directory
+
+- name: Create Go dir (proxy)
+  file:
+    path: "/go"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0700
+    state: directory
+
+- name: Copy Testground daemon configuration.
+  template:
+    src: env.toml.j2
+    dest: "/etc/testground/.env.toml"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0644
+
+- name: Pull nonsens3/testground image
+  docker_image:
+    name: "nonsens3/testground:latest"
+    source: pull
+    force_source: yes
+    state: present
+
+- name: Start Testground daemon container
+  docker_container:
+    name: "testground-daemon"
+    image: "nonsens3/testground:latest"
+    state: started
+    restart_policy: always
+    stop_timeout: "10"
+    networks:
+      - name: "control"
+    volumes:
+      - "/go:/go"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/etc/testground/.env.toml:/testground/.env.toml"
+    published_ports:
+      - "8080:8080"
+    exposed_ports:
+      - "8080"
+    command: 
+      - "-vv"
+      - "daemon"

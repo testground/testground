@@ -1,0 +1,6 @@
+- hosts: role_manager
+  name: Upgrade Testground services
+  become: true
+  gather_facts: true
+  roles:
+    - testground-daemon
