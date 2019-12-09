@@ -50,7 +50,7 @@ Each testing **Plan** contains:
 
 ## Testing Plans MVP
 
-The testing Plans linked below have been identified as the most valuable sets of tests to implement for the Testground MVP. The goal of delivering a good characterization of the performance of IPFS in specific areas that can bolster our confidence level in shipping high quality releases of go-ipfs. Once the first 10 test Plans are written and TestGround fully deployed and operation, we will continue expanding the types of tests available.
+The testing Plans linked below have been identified as the most valuable sets of tests to implement for the Testground MVP. The goal of delivering a good characterization of the performance of IPFS in specific areas that can bolster our confidence level in shipping high quality releases of go-ipfs. Once the first 10 test Plans are written and Testground fully deployed and operation, we will continue expanding the types of tests available.
 
 - 01. [`Plan:` Chewing strategies for Large DataSets](../plans/chew-large-datasets)
 - 02. [`Plan:` Data Transfer of Random DataSets (Bitswap/GraphSync)](../plans/data-transfer-datasets-random)
