@@ -1,0 +1,6 @@
+[book]
+authors = ["Testground Contributors"]
+language = "en"
+multilingual = false
+src = "docs"
+title = "Testground Nodes Connectivity"
