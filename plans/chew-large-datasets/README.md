@@ -28,8 +28,8 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 ### `Test:` IPFS Add Defaults
 
 - **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 10MB, 100MB, 1GB, 10GB]`)
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -38,11 +38,11 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
   - **Act I**
     - Add the files generated
 
-### `Test:`  IPFS Add Trickle DAG
+### `Test:` IPFS Add Trickle DAG
 
 - **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 10MB, 100MB, 1GB, 10GB]`)
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -54,8 +54,8 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 ### `Test:`  IPFS Add Dir Sharding
 
 - **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
   - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -64,11 +64,11 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
   - **Act I**
     - Add the directories generated
 
-### `Test:`  IPFS MFS Write
+### `Test:` IPFS MFS Write
 
 - **Test parameters**
   - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created 
@@ -81,11 +81,11 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
     - Run GC
     - Output to total size of the IPFS Repo and size of the MFS root tree
 
-### `Test:`  IPFS MFS Dir Sharding
+### `Test:` IPFS MFS Dir Sharding
 
 - **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
   - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -104,6 +104,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 - **Test parameters**
   - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
   - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created _with url store experiment enabled_
@@ -123,6 +124,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 - **Test parameters**
   - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
   - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
+  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created _with file store experiment enabled_

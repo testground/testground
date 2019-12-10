@@ -3,44 +3,88 @@ package test
 import (
 	"context"
 	"fmt"
+	"os"
 
-	files "github.com/ipfs/go-ipfs-files"
+	shell "github.com/ipfs/go-ipfs-api"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
 // IpfsAddTrickleDag IPFS Add Trickle DAG Test
-func IpfsAddTrickleDag(runenv *runtime.RunEnv) {
-	ctx, _ := context.WithCancel(context.Background())
-	ipfs, err := utils.CreateIpfsInstance(ctx, nil)
-	if err != nil {
-		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
+type IpfsAddTrickleDag struct{}
+
+func (t *IpfsAddTrickleDag) AcceptFiles() bool {
+	return true
+}
+
+func (t *IpfsAddTrickleDag) AcceptDirs() bool {
+	return false
+}
+
+func (t *IpfsAddTrickleDag) InstanceOptions() *utils.IpfsInstanceOptions {
+	return &utils.IpfsInstanceOptions{}
+}
+
+func (t *IpfsAddTrickleDag) DaemonOptions() *iptb.TestEnsembleSpec {
+	spec := iptb.NewTestEnsembleSpec()
+	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "node")
+	return spec
+}
+
+func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
+	if cfg.IpfsInstance != nil {
+		fmt.Println("Running against the Core API")
+
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
+			if err != nil {
+				return "", err
+			}
+
+			addOptions := func(settings *coreopts.UnixfsAddSettings) error {
+				settings.Layout = coreopts.TrickleLayout
+				return nil
+			}
+
+			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile, addOptions)
+			if err != nil {
+				return "", err
+			}
+
+			return cidFile.String(), nil
+		})
+
+		if err != nil {
+			runenv.Abort(err)
+			return
+		}
 	}
 
-	err = utils.ForEachCase(runenv, func(unixfsFile files.Node, isDir bool) error {
-		t := "file"
-		if isDir {
-			t = "directory"
-		}
+	if cfg.IpfsDaemon != nil {
+		fmt.Println("Running against the Daemon (IPTB)")
 
-		addOptions := func(settings *coreopts.UnixfsAddSettings) error {
-			settings.Layout = coreopts.TrickleLayout
-			return nil
-		}
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
+			if isDir {
+				return "", fmt.Errorf("file must not be directory")
+			}
 
-		cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile, addOptions)
+			file, err := os.Open(path)
+			if err != nil {
+				return "", err
+			}
+
+			return cfg.IpfsDaemon.Add(file, func(s *shell.RequestBuilder) error {
+				s.Option("trickle", true)
+				return nil
+			})
+		})
+
 		if err != nil {
-			return fmt.Errorf("Could not add %s: %s", t, err)
+			runenv.Abort(err)
+			return
 		}
-
-		fmt.Printf("Added %s to IPFS with CID %s\n", t, cidFile.String())
-		return nil
-	})
-
-	if err != nil {
-		runenv.Abort(err)
-		return
 	}
 
 	runenv.OK()
