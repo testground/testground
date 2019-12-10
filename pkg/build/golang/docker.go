@@ -318,7 +318,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
-		log.Debugf("[go_proxy_mode=direct] no goproxy container will be started")
+		log.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
 
 	case "remote":
 		if cfg.GoProxyURL == "" {
@@ -340,7 +340,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 			Target: "/go",
 		}
 
-		log.Debugf("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
+		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
 
 		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
