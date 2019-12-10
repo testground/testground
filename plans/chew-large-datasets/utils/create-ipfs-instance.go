@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"fmt"
 	"context"
+	"fmt"
 
 	"io/ioutil"
 	"path/filepath"
@@ -97,14 +97,19 @@ func createNode(ctx context.Context, repoPath string) (iCore.CoreAPI, error) {
 	return coreapi.NewCoreAPI(node)
 }
 
+// IpfsInstanceOptions represents the options to create an IPFS instance.
+type IpfsInstanceOptions struct {
+	RepoOpts AddRepoOptions
+}
+
 // CreateIpfsInstance spawns a node to be used just for this run (i.e. creates a tmp repo)
-func CreateIpfsInstance(ctx context.Context, repoOpts AddRepoOptions) (iCore.CoreAPI, error) {
+func CreateIpfsInstance(ctx context.Context, opts *IpfsInstanceOptions) (iCore.CoreAPI, error) {
 	if err := setupPlugins(""); err != nil {
 		return nil, err
 	}
 
 	// Create a Temporary Repo
-	repoPath, err := createTempRepo(ctx, repoOpts)
+	repoPath, err := createTempRepo(ctx, opts.RepoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp repo: %s", err)
 	}

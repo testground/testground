@@ -8,47 +8,62 @@ import (
 	files "github.com/ipfs/go-ipfs-files"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
 // IpfsFileStore IPFS File Store Test
-func IpfsFileStore(runenv *runtime.RunEnv) {
-	ctx, _ := context.WithCancel(context.Background())
-	ipfs, err := utils.CreateIpfsInstance(ctx, func(cfg *config.Config) error {
-		cfg.Experimental.FilestoreEnabled = true
-		return nil
-	})
-	if err != nil {
-		panic(fmt.Errorf("failed to spawn ephemeral node: %s", err))
-	}
+type IpfsFileStore struct{}
 
-	err = utils.ForEachCase(runenv, func(unixfsFile files.Node, isDir bool) error {
-		t := "file"
-		if isDir {
-			t = "directory"
-		}
+func (t *IpfsFileStore) AcceptFiles() bool {
+	return true
+}
 
-		addOptions := func(settings *coreopts.UnixfsAddSettings) error {
-			settings.NoCopy = true
+func (t *IpfsFileStore) AcceptDirs() bool {
+	return true
+}
+
+func (t *IpfsFileStore) InstanceOptions() *utils.IpfsInstanceOptions {
+	return &utils.IpfsInstanceOptions{
+		RepoOpts: func(cfg *config.Config) error {
+			cfg.Experimental.FilestoreEnabled = true
 			return nil
-		}
+		},
+	}
+}
 
-		cidFile, err := ipfs.Unixfs().Add(ctx, unixfsFile, addOptions)
+func (t *IpfsFileStore) DaemonOptions() *iptb.TestEnsembleSpec {
+	return nil
+}
+
+func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
+	if cfg.IpfsInstance != nil {
+		fmt.Println("Running against the Core API")
+
+		err := cfg.Config.ForEachUnixfs(runenv, func(unixfsFile files.Node, isDir bool) (string, error) {
+			addOptions := coreopts.Unixfs.Nocopy(true)
+
+			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile, addOptions)
+			if err != nil {
+				return "", err
+			}
+
+			return cidFile.String(), nil
+		})
+
 		if err != nil {
-			return fmt.Errorf("Could not add %s: %s", t, err)
+			runenv.Abort(err)
+			return
 		}
 
-		fmt.Printf("Added %s to IPFS with CID %s\n", t, cidFile.String())
-		return nil
-	})
-
-	if err != nil {
-		runenv.Abort(err)
-		return
+		// TODO: Act II and Act III
+		fmt.Println("Test incomplete")
 	}
 
-	// TODO: Act II and Act III
-    fmt.Printf("Test incomplete")
+	if cfg.IpfsDaemon != nil {
+		fmt.Println("Running against the Daemon (IPTB)")
+		fmt.Println("Not implemented yet")
+	}
 
 	runenv.OK()
 }
