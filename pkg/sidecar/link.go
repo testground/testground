@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/vishvananda/netlink"
+
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 var (
@@ -16,9 +18,25 @@ var (
 	defaultHandle = netlink.MakeHandle(1, 2)
 )
 
-var errMaxLatency = fmt.Errorf("latency can be at most %s", math.MaxUint32*time.Microsecond)
-
-// Link abstracts operations over a network interface.
+// NetlinkLink abstracts operations over a network interface.
+//
+// NetlinkLink shapes the egress traffic on the link using TC. To do so, it
+// configures the following TC tree:
+//
+//     [________HTB Qdisc_________] - root
+//        0 |      1 |     n | ...  - queue; 0 is the default.
+//     [HTB Class]                  - bandwidth (rate limiting)
+//          |
+//     [Netem Qdisc]                - latency, jitter, etc. (per-packet attributes)
+//
+// At the moment, only one queue is supported. When support for multiple subnets
+// is added, additional classes/queues will be added per-subnet.
+//
+// NetlinkLink also supports setting the network device up/down and changing the
+// IP address.
+//
+// NOTE: Not all run environments will react well to the IP address changing.
+// Don't use this feature with docker.
 type NetlinkLink struct {
 	netlink.Link
 	handle *netlink.Handle
@@ -49,9 +67,9 @@ func NewNetlinkLink(handle *netlink.Handle, link netlink.Link) (*NetlinkLink, er
 
 // Each "class" will have two handles:
 //
-// * bandwidth: 1:(idx+2)
-// * latency: (idx+2):0
-func handlesForIndex(idx uint16) (bandwidth, latency uint32) {
+// * htb: 1:(idx+2)
+// * netem: (idx+2):0
+func handlesForIndex(idx uint16) (htb, netem uint32) {
 	id := idx + 2
 	return netlink.MakeHandle(1, id), netlink.MakeHandle(id, 0)
 }
@@ -60,94 +78,121 @@ func handlesForIndex(idx uint16) (bandwidth, latency uint32) {
 // (default) class. In the future, we'll create one per network. On _each_
 // interface.
 //
-// We can then specify egress latency/bandwidth per-network by mapping traffic
-// to each of these classes using filters.
+// We can then specify egress propreties per-network by mapping traffic to each
+// of these classes using filters.
 func (l *NetlinkLink) init(idx uint16) error {
-	bandwidthHandle, latencyHandle := handlesForIndex(idx)
-	bandwidthAttrs := netlink.ClassAttrs{
+	htbHandle, netemHandle := handlesForIndex(idx)
+	htbAttrs := netlink.ClassAttrs{
 		LinkIndex: l.Attrs().Index,
 		Parent:    rootHandle,
-		Handle:    bandwidthHandle,
+		Handle:    htbHandle,
 	}
 
-	latencyAttrs := netlink.QdiscAttrs{
+	netemAttrs := netlink.QdiscAttrs{
 		LinkIndex: l.Attrs().Index,
-		Parent:    bandwidthHandle,
-		Handle:    latencyHandle,
+		Parent:    htbHandle,
+		Handle:    netemHandle,
 	}
 
 	if err := l.handle.ClassAdd(netlink.NewHtbClass(
-		bandwidthAttrs,
+		htbAttrs,
 		netlink.HtbClassAttrs{
 			Rate: math.MaxUint64,
 		},
 	)); err != nil {
-		return fmt.Errorf("failed to initialize bandwidth class: %w", err)
+		return fmt.Errorf("failed to initialize htb class: %w", err)
 	}
 
 	if err := l.handle.QdiscAdd(netlink.NewNetem(
-		latencyAttrs,
+		netemAttrs,
 		netlink.NetemQdiscAttrs{},
 	)); err != nil {
-		return fmt.Errorf("failed to initialize latency qdisc: %w", err)
+		return fmt.Errorf("failed to initialize netem qdisc: %w", err)
 	}
 
 	return nil
 }
 
-// Sets the bandwidth (in bytes per second).
-func (l *NetlinkLink) setBandwidth(idx uint16, rate uint64) error {
-	bandwidthHandle, _ := handlesForIndex(idx)
-	if rate == 0 {
-		rate = math.MaxUint64
-	}
+// Sets link's HTB class attributes. See tc-htb(8).
+func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
+	htbHandle, _ := handlesForIndex(idx)
 	return l.handle.ClassChange(netlink.NewHtbClass(
 		netlink.ClassAttrs{
 			LinkIndex: l.Attrs().Index,
 			Parent:    rootHandle,
-			Handle:    bandwidthHandle,
+			Handle:    htbHandle,
 		},
-		netlink.HtbClassAttrs{
-			Rate: rate,
-		},
+		attrs,
 	))
 }
 
-// Sets the latency.
-func (l *NetlinkLink) setLatency(idx uint16, latency time.Duration) error {
-	targetLatency := latency.Microseconds()
-	if targetLatency > math.MaxUint32 {
-		return errMaxLatency
-	}
-	bandwidthHandle, latencyHandle := handlesForIndex(idx)
+// Sets link's Netem queuing disciplines attributes. See tc-netem(8).
+func (l *NetlinkLink) setNetem(idx uint16, attrs netlink.NetemQdiscAttrs) error {
+	htbHandle, netemHandle := handlesForIndex(idx)
 	return l.handle.QdiscChange(netlink.NewNetem(
 		netlink.QdiscAttrs{
 			LinkIndex: l.Attrs().Index,
-			Parent:    bandwidthHandle,
-			Handle:    latencyHandle,
+			Parent:    htbHandle,
+			Handle:    netemHandle,
 		},
-		netlink.NetemQdiscAttrs{
-			Latency: uint32(targetLatency),
-		},
+		attrs,
 	))
 }
 
-func (l *NetlinkLink) SetBandwidth(rate uint64) error {
-	return l.setBandwidth(0, rate)
+func toMicroseconds(t time.Duration) uint32 {
+	us := t.Microseconds()
+	if us > math.MaxUint32 {
+		// might as well just chop this off.
+		// This is ~1 hour
+		us = math.MaxUint32
+	}
+	return uint32(us)
 }
 
-func (l *NetlinkLink) SetLatency(latency time.Duration) error {
-	return l.setLatency(0, latency)
+// Shape applies the link "shape" to the link, setting the bandwidth, latency,
+// jitter, etc.
+func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
+	rate := shape.Bandwidth
+	if rate == 0 {
+		rate = math.MaxUint64
+	}
+
+	// TODO: eventually, we'll have a queue per-subnet to allow shaping per-subnet.
+
+	if err := l.setHtb(0, netlink.HtbClassAttrs{
+		Rate: rate,
+	}); err != nil {
+		return err
+	}
+
+	if err := l.setNetem(0, netlink.NetemQdiscAttrs{
+		Jitter:        toMicroseconds(shape.Jitter),
+		Latency:       toMicroseconds(shape.Latency),
+		Loss:          shape.Loss,
+		CorruptProb:   shape.Corrupt,
+		CorruptCorr:   shape.CorruptCorr,
+		ReorderProb:   shape.Reorder,
+		ReorderCorr:   shape.ReorderCorr,
+		Duplicate:     shape.Duplicate,
+		DuplicateCorr: shape.DuplicateCorr,
+	}); err != nil {
+		return err
+	}
+	return nil
 }
 
+// Set the links address.
+// NOTE: This won't work in docker; use docker connect/disconnect.
 func (l *NetlinkLink) SetAddr(ip *net.IPNet) error {
 	return l.handle.AddrReplace(l.Link, &netlink.Addr{IPNet: ip})
 }
 
+// Up sets the link up.
 func (l *NetlinkLink) Up() error {
 	return l.handle.LinkSetUp(l.Link)
 }
 
+// Down takes the link down.
 func (l *NetlinkLink) Down() error {
 	return l.handle.LinkSetDown(l.Link)
 }

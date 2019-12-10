@@ -1,0 +1,103 @@
+---
+sudo: required
+language: python
+services: docker
+
+env:
+  - version=">=2.6,<2.7" distro="alpine-latest"
+  - version="" distro="alpine-latest"
+  - version="devel" distro="alpine-latest"
+  - version=">=2.6,<2.7" distro="alpine-edge"
+  - version="" distro="alpine-edge"
+  - version="devel" distro="alpine-edge"
+  - version=">=2.6,<2.7" distro="archlinux"
+  - version="" distro="archlinux"
+  - version="devel" distro="archlinux"
+  - version=">=2.6,<2.7" distro="centos-6"
+  - version="" distro="centos-6"
+  - version="devel" distro="centos-6"
+  - version=">=2.6,<2.7" distro="centos-latest"
+  - version="" distro="centos-latest"
+  - version="devel" distro="centos-latest"
+  - version=">=2.6,<2.7" distro="debian-latest"
+  - version="" distro="debian-latest"
+  - version="devel" distro="debian-latest"
+  - version=">=2.6,<2.7" distro="debian-stable"
+  - version="" distro="debian-stable"
+  - version="devel" distro="debian-stable"
+  - version=">=2.6,<2.7" distro="debian-unstable"
+  - version="" distro="debian-unstable"
+  - version="devel" distro="debian-unstable"
+  - version=">=2.6,<2.7" distro="fedora-latest"
+  - version="" distro="fedora-latest"
+  - version="devel" distro="fedora-latest"
+  - version=">=2.6,<2.7" distro="fedora-rawhide"
+  - version="" distro="fedora-rawhide"
+  - version="devel" distro="fedora-rawhide"
+  - version=">=2.6,<2.7" distro="gentoo"
+  - version="" distro="gentoo"
+  - version="devel" distro="gentoo"
+  - version=">=2.6,<2.7" distro="kali"
+  - version="" distro="kali"
+  - version="devel" distro="kali"
+  - version=">=2.6,<2.7" distro="opensuse-leap"
+  - version="" distro="opensuse-leap"
+  - version="devel" distro="opensuse-leap"
+  - version=">=2.6,<2.7" distro="opensuse-tumbleweed"
+  - version="" distro="opensuse-tumbleweed"
+  - version="devel" distro="opensuse-tumbleweed"
+  - version=">=2.6,<2.7" distro="ubuntu-artful"
+  - version="" distro="ubuntu-artful"
+  - version="devel" distro="ubuntu-artful"
+  - version=">=2.6,<2.7" distro="ubuntu-latest"
+  - version="" distro="ubuntu-latest"
+  - version="devel" distro="ubuntu-latest"
+  - version=">=2.6,<2.7" distro="ubuntu-devel"
+  - version="" distro="ubuntu-devel"
+  - version="devel" distro="ubuntu-devel"
+
+matrix:
+  allow_failures:
+    - env: version=">=2.6,<2.7" distro="alpine-edge"
+    - env: version="" distro="alpine-edge"
+    - env: version="devel" distro="alpine-edge"
+    - env: version="devel" distro="alpine-latest"
+    - env: version="devel" distro="archlinux"
+    - env: version="devel" distro="centos-6"
+    - env: version="devel" distro="centos-latest"
+    - env: version="devel" distro="debian-latest"
+    - env: version="devel" distro="debian-stable"
+    - env: version=">=2.6,<2.7" distro="debian-unstable"
+    - env: version="" distro="debian-unstable"
+    - env: version="devel" distro="debian-unstable"
+    - env: version="devel" distro="fedora-latest"
+    - env: version=">=2.6,<2.7" distro="fedora-rawhide"
+    - env: version="" distro="fedora-rawhide"
+    - env: version="devel" distro="fedora-rawhide"
+    - env: version="devel" distro="gentoo"
+    - env: version="devel" distro="opensuse-leap"
+    - env: version="devel" distro="opensuse-tumbleweed"
+    - env: version="devel" distro="ubuntu-artful"
+    - env: version=">=2.6,<2.7" distro="ubuntu-devel"
+    - env: version="" distro="ubuntu-devel"
+    - env: version="devel" distro="ubuntu-devel"
+    - env: version="devel" distro="ubuntu-latest"
+
+cache:
+  - pip
+
+install:
+  - pip install --upgrade pip
+  - if [ "${version}" != "devel" ] ; then pip install ansible"${version}" ; fi
+  - if [ "${version}" = "devel" ] ; then pip install git+https://github.com/ansible/ansible.git@devel ; fi
+  - pip install molecule
+  - pip install docker
+
+script:
+  - if [ "${expectation}" = "fail" ] ; then ! molecule test --scenario-name "${distro}" ; else molecule test --scenario-name "${distro}" ; fi
+
+notifications:
+  webhooks: https://galaxy.ansible.com/api/v1/notifications/
+  slack:
+    secure: "KuGPzSKoDq3x2DRdpGJAZ6Ra0avR7W5mm2smJcKbH7x/Aq4ht1NI+TOFUm0aOVBmT4GdyDjxFOEsWr/bLI5HQ4HL+NpCSFCAEQRDepEafNtrxQ3zY/uz0+2UE/BpVeb/8N8TCnNIsCBoVH6bWP6V6DF0L+phafXT/daBIs8pII4xBlWEdeT/md9QC+yYe54HnlEYNfATzlpE6Q/AkJZlDh1g+5uVnJWNVuO7juMEOI6Eruzj8kXJgpYaQey0i1RhK8UqwADijsLWjgSpEBo9vuZJSBEmAkwIMk/9H2jnWBZxP97Q15iBn5IINhfkL4M2qnP90AxP9uX8yKx3AHxeueTM8OaIRxsHZZA7hTAkP8/iRoMpRUEFxRarZrC9+JrmjYsBfb1Gk2yYCX1tQtAnxVf+U5WUxS4a0uVMI8QhYwgMwno7NSVguG9qiH73EHcPNNDLtNOBtL4R7th/drVx84Kz8HAXVUh2ZxmlzcPejrTixXPx9lsgiaX6pNSqJHay9G0vazZHIRSbg7WdRCW8vx9zoNe4FSQEBV+J4xcwafRe7hDMX4YimKl8rU9etQUQPEhdDCTBpQ8GUHDPpYIGdv+FfKdFCKKrSfEbtiY4SEHP+Bl+0eul8iooNVCqtwYVKk/GBx1VxpYVsiJYsj16wMQvyOi3jFoYB9PYBSFN43s="
+  email: false

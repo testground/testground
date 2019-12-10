@@ -1,0 +1,5 @@
+---
+# handlers file for bootstrap
+- name: gather facts
+  setup:
+  become: no

@@ -1,0 +1,31 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: requirements.yml
+driver:
+  name: docker
+lint:
+  name: yamllint
+platforms:
+  - name: bootstrap-fedora-rawhide
+    image: fedora:rawhide
+    registry:
+      url: registry.fedoraproject.org
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+  config_options:
+    defaults:
+      callback_plugins: /usr/lib/python2.7/site-packages/ara/plugins/callbacks
+  inventory:
+    group_vars:
+      all:
+        ansible_python_interpreter: /usr/bin/python3
+scenario:
+  name: fedora-rawhide
+verifier:
+  name: goss
+  lint:
+    name: yamllint

@@ -1,0 +1,61 @@
+---
+dependency:
+  name: galaxy
+  options:
+    role-file: requirements.yml
+driver:
+  name: docker
+lint:
+  name: yamllint
+platforms:
+  - name: bootstrap-alpine-edge
+    image: alpine:edge
+    command: sh -c "while true ; do sleep 1 ; done"
+  - name: bootstrap-alpine-latest
+    image: alpine:latest
+    command: sh -c "while true ; do sleep 1 ; done"
+  - name: bootstrap-archlinux
+    image: base/archlinux
+  - name: bootstrap-centos-6
+    image: centos:6
+  - name: bootstrap-centos-latest
+    image: centos:latest
+  - name: bootstrap-debian-latest
+    image: debian:latest
+  - name: bootstrap-debian-stable
+    image: debian:stable
+  - name: bootstrap-debian-unstable
+    image: debian:unstable
+  - name: bootstrap-fedora-latest
+    image: fedora:latest
+  - name: bootstrap-fedora-rawhide
+    image: fedora:rawhide
+  - name: bootstrap-gentoo
+    image: gentoo/stage3-amd64
+  - name: bootstrap-opensuse-leap
+    image: opensuse:leap
+  - name: bootstrap-opensuse-tumbleweed
+    image: opensuse:tumbleweed
+  - name: bootstrap-ubuntu-artful
+    image: ubuntu:artful
+  - name: bootstrap-ubuntu-devel
+    image: ubuntu:devel
+  - name: bootstrap-ubuntu-latest
+    image: ubuntu:latest
+provisioner:
+  name: ansible
+  lint:
+    name: ansible-lint
+  config_options:
+    defaults:
+      callback_plugins: /usr/lib/python2.7/site-packages/ara/plugins/callbacks
+  inventory:
+    host_vars:
+      bootstrap-fedora-rawhide:
+        ansible_python_interpreter: /usr/bin/python3
+scenario:
+  name: default
+verifier:
+  name: goss
+  lint:
+    name: yamllint
