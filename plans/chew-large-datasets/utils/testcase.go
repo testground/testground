@@ -31,12 +31,12 @@ type TestCase interface {
 
 // TestCaseOptions are the options to pass to the test case execute function.
 type TestCaseOptions struct {
+	// Config is the test configuration.
+	TestConfig
+
 	// IpfsInstance is a connection to the in-process IPFS instance through Core API.
 	IpfsInstance iface.CoreAPI
 
 	// IpfsDaemon is a connection to a daemon instance of IPFS through IPTB.
 	IpfsDaemon *ipfsClient.Shell
-
-	// Config is the test configuration.
-	Config TestConfig
 }

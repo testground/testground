@@ -37,7 +37,7 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
 			if err != nil {
 				return "", err
@@ -65,7 +65,7 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 	if cfg.IpfsDaemon != nil {
 		fmt.Println("Running against the Daemon (IPTB)")
 
-		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
 			if isDir {
 				return "", fmt.Errorf("file must not be directory")
 			}

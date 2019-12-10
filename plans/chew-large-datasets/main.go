@@ -40,7 +40,7 @@ func main() {
 	opts := &utils.TestCaseOptions{
 		IpfsInstance: nil,
 		IpfsDaemon:   nil,
-		Config:       cfg,
+		TestConfig:   cfg,
 	}
 
 	mode, modeSet := runenv.StringParam("mode")

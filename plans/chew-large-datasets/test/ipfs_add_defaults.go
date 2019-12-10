@@ -35,7 +35,7 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
 			if err != nil {
 				return "", err
@@ -58,12 +58,12 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 	if cfg.IpfsDaemon != nil {
 		fmt.Println("Running against the Daemon (IPTB)")
 
-		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
 			file, err := os.Open(path)
 			if err != nil {
 				return "", err
 			}
-			
+
 			return cfg.IpfsDaemon.Add(file)
 		})
 
