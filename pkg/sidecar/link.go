@@ -67,9 +67,9 @@ func NewNetlinkLink(handle *netlink.Handle, link netlink.Link) (*NetlinkLink, er
 
 // Each "class" will have two handles:
 //
-// * bandwidth: 1:(idx+2)
-// * latency: (idx+2):0
-func handlesForIndex(idx uint16) (bandwidth, latency uint32) {
+// * htb: 1:(idx+2)
+// * netem: (idx+2):0
+func handlesForIndex(idx uint16) (htb, netem uint32) {
 	id := idx + 2
 	return netlink.MakeHandle(1, id), netlink.MakeHandle(id, 0)
 }
@@ -78,36 +78,36 @@ func handlesForIndex(idx uint16) (bandwidth, latency uint32) {
 // (default) class. In the future, we'll create one per network. On _each_
 // interface.
 //
-// We can then specify egress latency/bandwidth per-network by mapping traffic
-// to each of these classes using filters.
+// We can then specify egress propreties per-network by mapping traffic to each
+// of these classes using filters.
 func (l *NetlinkLink) init(idx uint16) error {
-	bandwidthHandle, latencyHandle := handlesForIndex(idx)
-	bandwidthAttrs := netlink.ClassAttrs{
+	htbHandle, netemHandle := handlesForIndex(idx)
+	htbAttrs := netlink.ClassAttrs{
 		LinkIndex: l.Attrs().Index,
 		Parent:    rootHandle,
-		Handle:    bandwidthHandle,
+		Handle:    htbHandle,
 	}
 
-	latencyAttrs := netlink.QdiscAttrs{
+	netemAttrs := netlink.QdiscAttrs{
 		LinkIndex: l.Attrs().Index,
-		Parent:    bandwidthHandle,
-		Handle:    latencyHandle,
+		Parent:    htbHandle,
+		Handle:    netemHandle,
 	}
 
 	if err := l.handle.ClassAdd(netlink.NewHtbClass(
-		bandwidthAttrs,
+		htbAttrs,
 		netlink.HtbClassAttrs{
 			Rate: math.MaxUint64,
 		},
 	)); err != nil {
-		return fmt.Errorf("failed to initialize bandwidth class: %w", err)
+		return fmt.Errorf("failed to initialize htb class: %w", err)
 	}
 
 	if err := l.handle.QdiscAdd(netlink.NewNetem(
-		latencyAttrs,
+		netemAttrs,
 		netlink.NetemQdiscAttrs{},
 	)); err != nil {
-		return fmt.Errorf("failed to initialize latency qdisc: %w", err)
+		return fmt.Errorf("failed to initialize netem qdisc: %w", err)
 	}
 
 	return nil
@@ -115,12 +115,12 @@ func (l *NetlinkLink) init(idx uint16) error {
 
 // Sets link's HTB class attributes. See tc-htb(8).
 func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
-	bandwidthHandle, _ := handlesForIndex(idx)
+	htbHandle, _ := handlesForIndex(idx)
 	return l.handle.ClassChange(netlink.NewHtbClass(
 		netlink.ClassAttrs{
 			LinkIndex: l.Attrs().Index,
 			Parent:    rootHandle,
-			Handle:    bandwidthHandle,
+			Handle:    htbHandle,
 		},
 		attrs,
 	))
@@ -128,12 +128,12 @@ func (l *NetlinkLink) setHtb(idx uint16, attrs netlink.HtbClassAttrs) error {
 
 // Sets link's Netem queuing disciplines attributes. See tc-netem(8).
 func (l *NetlinkLink) setNetem(idx uint16, attrs netlink.NetemQdiscAttrs) error {
-	bandwidthHandle, latencyHandle := handlesForIndex(idx)
+	htbHandle, netemHandle := handlesForIndex(idx)
 	return l.handle.QdiscChange(netlink.NewNetem(
 		netlink.QdiscAttrs{
 			LinkIndex: l.Attrs().Index,
-			Parent:    bandwidthHandle,
-			Handle:    latencyHandle,
+			Parent:    htbHandle,
+			Handle:    netemHandle,
 		},
 		attrs,
 	))
