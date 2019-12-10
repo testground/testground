@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
-	files "github.com/ipfs/go-ipfs-files"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -39,7 +38,12 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.Config.ForEachUnixfs(runenv, func(unixfsFile files.Node, isDir bool) (string, error) {
+		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
+			if err != nil {
+				return "", err
+			}
+
 			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile)
 			if err != nil {
 				return "", err

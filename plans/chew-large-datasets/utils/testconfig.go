@@ -85,23 +85,18 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	return cfg, nil
 }
 
-type OsTestFunction func(path string, file *os.File, isDir bool) (string, error)
+type OsTestFunction func(path string, isDir bool) (string, error)
 
-func (tc TestConfig) ForEach(runenv *runtime.RunEnv, fn OsTestFunction) error {
+func (tc TestConfig) ForEachPath(runenv *runtime.RunEnv, fn OsTestFunction) error {
 	for _, cfg := range tc {
 		err := func() error {
 			var cid string
 			var err error
 
 			if cfg.Depth == 0 {
-				fd, err := os.Open(cfg.Path)
-				if err != nil {
-					return fmt.Errorf("Could not open %s: %s", cfg.Path, err)
-				}
-
-				cid, err = fn(cfg.Path, fd, false)
+				cid, err = fn(cfg.Path, false)
 			} else {
-				cid, err = fn(cfg.Path, nil, true)
+				cid, err = fn(cfg.Path, true)
 			}
 
 			if err != nil {
@@ -120,25 +115,21 @@ func (tc TestConfig) ForEach(runenv *runtime.RunEnv, fn OsTestFunction) error {
 	return nil
 }
 
-type UnixfsTestFunction func(file files.Node, isDir bool) (string, error)
+func ConvertToUnixfs(path string, isDir bool) (files.Node, error) {
+	var unixfsFile files.Node
+	var err error
 
-func (tc *TestConfig) ForEachUnixfs(runenv *runtime.RunEnv, fn UnixfsTestFunction) error {
-	return tc.ForEach(runenv, func(path string, file *os.File, isDir bool) (string, error) {
-		var unixfsFile files.Node
-		var err error
+	if isDir {
+		unixfsFile, err = GetPathToUnixfsDirectory(path)
+	} else {
+		unixfsFile, err = GetPathToUnixfsFile(path)
+	}
 
-		if isDir {
-			unixfsFile, err = GetPathToUnixfsDirectory(path)
-		} else {
-			unixfsFile, err = GetPathToUnixfsFile(path)
-		}
+	if err != nil {
+		return unixfsFile, fmt.Errorf("failed to get Unixfs file from path: %s", err)
+	}
 
-		if err != nil {
-			return "", fmt.Errorf("failed to get Unixfs file from path: %s", err)
-		}
-
-		return fn(unixfsFile, isDir)
-	})
+	return unixfsFile, err
 }
 
 func (tc TestConfig) Cleanup() {

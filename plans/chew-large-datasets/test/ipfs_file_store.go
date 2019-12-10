@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
-	files "github.com/ipfs/go-ipfs-files"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
@@ -40,9 +39,13 @@ func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.Config.ForEachUnixfs(runenv, func(unixfsFile files.Node, isDir bool) (string, error) {
-			addOptions := coreopts.Unixfs.Nocopy(true)
+		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
+			if err != nil {
+				return "", err
+			}
 
+			addOptions := coreopts.Unixfs.Nocopy(true)
 			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile, addOptions)
 			if err != nil {
 				return "", err

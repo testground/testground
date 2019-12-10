@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	files "github.com/ipfs/go-ipfs-files"
 	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -36,7 +35,12 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.Config.ForEachUnixfs(runenv, func(unixfsFile files.Node, isDir bool) (string, error) {
+		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
+			if err != nil {
+				return "", err
+			}
+
 			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile)
 			if err != nil {
 				return "", err
@@ -54,7 +58,12 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 	if cfg.IpfsDaemon != nil {
 		fmt.Println("Running against the Daemon (IPTB)")
 
-		err := cfg.Config.ForEach(runenv, func(path string, file *os.File, isDir bool) (cid string, err error) {
+		err := cfg.Config.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
+			file, err := os.Open(path)
+			if err != nil {
+				return "", err
+			}
+			
 			return cfg.IpfsDaemon.Add(file)
 		})
 
