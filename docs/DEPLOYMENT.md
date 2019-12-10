@@ -66,10 +66,10 @@ tasks, we've chosen a synergistic combination of popular tools:
 * _[terraform-inventory](https://github.com/adammck/terraform-inventory)_ for
   the hand-off between the two.
 
-These assets handle the intantiation of various node types of nodes, and the
+These assets handle the instantiation of various node types of nodes, and the
 backing infrastructural elements (e.g. machines, VPCs, security groups, etc.):
 
-1. **Testground master**: runs the daemon, watches GitHub, exposes an
+1. **Testground manager**: runs the daemon, watches GitHub, exposes an
    authenticated API over HTTPS, serves the dashboard, keeps track of run state,
    schedules incoming runs, governs and scales the worker pool size.
 2. **Testground worker**: runs testground workloads.
