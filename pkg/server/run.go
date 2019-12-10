@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/docker/docker/pkg/ioutils"
 	aapi "github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/daemon/client"
 	"go.uber.org/zap"
@@ -35,7 +36,8 @@ func (srv *Server) runHandler(w http.ResponseWriter, r *http.Request, log *zap.S
 		Parameters:   req.Parameters,
 	}
 
-	result, err := engine.DoRun(req.Plan, req.Case, req.Runner, runIn, w)
+	result, err := engine.DoRun(req.Plan, req.Case, req.Runner, runIn, ioutils.NewWriteFlusher(w))
+
 	if err != nil {
 		log.Errorw("engine run error", "err", err)
 		return
