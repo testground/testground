@@ -112,10 +112,13 @@ func runCommand(c *cli.Context) error {
 			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
 
-		artifactPath, err = client.ProcessBuildResponse(resp)
+		out, err := client.ProcessBuildResponse(resp)
 		if err != nil {
 			return err
 		}
+
+		artifactPath = out.ArtifactPath
+		builderId = out.BuilderID
 	}
 
 	// Process run cfg override.
@@ -142,6 +145,7 @@ func runCommand(c *cli.Context) error {
 		ArtifactPath: artifactPath,
 		Parameters:   parameters,
 		RunnerConfig: cfgOverride,
+		BuilderID:    builderId,
 	}
 
 	resp, err := api.Run(context.Background(), runReq)

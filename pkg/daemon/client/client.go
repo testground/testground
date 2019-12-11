@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/tgwriter"
 	"github.com/mitchellh/mapstructure"
 )
@@ -88,38 +89,38 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 }
 
 // ProcessBuildResponse parses a response from a `build` call
-func ProcessBuildResponse(r io.ReadCloser) (string, error) {
+func ProcessBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	var msg tgwriter.Msg
 
 	for dec := json.NewDecoder(r); ; {
 		err := dec.Decode(&msg)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		switch msg.Type {
 		case "progress":
 			m, err := base64.StdEncoding.DecodeString(msg.Payload.(string))
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 
 			fmt.Print(string(m))
 
 		case "error":
-			return "", errors.New(msg.Error.Message)
+			return nil, errors.New(msg.Error.Message)
 
 		case "result":
-			var resp BuildResponse
-			err := mapstructure.Decode(msg.Payload, &resp)
+			resp := &BuildResponse{}
+			err := mapstructure.Decode(msg.Payload, resp)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 
-			return resp.ArtifactPath, nil
+			return resp, nil
 
 		default:
-			return "", errors.New("unknown message type")
+			return nil, errors.New("unknown message type")
 		}
 	}
 }

@@ -52,6 +52,8 @@ type RunInput struct {
 	// RunnerConfig is the configuration of the runner sourced from the test
 	// plan manifest, coalesced with any user-provided overrides.
 	RunnerConfig interface{}
+	// BuilderID is the ID of the builder used.
+	BuilderID string
 }
 
 type RunOutput struct {
