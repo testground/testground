@@ -40,7 +40,7 @@ func TestIncompatibleBuilder(t *testing.T) {
 	api := client.New(getServer())
 
 	req := &client.BuildRequest{
-		Plan:    "do-nothing",
+		Plan:    "placebo",
 		Builder: "exec:go",
 	}
 
@@ -83,7 +83,7 @@ func TestCompatibleBuilder(t *testing.T) {
 	api := client.New(getServer())
 
 	req := &client.BuildRequest{
-		Plan:    "do-nothing",
+		Plan:    "placebo",
 		Builder: "exec:go",
 	}
 
