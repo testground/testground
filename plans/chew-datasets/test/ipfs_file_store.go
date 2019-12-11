@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
@@ -31,7 +30,7 @@ func (t *IpfsFileStore) AddRepoOptions() iptb.AddRepoOptions {
 
 func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
 	if cfg.IpfsInstance != nil {
-		fmt.Println("Running against the Core API")
+		runenv.Message("Running against the Core API")
 
 		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
@@ -54,12 +53,12 @@ func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg
 		}
 
 		// TODO: Act II and Act III
-		fmt.Println("Test incomplete")
+		runenv.Message("Test incomplete")
 	}
 
 	if cfg.IpfsDaemon != nil {
-		fmt.Println("Running against the Daemon (IPTB)")
-		fmt.Println("Not implemented yet")
+		runenv.Message("Running against the Daemon (IPTB)")
+		runenv.Message("Not implemented yet")
 	}
 
 	runenv.OK()
