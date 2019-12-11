@@ -6,17 +6,19 @@ variable "cluster-region" {
   type    = string
 }
 
-variable "cluster-testground-instance-type" {
-  default = "m5.xlarge"
+variable "key-name" {
   type    = string
 }
 
-variable "cluster-testground-desired-capacity" {
-  default = "5"
+variable "public-key" {
   type    = string
 }
 
-variable "cluster-key-name" {
-  type    = string
-}
+variable "default_tags" {
+  type = map(string)
 
+  default = {
+    Environment = "test"
+    Team        = "testground"
+  }
+}

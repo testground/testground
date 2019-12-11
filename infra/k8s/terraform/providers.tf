@@ -20,4 +20,3 @@ data "aws_availability_zones" "available" {
 # See workstation-external-ip.tf for additional information.
 provider "http" {
 }
-
