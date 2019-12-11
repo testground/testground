@@ -204,7 +204,7 @@ USERDATA
 resource "aws_launch_configuration" "eks_node_launch_configuration" {
   iam_instance_profile        = aws_iam_instance_profile.node-public.name
   image_id                    = data.aws_ami.eks_node_ami.id
-  instance_type               = "m5.xlarge"
+  instance_type               = var.worker-instance-type
   name_prefix                 = "${var.cluster-name}-worker-node"
   security_groups             = [aws_security_group.node-public.id]
   user_data_base64            = base64encode(local.eks_node_userdata)
@@ -220,7 +220,7 @@ resource "aws_autoscaling_group" "eks_node_autoscaling_group_v2" {
   # NOTE: You might need to update the desired_capacity. We do have the cluster-autoscaler
   # running within k8s. This component adjusts the desired_capacity automatically based on resource usage.
   # Make sure that you adjust the desired_ capacity to whatever is currently defined in the ASG. (hint: use terraform plan)
-  desired_capacity = 10
+  desired_capacity = 5
 
   launch_configuration = aws_launch_configuration.eks_node_launch_configuration.id
   max_size             = 20
