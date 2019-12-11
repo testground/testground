@@ -54,14 +54,11 @@ The testing Plans linked below have been identified as the most valuable sets of
 
 - 01. [`Plan:` Chewing strategies for DataSets](../plans/chew-datasets)
 - 02. [`Plan:` Data Transfer (Bitswap/GraphSync)](../plans/data-transfer)
-- 03. NA
-- 04. [`Plan:` Nodes Connectivity (Transports, Hole Punching, Relay)](../plans/nodes-connectivity)
-- 05. NA
-- 06. [`Plan:` Message Delivery (PubSub)](../plans/message-delivery)
-- 07. [`Plan:` Naming (IPNS & its multiple routers)](../plans/naming)
-- 08. [`Plan:` Bitswap specifics](../plans/bitswap-tuning)
-- 09. NA
-- 10. [`Plan:` go-libp2p DHT beaves](../plans/dht)
-- 11. [`Plan:` Interop](https://github.com/ipfs/testground/issues/138)
+- 03. [`Plan:` Nodes Connectivity (Transports, Hole Punching, Relay)](../plans/nodes-connectivity)
+- 04. [`Plan:` Message Delivery (PubSub)](../plans/message-delivery)
+- 05. [`Plan:` Naming (IPNS & its multiple routers)](../plans/naming)
+- 06. [`Plan:` Bitswap specifics](../plans/bitswap-tuning)
+- 07. [`Plan:` go-libp2p DHT beaves](../plans/dht)
+- 08. [`Plan:` Interop](https://github.com/ipfs/testground/issues/138)
 
 There is 1 other test plan that were created to test the functionality of Testground and to be used as a demo. The plan is: [smlbench](../plans/smlbench)
