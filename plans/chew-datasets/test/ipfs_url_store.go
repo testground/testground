@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
-	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )

@@ -6,7 +6,7 @@ import (
 
 	config "github.com/ipfs/go-ipfs-config"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
-	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -33,7 +33,7 @@ func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
 			if err != nil {
 				return "", err

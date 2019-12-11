@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	shell "github.com/ipfs/go-ipfs-api"
 	coreopts "github.com/ipfs/interface-go-ipfs-core/options"
-	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -31,7 +32,7 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
 			if err != nil {
 				return "", err
@@ -42,10 +43,12 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 				return nil
 			}
 
+			tstarted := time.Now()
 			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile, addOptions)
 			if err != nil {
 				return "", err
 			}
+			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 			return cidFile.String(), nil
 		})
@@ -59,7 +62,7 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 	if cfg.IpfsDaemon != nil {
 		fmt.Println("Running against the Daemon (IPTB)")
 
-		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (cid string, err error) {
+		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (cid string, err error) {
 			if isDir {
 				return "", fmt.Errorf("file must not be directory")
 			}
@@ -69,10 +72,13 @@ func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv,
 				return "", err
 			}
 
-			return cfg.IpfsDaemon.Add(file, func(s *shell.RequestBuilder) error {
+			tstarted := time.Now()
+			cid, err = cfg.IpfsDaemon.Add(file, func(s *shell.RequestBuilder) error {
 				s.Option("trickle", true)
 				return nil
 			})
+			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			return cid, err
 		})
 
 		if err != nil {

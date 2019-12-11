@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/chew-large-datasets
+module github.com/ipfs/testground/plans/chew-datasets
 
 go 1.13
 

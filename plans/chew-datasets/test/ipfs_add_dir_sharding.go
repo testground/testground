@@ -3,9 +3,10 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
 
 	config "github.com/ipfs/go-ipfs-config"
-	utils "github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -32,16 +33,18 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 	if cfg.IpfsInstance != nil {
 		fmt.Println("Running against the Core API")
 
-		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
 			if err != nil {
 				return "", err
 			}
 
+			tstarted := time.Now()
 			cidFile, err := cfg.IpfsInstance.Unixfs().Add(ctx, unixfsFile)
 			if err != nil {
 				return "", err
 			}
+			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 			return cidFile.String(), nil
 		})
@@ -55,8 +58,11 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 	if cfg.IpfsDaemon != nil {
 		fmt.Println("Running against the Daemon (IPTB)")
 
-		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
-			return cfg.IpfsDaemon.AddDir(path)
+		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
+			tstarted := time.Now()
+			cid, err := cfg.IpfsDaemon.AddDir(path)
+			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			return cid, err
 		})
 
 		if err != nil {
@@ -67,3 +73,4 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 
 	runenv.OK()
 }
+
