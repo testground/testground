@@ -105,7 +105,7 @@ func (w *Writer) keepAlive() {
 // If the actual write on the sync service fails, this method returns an error.
 //
 // Else, if all succeeds, it returns the ordinal sequence number of this entry
-// within the subtree.
+// within the subtree (starting at 1).
 func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err error) {
 	if err = subtree.AssertType(reflect.ValueOf(payload).Type()); err != nil {
 		return -1, err
