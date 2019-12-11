@@ -23,14 +23,8 @@ func (t *IpfsAddTrickleDag) AcceptDirs() bool {
 	return false
 }
 
-func (t *IpfsAddTrickleDag) InstanceOptions() *utils.IpfsInstanceOptions {
-	return &utils.IpfsInstanceOptions{}
-}
-
-func (t *IpfsAddTrickleDag) DaemonOptions() *iptb.TestEnsembleSpec {
-	spec := iptb.NewTestEnsembleSpec()
-	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "node")
-	return spec
+func (t *IpfsAddTrickleDag) AddRepoOptions() iptb.AddRepoOptions {
+	return nil
 }
 
 func (t *IpfsAddTrickleDag) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {

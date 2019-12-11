@@ -20,11 +20,7 @@ func (t *IpfsMfsDirSharding) AcceptDirs() bool {
 	return true
 }
 
-func (t *IpfsMfsDirSharding) InstanceOptions() *utils.IpfsInstanceOptions {
-	return nil
-}
-
-func (t *IpfsMfsDirSharding) DaemonOptions() *iptb.TestEnsembleSpec {
+func (t *IpfsMfsDirSharding) AddRepoOptions() iptb.AddRepoOptions {
 	return nil
 }
 
