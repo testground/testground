@@ -1,4 +1,4 @@
-package inproc
+package server
 
 import (
 	"context"
@@ -7,17 +7,16 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/server"
 )
 
-// ListenAndServer starts an in-process server on a random port
+// ListenAndServe starts an in-process server on a random port
 func ListenAndServe(ctx context.Context) (string, error) {
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		return "", err
 	}
 
-	srv := server.New(listener.Addr().String())
+	srv := New(listener.Addr().String())
 
 	go func() {
 		logging.S().Infow("listen and serve", "addr", srv.Addr)

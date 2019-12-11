@@ -44,7 +44,6 @@ func New(listenAddr string) *Server {
 	r.HandleFunc("/describe", loggingHandler(srv.describeHandler)).Methods("GET")
 	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
 	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
-	http.Handle("/", r)
 
 	srv.Server = &http.Server{
 		Handler:      r,

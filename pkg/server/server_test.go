@@ -4,28 +4,10 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"net/http"
 	"testing"
 
 	"github.com/ipfs/testground/pkg/daemon/client"
 )
-
-var srv *Server
-
-func getServer() string {
-	if srv == nil {
-		srv = New(":51000")
-
-		go func() {
-			err := srv.ListenAndServe()
-			if err != nil && err != http.ErrServerClosed {
-				panic(err)
-			}
-		}()
-	}
-
-	return ":51000"
-}
 
 func readerToString(r io.Reader) (string, error) {
 	buf := new(bytes.Buffer)
@@ -37,14 +19,23 @@ func readerToString(r io.Reader) (string, error) {
 }
 
 func TestIncompatibleBuilder(t *testing.T) {
-	api := client.New(getServer())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	addr, err := ListenAndServe(ctx)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	api := client.New(addr)
 
 	req := &client.BuildRequest{
 		Plan:    "placebo",
 		Builder: "exec:go",
 	}
 
-	resp, err := api.Build(context.Background(), req)
+	resp, err := api.Build(ctx, req)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -57,7 +48,7 @@ func TestIncompatibleBuilder(t *testing.T) {
 		return
 	}
 
-	resp, err = api.Run(context.Background(), &client.RunRequest{
+	resp, err = api.Run(ctx, &client.RunRequest{
 		Plan:         "smlbench",
 		Case:         "simple-add",
 		Runner:       "local:exec",
@@ -80,14 +71,22 @@ func TestIncompatibleBuilder(t *testing.T) {
 }
 
 func TestCompatibleBuilder(t *testing.T) {
-	api := client.New(getServer())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	addr, err := ListenAndServe(ctx)
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+
+	api := client.New(addr)
 	req := &client.BuildRequest{
 		Plan:    "placebo",
 		Builder: "exec:go",
 	}
 
-	resp, err := api.Build(context.Background(), req)
+	resp, err := api.Build(ctx, req)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -100,7 +99,7 @@ func TestCompatibleBuilder(t *testing.T) {
 		return
 	}
 
-	resp, err = api.Run(context.Background(), &client.RunRequest{
+	resp, err = api.Run(ctx, &client.RunRequest{
 		Plan:         "smlbench",
 		Case:         "simple-add",
 		Runner:       "local:exec",
