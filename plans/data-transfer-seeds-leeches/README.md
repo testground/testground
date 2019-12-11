@@ -1,3 +1,5 @@
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+
 # `Plan:` Data Transfer of combinations of Seeds and Leeches (Bitswap/GraphSync)
 
 Create an environment in which combinations of seeds and leeches are varied. This test is not about content discovery or connectivity, it is assumed that all nodes are connected and that these are executed in an homogeneous network (same CPU, Memory, Bandwidth).
