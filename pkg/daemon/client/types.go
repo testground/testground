@@ -27,4 +27,5 @@ type RunRequest struct {
 	ArtifactPath string            `json:"artifact_path"`
 	Parameters   map[string]string `json:"parameters"`
 	RunnerConfig interface{}       `json:"runner_config"`
+	BuilderID    string            `json:"builder_id"`
 }
