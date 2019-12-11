@@ -85,7 +85,7 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	return cfg, nil
 }
 
-type OsTestFunction func(path string, isDir bool) (string, error)
+type OsTestFunction func(path string, size int64, isDir bool) (string, error)
 
 func (tc TestConfig) ForEachPath(runenv *runtime.RunEnv, fn OsTestFunction) error {
 	for _, cfg := range tc {
@@ -94,9 +94,9 @@ func (tc TestConfig) ForEachPath(runenv *runtime.RunEnv, fn OsTestFunction) erro
 			var err error
 
 			if cfg.Depth == 0 {
-				cid, err = fn(cfg.Path, false)
+				cid, err = fn(cfg.Path, cfg.Size, false)
 			} else {
-				cid, err = fn(cfg.Path, true)
+				cid, err = fn(cfg.Path, cfg.Size, true)
 			}
 
 			if err != nil {

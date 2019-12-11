@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/plans/chew-large-datasets/test"
-	"github.com/ipfs/testground/plans/chew-large-datasets/utils"
+	"github.com/ipfs/testground/plans/chew-datasets/test"
+	"github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 )
