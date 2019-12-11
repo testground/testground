@@ -22,17 +22,11 @@ func (t *IpfsFileStore) AcceptDirs() bool {
 	return true
 }
 
-func (t *IpfsFileStore) InstanceOptions() *utils.IpfsInstanceOptions {
-	return &utils.IpfsInstanceOptions{
-		RepoOpts: func(cfg *config.Config) error {
-			cfg.Experimental.FilestoreEnabled = true
-			return nil
-		},
+func (t *IpfsFileStore) AddRepoOptions() iptb.AddRepoOptions {
+	return func(cfg *config.Config) error {
+		cfg.Experimental.FilestoreEnabled = true
+		return nil
 	}
-}
-
-func (t *IpfsFileStore) DaemonOptions() *iptb.TestEnsembleSpec {
-	return nil
 }
 
 func (t *IpfsFileStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {

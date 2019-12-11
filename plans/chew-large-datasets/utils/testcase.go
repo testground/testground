@@ -17,13 +17,9 @@ type TestCase interface {
 	// AcceptDirs indicates if this test will accept directories.
 	AcceptDirs() bool
 
-	// InstanceOptions returns the options needed to build a runtime instance
-	// of IPFS through the Core API.
-	InstanceOptions() *IpfsInstanceOptions
-
-	// DaemonOptions returns the options (ensemble) needed to build a daemon instance
-	// of IPFS through IPTB.
-	DaemonOptions() *iptb.TestEnsembleSpec
+	// AddRepoOptions returns a function that modifies a repository
+	// configuration to satisfy the test needs.
+	AddRepoOptions() iptb.AddRepoOptions
 
 	// Execute executes the test case with the given options.
 	Execute(ctx context.Context, runenv *runtime.RunEnv, opts *TestCaseOptions)

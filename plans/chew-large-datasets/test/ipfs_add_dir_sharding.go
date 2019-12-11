@@ -21,17 +21,11 @@ func (t *IpfsAddDirSharding) AcceptDirs() bool {
 	return true
 }
 
-func (t *IpfsAddDirSharding) InstanceOptions() *utils.IpfsInstanceOptions {
-	return &utils.IpfsInstanceOptions{
-		RepoOpts: func(cfg *config.Config) error {
-			cfg.Experimental.ShardingEnabled = true
-			return nil
-		},
+func (t *IpfsAddDirSharding) AddRepoOptions() iptb.AddRepoOptions {
+	return func(cfg *config.Config) error {
+		cfg.Experimental.ShardingEnabled = true
+		return nil
 	}
-}
-
-func (t *IpfsAddDirSharding) DaemonOptions() *iptb.TestEnsembleSpec {
-	return nil
 }
 
 func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {

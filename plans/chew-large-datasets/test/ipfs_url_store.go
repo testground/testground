@@ -21,17 +21,11 @@ func (t *IpfsUrlStore) AcceptDirs() bool {
 	return true
 }
 
-func (t *IpfsUrlStore) InstanceOptions() *utils.IpfsInstanceOptions {
-	return &utils.IpfsInstanceOptions{
-		RepoOpts: func(cfg *config.Config) error {
-			cfg.Experimental.UrlstoreEnabled = true
-			return nil
-		},
+func (t *IpfsUrlStore) AddRepoOptions() iptb.AddRepoOptions {
+	return func(cfg *config.Config) error {
+		cfg.Experimental.UrlstoreEnabled = true
+		return nil
 	}
-}
-
-func (t *IpfsUrlStore) DaemonOptions() *iptb.TestEnsembleSpec {
-	return nil
 }
 
 func (t *IpfsUrlStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {

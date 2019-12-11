@@ -59,37 +59,36 @@ func main() {
 		}
 	}
 
+	addRepoOptions := tc.AddRepoOptions()
+
 	if testCoreAPI {
-		apiOpts := tc.InstanceOptions()
-
-		if apiOpts == nil {
-			fmt.Println("Test not implemented against CoreAPI yet")
-		} else {
-			ipfs, err := utils.CreateIpfsInstance(ctx, apiOpts)
-			if err != nil {
-				runenv.Abort(fmt.Errorf("failed to get temp dir: %s", err))
-				return
-			}
-
-			opts.IpfsInstance = ipfs
+		ipfs, err := utils.CreateIpfsInstance(ctx, &utils.IpfsInstanceOptions{
+			AddRepoOptions: addRepoOptions,
+		})
+		if err != nil {
+			runenv.Abort(fmt.Errorf("failed to get temp dir: %s", err))
+			return
 		}
+
+		opts.IpfsInstance = ipfs
 	}
 
 	if testDaemon {
-		spec := tc.DaemonOptions()
+		spec := iptb.NewTestEnsembleSpec()
+		spec.AddNodesDefaultConfig(iptb.NodeOpts{
+			Initialize:     true,
+			Start:          true,
+			AddRepoOptions: addRepoOptions,
+		}, "node")
 
-		if spec == nil {
-			fmt.Println("Daemon testing not yet implemented")
-		} else {
-			ensemble := iptb.NewTestEnsemble(ctx, spec)
-			ensemble.Initialize()
-			defer ensemble.Destroy()
+		ensemble := iptb.NewTestEnsemble(ctx, spec)
+		ensemble.Initialize()
+		defer ensemble.Destroy()
 
-			// In this test suite we agree that the node is tagged as 'node'.
-			node := ensemble.GetNode("node")
-			client := node.Client()
-			opts.IpfsDaemon = client
-		}
+		// In this test suite we agree that the node is tagged as 'node'.
+		node := ensemble.GetNode("node")
+		client := node.Client()
+		opts.IpfsDaemon = client
 	}
 
 	tc.Execute(ctx, runenv, opts)

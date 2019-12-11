@@ -21,14 +21,8 @@ func (t *IpfsAddDefaults) AcceptDirs() bool {
 	return false
 }
 
-func (t *IpfsAddDefaults) InstanceOptions() *utils.IpfsInstanceOptions {
-	return &utils.IpfsInstanceOptions{}
-}
-
-func (t *IpfsAddDefaults) DaemonOptions() *iptb.TestEnsembleSpec {
-	spec := iptb.NewTestEnsembleSpec()
-	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "node")
-	return spec
+func (t *IpfsAddDefaults) AddRepoOptions() iptb.AddRepoOptions {
+	return nil
 }
 
 func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {

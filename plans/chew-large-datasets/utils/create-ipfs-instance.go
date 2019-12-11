@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/go-ipfs/plugin/loader" // This package is needed so that all the preloaded plugins are loaded automatically
 	"github.com/ipfs/go-ipfs/repo/fsrepo"
 	iCore "github.com/ipfs/interface-go-ipfs-core"
+	"github.com/ipfs/testground/sdk/iptb"
 )
 
 /// ------ Setting up the IPFS Repo
@@ -37,10 +38,7 @@ func setupPlugins(externalPluginsPath string) error {
 	return nil
 }
 
-// AddRepoOptions allows to add custom options to repository settings.
-type AddRepoOptions func(*config.Config) error
-
-func createTempRepo(ctx context.Context, addFn AddRepoOptions) (string, error) {
+func createTempRepo(ctx context.Context, addFn iptb.AddRepoOptions) (string, error) {
 	repoPath, err := ioutil.TempDir("", "ipfs-shell")
 	if err != nil {
 		return "", fmt.Errorf("failed to get temp dir: %s", err)
@@ -99,7 +97,7 @@ func createNode(ctx context.Context, repoPath string) (iCore.CoreAPI, error) {
 
 // IpfsInstanceOptions represents the options to create an IPFS instance.
 type IpfsInstanceOptions struct {
-	RepoOpts AddRepoOptions
+	AddRepoOptions func(*config.Config) error
 }
 
 // CreateIpfsInstance spawns a node to be used just for this run (i.e. creates a tmp repo)
@@ -109,7 +107,7 @@ func CreateIpfsInstance(ctx context.Context, opts *IpfsInstanceOptions) (iCore.C
 	}
 
 	// Create a Temporary Repo
-	repoPath, err := createTempRepo(ctx, opts.RepoOpts)
+	repoPath, err := createTempRepo(ctx, opts.AddRepoOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp repo: %s", err)
 	}
