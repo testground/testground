@@ -376,7 +376,7 @@ func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 		case ai := <-peerCh:
 			peers[i] = *ai
 		case <-ctx.Done():
-			return nil, err
+			return nil, fmt.Errorf("timed out waiting for bootstrappers")
 		}
 	}
 	return peers, nil
