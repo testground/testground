@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"fmt"
 
 	config "github.com/ipfs/go-ipfs-config"
 	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
@@ -30,13 +29,13 @@ func (t *IpfsUrlStore) AddRepoOptions() iptb.AddRepoOptions {
 
 func (t *IpfsUrlStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
 	if cfg.IpfsInstance != nil {
-		fmt.Println("Running against the Core API")
-		fmt.Println("Not Implemented Yet")
+		runenv.Message("Running against the Core API")
+		runenv.Message("Not Implemented Yet")
 	}
 
 	if cfg.IpfsDaemon != nil {
-		fmt.Println("Running against the Daemon (IPTB)")
-		fmt.Println("Not Implemented Yet")
+		runenv.Message("Running against the Daemon (IPTB)")
+		runenv.Message("Not Implemented Yet")
 	}
 
 	runenv.OK()

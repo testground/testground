@@ -39,7 +39,7 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 				return nil, err
 			}
 
-			fmt.Printf("%s: %s file created\n", file, humanize.Bytes(n))
+			runenv.Message("%s: %s file created", file, humanize.Bytes(n))
 
 			cfg = append(cfg, &TestDir{
 				Path: file,
@@ -72,7 +72,7 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 				return nil, err
 			}
 
-			fmt.Printf("%s: %s directory created\n", humanize.Bytes(n), path)
+			runenv.Message("%s: %s directory created", humanize.Bytes(n), path)
 
 			cfg = append(cfg, &TestDir{
 				Path:  path,
@@ -103,7 +103,7 @@ func (tc TestConfig) ForEachPath(runenv *runtime.RunEnv, fn OsTestFunction) erro
 				return fmt.Errorf("%s: failed to add %s", cfg.Path, err)
 			}
 
-			fmt.Printf("%s: %s added\n", cfg.Path, cid)
+			runenv.Message("%s: %s added", cfg.Path, cid)
 			return nil
 		}()
 
