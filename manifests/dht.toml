@@ -24,6 +24,9 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
+[run_strategies."cluster:k8s"]
+enabled = true
+
 # seq 0
 [[testcases]]
 name = "find-peers"
