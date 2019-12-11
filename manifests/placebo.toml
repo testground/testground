@@ -1,7 +1,7 @@
-name = "do-nothing"
+name = "placebo"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-source_path = "file://${TESTGROUND_SRCDIR}/plans/do-nothing"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/placebo"
 
 [defaults]
 builder = "exec:go"
@@ -10,13 +10,13 @@ runner = "local:exec"
 [build_strategies."docker:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/chew-large-datasets"
+module_path = "github.com/ipfs/testground/plans/placebo"
 exec_pkg = "."
 go_ipfs_version = "0.4.22"
 
 [build_strategies."exec:go"]
 enabled = true
-module_path = "github.com/ipfs/testground/plans/chew-large-datasets"
+module_path = "github.com/ipfs/testground/plans/placebo"
 exec_pkg = "."
 
 [run_strategies."local:docker"]
