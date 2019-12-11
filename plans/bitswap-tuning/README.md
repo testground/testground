@@ -1,6 +1,6 @@
-![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
+# `Plan:` Bitswap tuning - Combinations of Seeds and Leeches
 
-# `Plan:` Data Transfer of combinations of Seeds and Leeches (Bitswap/GraphSync)
+![](https://img.shields.io/badge/status-wip-orange.svg?style=flat-square)
 
 Create an environment in which combinations of seeds and leeches are varied. This test is not about content discovery or connectivity, it is assumed that all nodes are connected and that these are executed in an homogeneous network (same CPU, Memory, Bandwidth).
 

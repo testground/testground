@@ -4,6 +4,8 @@
 
 Create an environment in which data transfer is stress tested. This test is not about content discovery or connectivity, it is assumed that all nodes are dialable by each other and that these are executed in an homogeneous network (same CPU, Memory, Bandwidth).
 
+The datasets can be either a) random or b) datasets of interested (e.g. Wikipedia Mirror, npm clone, ImageNet, etc).
+
 ## What is being optimized (min/max, reach)
 
 - (Minimize) The performance of fetching a file. Lower is Better
@@ -52,4 +54,3 @@ This test is not expected to support:
     - Cohort D fetches the files created from Cohort A (expected to see speed improvements given that %75 of the network will have the file)
   - **Act IV**
     - Cohort A, B & C fetch the files created from Cohort D
-
