@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/data-transfer-seeds-leeches
+module github.com/ipfs/testground/plans/bitswap-tuning
 
 go 1.13
 

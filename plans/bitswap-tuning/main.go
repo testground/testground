@@ -1,7 +1,7 @@
 package main
 
 import (
-	test "github.com/ipfs/testground/plans/data-transfer-seeds-leeches/test"
+	test "github.com/ipfs/testground/plans/bitswap-tuning/test"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
