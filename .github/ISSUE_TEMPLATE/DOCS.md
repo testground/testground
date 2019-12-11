@@ -1,6 +1,6 @@
 ---
 name: Docs issue
-about: Missing docs? How could be!? Please let us know so that we get that reviwed asap
+about: Missing docs? How could that be!? Please let us know so that we get that reviewed asap
 title: TITLE
 labels: docs
 assignees: ''
