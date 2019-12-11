@@ -18,8 +18,9 @@ func FindProviders(runenv *runtime.RunEnv) {
 	opts := &SetupOpts{
 		Timeout:        time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
 		RandomWalk:     runenv.BooleanParamD("random_walk", false),
+		NBootstrap:     runenv.IntParamD("n_bootstrap", 1),
 		NFindPeers:     runenv.IntParamD("n_find_peers", 1),
-		BucketSize:     runenv.IntParamD("bucket_size", 20),
+		BucketSize:     runenv.IntParamD("bucket_size", 2),
 		AutoRefresh:    runenv.BooleanParamD("auto_refresh", true),
 		NodesProviding: runenv.IntParamD("nodes_providing", 10),
 		RecordCount:    runenv.IntParamD("record_count", 5),
@@ -32,13 +33,26 @@ func FindProviders(runenv *runtime.RunEnv) {
 	defer watcher.Close()
 	defer writer.Close()
 
-	_, dht, _, seq, err := Setup(ctx, runenv, watcher, writer, opts)
+	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
 	defer Teardown(ctx, runenv, watcher, writer)
+
+	// Bring the network into a nice, stable, bootstrapped state.
+	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
+		runenv.Abort(err)
+		return
+	}
+
+	if opts.RandomWalk {
+		if err = RandomWalk(ctx, runenv, dht); err != nil {
+			runenv.Abort(err)
+			return
+		}
+	}
 
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {

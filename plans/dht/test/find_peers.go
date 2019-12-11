@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -15,9 +13,15 @@ func FindPeers(runenv *runtime.RunEnv) {
 	opts := &SetupOpts{
 		Timeout:     time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
 		RandomWalk:  runenv.BooleanParamD("random_walk", false),
+		NBootstrap:  runenv.IntParamD("n_bootstrap", 1),
 		NFindPeers:  runenv.IntParamD("n_find_peers", 1),
-		BucketSize:  runenv.IntParamD("bucket_size", 20),
+		BucketSize:  runenv.IntParamD("bucket_size", 2),
 		AutoRefresh: runenv.BooleanParamD("auto_refresh", true),
+	}
+	if opts.NFindPeers > runenv.TestInstanceCount {
+		runenv.Abort("NFindPeers greater than the number of test instances")
+		return
+
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -27,7 +31,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 	defer watcher.Close()
 	defer writer.Close()
 
-	_, dht, all, _, err := Setup(ctx, runenv, watcher, writer, opts)
+	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		runenv.Abort(err)
 		return
@@ -35,12 +39,8 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	if err = Connect(ctx, runenv, dht, opts, all...); err != nil {
-		runenv.Abort(err)
-		return
-	}
-
-	if err = WaitRoutingTable(ctx, runenv, dht); err != nil {
+	// Bring the network into a nice, stable, bootstrapped state.
+	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
 		runenv.Abort(err)
 		return
 	}
@@ -52,43 +52,43 @@ func FindPeers(runenv *runtime.RunEnv) {
 		}
 	}
 
+	// Ok, we're _finally_ ready.
+	// TODO: Dump routing table stats. We should dump:
+	//
+	// * How full our "closest" bucket is. That is, look at the "all peers"
+	//   list, find the BucketSize closest peers, and determine the % of those
+	//   peers to which we're connected. It should be close to 100%.
+	// * How many peers we're actually connected to?
+	// * How many of our connected peers are actually useful to us?
+
 	// Perform FIND_PEER N times.
-	attempted := make(map[peer.ID]struct{}, opts.NFindPeers)
-	for i := 0; i < opts.NFindPeers; i++ {
-		var next peer.ID
-		for _, p := range all {
-			if _, ok := attempted[p.ID]; ok {
-				continue
-			}
-			next = p.ID
+	found := 0
+	for _, p := range peers {
+		if found >= opts.NFindPeers {
 			break
 		}
-
-		if next == "" {
-			// We don't have enough
-			runenv.Abort(fmt.Errorf("insufficient peers in test case; FIND_PEERS iterations: %d, # peers: %d", opts.NFindPeers, len(all)))
-			return
+		if len(dht.Host().Peerstore().Addrs(p.ID)) > 0 {
+			// Skip peer's we've already found (even if we've
+			// disconnected for some reason).
+			continue
 		}
-
-		attempted[next] = struct{}{}
 
 		t := time.Now()
 
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		if _, err := dht.FindPeer(ctx, next); err != nil {
+		if _, err := dht.FindPeer(ctx, p.ID); err != nil {
 			runenv.Abort(fmt.Errorf("find peer failed: %s", err))
 			return
 		}
 
 		runenv.EmitMetric(&runtime.MetricDefinition{
-			Name:           fmt.Sprintf("time-to-find-%d", i),
+			Name:           fmt.Sprintf("time-to-find-%d", found),
 			Unit:           "ns",
 			ImprovementDir: -1,
 		}, float64(time.Now().Sub(t).Nanoseconds()))
-
+		found++
 	}
-
 	runenv.OK()
 }
