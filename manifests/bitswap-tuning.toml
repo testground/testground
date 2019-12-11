@@ -1,18 +1,22 @@
-name = "data-exchange"
+name = "bitswap-tuning"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-source_path = "file:${TESTGROUND_SRCDIR}/plans/data-transfer-seeds-leeches"
+source_path = "file:${TESTGROUND_SRCDIR}/plans/bitswap-tuning"
+
+[defaults]
+builder = "docker:go"
+runner = "local:docker"
 
 [build_strategies."docker:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/data-transfer-seeds-leeches"
+module_path = "github.com/ipfs/testground/plans/bitswap-tuning"
 exec_pkg = "."
 
 # TODO: exec:go is not ready yet
 [build_strategies."exec:go"]
 enabled = true
-module_path = "github.com/ipfs/testground/plans/data-transfer-seeds-leeches"
+module_path = "github.com/ipfs/testground/plans/bitswap-tuning"
 exec_pkg = "."
 
 [run_strategies."local:docker"]
