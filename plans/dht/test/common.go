@@ -30,6 +30,8 @@ func init() {
 	os.Setenv("LIBP2P_TCP_REUSEPORT", "false")
 }
 
+const minTestInstances = 16
+
 type SetupOpts struct {
 	Timeout        time.Duration
 	RandomWalk     bool
@@ -57,13 +59,13 @@ var ConnManagerGracePeriod = 1 * time.Second
 func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
 
-	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))))
+	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount)))) * 2
 	max := 2 * min
 
 	// We need enough connections to be able to trim some and still have a
 	// few peers.
 	//
-	// Note: this check is redundant just to be explicit. If we have over 8
+	// Note: this check is redundant just to be explicit. If we have over 16
 	// peers, we're above this limit.
 	if min < 3 || max >= runenv.TestInstanceCount {
 		return nil, nil, fmt.Errorf("not enough peers")
@@ -144,9 +146,10 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	var seq int64
 
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
-	if runenv.TestInstanceCount < 8 {
+	if runenv.TestInstanceCount < minTestInstances {
 		return nil, nil, nil, seq, fmt.Errorf(
-			"requires at least 8 instances, only %d started", runenv.TestInstanceCount,
+			"requires at least %d instances, only %d started",
+			minTestInstances, runenv.TestInstanceCount,
 		)
 	}
 

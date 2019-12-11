@@ -27,7 +27,7 @@ enabled = true
 # seq 0
 [[testcases]]
 name = "find-peers"
-instances = { min = 2, max = 200, default = 8 }
+instances = { min = 16, max = 200, default = 16 }
 
   [testcases.params]
   auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = "true" }
@@ -40,7 +40,7 @@ instances = { min = 2, max = 200, default = 8 }
 # seq 1
 [[testcases]]
 name = "find-providers"
-instances = { min = 2, max = 250, default = 8 }
+instances = { min = 16, max = 250, default = 16 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
@@ -54,7 +54,7 @@ instances = { min = 2, max = 250, default = 8 }
 # seq 2
 [[testcases]]
 name = "provide-stress"
-instances = { min = 2, max = 250, default = 8 }
+instances = { min = 16, max = 250, default = 16 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
@@ -67,7 +67,7 @@ instances = { min = 2, max = 250, default = 8 }
 # seq 3
 [[testcases]]
 name = "store-get-value"
-instances = { min = 2, max = 250, default = 8 }
+instances = { min = 16, max = 250, default = 16 }
 roles = ["storer", "fetcher"]
 
   [testcases.params]
