@@ -356,7 +356,11 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		return err
 	}
 
-	runenv.Message("bootstrap: finished with %d connections", len(dht.Host().Network().Peers()))
+	runenv.Message(
+		"bootstrap: finished with %d connections, %d in the routing table",
+		len(dht.Host().Network().Peers()),
+		dht.RoutingTable().Size(),
+	)
 
 	runenv.Message("bootstrap: done")
 	return nil
