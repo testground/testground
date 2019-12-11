@@ -74,20 +74,13 @@ func main() {
 	}
 
 	if testDaemon {
-		spec := iptb.NewTestEnsembleSpec()
-		spec.AddNodesDefaultConfig(iptb.NodeOpts{
+		ensemble, client := iptb.SpawnDaemon(ctx, iptb.NodeOpts{
 			Initialize:     true,
 			Start:          true,
 			AddRepoOptions: addRepoOptions,
-		}, "node")
-
-		ensemble := iptb.NewTestEnsemble(ctx, spec)
-		ensemble.Initialize()
+		})
 		defer ensemble.Destroy()
 
-		// In this test suite we agree that the node is tagged as 'node'.
-		node := ensemble.GetNode("node")
-		client := node.Client()
 		opts.IpfsDaemon = client
 	}
 
