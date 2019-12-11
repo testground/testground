@@ -7,7 +7,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/daemon/client"
-	"github.com/ipfs/testground/pkg/inproc"
+	"github.com/ipfs/testground/pkg/server"
 	"github.com/urfave/cli"
 )
 
@@ -50,7 +50,7 @@ func setupClient() (*client.Client, func(), error) {
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(context.Background())
 
-		envcfg.Client.Endpoint, err = inproc.ListenAndServe(ctx)
+		envcfg.Client.Endpoint, err = server.ListenAndServe(ctx)
 		if err != nil {
 			return nil, cancel, err
 		}
