@@ -49,8 +49,8 @@ func TestIncompatibleBuilder(t *testing.T) {
 	}
 
 	resp, err = api.Run(ctx, &client.RunRequest{
-		Plan:         "smlbench",
-		Case:         "simple-add",
+		Plan:         "placebo",
+		Case:         "ok",
 		Runner:       "local:exec",
 		Instances:    1,
 		BuilderID:    "local:docker", // local:docker is incompatible with local:exec
@@ -100,8 +100,8 @@ func TestCompatibleBuilder(t *testing.T) {
 	}
 
 	resp, err = api.Run(ctx, &client.RunRequest{
-		Plan:         "smlbench",
-		Case:         "simple-add",
+		Plan:         "placebo",
+		Case:         "ok",
 		Runner:       "local:exec",
 		Instances:    1,
 		BuilderID:    buildRes.BuilderID,
