@@ -220,7 +220,7 @@ resource "aws_autoscaling_group" "eks_node_autoscaling_group_v2" {
   # NOTE: You might need to update the desired_capacity. We do have the cluster-autoscaler
   # running within k8s. This component adjusts the desired_capacity automatically based on resource usage.
   # Make sure that you adjust the desired_ capacity to whatever is currently defined in the ASG. (hint: use terraform plan)
-  desired_capacity = 5
+  desired_capacity = 1
 
   launch_configuration = aws_launch_configuration.eks_node_launch_configuration.id
   max_size             = 20

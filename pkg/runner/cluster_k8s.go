@@ -7,18 +7,17 @@ import (
 	"os/user"
 	"path/filepath"
 	"reflect"
-	"sync"
-	"time"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
+	appsv1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -125,76 +124,56 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 
 	log.Infow("creating pods", "name", sname, "image", image, "replicas", replicas)
 
-	// Define arguments
-	args := []string{}
+	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 
-	// Build environment variables
-	envVars := []v1.EnvVar{}
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "tg",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(int32(replicas)),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
 
-	var wg sync.WaitGroup
-	wg.Add(int(replicas))
-
-	for i := uint64(1); i <= replicas; i++ {
-		i := i
-		go func() {
-			defer wg.Done()
-
-			podName := fmt.Sprintf("tg-%d", i)
-
-			// Create Kubernetes Pod
-			podRequest := &v1.Pod{
+					"testground.plan":     input.TestPlan.Name,
+					"testground.testcase": testcase.Name,
+					"testground.runid":    input.RunID,
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: podName,
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
 						"testground.runid":    input.RunID,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
 						{
-							Name:  podName,
-							Image: "nginx",
-							Args:  args,
-							Env:   envVars,
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									v1.ResourceMemory: resource.MustParse("30Mi"),
+							Name:            "ping",
+							Image:           "nonsens3/docker-ping:latest",
+							ImagePullPolicy: "IfNotPresent",
+							Ports:           []apiv1.ContainerPort{},
+							Resources: apiv1.ResourceRequirements{
+								Requests: apiv1.ResourceList{
+									apiv1.ResourceCPU:    resource.MustParse("0.01"),
+									apiv1.ResourceMemory: resource.MustParse("24M"),
 								},
 							},
 						},
 					},
 				},
-			}
-			_, err := clientset.CoreV1().Pods(config.Namespace).Create(podRequest)
-			if err != nil {
-				//return nil, fmt.Errorf("failed to create pod: %v", err)
-				return
-			}
-
-			// Wait for pod
-			start := time.Now()
-			for {
-				log.Debug("Waiting for pod", "pod", podName)
-				pod, err := clientset.CoreV1().Pods(config.Namespace).Get(podName, metav1.GetOptions{})
-				if err != nil {
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
-				if pod.Status.Phase == v1.PodRunning {
-					break
-				}
-				if time.Since(start) > 5*time.Minute {
-					//return nil, errors.New("timeout waiting for pod")
-					return
-				}
-				time.Sleep(500 * time.Millisecond)
-			}
-		}()
+			},
+		},
 	}
-
-	wg.Wait()
+	// Create Deployment
+	log.Infow("creating deployment", "name", sname, "image", image, "replicas", replicas)
+	result, err := deploymentsClient.Create(deployment)
+	if err != nil {
+		panic(err)
+	}
+	log.Infow("created deployment", "name", sname, "image", image, "replicas", replicas, "result", result.GetObjectMeta().GetName())
 
 	out := &api.RunOutput{RunnerID: "smth"}
 	return out, nil
@@ -211,3 +190,5 @@ func (*ClusterK8sRunner) ConfigType() reflect.Type {
 func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
+
+func int32Ptr(i int32) *int32 { return &i }
