@@ -107,8 +107,6 @@ func runCommand(c *cli.Context) error {
 			Builder:      builderId,
 		}
 
-		fmt.Println(req)
-
 		resp, err := api.Build(context.Background(), req)
 		if err != nil {
 			return fmt.Errorf("fatal error from daemon: %s", err)
