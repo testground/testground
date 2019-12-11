@@ -53,7 +53,16 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 	}
 
 	if cfg.IpfsDaemon != nil {
-		fmt.Println("NOT IMPLEMENTED against the Daemon (IPTB)")
+		fmt.Println("Running against the Daemon (IPTB)")
+
+		err := cfg.ForEachPath(runenv, func(path string, isDir bool) (string, error) {
+			return cfg.IpfsDaemon.AddDir(path)
+		})
+
+		if err != nil {
+			runenv.Abort(err)
+			return
+		}
 	}
 
 	runenv.OK()
