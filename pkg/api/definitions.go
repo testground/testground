@@ -17,6 +17,14 @@ type TestPlanDefinition struct {
 	BuildStrategies map[string]config.ConfigMap `toml:"build_strategies"`
 	RunStrategies   map[string]config.ConfigMap `toml:"run_strategies"`
 	TestCases       []*TestCase                 `toml:"testcases"`
+	Defaults        TestPlanDefaults
+}
+
+// TestPlanDefaults represents the builder and runner defaults for
+// a certain test case.
+type TestPlanDefaults struct {
+	Builder string
+	Runner  string
 }
 
 // TestCase represents a configuration for a test case known by the system.
@@ -84,6 +92,14 @@ func (tp *TestPlanDefinition) Describe(w io.Writer) {
 		return res
 	}()
 	p(w, "It can be run with strategies: %v.", rs)
+
+	if tp.Defaults.Builder != "" {
+		p(w, "By default it builds with: %v", tp.Defaults.Builder)
+	}
+
+	if tp.Defaults.Runner != "" {
+		p(w, "By default it runs with: %v", tp.Defaults.Runner)
+	}
 
 	p(w, "It has %d test cases.", len(tp.TestCases))
 }

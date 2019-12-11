@@ -148,6 +148,10 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
 	}
 
+	if builder == "" {
+		builder = plan.Defaults.Builder
+	}
+
 	// Find the builder.
 	bm, ok := e.builders[builder]
 	if !ok {
@@ -208,6 +212,10 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	seq, tcase, ok := plan.TestCaseByName(testcase)
 	if !ok {
 		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
+	}
+
+	if runner == "" {
+		runner = plan.Defaults.Runner
 	}
 
 	// Get the runner.
