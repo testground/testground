@@ -197,6 +197,9 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 	input.EnvConfig = *e.envcfg
 
 	res, err := bm.Build(input, output)
+	if err != nil {
+		return nil, err
+	}
 	res.BuilderID = bm.ID()
 	return res, err
 }
