@@ -121,7 +121,7 @@ func (c *ConsoleOutput) Manage(id string, r io.ReadCloser) {
 					printMsg(event.Timestamp, OK, event.Result.Reason)
 				default:
 					failed = true
-					printMsg(event.Timestamp, FAIL, event.Result.Outcome, event.Result.Reason)
+					printMsg(event.Timestamp, FAIL, event.Result.Outcome, " ", event.Result.Reason)
 				}
 			} else if event.Metric != nil {
 				marshaled, err := json.Marshal(event.Metric)
