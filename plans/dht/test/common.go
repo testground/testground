@@ -60,7 +60,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 	swarm.DialTimeoutLocal = opts.Timeout
 
 	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount)))) * 2
-	max := 2 * min
+	max := int(float64(min) * 1.1)
 
 	// We need enough connections to be able to trim some and still have a
 	// few peers.
