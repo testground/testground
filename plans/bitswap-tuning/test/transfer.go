@@ -10,7 +10,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	"github.com/ipfs/testground/plans/data-transfer-seeds-leeches/utils"
+	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
