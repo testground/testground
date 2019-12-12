@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestAbortedTestShouldFail(t *testing.T) {
+func TestAbortedTestShouldFailLocal(t *testing.T) {
 	app := cli.NewApp()
 	app.Name = "testground"
 	app.Commands = Commands
@@ -19,6 +19,26 @@ func TestAbortedTestShouldFail(t *testing.T) {
 		"exec:go",
 		"--runner",
 		"local:exec",
+	})
+
+	if err == nil {
+		t.Fail()
+	}
+}
+
+func TestAbortedTestShouldFailDocker(t *testing.T) {
+	app := cli.NewApp()
+	app.Name = "testground"
+	app.Commands = Commands
+
+	err := app.Run([]string{
+		"testground",
+		"run",
+		"placebo/abort",
+		"--builder",
+		"docker:go",
+		"--runner",
+		"local:docker",
 	})
 
 	if err == nil {
