@@ -53,7 +53,7 @@ terraform apply
 7. Update your local .kube config and context
 
 ```
-aws eks update-kubeconfig --name tony
+aws eks update-kubeconfig --name $CLUSTER_NAME
 ```
 
 8. Export Terraform outputs
