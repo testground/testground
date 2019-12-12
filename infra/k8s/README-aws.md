@@ -50,4 +50,24 @@ terraform plan
 terraform apply
 ```
 
-7. Use `terraform destroy` to remove the cluster from AWS when you are finished working on it.
+7. Update your local .kube config and context
+
+```
+aws eks update-kubeconfig --name tony
+```
+
+8. Export Terraform outputs
+
+```
+terraform output config-map-aws-auth > outputs/config-map-aws-auth.yaml
+```
+
+9. Apply config to Kubernetes cluster
+
+```
+kubectl apply -f ./outputs/config-map-aws-auth.yaml
+```
+
+## Teardown
+
+Use `terraform destroy` to remove the cluster from AWS when you are finished working on it.
