@@ -1,0 +1,4 @@
+cluster-name   = "$CLUSTER_NAME"
+cluster-region = "eu-central-1"
+key-name       = "$YOUR_KEY_NAME"
+public-key     = "$PUBLIC_KEY"
