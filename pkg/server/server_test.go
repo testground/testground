@@ -31,7 +31,7 @@ func TestIncompatibleBuilder(t *testing.T) {
 	}
 	defer resp.Close()
 
-	buildRes, err := client.ProcessBuildResponse(resp)
+	buildRes, err := client.ParseBuildResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -48,7 +48,7 @@ func TestIncompatibleBuilder(t *testing.T) {
 	t.Log(err)
 	defer resp.Close()
 
-	err = client.ProcessRunResponse(resp)
+	err = client.ParseRunResponse(resp)
 	if err == nil {
 		t.Fail()
 	}
@@ -77,7 +77,7 @@ func TestCompatibleBuilder(t *testing.T) {
 	}
 	defer resp.Close()
 
-	buildRes, err := client.ProcessBuildResponse(resp)
+	buildRes, err := client.ParseBuildResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -94,7 +94,7 @@ func TestCompatibleBuilder(t *testing.T) {
 	t.Log(err)
 	defer resp.Close()
 
-	err = client.ProcessRunResponse(resp)
+	err = client.ParseRunResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 	}
