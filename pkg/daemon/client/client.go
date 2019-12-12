@@ -126,7 +126,7 @@ func printProgress(progress interface{}) error {
 	return nil
 }
 
-// ParseRunResponse parses a Response from a `run` call
+// ParseRunResponse parses a response from a `run` call
 func ParseRunResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
@@ -137,7 +137,7 @@ func ParseRunResponse(r io.ReadCloser) error {
 	)
 }
 
-// ParseListResponse parses a Response from a `list` call
+// ParseListResponse parses a response from a `list` call
 func ParseListResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
@@ -148,7 +148,7 @@ func ParseListResponse(r io.ReadCloser) error {
 	)
 }
 
-// ParseBuildResponse parses a Response from a `build` call
+// ParseBuildResponse parses a response from a `build` call
 func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	var resp *BuildResponse
 	err := processGeneric(
@@ -163,7 +163,7 @@ func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	return resp, err
 }
 
-// ParseDescribeResponse parses a Response from a `describe` call
+// ParseDescribeResponse parses a response from a `describe` call
 func ParseDescribeResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
