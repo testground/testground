@@ -192,7 +192,8 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		Annotations: swarm.Annotations{Name: sname},
 		TaskTemplate: swarm.TaskSpec{
 			ContainerSpec: &swarm.ContainerSpec{
-				Image: image,
+				//Image: image,
+				Image: "nonsens3/docker-ping:latest",
 				Env:   env,
 				Labels: map[string]string{
 					"testground.plan":     input.TestPlan.Name,
@@ -205,14 +206,14 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 			},
 			Resources: &swarm.ResourceRequirements{
 				Reservations: &swarm.Resources{
-					MemoryBytes: 60 * 1024 * 1024,
+					MemoryBytes: 30 * 1024 * 1024,
 				},
 				Limits: &swarm.Resources{
 					MemoryBytes: 30 * 1024 * 1024,
 				},
 			},
 			Placement: &swarm.Placement{
-				MaxReplicas: 200,
+				MaxReplicas: 2000,
 				Constraints: []string{
 					"node.labels.TGRole==worker",
 				},

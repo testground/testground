@@ -1,0 +1,7 @@
+- hosts: role_worker
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Pull
+      docker_image:
+        name: nonsens3/docker-ping:latest
