@@ -3,17 +3,24 @@ package tgwriter
 import (
 	"encoding/json"
 	"io"
+	"net/http"
+
+	"go.uber.org/zap"
 )
 
-func New(w io.Writer) *TgWriter {
+func New(w http.ResponseWriter, log *zap.SugaredLogger) *TgWriter {
+	w.Header().Set("Content-Type", "application/json")
+
 	return &TgWriter{
 		output: w,
+		log:    log,
 	}
 }
 
 type TgWriter struct {
 	io.Writer
 	output io.Writer
+	log    *zap.SugaredLogger
 }
 
 // Msg defines a protocol message struct sent from the Testground daemon to the Testground client.
@@ -43,7 +50,7 @@ func (tgw *TgWriter) Write(p []byte) (n int, err error) {
 	return tgw.output.Write(json)
 }
 
-func (tgw *TgWriter) WriteResult(res interface{}) error {
+func (tgw *TgWriter) WriteResult(res interface{}) {
 	pld := Msg{
 		Type:    "result",
 		Payload: res,
@@ -51,15 +58,19 @@ func (tgw *TgWriter) WriteResult(res interface{}) error {
 
 	json, err := json.Marshal(pld)
 	if err != nil {
-		return err
+		tgw.log.Errorw("could not write error response", "err", err)
+		return
 	}
 
 	_, err = tgw.output.Write(json)
-
-	return err
+	if err != nil {
+		tgw.log.Errorw("could not write error response", "err", err)
+	}
 }
 
-func (tgw *TgWriter) WriteError(message string) error {
+func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
+	tgw.log.Warnw(message, keysAndValues...)
+
 	pld := Msg{
 		Type: "error",
 		Error: &Error{
@@ -69,10 +80,18 @@ func (tgw *TgWriter) WriteError(message string) error {
 
 	json, err := json.Marshal(pld)
 	if err != nil {
-		return err
+		tgw.log.Errorw("could not write error response", "err", err)
+		return
 	}
 
 	_, err = tgw.output.Write(json)
+	if err != nil {
+		tgw.log.Errorw("could not write error response", "err", err)
+	}
+}
 
-	return err
+func (tgw *TgWriter) Flush() {
+	if f, ok := tgw.output.(http.Flusher); ok {
+		f.Flush()
+	}
 }

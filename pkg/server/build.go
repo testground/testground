@@ -15,18 +15,18 @@ func (srv *Server) buildHandler(w http.ResponseWriter, r *http.Request, log *zap
 	log.Debugw("handle request", "command", "build")
 	defer log.Debugw("request handled", "command", "build")
 
-	w.Header().Set("Content-Type", "application/json")
+	tgw := tgwriter.New(w, log)
 
 	var req client.BuildRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		log.Errorw("cannot json decode request body", "err", err)
+		tgw.WriteError("cannot json decode request body", "err", err)
 		return
 	}
 
 	engine, err := GetEngine()
 	if err != nil {
-		log.Errorw("get engine error", "err", err)
+		tgw.WriteError("get engine error", "err", err)
 		return
 	}
 
@@ -35,16 +35,11 @@ func (srv *Server) buildHandler(w http.ResponseWriter, r *http.Request, log *zap
 		BuildConfig:  req.BuildConfig,
 	}
 
-	tgw := tgwriter.New(w)
 	out, err := engine.DoBuild(req.Plan, req.Builder, in, tgw)
 	if err != nil {
-		errf(tgw, log, fmt.Errorf("engine build error: %s", err))
+		tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
 		return
 	}
 
-	err = tgw.WriteResult(out)
-	if err != nil {
-		log.Errorw("engine write result error", "err", err)
-		return
-	}
+	tgw.WriteResult(out)
 }

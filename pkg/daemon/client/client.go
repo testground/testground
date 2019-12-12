@@ -88,45 +88,7 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
-// ProcessBuildResponse parses a response from a `build` call
-func ProcessBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
-	var msg tgwriter.Msg
-
-	for dec := json.NewDecoder(r); ; {
-		err := dec.Decode(&msg)
-		if err != nil {
-			return nil, err
-		}
-
-		switch msg.Type {
-		case "progress":
-			m, err := base64.StdEncoding.DecodeString(msg.Payload.(string))
-			if err != nil {
-				return nil, err
-			}
-
-			fmt.Print(string(m))
-
-		case "error":
-			return nil, errors.New(msg.Error.Message)
-
-		case "result":
-			resp := &BuildResponse{}
-			err := mapstructure.Decode(msg.Payload, resp)
-			if err != nil {
-				return nil, err
-			}
-
-			return resp, nil
-
-		default:
-			return nil, errors.New("unknown message type")
-		}
-	}
-}
-
-// ProcessDescribeResponse parses a response from a `describe` call
-func ProcessDescribeResponse(r io.ReadCloser) error {
+func processGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 
 	for dec := json.NewDecoder(r); ; {
@@ -137,23 +99,79 @@ func ProcessDescribeResponse(r io.ReadCloser) error {
 
 		switch msg.Type {
 		case "progress":
-			m, err := base64.StdEncoding.DecodeString(msg.Payload.(string))
+			err = fnProgress(msg.Payload)
 			if err != nil {
 				return err
 			}
-
-			fmt.Print(string(m))
 
 		case "error":
 			return errors.New(msg.Error.Message)
 
 		case "result":
-			return nil
+			return fnResult(msg.Payload)
 
 		default:
 			return errors.New("unknown message type")
 		}
 	}
+}
+
+func printProgress(progress interface{}) error {
+	m, err := base64.StdEncoding.DecodeString(progress.(string))
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(string(m))
+	return nil
+}
+
+// ProcessRunResponse parses a response from a `run` call
+func ProcessRunResponse(r io.ReadCloser) error {
+	return processGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+}
+
+// ProcessListResponse parses a response from a `list` call
+func ProcessListResponse(r io.ReadCloser) error {
+	return processGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+}
+
+// ProcessBuildResponse parses a response from a `build` call
+func ProcessBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
+	var resp *BuildResponse
+	err := processGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			resp = &BuildResponse{}
+			return mapstructure.Decode(result, resp)
+		},
+	)
+
+	return resp, err
+}
+
+// ProcessDescribeResponse parses a response from a `describe` call
+func ProcessDescribeResponse(r io.ReadCloser) error {
+	return processGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {

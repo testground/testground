@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -19,12 +18,12 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 	log.Debugw("handle request", "command", "describe")
 	defer log.Debugw("request handled", "command", "describe")
 
-	tgw := tgwriter.New(w)
+	tgw := tgwriter.New(w, log)
 
 	var req client.DescribeRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		log.Errorw("cannot json decode request body", "err", err)
+		tgw.WriteError("cannot json decode request body", "err", err)
 		return
 	}
 
@@ -32,7 +31,7 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 
 	engine, err := GetEngine()
 	if err != nil {
-		log.Errorw("get engine error", "err", err)
+		tgw.WriteError("get engine error", "err", err)
 		return
 	}
 
@@ -43,13 +42,13 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 	case 1:
 		pl = splt[0]
 	default:
-		errf(tgw, log, errors.New("unrecognized format for term"), "explanation", TermExplanation)
+		tgw.WriteError("unrecognized format for term", "explanation", TermExplanation)
 		return
 	}
 
 	plan := engine.TestCensus().PlanByName(pl)
 	if plan == nil {
-		errf(tgw, log, fmt.Errorf("plan not found, name: %s ; term: %s", pl, term))
+		tgw.WriteError(fmt.Sprintf("plan not found, name: %s ; term: %s", pl, term))
 		return
 	}
 
@@ -59,7 +58,7 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 	} else if _, tcbn, ok := plan.TestCaseByName(tc); ok {
 		cases = []*api.TestCase{tcbn}
 	} else {
-		errf(tgw, log, fmt.Errorf("test case not found: %s", tc))
+		tgw.WriteError(fmt.Sprintf("test case not found: %s", tc))
 		return
 	}
 
@@ -72,7 +71,7 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 
 	_, err = tgw.Write([]byte(header))
 	if err != nil {
-		log.Errorw("header write error", "err", err)
+		tgw.WriteError("header write error", "err", err)
 		return
 	}
 
@@ -80,9 +79,5 @@ func (srv *Server) describeHandler(w http.ResponseWriter, r *http.Request, log *
 		tc.Describe(tgw)
 	}
 
-	err = tgw.WriteResult(struct{}{})
-	if err != nil {
-		log.Errorw("result write error", "err", err)
-		return
-	}
+	tgw.WriteResult(struct{}{})
 }
