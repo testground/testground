@@ -29,7 +29,6 @@ jobs:
         - go build ./...          # build the project
         - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... # Run all the tests with the race detector enabled
         - go build .
-        - ./testground -vv run chew-datasets/ipfs-add-defaults --builder=exec:go --runner=local:exec --test-param mode=coreapi --test-param timeout_secs=60
       after_success:
         - bash <(curl -s https://codecov.io/bash)
         
