@@ -88,7 +88,7 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
-func processGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
+func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 
 	for dec := json.NewDecoder(r); ; {
@@ -128,7 +128,7 @@ func printProgress(progress interface{}) error {
 
 // ParseRunResponse parses a response from a `run` call
 func ParseRunResponse(r io.ReadCloser) error {
-	return processGeneric(
+	return parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
@@ -139,7 +139,7 @@ func ParseRunResponse(r io.ReadCloser) error {
 
 // ParseListResponse parses a response from a `list` call
 func ParseListResponse(r io.ReadCloser) error {
-	return processGeneric(
+	return parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
@@ -151,7 +151,7 @@ func ParseListResponse(r io.ReadCloser) error {
 // ParseBuildResponse parses a response from a `build` call
 func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	var resp *BuildResponse
-	err := processGeneric(
+	err := parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
@@ -165,7 +165,7 @@ func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 
 // ParseDescribeResponse parses a response from a `describe` call
 func ParseDescribeResponse(r io.ReadCloser) error {
-	return processGeneric(
+	return parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
