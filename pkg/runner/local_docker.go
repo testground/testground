@@ -237,7 +237,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 
 	if !cfg.Background {
 		output := NewConsoleOutput()
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		for _, id := range containers {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
