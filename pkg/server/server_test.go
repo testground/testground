@@ -1,22 +1,11 @@
 package server
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"testing"
 
 	"github.com/ipfs/testground/pkg/daemon/client"
 )
-
-func readerToString(r io.Reader) (string, error) {
-	buf := new(bytes.Buffer)
-	_, err := buf.ReadFrom(r)
-	if err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
 
 func TestIncompatibleBuilder(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -42,7 +31,7 @@ func TestIncompatibleBuilder(t *testing.T) {
 	}
 	defer resp.Close()
 
-	buildRes, err := client.ProcessBuildResponse(resp)
+	buildRes, err := client.ParseBuildResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -59,13 +48,8 @@ func TestIncompatibleBuilder(t *testing.T) {
 	t.Log(err)
 	defer resp.Close()
 
-	txt, err := readerToString(resp)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Empty response means failures.
-	if txt != "" {
+	err = client.ParseRunResponse(resp)
+	if err == nil {
 		t.Fail()
 	}
 }
@@ -93,7 +77,7 @@ func TestCompatibleBuilder(t *testing.T) {
 	}
 	defer resp.Close()
 
-	buildRes, err := client.ProcessBuildResponse(resp)
+	buildRes, err := client.ParseBuildResponse(resp)
 	if err != nil {
 		t.Fatal(err)
 		return
@@ -110,13 +94,8 @@ func TestCompatibleBuilder(t *testing.T) {
 	t.Log(err)
 	defer resp.Close()
 
-	txt, err := readerToString(resp)
+	err = client.ParseRunResponse(resp)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// Empty response means failures.
-	if txt == "" {
-		t.Fail()
 	}
 }

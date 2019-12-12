@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -112,7 +111,7 @@ func runCommand(c *cli.Context) error {
 			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
 
-		out, err := client.ProcessBuildResponse(resp)
+		out, err := client.ParseBuildResponse(resp)
 		if err != nil {
 			return err
 		}
@@ -154,10 +153,5 @@ func runCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	scanner := bufio.NewScanner(resp)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-
-	return nil
+	return client.ParseRunResponse(resp)
 }

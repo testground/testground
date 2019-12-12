@@ -41,5 +41,5 @@ func describeCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	return client.ProcessDescribeResponse(resp)
+	return client.ParseDescribeResponse(resp)
 }
