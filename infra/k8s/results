@@ -1,5 +1,7 @@
 # DO - 16GB 8 vCPU - $0.238 per hour - 100 pods per instance (cpu optimized) - 10 worker nodes -  75sec per 1000 containers (13 per second)
 # DO - 16GB 8 vCPU - $0.238 per hour - 100 pods per instance (cpu optimized) - 24 worker nodes - 125sec per 2300 containers (18 per second)
+# DO - 8GB  4 vCPU - $0.060 per hour - 100 pods per instance (cpu optimized) - 40 worker nodes - 210sec per 4000 containers (19 per second)
+# DO - 8GB  4 vCPU - $0.060 per hour - 100 pods per instance (cpu optimized) - 100 worker nodes - 518sec per 10000 containers (19 per second)
 # AWS - m5.4xlarge - $0.768 per hour - 16 vCPU 64 GB RAM - max 234 pods per instance - ~270MB per pod - 5 worker nodes - 6-7min per 1000 containers (2.7 per second)
 ---
 # AWS - m5.2xlarge - $0.384 per hour - 8  vCPU 32 GB RAM - max 58 pods per instance - ~550MB per pod - haven't tested
