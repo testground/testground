@@ -89,36 +89,47 @@ func (c *ConsoleOutput) Manage(id string, r io.ReadCloser) {
 
 		decoder := json.NewDecoder(r)
 		var event runtime.Event
-		var result *runtime.Result
+		var (
+			// track both in case a test-case is so broken that it
+			// reports both a success and a failure.
+			failed = false
+			ok     = false
+		)
 		for {
 			if err := decoder.Decode(&event); err != nil {
 				now := time.Now().UnixNano()
 				if err != io.EOF {
 					printMsg(now, ERROR, "stdout error: "+err.Error())
+					failed = true
 				}
-				switch {
-				case result == nil:
-					printMsg(now, INCOMPLETE, "test returned no results")
+				if !ok && !failed {
+					// incomplete.
+					printMsg(event.Timestamp, INCOMPLETE)
+				}
+
+				if !ok || failed {
 					atomic.AddUint32(&c.failed, 1)
-				case result.Outcome != runtime.OutcomeOK:
-					printMsg(event.Timestamp, FAIL, string(event.Result.Outcome), event.Result.Reason)
-					atomic.AddUint32(&c.failed, 1)
-				default:
-					printMsg(event.Timestamp, OK, event.Result.Reason)
 				}
 
 				return
 			}
 
 			if event.Result != nil {
-				result = event.Result
+				switch event.Result.Outcome {
+				case runtime.OutcomeOK:
+					ok = true
+					printMsg(event.Timestamp, OK, event.Result.Reason)
+				default:
+					failed = true
+					printMsg(event.Timestamp, FAIL, event.Result.Outcome, event.Result.Reason)
+				}
 			} else if event.Metric != nil {
 				marshaled, err := json.Marshal(event.Metric)
 				if err != nil {
 					printMsg(event.Timestamp, ERROR, "malformed metric:", err)
-					continue
+				} else {
+					printMsg(event.Timestamp, METRIC, string(marshaled))
 				}
-				printMsg(event.Timestamp, METRIC, string(marshaled))
 			} else {
 				printMsg(event.Timestamp, MESSAGE, event.Message)
 			}
