@@ -82,7 +82,7 @@ func buildCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	_, err = client.ProcessBuildResponse(resp)
+	_, err = client.ParseBuildResponse(resp)
 	return err
 }
 

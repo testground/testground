@@ -30,7 +30,7 @@ func listCommand(ctx *cli.Context) error {
 	}
 	defer resp.Close()
 
-	return client.ProcessListResponse(resp)
+	return client.ParseListResponse(resp)
 }
 
 func setupClient() (*client.Client, func(), error) {

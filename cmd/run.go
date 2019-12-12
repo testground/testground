@@ -111,7 +111,7 @@ func runCommand(c *cli.Context) error {
 			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
 
-		out, err := client.ProcessBuildResponse(resp)
+		out, err := client.ParseBuildResponse(resp)
 		if err != nil {
 			return err
 		}
@@ -153,5 +153,5 @@ func runCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	return client.ProcessRunResponse(resp)
+	return client.ParseRunResponse(resp)
 }

@@ -49,7 +49,7 @@ func (c *Client) List(ctx context.Context) (io.ReadCloser, error) {
 // Describe sends `describe` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
-// The response is a stream of `Msg` protocol messages. See `ProcessDescribeResponse()` for specifics.
+// The response is a stream of `Msg` protocol messages. See `ParseDescribeResponse()` for specifics.
 func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -63,7 +63,7 @@ func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadClose
 // Build sends `build` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
-// The response is a stream of `Msg` protocol messages. See `ProcessBuildResponse()` for specifics.
+// The response is a stream of `Msg` protocol messages. See `ParseBuildResponse()` for specifics.
 func (c *Client) Build(ctx context.Context, r *BuildRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -126,8 +126,8 @@ func printProgress(progress interface{}) error {
 	return nil
 }
 
-// ProcessRunResponse parses a response from a `run` call
-func ProcessRunResponse(r io.ReadCloser) error {
+// ParseRunResponse parses a Response from a `run` call
+func ParseRunResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
 		printProgress,
@@ -137,8 +137,8 @@ func ProcessRunResponse(r io.ReadCloser) error {
 	)
 }
 
-// ProcessListResponse parses a response from a `list` call
-func ProcessListResponse(r io.ReadCloser) error {
+// ParseListResponse parses a Response from a `list` call
+func ParseListResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
 		printProgress,
@@ -148,8 +148,8 @@ func ProcessListResponse(r io.ReadCloser) error {
 	)
 }
 
-// ProcessBuildResponse parses a response from a `build` call
-func ProcessBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
+// ParseBuildResponse parses a Response from a `build` call
+func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	var resp *BuildResponse
 	err := processGeneric(
 		r,
@@ -163,8 +163,8 @@ func ProcessBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
 	return resp, err
 }
 
-// ProcessDescribeResponse parses a response from a `describe` call
-func ProcessDescribeResponse(r io.ReadCloser) error {
+// ParseDescribeResponse parses a Response from a `describe` call
+func ParseDescribeResponse(r io.ReadCloser) error {
 	return processGeneric(
 		r,
 		printProgress,
