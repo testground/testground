@@ -56,9 +56,10 @@ terraform apply
 aws eks update-kubeconfig --name $CLUSTER_NAME
 ```
 
-8. Export Terraform outputs
+8. Edit outputs.tf, add admin users to the config (whoever is going to operate the AWS EKS cluster), and export Terraform outputs
 
 ```
+vim config-map-aws-auth
 terraform output config-map-aws-auth > outputs/config-map-aws-auth.yaml
 ```
 

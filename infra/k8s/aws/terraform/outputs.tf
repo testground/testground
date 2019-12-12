@@ -15,28 +15,8 @@ data:
         - system:bootstrappers
         - system:nodes
   mapUsers: |
-    - userarn: arn:aws:iam::909427826938:user/anton
-      username: anton
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::909427826938:user/daviddias
-      username: anton
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::909427826938:user/dirkmc
-      username: anton
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::909427826938:user/jim
-      username: anton
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::909427826938:user/raulk
-      username: anton
-      groups:
-        - system:masters
-    - userarn: arn:aws:iam::909427826938:user/Stebalien
-      username: anton
+    - userarn: arn:aws:iam::909427826938:user/YOUR_USERNAME
+      username: $YOUR_USERNAME
       groups:
         - system:masters
 
