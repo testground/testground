@@ -3,6 +3,10 @@ name = "dht"
 # from GitHub.
 source_path = "file://${TESTGROUND_SRCDIR}/plans/dht"
 
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
 [build_strategies."docker:go"]
 enabled = true
 go_version = "1.13"
