@@ -109,7 +109,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOu
 
 		cmd := exec.Command(input.ArtifactPath)
 		stdout, _ := cmd.StdoutPipe()
-		cmd.Stderr = cmd.Stdout // interleave stdout/stderr
+		stderr, _ := cmd.StderrPipe()
 		cmd.Env = env
 
 		if err := cmd.Start(); err != nil {
@@ -118,7 +118,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOu
 		}
 		commands = append(commands, cmd)
 
-		console.Manage(id, stdout)
+		console.Manage(id, stdout, stderr)
 	}
 	if err := console.Wait(); err != nil {
 		return nil, err

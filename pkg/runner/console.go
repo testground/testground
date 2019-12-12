@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,7 +66,7 @@ func (c *ConsoleOutput) FailStart(id string, message interface{}) {
 
 // Manage should be called on the standard output of all test plans. It will
 // send the events to standard out and record whether or not the test passed.
-func (c *ConsoleOutput) Manage(id string, r io.ReadCloser) {
+func (c *ConsoleOutput) Manage(id string, stdout, stderr io.ReadCloser) {
 	idx := c.count
 	c.count++
 
@@ -78,16 +79,28 @@ func (c *ConsoleOutput) Manage(id string, r io.ReadCloser) {
 		METRIC     = c.aurora.BgBlue("METRIC").White()
 	)
 
-	c.wg.Add(1)
+	c.wg.Add(2)
 	go func() {
-		defer r.Close()
+		defer stderr.Close()
+		defer c.wg.Done()
+		scanner := bufio.NewScanner(stderr)
+		for scanner.Scan() {
+			c.msg(idx, id, time.Now(), ERROR, scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			c.msg(idx, id, time.Now(), ERROR, "stderr error: "+err.Error())
+		}
+	}()
+
+	go func() {
+		defer stdout.Close()
 		defer c.wg.Done()
 
 		printMsg := func(timestamp int64, kind interface{}, message ...interface{}) {
 			c.msg(idx, id, time.Unix(0, timestamp), kind, message...)
 		}
 
-		decoder := json.NewDecoder(r)
+		decoder := json.NewDecoder(stdout)
 		var event runtime.Event
 		var (
 			// track both in case a test-case is so broken that it

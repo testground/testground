@@ -252,13 +252,15 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 				return nil, deleteContainers(cli, log, containers)
 			}
 
-			rpipe, wpipe := io.Pipe()
+			rstdout, wstdout := io.Pipe()
+			rstderr, wstderr := io.Pipe()
 			go func() {
-				_, err := stdcopy.StdCopy(wpipe, wpipe, stream)
-				_ = wpipe.CloseWithError(err)
+				_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
+				_ = wstdout.CloseWithError(err)
+				_ = wstderr.CloseWithError(err)
 			}()
 
-            output.Manage(id[0:12], rpipe)
+			output.Manage(id[0:12], rstdout, rstderr)
 		}
 		return nil, output.Wait()
 	}
