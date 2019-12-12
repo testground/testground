@@ -33,7 +33,13 @@ enabled = true
 name = "ok"
 instances = { min = 1, max = 200, default = 1 }
 
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
+
 # seq 1
 [[testcases]]
 name = "abort"
 instances = { min = 1, max = 250, default = 1 }
+
+  [testcases.params]
+  some_param = { type = "int", desc = "some param", unit = "peers" }
