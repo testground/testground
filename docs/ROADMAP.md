@@ -15,9 +15,9 @@
 
 We have a format to spec out Test Plans and we've spec'ed out at least 10 Test Plans. These 10 Test Plans should directly contribute to increase the degree of confidence when shipping a go-ipfs Release 
 
-#### Testground can levarage the Cloud to run its tests
+#### Testground can leverage the Cloud to run its tests
 
-- Testground can run on Cloud Infrastructure as well as in local envinronment
+- Testground can run on Cloud Infrastructure as well as in local environment
 - A dashboard exists to visualize the result of the tests
 
 #### Testground can simulate network conditions
