@@ -225,7 +225,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		// We have bootstrappers.
 
 		if isBootstrapper {
-			runenv.Message("bootstrap::connect: am bootstrapper")
+			runenv.Message("bootstrap: am bootstrapper")
 			// Announce ourself as a bootstrap node.
 			if _, err := writer.Write(BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
 				return err
@@ -273,7 +273,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	runenv.Message("bootstrap: have peer in routing table")
 
 	// Wait till everyone is done bootstrapping.
-	if err := Sync(ctx, runenv, watcher, writer, "bootstrap::connected"); err != nil {
+	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-connected"); err != nil {
 		return err
 	}
 
@@ -294,7 +294,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	// _shouldn't_ be necessary.
 
 	// Wait till everyone has full routing tables.
-	if err := Sync(ctx, runenv, watcher, writer, "bootstrap::routing"); err != nil {
+	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-routing"); err != nil {
 		return err
 	}
 
@@ -312,7 +312,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	dht.Host().ConnManager().TrimOpenConns(ctx)
 
 	// Wait for everyone to finish trimming connections.
-	if err := Sync(ctx, runenv, watcher, writer, "bootstrap::trimmed"); err != nil {
+	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-trimmed"); err != nil {
 		return err
 	}
 
@@ -348,7 +348,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	}
 
 	// Wait for everyone to finish trimming connections.
-	if err := Sync(ctx, runenv, watcher, writer, "bootstrap::ready"); err != nil {
+	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-ready"); err != nil {
 		return err
 	}
 
