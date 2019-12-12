@@ -48,8 +48,8 @@ func (c *ConsoleOutput) msg(idx int, id string, now time.Time, kind interface{},
 	if eventTime < 0 {
 		eventTime = 0
 	}
-	fmt.Printf("%s\t%10s %s %s\n",
-		eventTime,
+	fmt.Printf("%9.4fs %10s %s %s\n",
+		float64(eventTime)/float64(time.Second),
 		kind,
 		c.aurora.Index(uint8(idx%15)+1, "<< "+id+" >>"),
 		fmt.Sprint(message...),
