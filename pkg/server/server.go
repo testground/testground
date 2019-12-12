@@ -40,10 +40,10 @@ func New(listenAddr string) *Server {
 	srv := &Server{}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/list", loggingHandler(srv.listHandler)).Methods("GET")
-	r.HandleFunc("/describe", loggingHandler(srv.describeHandler)).Methods("GET")
-	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
-	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
+	r.HandleFunc("/list", withTgWriter(srv.listHandler)).Methods("GET")
+	r.HandleFunc("/describe", withTgWriter(srv.describeHandler)).Methods("GET")
+	r.HandleFunc("/build", withTgWriter(srv.buildHandler)).Methods("POST")
+	r.HandleFunc("/run", withTgWriter(srv.runHandler)).Methods("POST")
 
 	srv.Server = &http.Server{
 		Handler:      r,
@@ -55,7 +55,7 @@ func New(listenAddr string) *Server {
 	return srv
 }
 
-func loggingHandler(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {
+func withTgWriter(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("ruid", uuid.New()[:8])
 

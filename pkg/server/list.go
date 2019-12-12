@@ -3,12 +3,15 @@ package server
 import (
 	"net/http"
 
+	"github.com/ipfs/testground/pkg/tgwriter"
 	"go.uber.org/zap"
 )
 
 func (srv *Server) listHandler(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger) {
 	log.Debugw("handle request", "command", "list")
 	defer log.Debugw("request handled", "command", "list")
+
+	tgw := tgwriter.New(w, log)
 
 	engine, err := GetEngine()
 	if err != nil {
@@ -19,12 +22,13 @@ func (srv *Server) listHandler(w http.ResponseWriter, r *http.Request, log *zap.
 	plans := engine.TestCensus().ListPlans()
 	for _, tp := range plans {
 		for _, tc := range tp.TestCases {
-			_, err := w.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
+			_, err := tgw.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
 			if err != nil {
-				log.Errorw("could not write response", "err", err)
+				log.Errorf("could not write response back", "err", err)
 			}
-
 			w.(http.Flusher).Flush()
 		}
 	}
+
+	tgw.WriteResult("Done")
 }

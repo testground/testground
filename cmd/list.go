@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 
@@ -31,12 +30,7 @@ func listCommand(ctx *cli.Context) error {
 	}
 	defer resp.Close()
 
-	scanner := bufio.NewScanner(resp)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-
-	return nil
+	return client.ProcessListResponse(resp)
 }
 
 func setupClient() (*client.Client, func(), error) {
