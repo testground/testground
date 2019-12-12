@@ -258,7 +258,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 				_ = wpipe.CloseWithError(err)
 			}()
 
-			output.Manage(id, rpipe)
+            output.Manage(id[0:12], rpipe)
 		}
 		return nil, output.Wait()
 	}
