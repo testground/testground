@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/docker/docker/api/types/network"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/logging"
@@ -142,6 +143,13 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		Internal:   true,
 		Attachable: true,
 		Scope:      "swarm",
+		IPAM: &network.IPAM{
+			Driver: "default",
+			Config: []network.IPAMConfig{{
+				Subnet:  "192.168.0.0/16",
+				Gateway: "192.168.0.1",
+			}},
+		},
 		Labels: map[string]string{
 			"testground.plan":     input.TestPlan.Name,
 			"testground.testcase": testcase.Name,
@@ -176,7 +184,6 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 	log.Infow("network created successfully", "id", networkID)
 
 	// Create the service.
-
 	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
 
 	serviceSpec := swarm.ServiceSpec{
@@ -212,7 +219,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 				},
 			},
 			Placement: &swarm.Placement{
-				MaxReplicas: 200,
+				MaxReplicas: 10000,
 				Constraints: []string{
 					"node.labels.TGRole==worker",
 				},
