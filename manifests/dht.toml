@@ -31,7 +31,7 @@ enabled = true
 # seq 0
 [[testcases]]
 name = "find-peers"
-instances = { min = 16, max = 200, default = 16 }
+instances = { min = 16, max = 10000, default = 16 }
 
   [testcases.params]
   auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = "true" }
