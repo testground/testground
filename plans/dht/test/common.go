@@ -114,19 +114,16 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 	if !runenv.TestSidecar {
 		return nil
 	}
+
+	// Wait for the network to be initialized.
+	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+		return err
+	}
+
 	// TODO: just put the hostname inside the runenv?
 	hostname, err := os.Hostname()
 	if err != nil {
 		return err
-	}
-
-	// Wait for the network to be ready.
-	//
-	// Technically, we don't need to do this as configuring the network will
-	// block on it being ready.
-	err = <-watcher.Barrier(ctx, "network-initialized", int64(runenv.TestInstanceCount))
-	if err != nil {
-		return fmt.Errorf("failed to initialize network: %w", err)
 	}
 
 	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
