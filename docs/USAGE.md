@@ -275,3 +275,22 @@ ok := runenv.JSONParam("myparam", &v)
 fmt.Println(v)
 // map[key1:value1 key2:value2]
 ```
+
+### Networking & Sidecar
+
+Where supported (all runners except the local:go runner), the "sidecar" service
+is responsible for configuring the network for each test instance. At a
+_minimum_, you should wait for the network to be initialized before proceeding
+with your test.
+
+```go
+if err := sync.WaitNetworkInitialized(ctx context.Context, runenv, watcher); err != nil {
+    runtime.Abort(err)
+    return
+}
+```
+
+For more powerful network management (e.g., setting bandwidth limits and
+latencies), see the
+[sidecar](https://github.com/ipfs/testground/blob/master/docs/SIDECAR.md)
+documentation.
