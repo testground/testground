@@ -2,6 +2,8 @@ package golang
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -246,13 +248,17 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	}
 
 	if cfg.PushRegistry {
-		if cfg.RegistryType != "aws" {
-			// We only support aws at this time.
-			return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+		if cfg.RegistryType == "aws" {
+			err := pushToAWSRegistry(ctx, log, cli, in, out)
+			return out, err
 		}
 
-		err := pushToAWSRegistry(ctx, log, cli, in, out)
-		return out, err
+		if cfg.RegistryType == "dockerhub" {
+			err := pushToDockerHubRegistry(ctx, log, cli, in, out)
+			return out, err
+		}
+
+		return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
 	return out, nil
@@ -298,6 +304,48 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	if err != nil {
 		return err
 	}
+
+	// Pipe the docker output to stdout.
+	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+		return err
+	}
+
+	// replace the artifact path by the pushed image.
+	out.ArtifactPath = tag
+	return nil
+}
+
+func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+	// AWS ECR repository name is testground-<plan_name>.
+	repo := fmt.Sprintf("testground-%s", in.TestPlan.Name)
+
+	uri := "nonsens3/testground"
+
+	// Tag the image under the AWS ECR repository.
+	tag := uri + ":" + in.BuildID
+	log.Infow("tagging image", "source", out.ArtifactPath, "tag", tag, "repo", repo)
+
+	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
+		return err
+	}
+
+	auth := types.AuthConfig{
+		Username: "nonsens3",
+		Password: "426066c3-d44b-470a-a9f0-1537e3f23fe4",
+	}
+	authBytes, _ := json.Marshal(auth)
+	authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+	// TODO for some reason, this push is way slower than the equivalent via the
+	// docker CLI. Needs investigation.
+	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+		RegistryAuth: authBase64,
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", repo)
 
 	// Pipe the docker output to stdout.
 	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {

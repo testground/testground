@@ -176,7 +176,6 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 	log.Infow("network created successfully", "id", networkID)
 
 	// Create the service.
-
 	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
 
 	serviceSpec := swarm.ServiceSpec{

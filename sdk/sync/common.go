@@ -35,7 +35,8 @@ func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
 
 	if host == "" {
 		// fallback on localhost (useful for local:exec runners).
-		host = "localhost"
+		//host = "localhost"
+		host = "redis-master.default.svc.cluster.local"
 
 		// Try to resolve the "testground-redis" host from Docker's DNS.
 		//

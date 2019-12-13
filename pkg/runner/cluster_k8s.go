@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
@@ -97,11 +98,16 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 	}
 
 	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
+	//env := util.ToOptionsSlice(runenv.ToEnvVars())
+
+	env := util.ToEnvVar(runenv.ToEnvVars())
 
 	// Set the log level if provided in cfg.
 	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+		env = append(env, v1.EnvVar{
+			Name:  "LOG_LEVEL",
+			Value: cfg.LogLevel,
+		})
 	}
 
 	// Define k8s client configuration
@@ -122,19 +128,18 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 		replicas = uint64(input.Instances)
 	)
 
-	log.Infow("creating pods", "name", sname, "image", image, "replicas", replicas)
+	log.Infow("creating k8s deployment", "name", sname, "image", image, "replicas", replicas)
 
 	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "tg",
+			Name: fmt.Sprintf("tg-%s", input.RunID),
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(int32(replicas)),
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-
 					"testground.plan":     input.TestPlan.Name,
 					"testground.testcase": testcase.Name,
 					"testground.runid":    input.RunID,
@@ -151,8 +156,8 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 				Spec: apiv1.PodSpec{
 					Containers: []apiv1.Container{
 						{
-							Name:            "ping",
-							Image:           "nonsens3/docker-ping:latest",
+							Name:            "testplan",
+							Image:           image,
 							ImagePullPolicy: "IfNotPresent",
 							Ports:           []apiv1.ContainerPort{},
 							Resources: apiv1.ResourceRequirements{
@@ -161,6 +166,7 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 									apiv1.ResourceMemory: resource.MustParse("24M"),
 								},
 							},
+							Env: env,
 						},
 					},
 				},
