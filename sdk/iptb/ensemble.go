@@ -1,7 +1,9 @@
 package iptb
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"sync"
@@ -9,6 +11,7 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 
+	config "github.com/ipfs/go-ipfs-config"
 	"github.com/ipfs/iptb/testbed"
 	testbedi "github.com/ipfs/iptb/testbed/interfaces"
 )
@@ -70,17 +73,45 @@ func (te *TestEnsemble) Initialize() {
 		node := &testNode{nodes[i]}
 		te.tags[k] = node
 
-		if tn.opts.Initialize || tn.opts.Start {
+		if tn.Initialize || tn.Start {
 			wg.Add(1)
 
 			go func(n testbedi.Core) {
 				defer wg.Done()
 
 				var err error
-				if tn.opts.Initialize {
+				if tn.Initialize {
 					_, err = n.Init(context.Background())
+
+					// If we have a function to modify the options of the repository,
+					// we load the current configuration, then we apply our custom function,
+					// create a temporary file with the new configuration and finally
+					// execute 'ipfs config replace <newConfigFile>'.
+					if tn.AddRepoOptions != nil {
+						cfg, err := getCurrentConfiguration(n)
+						if err != nil {
+							panic(err)
+						}
+
+						err = tn.AddRepoOptions(cfg)
+						if err != nil {
+							panic(err)
+						}
+
+						filePath, err := createConfigurationFile(cfg)
+						if err != nil {
+							panic(err)
+						}
+						defer os.Remove(filePath)
+
+						_, err = n.RunCmd(context.Background(), nil, "ipfs", "config", "replace", filePath)
+						if err != nil {
+							panic(err)
+						}
+					}
 				}
-				if err == nil && tn.opts.Start {
+
+				if err == nil && tn.Start {
 					_, err = n.Start(context.Background(), true)
 				}
 				if err != nil {
@@ -133,4 +164,37 @@ func (te *TestEnsemble) GetNode(tag string) *testNode {
 // TempDir
 func (te *TestEnsemble) TempDir() string {
 	return te.testbed.Dir()
+}
+
+func getCurrentConfiguration(node testbedi.Core) (*config.Config, error) {
+	out, err := node.RunCmd(context.Background(), nil, "ipfs", "config", "show")
+	if err != nil {
+		return nil, err
+	}
+
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(out.Stdout())
+
+	cfg := &config.Config{}
+	return cfg, json.Unmarshal(buf.Bytes(), cfg)
+}
+
+func createConfigurationFile(cfg *config.Config) (string, error) {
+	bytes, err := config.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+
+	file, err := ioutil.TempFile("", "cfg")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	_, err = file.Write(bytes)
+	if err != nil {
+		return "", err
+	}
+
+	return file.Name(), nil
 }

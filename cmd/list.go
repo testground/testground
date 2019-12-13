@@ -1,13 +1,12 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/daemon/client"
-	"github.com/ipfs/testground/pkg/inproc"
+	"github.com/ipfs/testground/pkg/server"
 	"github.com/urfave/cli"
 )
 
@@ -31,12 +30,7 @@ func listCommand(ctx *cli.Context) error {
 	}
 	defer resp.Close()
 
-	scanner := bufio.NewScanner(resp)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-
-	return nil
+	return client.ParseListResponse(resp)
 }
 
 func setupClient() (*client.Client, func(), error) {
@@ -50,7 +44,7 @@ func setupClient() (*client.Client, func(), error) {
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(context.Background())
 
-		envcfg.Client.Endpoint, err = inproc.ListenAndServe(ctx)
+		envcfg.Client.Endpoint, err = server.ListenAndServe(ctx)
 		if err != nil {
 			return nil, cancel, err
 		}

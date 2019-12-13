@@ -1,13 +1,11 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -24,7 +22,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
-	"github.com/logrusorgru/aurora"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -238,55 +235,34 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 		log.Infow("started containers", "count", len(containers))
 	}
 
-	type containerReader struct {
-		io.ReadCloser
-		id    string
-		color uint8
-	}
-
-	a := aurora.NewAurora(logging.IsTerminal())
-
 	if !cfg.Background {
-		var wg sync.WaitGroup
-		for n, id := range containers {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		output := NewConsoleOutput()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		for _, id := range containers {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: true,
 				Since:      "2019-01-01T00:00:00",
 				Follow:     true,
 			})
-			defer cancel()
 
 			if err != nil {
 				log.Error(err)
 				return nil, deleteContainers(cli, log, containers)
 			}
 
-			rpipe, wpipe := io.Pipe()
-			reader := containerReader{
-				ReadCloser: rpipe,
-				id:         id,
-				color:      uint8(n%15) + 1,
-			}
-
+			rstdout, wstdout := io.Pipe()
+			rstderr, wstderr := io.Pipe()
 			go func() {
-				_, err := stdcopy.StdCopy(wpipe, wpipe, stream)
-				_ = wpipe.CloseWithError(err)
+				_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
+				_ = wstdout.CloseWithError(err)
+				_ = wstderr.CloseWithError(err)
 			}()
 
-			wg.Add(1)
-			go func(r *containerReader) {
-				defer wg.Done()
-				defer r.Close()
-
-				scanner := bufio.NewScanner(r)
-				for scanner.Scan() {
-					fmt.Println(a.Index(r.color, "<< "+r.id+" >>"), scanner.Text())
-				}
-			}(&reader)
+			output.Manage(id[0:12], rstdout, rstderr)
 		}
-		wg.Wait()
+		return nil, output.Wait()
 	}
 
 	return nil, nil

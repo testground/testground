@@ -149,6 +149,10 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
 	}
 
+	if builder == "" {
+		builder = plan.Defaults.Builder
+	}
+
 	// Find the builder.
 	bm, ok := e.builders[builder]
 	if !ok {
@@ -193,7 +197,12 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 	input.BuildConfig = cfg
 	input.EnvConfig = *e.envcfg
 
-	return bm.Build(input, output)
+	res, err := bm.Build(input, output)
+	if err != nil {
+		return nil, err
+	}
+	res.BuilderID = bm.ID()
+	return res, err
 }
 
 func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
@@ -209,10 +218,19 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
 	}
 
+	if runner == "" {
+		runner = plan.Defaults.Runner
+	}
+
 	// Get the runner.
 	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	// Check if builder and runner are compatible
+	if !stringInSlice(input.BuilderID, run.CompatibleBuilders()) {
+		return nil, fmt.Errorf("cannot use runner %v with build from %v", runner, input.BuilderID)
 	}
 
 	// Fall back to default instance count if none was provided.
@@ -292,4 +310,13 @@ func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (
 	v := reflect.New(typ).Interface()
 	_, err := toml.DecodeReader(buf, v)
 	return v, err
+}
+
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/tgwriter"
 	"github.com/mitchellh/mapstructure"
 )
@@ -48,7 +49,7 @@ func (c *Client) List(ctx context.Context) (io.ReadCloser, error) {
 // Describe sends `describe` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
-// The response is a stream of `Msg` protocol messages. See `ProcessDescribeResponse()` for specifics.
+// The response is a stream of `Msg` protocol messages. See `ParseDescribeResponse()` for specifics.
 func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -62,7 +63,7 @@ func (c *Client) Describe(ctx context.Context, r *DescribeRequest) (io.ReadClose
 // Build sends `build` request to the daemon.
 // The Body in the response implement an io.ReadCloser and it's up to the caller to
 // close it.
-// The response is a stream of `Msg` protocol messages. See `ProcessBuildResponse()` for specifics.
+// The response is a stream of `Msg` protocol messages. See `ParseBuildResponse()` for specifics.
 func (c *Client) Build(ctx context.Context, r *BuildRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -87,45 +88,7 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
-// ProcessBuildResponse parses a response from a `build` call
-func ProcessBuildResponse(r io.ReadCloser) (string, error) {
-	var msg tgwriter.Msg
-
-	for dec := json.NewDecoder(r); ; {
-		err := dec.Decode(&msg)
-		if err != nil {
-			return "", err
-		}
-
-		switch msg.Type {
-		case "progress":
-			m, err := base64.StdEncoding.DecodeString(msg.Payload.(string))
-			if err != nil {
-				return "", err
-			}
-
-			fmt.Print(string(m))
-
-		case "error":
-			return "", errors.New(msg.Error.Message)
-
-		case "result":
-			var resp BuildResponse
-			err := mapstructure.Decode(msg.Payload, &resp)
-			if err != nil {
-				return "", err
-			}
-
-			return resp.ArtifactPath, nil
-
-		default:
-			return "", errors.New("unknown message type")
-		}
-	}
-}
-
-// ProcessDescribeResponse parses a response from a `describe` call
-func ProcessDescribeResponse(r io.ReadCloser) error {
+func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 
 	for dec := json.NewDecoder(r); ; {
@@ -136,23 +99,79 @@ func ProcessDescribeResponse(r io.ReadCloser) error {
 
 		switch msg.Type {
 		case "progress":
-			m, err := base64.StdEncoding.DecodeString(msg.Payload.(string))
+			err = fnProgress(msg.Payload)
 			if err != nil {
 				return err
 			}
-
-			fmt.Print(string(m))
 
 		case "error":
 			return errors.New(msg.Error.Message)
 
 		case "result":
-			return nil
+			return fnResult(msg.Payload)
 
 		default:
 			return errors.New("unknown message type")
 		}
 	}
+}
+
+func printProgress(progress interface{}) error {
+	m, err := base64.StdEncoding.DecodeString(progress.(string))
+	if err != nil {
+		return err
+	}
+
+	fmt.Print(string(m))
+	return nil
+}
+
+// ParseRunResponse parses a response from a `run` call
+func ParseRunResponse(r io.ReadCloser) error {
+	return parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+}
+
+// ParseListResponse parses a response from a `list` call
+func ParseListResponse(r io.ReadCloser) error {
+	return parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+}
+
+// ParseBuildResponse parses a response from a `build` call
+func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
+	var resp *BuildResponse
+	err := parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			resp = &BuildResponse{}
+			return mapstructure.Decode(result, resp)
+		},
+	)
+
+	return resp, err
+}
+
+// ParseDescribeResponse parses a response from a `describe` call
+func ParseDescribeResponse(r io.ReadCloser) error {
+	return parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {

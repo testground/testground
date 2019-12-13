@@ -1,17 +1,12 @@
 package runner
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"net"
 	"os/exec"
 	"reflect"
-	"strconv"
-	"sync"
-
-	"github.com/logrusorgru/aurora"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
@@ -91,47 +86,43 @@ func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOu
 	}
 
 	// Spawn as many instances as the input parameters require.
-	var wg sync.WaitGroup
-	for i := 0; i < instances; i++ {
-		var env []string
-		for k, v := range runenv.ToEnvVars() {
-			env = append(env, k+"="+v)
+	console := NewConsoleOutput()
+	commands := make([]*exec.Cmd, 0, instances)
+	defer func() {
+		for _, cmd := range commands {
+			_ = cmd.Process.Kill()
 		}
+		for _, cmd := range commands {
+			_ = cmd.Wait()
+		}
+		_ = console.Wait()
+	}()
 
-		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
-
-		a := aurora.NewAurora(logging.IsTerminal())
-
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-
-			var (
-				nstr      = strconv.Itoa(n)
-				color     = uint8(n%15) + 1
-				cmd       = exec.Command(input.ArtifactPath)
-				stdout, _ = cmd.StdoutPipe()
-				stderr, _ = cmd.StderrPipe()
-				combined  = io.MultiReader(stdout, stderr)
-				scanner   = bufio.NewScanner(combined)
-			)
-
-			cmd.Env = env
-
-			if err := cmd.Start(); err != nil {
-				fmt.Fprintln(ow, a.Index(color, "<< instance "+nstr+" >>"), err)
-				return
-			}
-			defer cmd.Wait() //nolint
-
-			for scanner.Scan() {
-				fmt.Fprintln(ow, a.Index(color, "<< instance "+nstr+" >>"), scanner.Text())
-			}
-		}(i)
+	var env []string
+	for k, v := range runenv.ToEnvVars() {
+		env = append(env, k+"="+v)
 	}
 
-	wg.Wait()
+	for i := 0; i < instances; i++ {
+		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
+		id := fmt.Sprintf("instance %3d", i)
 
+		cmd := exec.Command(input.ArtifactPath)
+		stdout, _ := cmd.StdoutPipe()
+		stderr, _ := cmd.StderrPipe()
+		cmd.Env = env
+
+		if err := cmd.Start(); err != nil {
+			console.FailStart(id, err)
+			continue
+		}
+		commands = append(commands, cmd)
+
+		console.Manage(id, stdout, stderr)
+	}
+	if err := console.Wait(); err != nil {
+		return nil, err
+	}
 	return new(api.RunOutput), nil
 }
 

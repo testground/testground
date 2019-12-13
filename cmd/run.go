@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -112,10 +111,13 @@ func runCommand(c *cli.Context) error {
 			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
 
-		artifactPath, err = client.ProcessBuildResponse(resp)
+		out, err := client.ParseBuildResponse(resp)
 		if err != nil {
 			return err
 		}
+
+		artifactPath = out.ArtifactPath
+		builderId = out.BuilderID
 	}
 
 	// Process run cfg override.
@@ -142,6 +144,7 @@ func runCommand(c *cli.Context) error {
 		ArtifactPath: artifactPath,
 		Parameters:   parameters,
 		RunnerConfig: cfgOverride,
+		BuilderID:    builderId,
 	}
 
 	resp, err := api.Run(context.Background(), runReq)
@@ -150,10 +153,5 @@ func runCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	scanner := bufio.NewScanner(resp)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-
-	return nil
+	return client.ParseRunResponse(resp)
 }
