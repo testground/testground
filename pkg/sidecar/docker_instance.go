@@ -23,21 +23,57 @@ const (
 	EnvRedisHost = "REDIS_HOST"
 )
 
+type link struct {
+	netlink.Link
+	IPv4, IPv6 *net.IPNet
+}
+
 // dockerLinks maps a set of container networks to container link devices.
-func dockerLinks(nl *netlink.Handle, nsettings *types.NetworkSettings) (map[string]netlink.Link, error) {
-	macToName := make(map[string]string, len(nsettings.Networks))
+func dockerLinks(nl *netlink.Handle, nsettings *types.NetworkSettings) (map[string]link, error) {
+	type dnet struct {
+		id       string
+		ip4, ip6 *net.IPNet
+	}
+	macToNet := make(map[string]dnet, len(nsettings.Networks))
 	for _, network := range nsettings.Networks {
-		macToName[network.MacAddress] = network.NetworkID
+		n := dnet{
+			id: network.NetworkID,
+		}
+		if network.IPAddress != "" {
+			ip := net.ParseIP(network.IPAddress)
+			if ip == nil {
+				return nil, fmt.Errorf("failed to parse ipv4 %s addrs", network.IPAddress)
+			}
+			n.ip4 = &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(network.IPPrefixLen, 8*net.IPv4len),
+			}
+		}
+		if network.GlobalIPv6Address != "" {
+			ip := net.ParseIP(network.GlobalIPv6Address)
+			if ip == nil {
+				return nil, fmt.Errorf("failed to parse ipv6 %s addrs", network.GlobalIPv6Address)
+			}
+			n.ip6 = &net.IPNet{
+				IP:   ip,
+				Mask: net.CIDRMask(network.GlobalIPv6PrefixLen, 8*net.IPv6len),
+			}
+		}
+		macToNet[network.MacAddress] = n
 	}
 
 	links, err := nl.LinkList()
 	if err != nil {
 		return nil, err
 	}
-	linkMap := make(map[string]netlink.Link, len(links))
-	for _, link := range links {
-		if id, ok := macToName[link.Attrs().HardwareAddr.String()]; ok {
-			linkMap[id] = link
+	linkMap := make(map[string]link, len(links))
+	for _, l := range links {
+		if n, ok := macToNet[l.Attrs().HardwareAddr.String()]; ok {
+			linkMap[n.id] = link{
+				Link: l,
+				IPv4: n.ip4,
+				IPv6: n.ip6,
+			}
 		}
 	}
 	return linkMap, nil
@@ -147,7 +183,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 	// Finally, construct the network manager.
 	network := &DockerNetwork{
 		container:      container,
-		activeLinks:    make(map[string]*NetlinkLink, len(info.NetworkSettings.Networks)),
+		activeLinks:    make(map[string]*dockerLink, len(info.NetworkSettings.Networks)),
 		availableLinks: make(map[string]string, len(networks)),
 		nl:             netlinkHandle,
 	}
@@ -174,7 +210,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 	for id, link := range links {
 		if name, ok := reverseIndex[id]; ok {
 			// manage this network
-			network.activeLinks[name], err = NewNetlinkLink(netlinkHandle, link)
+			handle, err := NewNetlinkLink(netlinkHandle, link.Link)
 			if err != nil {
 				return nil, fmt.Errorf(
 					"failed to initialize link %s (%s): %w",
@@ -182,6 +218,11 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 					link.Attrs().Name,
 					err,
 				)
+			}
+			network.activeLinks[name] = &dockerLink{
+				NetlinkLink: handle,
+				IPv4:        link.IPv4,
+				IPv6:        link.IPv6,
 			}
 			continue
 		}
@@ -215,10 +256,15 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 	return NewInstance(runenv, info.Config.Hostname, network)
 }
 
+type dockerLink struct {
+	*NetlinkLink
+	IPv4, IPv6 *net.IPNet
+}
+
 type DockerNetwork struct {
 	container      *dockermanager.Container
-	activeLinks    map[string]*NetlinkLink // name -> link handle
-	availableLinks map[string]string       // name -> id
+	activeLinks    map[string]*dockerLink // name -> link handle
+	availableLinks map[string]string      // name -> id
 	nl             *netlink.Handle
 }
 
@@ -246,17 +292,17 @@ func (dn *DockerNetwork) ListActive() []string {
 }
 
 func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
-	netId, ok := dn.availableLinks[cfg.Network]
-	if !ok {
+	netId, available := dn.availableLinks[cfg.Network]
+	if !available {
 		return fmt.Errorf("unsupported network: %s", cfg.Network)
 	}
 
-	link, ok := dn.activeLinks[cfg.Network]
+	link, online := dn.activeLinks[cfg.Network]
 
 	// Are we _disabling_ the network?
 	if !cfg.Enable {
 		// Yes, is it already disabled?
-		if ok {
+		if online {
 			// No. Disconnect.
 			if err := dn.container.Manager.NetworkDisconnect(ctx, netId, dn.container.ID, true); err != nil {
 				return err
@@ -266,20 +312,38 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 		return nil
 	}
 
-	// We don't yet support setting IP addresses.
-	if cfg.IP != nil {
-		return fmt.Errorf("TODO: IP addresses cannot currently be configured")
+	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
+		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
+		// Disconnect and reconnect to change the IP addresses.
+		//
+		// NOTE: We probably don't need to do this on local docker.
+		// However, we probably do with swarm.
+		online = false
+		if err := dn.container.Manager.NetworkDisconnect(ctx, netId, dn.container.ID, true); err != nil {
+			return err
+		}
+		delete(dn.activeLinks, netId)
 	}
 
 	// Are we _connected_ to the network.
-	if !ok {
-		// No, we're not yet connected.
+	if !online {
+		// No, we're not.
 		// Connect.
+		ipamConfig := network.EndpointIPAMConfig{}
+		if cfg.IPv4 != nil {
+			ipamConfig.IPv4Address = cfg.IPv4.IP.String()
+		}
+		if cfg.IPv6 != nil {
+			ipamConfig.IPv6Address = cfg.IPv6.IP.String()
+		}
+
 		if err := dn.container.Manager.NetworkConnect(
 			ctx,
 			netId,
 			dn.container.ID,
-			&network.EndpointSettings{},
+			&network.EndpointSettings{
+				IPAMConfig: &ipamConfig,
+			},
 		); err != nil {
 			return err
 		}
@@ -298,9 +362,14 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 			return fmt.Errorf("couldn't find network interface for: %s", cfg.Network)
 		}
 		// Register an active link.
-		link, err = NewNetlinkLink(dn.nl, linkInfo)
+		handle, err := NewNetlinkLink(dn.nl, linkInfo.Link)
 		if err != nil {
 			return err
+		}
+		link = &dockerLink{
+			NetlinkLink: handle,
+			IPv4:        linkInfo.IPv4,
+			IPv6:        linkInfo.IPv6,
 		}
 		dn.activeLinks[netId] = link
 	}

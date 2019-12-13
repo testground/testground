@@ -90,9 +90,15 @@ type NetworkConfig struct {
 	// Network is the name of the network to configure
 	Network string
 
-	// IP sets the IP address of this network device. If unspecified, docker
-	// will assign a random IP address.
-	IP *net.IPNet
+	// IPv4 and IPv6 set the IP addresses of this network device. If
+	// unspecified, the sidecar will leave them alone.
+	//
+	// Your test-case will be assigned a B block in the range
+	// 16.0.0.1-32.0.0.0. X.Y.0.1 will always be reserved for the gateway
+	// and shouldn't be used by the test.
+	//
+	// TODO: IPv6 is currently not supported.
+	IPv4, IPv6 *net.IPNet
 
 	// Enable enables this network device.
 	Enable bool
