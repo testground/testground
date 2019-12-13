@@ -13,15 +13,18 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
 
 ## Plan Parameters
 
+- **Builder Parameters**
+  - Single Image - The go-libp2p commit that is being tested
+- **Runner Paramegers**
+  - Image Resources CPU & Ram
 - **Network Parameters**
   - `instances` - Number of nodes that are spawned for the test (from 10 to 1000000)
-- **Image Parameters**
-  - Single Image - The go-libp2p commit that is being tested
-  - Image Resources CPU & Ram
 
 ## Tests
 
-### `Test:` Find Peers
+### `Test:` Find peers
+
+> Test the Peer Routing efficiency
 
 - **Test Parameters**
   - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
@@ -36,7 +39,9 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
   - **Act I**
     - Each node calls Find Peers `n-find-peers` times
 
-### `Test:` Find Providers
+### `Test:` Find providers
+
+> Content Routing, finding providers
 
 - **Test Parameters**
   - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
@@ -57,7 +62,9 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
     - `p-failing` of the nodes attempt to resolve records that do not exist
 
 
-### `Test:` Provide Stress
+### `Test:` Provide stress
+
+> Content Routing, providing a ton of records
 
 - **Test Parameters**
   - `auto-refresh` - Enable autoRefresh (equivalent to running random-walk multiple times automatically) (true/false, default: false)
@@ -72,3 +79,23 @@ IPFS can safely rely on the latest DHT upgrades by running go-libp2p DHT tests d
     - Nodes ran 5 random-walk queries to populate their Routing Tables
   - **Act I**
     - Each node calls Provide for `i-provides` until it reaches a total of `n-provides`
+
+### `Test:` Provider record saturation
+
+> The libp2p DHT activates Load Balancing techniques once it understand that a node is owning a popular segment of the address space and with that, storing a larger amount of records that what it can handle. This test is designed to verify that libp2p is actively mitigating that by distributing that load with other nodes.
+
+We need to test:
+- Records are replicated to more nodes in the edges of the N closest nodes, once those nodes store a large amount of records (beyond what their computing resources enable)
+- Same as above, but in the inverse direction, that is: records are not replicated to more nodes, once the load is reduced
+- Records are replicated to more nodes in the edges of the N closest nodes, once those records are heavily requested (beyond what their bandwidth enables the N closest nodes to serve them)
+- Same as above, but in the inverse direction, that is: records are not replicated to more nodes, once the load is reduced
+
+### `Test:` Switch modes (client, full)
+
+We need to test:
+- The peers switch to client or full node depending on their network conditions
+
+### `Test:` Persistent routing table
+
+We need to test:
+- A peer recovers their routing table even after a shutdown and reboot
