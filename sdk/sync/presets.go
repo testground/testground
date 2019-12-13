@@ -99,7 +99,9 @@ type NetworkConfig struct {
 
 	// Default is the default link shaping rule.
 	Default LinkShape
+
 	// Rules defines how traffic should be shaped to different subnets.
+	// TODO: This is not implemented.
 	Rules []LinkRule
 
 	// State will be signaled when the link changes are applied. Nodes can

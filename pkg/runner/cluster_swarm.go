@@ -3,9 +3,9 @@ package runner
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"time"
 
@@ -98,14 +98,6 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		TestSidecar:        true,
 	}
 
-	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-	}
-
 	// Create a docker client.
 	var opts []client.Opt
 	if cfg.DockerTLS {
@@ -148,7 +140,11 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
-	subnet, gateway, err := getIPAMParams(len(networks))
+	subnet, gateway, err := nextDataNetwork(len(networks))
+	if err != nil {
+		return nil, err
+	}
+	_, runenv.TestSubnet, err = net.ParseCIDR(subnet)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +198,14 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	}()
 
 	log.Infow("network created successfully", "id", networkID)
+
+	// Serialize the runenv into env variables to pass to docker.
+	env := util.ToOptionsSlice(runenv.ToEnvVars())
+
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+	}
 
 	// Create the service.
 	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
@@ -396,17 +400,4 @@ func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 		time.Sleep(sleep)
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
-}
-
-func getIPAMParams(lenNetworks int) (string, string, error) {
-	if lenNetworks > 4095 {
-		return "", "", errors.New("space exhausted")
-	}
-	a := 16 + lenNetworks/256
-	b := 0 + lenNetworks%256
-
-	subnet := fmt.Sprintf("%d.%d.0.0/16", a, b)
-	gateway := fmt.Sprintf("%d.%d.0.1", a, b)
-
-	return subnet, gateway, nil
 }

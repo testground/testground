@@ -13,6 +13,10 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+var (
+	_, localSubnet, _ = net.ParseCIDR("127.1.0.1/16")
+)
+
 var _ api.Runner = (*LocalExecutableRunner)(nil)
 
 type LocalExecutableRunner struct{}
@@ -86,6 +90,7 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        false,
+		TestSubnet:         localSubnet,
 	}
 
 	// Spawn as many instances as the input parameters require.
