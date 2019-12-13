@@ -1,20 +1,19 @@
 package runner
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/user"
 	"path/filepath"
 	"reflect"
-	"sync"
-	"time"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
+	appsv1 "k8s.io/api/apps/v1"
+	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -103,6 +102,14 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 
 	env := util.ToEnvVar(runenv.ToEnvVars())
 
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		env = append(env, v1.EnvVar{
+			Name:  "LOG_LEVEL",
+			Value: cfg.LogLevel,
+		})
+	}
+
 	// Define k8s client configuration
 	config := defaultKubernetesConfig()
 	k8scfg, err := clientcmd.BuildConfigFromFlags("", config.KubeConfigPath)
@@ -123,85 +130,56 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 
 	log.Infow("creating k8s deployment", "name", sname, "image", image, "replicas", replicas)
 
-	var wg sync.WaitGroup
-	wg.Add(int(replicas))
+	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 
-	for i := uint64(1); i <= replicas; i++ {
-		i := i
-		go func() {
-			defer wg.Done()
-
-			podName := fmt.Sprintf("tg-%s-%d", input.TestPlan.Name, i)
-
-			// Create Kubernetes Pod
-			podRequest := &v1.Pod{
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("tg-%s", input.RunID),
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: int32Ptr(int32(replicas)),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"testground.plan":     input.TestPlan.Name,
+					"testground.testcase": testcase.Name,
+					"testground.runid":    input.RunID,
+				},
+			},
+			Template: apiv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: podName,
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
 						"testground.runid":    input.RunID,
 					},
 				},
-				Spec: v1.PodSpec{
-					RestartPolicy: "Never",
-					Containers: []v1.Container{
+				Spec: apiv1.PodSpec{
+					Containers: []apiv1.Container{
 						{
-							Name:  podName,
-							Image: image,
-							Args:  []string{},
-							Env:   env,
-							Resources: v1.ResourceRequirements{
-								Limits: v1.ResourceList{
-									v1.ResourceMemory: resource.MustParse("30Mi"),
+							Name:            "testplan",
+							Image:           image,
+							ImagePullPolicy: "IfNotPresent",
+							Ports:           []apiv1.ContainerPort{},
+							Resources: apiv1.ResourceRequirements{
+								Requests: apiv1.ResourceList{
+									apiv1.ResourceCPU:    resource.MustParse("0.01"),
+									apiv1.ResourceMemory: resource.MustParse("24M"),
 								},
 							},
+							Env: env,
 						},
 					},
 				},
-			}
-			_, err := clientset.CoreV1().Pods(config.Namespace).Create(podRequest)
-			if err != nil {
-				return
-			}
-
-			// Wait for pod
-			start := time.Now()
-			for {
-				log.Debugw("Waiting for pod", "pod", podName)
-				pod, err := clientset.CoreV1().Pods(config.Namespace).Get(podName, metav1.GetOptions{})
-				if err != nil {
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
-				if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
-					break
-				}
-				if time.Since(start) > 5*time.Minute {
-					return
-				}
-				time.Sleep(2000 * time.Millisecond)
-			}
-		}()
+			},
+		},
 	}
-
-	wg.Wait()
-
-	defer func() {
-		if cfg.KeepService {
-			log.Info("skipping removing the pods due to user request")
-			return
-		}
-		err = retry(5, 1*time.Second, func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			return cli.NetworkRemove(ctx, networkID)
-		})
-		if err != nil {
-			log.Errorw("couldn't remove network", "network", networkID, "err", err)
-		}
-	}()
+	// Create Deployment
+	log.Infow("creating deployment", "name", sname, "image", image, "replicas", replicas)
+	result, err := deploymentsClient.Create(deployment)
+	if err != nil {
+		panic(err)
+	}
+	log.Infow("created deployment", "name", sname, "image", image, "replicas", replicas, "result", result.GetObjectMeta().GetName())
 
 	out := &api.RunOutput{RunnerID: "smth"}
 	return out, nil
