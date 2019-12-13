@@ -1,37 +1,52 @@
 name = "chew-datasets"
 
-# hashicorp/go-getter URLs, so in the future we can support fetching test plans from GitHub.
+# hashicorp/go-getter URLs support.
 source_path = "file:${TESTGROUND_SRCDIR}/plans/chew-datasets"
 
 [defaults]
 builder = "docker:go"
 runner = "local:docker"
 
-[build_strategies."docker:go"]
-enabled = true
-go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/chew-datasets"
-exec_pkg = "."
-go_ipfs_version = "0.4.22"
+# Builder strategies
 
-# TODO
-[build_strategies."exec:go"]
+[[builders]]
+name="docker:go"
 enabled = true
 module_path = "github.com/ipfs/testground/plans/chew-datasets"
 exec_pkg = "."
+    [builders.params]
+    go_version = { type = "string", desc = "the go lang version to be used", default: "1.13" }
+    go_ipfs_version = { type = "string", desc = "the go-ipfs version to be tested", default: "0.4.22" }
 
-[run_strategies."local:docker"]
+[[builders]]
+name="exec:go"
 enabled = true
+module_path = "github.com/ipfs/testground/plans/chew-datasets"
+exec_pkg = "."
+    [builders.params]
 
-# TODO
-[run_strategies."local:exec"]
+# Runner strategies
+
+[[runners]]
+name = "local:exec"
 enabled = true
+    [runners.params]
+    cpu = { type = "string", desc = "the amount of CPU to be accessible to the runner" }
+    ram = { type = "string", desc = "the amount of RAM to be accessible to the runner" }
 
-# TODO
-[run_strategies."cluster:nomad"]
+[[runners]]
+name = "local:docker"
 enabled = true
+    [runners.params]
 
-# seq 0
+[[runners]]
+name = "cluster:nomad"
+enabled = false
+    [runners.params]
+
+
+# Test cases
+
 [[testcases]]
 name = "ipfs-add-defaults"
 instances = { min = 1, max = 1, default = 1 }
@@ -39,7 +54,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 1
 [[testcases]]
 name = "ipfs-add-trickle-dag"
 instances = { min = 1, max = 1, default = 1 }
@@ -47,7 +61,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 2
 [[testcases]]
 name = "ipfs-add-dir-sharding"
 instances = { min = 1, max = 1, default = 1 }
@@ -55,7 +68,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 3
 [[testcases]]
 name = "ipfs-mfs"
 instances = { min = 1, max = 1, default = 1 }
@@ -63,7 +75,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 4
 [[testcases]]
 name = "ipfs-mfs-dir-sharding"
 instances = { min = 1, max = 1, default = 1 }
@@ -71,7 +82,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 5
 [[testcases]]
 name = "ipfs-url-store"
 instances = { min = 1, max = 1, default = 1 }
@@ -79,7 +89,6 @@ instances = { min = 1, max = 1, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 6
 [[testcases]]
 name = "ipfs-file-store"
 instances = { min = 1, max = 1, default = 1 }

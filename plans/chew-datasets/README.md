@@ -4,7 +4,7 @@
 
 IPFS supports an ever-growing set of ways in how a File or Files can be added to the Network (Regular IPFS Add, MFS Add, Sharding, Balanced DAG, Trickle DAG, File Store, URL Store). This test plan checks their performance
 
-## What is being optimized (min/max, reach)
+## What is being optimized/measured (min/max, reach)
 
 - (Minimize) Memory used when performing each of the instructions
 - (Minimize) Time spent time chewing the files/directories
@@ -15,24 +15,18 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ## Plan Parameters
 
-- **Network Parameters**
-  - `Region` - Region or Regions where the test should be run at (default to single region)
-  - `N` - Number of nodes that are spawn for the test (from 10 to 1000000)
-- **Image Parameters**
-  - Single Image - The go-ipfs commit that is being tested
-  - Image Resources CPU & Ram
-  - Offline/Online - Specify if you want the node to run connected to the other nodes or not
+- **Builder Parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
+- **Runner Parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
+- **Network Parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 
 ## Tests
 
 ### `Test:` IPFS Add Defaults
 
-- **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 10MB, 100MB, 1GB, 10GB]`)
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
-    - The IPFS node/daemon is created 
+    - The IPFS node/daemon is created
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
@@ -40,12 +34,10 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS Add Trickle DAG
 
-- **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 10MB, 100MB, 1GB, 10GB]`)
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
-    - The IPFS node/daemon is created 
+    - The IPFS node/daemon is created
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
@@ -53,9 +45,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:`  IPFS Add Dir Sharding
 
-- **Test parameters**
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -66,12 +56,10 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS MFS Write
 
-- **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
-    - The IPFS node/daemon is created 
+    - The IPFS node/daemon is created
     - If Online, connect to the other nodes running
     - Generate the Random Data that follows what was specificied by the params `File Sizes` and `Directory Depth`
   - **Act I**
@@ -83,9 +71,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS MFS Dir Sharding
 
-- **Test parameters**
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created with _sharding experiment enabled_
@@ -101,10 +87,8 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS Url Store
 
-- **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created _with url store experiment enabled_
@@ -121,10 +105,7 @@ IPFS supports an ever-growing set of ways in how a File or Files can be added to
 
 ### `Test:` IPFS File Store
 
-- **Test parameters**
-  - `File Sizes` - An array of File Sizes to be tested (default to: `[1MB, 1GB, 10GB]`)
-  - `Directory Depth` - An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout (default to `[{depth: 10, size: 1MB}, {depth: 50, size: 1MB}]`
-  - `Mode` - A string indicating if the test must be run against the `coreapi` or `daemon` (default is both).
+- **Test parameters**: Found on the [manifest](../manifests/chew-datasets.toml)
 - **Narrative**
   - **Warm up**
     - The IPFS node/daemon is created _with file store experiment enabled_
