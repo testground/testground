@@ -92,6 +92,8 @@ We need to test:
 
 ### `Test:` Switch modes (client, full)
 
+`blocked` - This test is blocked until support for simulated NAT is done.
+
 We need to test:
 - The peers switch to client or full node depending on their network conditions
 
