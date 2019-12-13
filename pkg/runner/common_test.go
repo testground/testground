@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestGetIPAMParams(t *testing.T) {
+func TestNextDataNetwork(t *testing.T) {
 	var tests = []struct {
 		lenNetworks int
 		subnet      string
@@ -21,7 +21,7 @@ func TestGetIPAMParams(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		subnet, gateway, err := getIPAMParams(tt.lenNetworks)
+		subnet, gateway, err := nextDataNetwork(tt.lenNetworks)
 		if subnet != tt.subnet || gateway != tt.gateway || (err != nil && !tt.hasError) {
 			t.Errorf("got subnet %s gateway %s, want %s and %s", subnet, gateway, tt.subnet, tt.gateway)
 		}

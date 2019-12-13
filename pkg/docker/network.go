@@ -7,15 +7,19 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
 
-func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, internal bool, labels map[string]string) (id string, err error) {
+func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, internal bool, labels map[string]string, config ...network.IPAMConfig) (id string, err error) {
 	res, err := cli.NetworkCreate(ctx, name, types.NetworkCreate{
 		Driver:     "bridge",
 		Attachable: true,
 		Internal:   internal,
 		Labels:     labels,
+		IPAM: &network.IPAM{
+			Config: config,
+		},
 	})
 	if err != nil {
 		return "", err
@@ -23,7 +27,7 @@ func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, inte
 	return res.ID, nil
 }
 
-func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool) (id string, err error) {
+func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool, config ...network.IPAMConfig) (id string, err error) {
 	opts := types.NetworkListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg("name", name),
@@ -41,5 +45,5 @@ func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *clien
 		return network.ID, nil
 	}
 
-	return NewBridgeNetwork(ctx, cli, name, internal, nil)
+	return NewBridgeNetwork(ctx, cli, name, internal, nil, config...)
 }

@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"time"
 
+	"github.com/docker/docker/api/types/filters"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
@@ -17,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
@@ -103,24 +106,19 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 		TestSidecar:        true,
 	}
 
-	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-	}
-
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	dataNetworkID, err := newDataNetwork(ctx, cli, logging.S(), runenv, "default")
+	// Create a network.
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, logging.S(), runenv, "default")
 	if err != nil {
 		return nil, err
 	}
+	runenv.TestSubnet = subnet
+
 	// Unless we're keeping the containers, delete the network when we're done.
 	if !cfg.KeepContainers {
 		defer func() {
@@ -153,6 +151,14 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 			return nil, newErr
 		}
 		return nil, err
+	}
+
+	// Serialize the runenv into env variables to pass to docker.
+	env := util.ToOptionsSlice(runenv.ToEnvVars())
+
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
 	}
 
 	// Start as many containers as test case instances.
@@ -291,11 +297,41 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 }
 
 func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	return docker.EnsureBridgeNetwork(ctx, log, cli, "testground-control", true)
+	return docker.EnsureBridgeNetwork(
+		ctx,
+		log, cli,
+		"testground-control",
+		true,
+		network.IPAMConfig{
+			Subnet:  controlSubnet,
+			Gateway: controlGateway,
+		},
+	)
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
-	return docker.NewBridgeNetwork(
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, ipnet *net.IPNet, err error) {
+	// Find a free network.
+	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg(
+				"label",
+				"testground.name=default",
+			),
+		),
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	subnet, gateway, err := nextDataNetwork(len(networks))
+	if err != nil {
+		return "", nil, err
+	}
+	_, ipnet, err = net.ParseCIDR(subnet)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid subnet: %w", err)
+	}
+
+	id, err = docker.NewBridgeNetwork(
 		ctx,
 		cli,
 		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
@@ -306,7 +342,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 			"testground.runid":    env.TestRun,
 			"testground.name":     name,
 		},
+		network.IPAMConfig{
+			Subnet:  subnet,
+			Gateway: gateway,
+		},
 	)
+	return id, ipnet, err
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.

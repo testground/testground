@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ const (
 	EnvTestTag            = "TEST_TAG"
 	EnvTestRun            = "TEST_RUN"
 	EnvTestRepo           = "TEST_REPO"
+	EnvTestSubnet         = "TEST_SUBNET"
 	EnvTestCaseSeq        = "TEST_CASE_SEQ"
 	EnvTestSidecar        = "TEST_SIDECAR"
 	EnvTestInstanceCount  = "TEST_INSTANCE_COUNT"
@@ -50,6 +52,14 @@ type RunEnv struct {
 	// true if the test has access to the sidecar.
 	TestSidecar bool `json:"test_sidecar,omitempty"`
 
+	// The subnet on which this test is running.
+	//
+	// The test instance can use this to pick an IP address and/or determine
+	// the "data" network interface.
+	//
+	// This will be 127.1.0.0/16 when using the local exec runner.
+	TestSubnet *net.IPNet `json:"test_network,omitempty"`
+
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
@@ -72,6 +82,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestTag:            re.TestTag,
 		EnvTestRun:            re.TestRun,
 		EnvTestRepo:           re.TestRepo,
+		EnvTestSubnet:         re.TestSubnet.String(),
 		EnvTestCaseSeq:        strconv.Itoa(re.TestCaseSeq),
 		EnvTestInstanceCount:  strconv.Itoa(re.TestInstanceCount),
 		EnvTestInstanceRole:   re.TestInstanceRole,
@@ -152,6 +163,11 @@ func toBool(s string) bool {
 	return v
 }
 
+func toNet(s string) *net.IPNet {
+	_, ipnet, _ := net.ParseCIDR(s)
+	return ipnet
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
 	re := &RunEnv{
@@ -162,6 +178,7 @@ func CurrentRunEnv() *RunEnv {
 		TestTag:            os.Getenv(EnvTestTag),
 		TestBranch:         os.Getenv(EnvTestBranch),
 		TestRepo:           os.Getenv(EnvTestRepo),
+		TestSubnet:         toNet(os.Getenv(EnvTestSubnet)),
 		TestCaseSeq:        toInt(os.Getenv(EnvTestCaseSeq)),
 		TestInstanceCount:  toInt(os.Getenv(EnvTestInstanceCount)),
 		TestInstanceRole:   os.Getenv(EnvTestInstanceRole),
@@ -193,6 +210,7 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		TestTag:            envMap[EnvTestTag],
 		TestBranch:         envMap[EnvTestBranch],
 		TestRepo:           envMap[EnvTestRepo],
+		TestSubnet:         toNet(envMap[EnvTestSubnet]),
 		TestCaseSeq:        toInt(envMap[EnvTestCaseSeq]),
 		TestInstanceCount:  toInt(envMap[EnvTestInstanceCount]),
 		TestInstanceRole:   envMap[EnvTestInstanceRole],
@@ -318,6 +336,7 @@ func RandomRunEnv() *RunEnv {
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
 		TestCaseSeq:        int(rand.Uint32()),
 		TestRepo:           "github.com/ipfs/go-ipfs",
+		TestSubnet:         toNet("127.1.0.1/16"),
 		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
 		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
 		TestInstanceRole:   "",
