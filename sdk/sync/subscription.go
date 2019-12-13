@@ -27,19 +27,24 @@ type subscription struct {
 	closeWg sync.WaitGroup
 }
 
-// start brings the state of the subscription forward to match the state of the
-// store. It does so in two phases:
+// start subscribes to keyspace notifications for the subtree, and brings the
+// state of the subscription forward to match the state of the store.
+
+// It does so in two phases:
 //
-//   1. Replay: read the current state of the subtree from Redis, and
+//   1. Replay store: read the current state of the subtree from Redis, and
 //      replay it to the consumer.
-//   2. Batch fast-forward: reconcile the events we received during the replay
-//      phase. Drain the queue and switch to online consumption.
+//   2. Replay buffer: reconcile the events we received during the replay
+//      phase (which we stored in a local buffer). Drain the queue and switch
+//      to online consumption.
+//
+// From then on, it broadcasts events received in real-time.
 func (s *subscription) start() error {
 	s.ps = s.client.PSubscribe("__keyspace@0__:" + s.root + ":*")
 	s.inCh = s.ps.Channel()
 
 	// Get the current counter; we'll only process entries prior or equal to
-	// this counter. This is a way of "freezing" state.
+	// this counter. This is a way of pinning state.
 	seq, err := s.client.Get(s.root + ":seq").Int()
 	if err != nil && err != redis.Nil {
 		return err
@@ -68,11 +73,11 @@ func (s *subscription) isClosed() bool {
 func (s *subscription) process() {
 	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", s.startSeq)
 
-	// Sync: state can slide while we synchronize. To mitigate that, we use an
-	// incrementing seq number guarded by atomic operations. Assuming that
-	// entries are immutable, we read entries from the iterator and discard
-	// those that have an seq higher than the one we initialized with. Newer
-	// entries will arrive as notifications.
+	// Sync: store state can slide while we synchronize. To deal with that, we
+	// pin our sync procedure to the seq counter's value as soon as we start the
+	// subscription (startSeq). For entries with seq lower than or equal to the
+	// startSeq, we read them off the iterator. For entries higher, we will be
+	// receiving them via pubsub.
 	var (
 		keys   []string                    // gets reassigned on every iteration.
 		dead   = make(map[string]struct{}) // accumulates dead/expired elements for pruning.
@@ -83,11 +88,11 @@ func (s *subscription) process() {
 	)
 
 	log.Infow("syncing subscription")
-	log.Infow("replaying state")
+	log.Infow("replaying store")
 
-	//---------------------------
-	// --- FAST-FORWARD PHASE ---
-	//---------------------------
+	// --------------------
+	// --- REPLAY STORE ---
+	// --------------------
 
 	for i := 0; !s.isClosed(); i++ {
 		// Read elements from the set in increments of 1000.
@@ -110,7 +115,7 @@ func (s *subscription) process() {
 		keys = filtered
 		filtered = nil
 
-		log.Debugf("eligible key count: %d", len(keys))
+		log.Debugf("entries <= startSeq: %d", len(keys))
 
 		// Fetch all the indexed keys; we need to verify they exist. Some may
 		// have expired.
@@ -130,7 +135,7 @@ func (s *subscription) process() {
 				}
 
 				// Deserialize the value, and publish to the consumer.
-				log.Debugw("publishing item to subscriber", "key", k)
+				log.Debugw("delivering item to subscriber", "key", k)
 				payload, err := decodePayload(res[i], typ)
 				if err != nil {
 					panic(err)
@@ -177,9 +182,11 @@ func (s *subscription) process() {
 		return key
 	}
 
-	// --- BATCH FAST-FORWARD ---
+	// ---------------------
+	// --- REPLAY BUFFER ---
+	// ---------------------
 
-	log.Infow("batch fast-forwarding")
+	log.Infow("replaying buffer")
 
 	var pendingKeys []string
 Loop:
@@ -210,7 +217,7 @@ Loop:
 				continue
 			}
 
-			log.Debugw("publishing item to subscriber", "key", pendingKeys[i])
+			log.Debugw("delivering item to subscriber", "key", pendingKeys[i])
 
 			p, err := decodePayload(v, typ)
 			if err != nil {
@@ -249,13 +256,14 @@ Loop:
 				// TODO: batch GETs.
 				switch v, err := s.client.Get(key).Result(); err {
 				case redis.Nil:
-					// TODO: log we received a notification for a key that disappeared.
+					log.Warnf("we received a notification for a key that disappeared: %s", key)
 				case nil:
 					p, err := decodePayload(v, typ)
 					if err != nil {
 						log.Warnf("unable to decode item: %s", err)
 						panic(err)
 					}
+					log.Debugw("delivering item to subscriber", "key", key)
 					sendFn(p)
 				default:
 					panic(err)
