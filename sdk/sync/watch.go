@@ -10,7 +10,6 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis"
-	"github.com/hashicorp/go-multierror"
 )
 
 // Watcher exposes methods to watch subtrees within the sync tree of this test.
@@ -71,9 +70,7 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 	w.lk.Unlock()
 
 	// Start the subscription.
-	if err := sub.start(); err != nil {
-		return nil, err
-	}
+	sub.start()
 
 	cancel = func() error {
 		w.lk.Lock()
@@ -84,7 +81,8 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 			delete(w.subtrees, subtree)
 		}
 
-		return sub.stop()
+		sub.stop()
+		return nil
 	}
 	return cancel, nil
 }
@@ -142,12 +140,11 @@ func (w *Watcher) Close() error {
 	w.lk.Lock()
 	defer w.lk.Unlock()
 
-	var result *multierror.Error
 	for _, st := range w.subtrees {
 		for sub := range st {
-			result = multierror.Append(result, sub.stop())
+			sub.stop()
 		}
 	}
 	w.subtrees = nil
-	return result.ErrorOrNil()
+	return nil
 }

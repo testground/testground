@@ -90,7 +90,7 @@ func (w *Writer) keepAlive() {
 
 	// TODO: do this in a transaction. We risk the loop overlapping with the
 	// refresh period, and all kinds of races. We need to be adaptive here.
-	for k, _ := range w.keepAliveSet {
+	for k := range w.keepAliveSet {
 		if err := w.client.Expire(k, TTL).Err(); err != nil {
 			panic(err)
 		}
@@ -154,8 +154,13 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err er
 	// index set, and extending the expiry of the latter.
 	err = w.client.Watch(func(tx *redis.Tx) error {
 		_, err := tx.Pipelined(func(pipe redis.Pipeliner) error {
-			pipe.Set(payloadKey, bytes, TTL)
-			pipe.SAdd(idx, payloadKey)
+			pipe.XAdd(&redis.XAddArgs{
+				Stream: idx,
+				Values: map[string]interface{}{
+					"payload": string(bytes),
+				},
+			})
+
 			pipe.Expire(idx, TTL)
 			return nil
 		})
