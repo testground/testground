@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/user"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -29,13 +28,8 @@ var (
 )
 
 func homeDir() string {
-	if home := os.Getenv("HOME"); home != "" {
-		return home
-	}
-	if usr, err := user.Current(); err == nil {
-		return usr.HomeDir
-	}
-	return ""
+	home, _ := os.UserHomeDir()
+	return home
 }
 
 // ClusterK8sRunnerConfig is the configuration object of this runner. Boolean
