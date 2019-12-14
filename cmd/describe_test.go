@@ -22,7 +22,7 @@ func TestDescribeExistingPlan(t *testing.T) {
 	}
 }
 
-func TestDescribeUnexistingPlan(t *testing.T) {
+func TestDescribeNonexistingPlan(t *testing.T) {
 	app := cli.NewApp()
 	app.Name = "testground"
 	app.Commands = Commands
