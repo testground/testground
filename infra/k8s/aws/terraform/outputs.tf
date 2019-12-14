@@ -15,8 +15,8 @@ data:
         - system:bootstrappers
         - system:nodes
   mapUsers: |
-    - userarn: arn:aws:iam::909427826938:user/YOUR_USERNAME
-      username: $YOUR_USERNAME
+    - userarn: <user_arn, e.g. arn:aws:iam::909427826938:user/YOUR_USERNAME, click on your user in https://console.aws.amazon.com/iam/home?#/users, and copy it>
+      username: <your_aws_username>
       groups:
         - system:masters
 
@@ -39,4 +39,3 @@ output "kubeca" {
 output "kubehost" {
   value = local.kubehost
 }
-
