@@ -2,6 +2,8 @@ package golang
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -246,13 +248,17 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	}
 
 	if cfg.PushRegistry {
-		if cfg.RegistryType != "aws" {
-			// We only support aws at this time.
-			return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+		if cfg.RegistryType == "aws" {
+			err := pushToAWSRegistry(ctx, log, cli, in, out)
+			return out, err
 		}
 
-		err := pushToAWSRegistry(ctx, log, cli, in, out)
-		return out, err
+		if cfg.RegistryType == "dockerhub" {
+			err := pushToDockerHubRegistry(ctx, log, cli, in, out)
+			return out, err
+		}
+
+		return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
 	return out, nil
@@ -309,6 +315,42 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	return nil
 }
 
+func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+	uri := in.EnvConfig.DockerHub.Repo + "/testground"
+
+	tag := uri + ":" + in.BuildID
+	log.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
+
+	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
+		return err
+	}
+
+	auth := types.AuthConfig{
+		Username: in.EnvConfig.DockerHub.Username,
+		Password: in.EnvConfig.DockerHub.AccessToken,
+	}
+	authBytes, _ := json.Marshal(auth)
+	authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+		RegistryAuth: authBase64,
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
+
+	// Pipe the docker output to stdout.
+	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+		return err
+	}
+
+	// replace the artifact path by the pushed image.
+	out.ArtifactPath = tag
+	return nil
+}
+
 // setupGoProxy sets up a goproxy container, if and only if the build
 // configuration requires it.
 //
@@ -318,7 +360,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
-		log.Debugf("[go_proxy_mode=direct] no goproxy container will be started")
+		log.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
 
 	case "remote":
 		if cfg.GoProxyURL == "" {
@@ -340,7 +382,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 			Target: "/go",
 		}
 
-		log.Debugf("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
+		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
 
 		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
