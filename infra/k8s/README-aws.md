@@ -13,6 +13,7 @@ In this directory, you will find:
 ## Requirements
 
 - 1. [Terraform](https://www.terraform.io/).
+- 2. [aws-iam-authenticator](https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html).
 
 ## Set up infrastructure with Terraform
 
@@ -40,7 +41,13 @@ terraform init -backend-config=backends/$CLUSTER_NAME.tf
 - Copy `terraform.tfvars-example` to `terraform.tfvars`
 - Update vars
 
-6. Plan and apply a new cluster with Terraform
+6. Edit outputs.tf, add admin users to the config (whoever is going to operate the AWS EKS cluster)
+
+```
+vim outputs.tf
+```
+
+7. Plan and apply a new cluster with Terraform
 
 ```
 terraform plan
@@ -50,20 +57,21 @@ terraform plan
 terraform apply
 ```
 
-7. Update your local .kube config and context
+8. Update your local .kube config and context
 
 ```
 aws eks update-kubeconfig --name $CLUSTER_NAME
 ```
 
-8. Edit outputs.tf, add admin users to the config (whoever is going to operate the AWS EKS cluster), and export Terraform outputs
+NOTE: Make sure your default region is the same as the region you created the cluster in, otherwise specify a `--region` in the `aws eks...` command.
+
+9. Export Terraform outputs
 
 ```
-vim config-map-aws-auth
 terraform output config-map-aws-auth > outputs/config-map-aws-auth.yaml
 ```
 
-9. Apply config to Kubernetes cluster
+10. Apply config to Kubernetes cluster
 
 ```
 kubectl apply -f ./outputs/config-map-aws-auth.yaml
