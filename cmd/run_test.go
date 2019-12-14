@@ -85,3 +85,19 @@ func TestCompatibleRun(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestDefaultRunOptions(t *testing.T) {
+	app := cli.NewApp()
+	app.Name = "testground"
+	app.Commands = Commands
+
+	err := app.Run([]string{
+		"testground",
+		"run",
+		"placebo/ok",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}

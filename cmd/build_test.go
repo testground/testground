@@ -41,3 +41,19 @@ func TestBuildDockerGo(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDefaultBuildOptions(t *testing.T) {
+	app := cli.NewApp()
+	app.Name = "testground"
+	app.Commands = Commands
+
+	err := app.Run([]string{
+		"testground",
+		"build",
+		"placebo",
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
