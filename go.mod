@@ -22,7 +22,6 @@ require (
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/google/go-cmp v0.3.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
@@ -32,8 +31,19 @@ require (
 	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
 	github.com/ipfs/testground/sdk/sync v0.0.0-00010101000000-000000000000
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
+	github.com/libp2p/go-conn-security v0.1.0 // indirect
+	github.com/libp2p/go-libp2p v6.0.23+incompatible // indirect
+	github.com/libp2p/go-libp2p-connmgr v0.2.1 // indirect
+	github.com/libp2p/go-libp2p-host v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-interface-connmgr v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-interface-pnet v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-kad-dht v0.4.0 // indirect
+	github.com/libp2p/go-libp2p-metrics v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-net v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-protocol v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-transport v0.1.0 // indirect
+	github.com/libp2p/go-testutil v0.1.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/morikuni/aec v1.0.0 // indirect
@@ -48,6 +58,10 @@ require (
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+	github.com/whyrusleeping/go-smux-multiplex v3.0.16+incompatible // indirect
+	github.com/whyrusleeping/go-smux-multistream v2.0.2+incompatible // indirect
+	github.com/whyrusleeping/go-smux-yamux v2.0.9+incompatible // indirect
+	github.com/whyrusleeping/yamux v1.2.0 // indirect
 	go.uber.org/zap v1.12.0
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
