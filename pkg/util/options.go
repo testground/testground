@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	v1 "k8s.io/api/core/v1"
 )
 
 // ToOptionsMap converts a slice of ["KEY1=VAL1", "KEY2=VAL2", ...] dictionary
@@ -61,6 +63,17 @@ func ToOptionsSlice(input map[string]string) []string {
 	out := make([]string, 0, len(input))
 	for k, v := range input {
 		out = append(out, k+"="+v)
+	}
+	return out
+}
+
+func ToEnvVar(input map[string]string) []v1.EnvVar {
+	out := make([]v1.EnvVar, len(input))
+	ind := 0
+	for k, v := range input {
+		out[ind].Name = k
+		out[ind].Value = v
+		ind++
 	}
 	return out
 }
