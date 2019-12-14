@@ -115,39 +115,9 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 # ... test output
 ```
 
-### Running a Test Plan on the Testground Cloud Infrastructure
+### Running a Test Plan on Cloud Infrastructure
 
-#### Getting your own backend running (create a cluster in AWS)
-
-Follow the tutorial in the [infra folder](../infra)
-
-#### Link your local Testground envinronment with your Docker Swarm Cluster running in AWS
-
-Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
-
-* AWS secrets and settings.
-* Builder and runner options. These are merged with values supplied via CLI, test plan manifests, and defaults.
-
-You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
-
-#### Running a test case in a AWS backend
-
-Once you have done the step above, you will need to create an SSH tunnel to the AWS instanced created with the `terraform apply` call. To do so:
-
-```bash
-ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaws.com>
-```
-
-Then, all you need to do is use cluster:swarm runner, example:
-
-```bash
-./testground -vv run dht/find-peers \
-    --builder=docker:go \
-    --runner=cluster:swarm \
-    --build-cfg bypass_cache=true \
-    --build-cfg push_registry=true \
-    --build-cfg registry_type=aws
-```
+Follow the docs in the [infra folder](../infra). This part is in active development and many tasks are not automated.
 
 ## Creating a test case in Go
 
