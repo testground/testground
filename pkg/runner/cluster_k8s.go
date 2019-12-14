@@ -1,22 +1,23 @@
 package runner
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/user"
 	"path/filepath"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
+	v1batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -46,6 +47,8 @@ type ClusterK8sRunnerConfig struct {
 	// Background avoids tailing the output of containers, and displaying it as
 	// log messages (default: true).
 	Background bool `toml:"background"`
+
+	KeepService bool `toml:"keep_service"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -123,20 +126,24 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 
 	log.Infow("creating k8s deployment", "name", sname, "image", image, "replicas", replicas)
 
-	var wg sync.WaitGroup
-	wg.Add(int(replicas))
+	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
 
-	for i := uint64(1); i <= replicas; i++ {
-		i := i
-		go func() {
-			defer wg.Done()
-
-			podName := fmt.Sprintf("tg-%s-%d", input.TestPlan.Name, i)
-
-			// Create Kubernetes Pod
-			podRequest := &v1.Pod{
+	// Create Kubernetes Job
+	jobRequest := &v1batch.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: jobName,
+			Labels: map[string]string{
+				"testground.plan":     input.TestPlan.Name,
+				"testground.testcase": testcase.Name,
+				"testground.runid":    input.RunID,
+			},
+		},
+		Spec: v1batch.JobSpec{
+			Parallelism:             int32Ptr(int32(replicas)),
+			Completions:             int32Ptr(int32(replicas)),
+			TTLSecondsAfterFinished: int32Ptr(600),
+			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: podName,
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
@@ -144,10 +151,10 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 					},
 				},
 				Spec: v1.PodSpec{
-					RestartPolicy: "Never",
+					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
-							Name:  podName,
+							Name:  jobName,
 							Image: image,
 							Args:  []string{},
 							Env:   env,
@@ -159,47 +166,44 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 						},
 					},
 				},
-			}
-			_, err := clientset.CoreV1().Pods(config.Namespace).Create(podRequest)
-			if err != nil {
-				return
-			}
-
-			// Wait for pod
-			start := time.Now()
-			for {
-				log.Debugw("Waiting for pod", "pod", podName)
-				pod, err := clientset.CoreV1().Pods(config.Namespace).Get(podName, metav1.GetOptions{})
-				if err != nil {
-					time.Sleep(100 * time.Millisecond)
-					continue
-				}
-				if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
-					break
-				}
-				if time.Since(start) > 5*time.Minute {
-					return
-				}
-				time.Sleep(2000 * time.Millisecond)
-			}
-		}()
+			},
+		},
 	}
 
-	wg.Wait()
+	_, err = clientset.BatchV1().Jobs(config.Namespace).Create(jobRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	// Wait for job
+	start := time.Now()
+	for {
+		job, err := clientset.BatchV1().Jobs(config.Namespace).Get(jobName, metav1.GetOptions{})
+		if err != nil {
+			log.Warnw("transient job error", "job", jobName, "err", err)
+			time.Sleep(300 * time.Millisecond)
+			continue
+		}
+
+		log.Debugw("job status", "job", jobName, "active", job.Status.Active, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
+		if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
+			break
+		}
+		if time.Since(start) > 5*time.Minute {
+			return nil, errors.New("timeout")
+		}
+		time.Sleep(2000 * time.Millisecond)
+	}
 
 	defer func() {
+		log.Debugw("configuration for job", "keep_service", cfg.KeepService)
 		if cfg.KeepService {
-			log.Info("skipping removing the pods due to user request")
+			log.Info("skipping removing the job due to user request")
 			return
 		}
-		err = retry(5, 1*time.Second, func() error {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			return cli.NetworkRemove(ctx, networkID)
-		})
+		err := clientset.BatchV1().Jobs(config.Namespace).Delete(jobName, &metav1.DeleteOptions{})
 		if err != nil {
-			log.Errorw("couldn't remove network", "network", networkID, "err", err)
+			log.Errorw("couldn't remove job", "job", jobName, "err", err)
 		}
 	}()
 
