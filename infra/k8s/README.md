@@ -54,3 +54,15 @@ $  testground -vv run dht/find-peers \
     --run-cfg keep_service=true \
     --instances=328
 ```
+
+## Destroying the cluster
+
+Do not forget to delete the cluster on Digital Ocean once you are done running test plans.
+
+## Known issues and future improvements
+
+- [ ] 1. Kubernetes cluster creation - we intend to automate this, so that it is one command in the future, most probably with `terraform`.
+
+- [ ] 2. Testground dependencies - we intend to automate this, so that all dependencies for Testground are installed with one command, or as a follow-up provisioner on `terraform` - such as `redis`, `filebeat`, maybe `testground daemon`, etc.
+
+- [ ] 3. Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
