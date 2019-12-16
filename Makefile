@@ -3,4 +3,4 @@ pre-commit:
 	pre-commit install --install-hooks
 
 docker-ipfs-testground:
-	docker build -t ipfs/testground .
+	docker build -t nonsens3/testground .

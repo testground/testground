@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testground-sidecar
+spec:
+  selector:
+    matchLabels:
+      name: testground-sidecar
+  template:
+    metadata:
+      labels:
+        name: testground-sidecar
+    spec:
+      # from https://stackoverflow.com/questions/47892578/hosting-jenkins-on-kubernetes-while-using-docker-sock
+      #securityContext:
+        # Specify fsGroup for pod, so that the persistent volume is writable for the non-privileged uid/gid 1000
+        #runAsUser: 1000
+        #fsGroup: 1000
+      # from https://estl.tech/accessing-docker-from-a-kubernetes-pod-68996709c04b
+      #securityContext:
+        #fsGroup: 412    # Group ID of docker group on k8s nodes.
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: testground-sidecar
+        image: nonsens3/testground:latest
+        command: ["testground"]
+        args: ["sidecar", "--runner", "docker"]
+        env:
+        - name: REDIS_HOST
+          value: "redis-master"
+        #securityContext:
+          #privileged: true
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+          - name: dockersock
+            mountPath: "/var/run/docker.sock"
+      volumes:
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock

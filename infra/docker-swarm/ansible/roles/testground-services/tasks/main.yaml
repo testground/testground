@@ -25,7 +25,7 @@
 - name: Start sidecar service
   docker_swarm_service:
     name: testground-sidecar
-    image: "ipfs/testground:latest"
+    image: "nonsens3/testground:latest"
     mode: global
     command: testground
     args:
