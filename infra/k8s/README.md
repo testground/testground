@@ -69,6 +69,18 @@ $  testground -vv run dht/find-peers \
 
 Do not forget to delete the cluster on Digital Ocean once you are done running test plans.
 
+## Cleanup after Testground and other useful commands
+
+Testground is still in very early stage of development. It is possible that it crashes, or doesn't properly clean-up after a testplan run. Here are a few commands that could be helpful for you to inspect the state of your Kubernetes cluster and clean up after Testground.
+
+- `kubectl delete pods -l testground.plan=dht --grace-period=0` - delete all pods that have the `testground.plan=dht` label
+
+- `kubectl delete job <job-id, e.g. tg-dht-find-peers-e47e5301-d6f7-4ded-98e8-b2d3dc60a7bb>` - delete a specific job
+
+- `kubectl get pods -o wide` - get all pods
+
+- `kubectl logs -f <pod-id, e.g. tg-dht-c95b5>` - follow logs from a given pod
+
 ## Known issues and future improvements
 
 - [ ] 1. Kubernetes cluster creation - we intend to automate this, so that it is one command in the future, most probably with `terraform`.
