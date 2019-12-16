@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testground-sidecar
+spec:
+  selector:
+    matchLabels:
+      name: testground-sidecar
+  template:
+    metadata:
+      labels:
+        name: testground-sidecar
+    spec:
+      terminationGracePeriodSeconds: 10
+      hostPID: true
+      containers:
+      - name: testground-sidecar
+        image: ipfs/testground:latest
+        command: ["testground"]
+        args: ["sidecar", "--runner", "docker"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_ADMIN"]
+        env:
+        - name: REDIS_HOST
+          value: "redis-master"
+        resources:
+          limits:
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+          - name: dockersock
+            mountPath: "/var/run/docker.sock"
+      volumes:
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock
+
