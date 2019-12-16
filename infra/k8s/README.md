@@ -24,7 +24,7 @@ This document is explaining how to execute a Testground test plan locally, while
 
 Note: There is a limit of 100 pods per worker, so calculate the number of workers you need accordingly.
 
-2. Configure your `kubectl` context and authentication with Digital Ocean. Confirm that `kubectl get nodes` shows the number of nodes in your cluster.
+2. Configure your `kubectl` context and authentication with Digital Ocean. An easy way to do it is to download the config provided by Digital Ocean and placing it at `~/.kube/config`. Confirm that `kubectl get nodes` shows the number of nodes in your cluster.
 
 ```
 $  kubectl get nodes
@@ -42,6 +42,12 @@ gke-standard-cluster-1-default-pool-bce3c7de-sbdv   Ready    <none>   4h46m   v1
 
 ```
 helm install redis stable/redis --values redis-values.yaml
+```
+
+2. Create a `Sidecar` service on your Kubernetes cluster.
+
+```
+kubectl apply -f sidecar.yaml
 ```
 
 ## Configure Testground to push the built images to Docker Hub
