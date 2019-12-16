@@ -78,3 +78,7 @@ Do not forget to delete the cluster on Digital Ocean once you are done running t
 - [ ] 2. Testground dependencies - we intend to automate this, so that all dependencies for Testground are installed with one command, or as a follow-up provisioner on `terraform` - such as `redis`, `filebeat`, maybe `testground daemon`, etc.
 
 - [ ] 3. Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
+
+- [ ] 4. Sidecar currently has a hard-coded value for the Redis service endpoint. We need to fix this and release a new version.
+
+- [ ] 5. We need to decide where Testground is going to publish built docker images when used with Digitial Ocean - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
