@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/docker/docker/pkg/ioutils"
 	aapi "github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/tgwriter"
@@ -38,7 +37,7 @@ func (srv *Server) runHandler(w http.ResponseWriter, r *http.Request, log *zap.S
 		BuilderID:    req.BuilderID,
 	}
 
-	result, err := engine.DoRun(r.Context(), req.Plan, req.Case, req.Runner, runIn, ioutils.NewWriteFlusher(tgw))
+	result, err := engine.DoRun(r.Context(), req.Plan, req.Case, req.Runner, runIn, tgw)
 	if err != nil {
 		tgw.WriteError("engine run error", "err", err)
 		return
