@@ -2,6 +2,7 @@ package tgwriter
 
 import (
 	"encoding/json"
+	"github.com/docker/docker/pkg/ioutils"
 	"io"
 	"net/http"
 
@@ -12,7 +13,7 @@ func New(w http.ResponseWriter, log *zap.SugaredLogger) *TgWriter {
 	w.Header().Set("Content-Type", "application/json")
 
 	return &TgWriter{
-		output: w,
+		output: ioutils.NewWriteFlusher(w),
 		log:    log,
 	}
 }
