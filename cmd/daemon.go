@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -55,7 +54,7 @@ func daemonCommand(c *cli.Context) error {
 		logging.S().Infow("rpc server stopped")
 	}()
 
-	fmt.Printf("daemon listening on addr: %s\n", srv.Addr)
+	logging.S().Infow("daemon listening", "addr", srv.Addr)
 	err = srv.ListenAndServe()
 	if err == http.ErrServerClosed {
 		err = nil

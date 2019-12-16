@@ -7,11 +7,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"io"
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
+
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -25,7 +28,7 @@ type Client struct {
 
 // New initializes a new API client
 func New(endpoint string) *Client {
-	fmt.Printf("client initialized against addr: %s\n", endpoint)
+	logging.S().Infow("client initialized", "addr", endpoint)
 
 	return &Client{
 		client:   &http.Client{},
