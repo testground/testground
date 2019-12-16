@@ -96,9 +96,14 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 	}
 
 	// Serialize the runenv into env variables to pass to docker.
-	//env := util.ToOptionsSlice(runenv.ToEnvVars())
-
 	env := util.ToEnvVar(runenv.ToEnvVars())
+
+	redisCfg := v1.EnvVar{
+		Name:  "REDIS_HOST",
+		Value: "redis-master",
+	}
+
+	env = append(env, redisCfg)
 
 	// Define k8s client configuration
 	config := defaultKubernetesConfig()
