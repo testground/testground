@@ -20,11 +20,18 @@ spec:
       #securityContext:
         #fsGroup: 412    # Group ID of docker group on k8s nodes.
       terminationGracePeriodSeconds: 10
+      #shareProcessNamespace: true
+      hostPID: true
       containers:
       - name: testground-sidecar
-        image: nonsens3/testground:latest
-        command: ["testground"]
-        args: ["sidecar", "--runner", "docker"]
+        image: ubuntu:latest
+        #command: ["testground"]
+        command: ["sleep"]
+        args: ["3600"]
+        #args: ["sidecar", "--runner", "docker"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_ADMIN", "SYS_TIME"]
         env:
         - name: REDIS_HOST
           value: "redis-master"
