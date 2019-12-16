@@ -26,6 +26,7 @@ var (
 // EnvConfig represents an environment configuration read
 type EnvConfig struct {
 	AWS             AWSConfig            `toml:"aws"`
+	DockerHub       DockerHubConfig      `toml:"dockerhub"`
 	BuildStrategies map[string]ConfigMap `toml:"build_strategies"`
 	RunStrategies   map[string]ConfigMap `toml:"run_strategies"`
 	Daemon          DaemonConfig         `toml:"daemon"`
@@ -46,6 +47,12 @@ type AWSConfig struct {
 	AccessKeyID     string `toml:"access_key_id"`
 	SecretAccessKey string `toml:"secret_access_key"`
 	Region          string `toml:"region"`
+}
+
+type DockerHubConfig struct {
+	Repo        string `toml:"repo"`
+	Username    string `toml:"username"`
+	AccessToken string `toml:"access_token"`
 }
 
 type DaemonConfig struct {

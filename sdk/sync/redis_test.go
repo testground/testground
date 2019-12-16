@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os/exec"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -66,6 +67,7 @@ func TestWatcherWriter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer watcher.Close()
 
 	peersCh := make(chan *peer.AddrInfo, 16)
 	cancel, err := watcher.Subscribe(PeerSubtree, peersCh)
@@ -111,6 +113,8 @@ func TestBarrier(t *testing.T) {
 	runenv := runtime.RandomRunEnv()
 
 	watcher, writer := MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -128,5 +132,143 @@ func TestBarrier(t *testing.T) {
 
 	if err := <-ch; err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestWatchInexistentKeyThenWrite starts watching a subtree that doesn't exist
+// yet.
+func TestWatchInexistentKeyThenWrite(t *testing.T) {
+	var (
+		length  = 1000
+		values  = generateValues(length)
+		runenv  = runtime.RandomRunEnv()
+		subtree = randomTestSubtree()
+	)
+
+	closeRedis := ensureRedis(t)
+	defer closeRedis()
+
+	watcher, writer := MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	ch := make(chan *string, 128)
+	subCancel, err := watcher.Subscribe(subtree, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer subCancel()
+
+	doneCh := make(chan struct{})
+	go func() {
+		defer close(doneCh)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		consumeOrdered(t, ctx, ch, values)
+	}()
+
+	produce(t, writer, subtree, values)
+
+	<-doneCh
+}
+
+func TestWriteAllBeforeWatch(t *testing.T) {
+	var (
+		length  = 1000
+		values  = generateValues(length)
+		runenv  = runtime.RandomRunEnv()
+		subtree = randomTestSubtree()
+	)
+
+	closeRedis := ensureRedis(t)
+	defer closeRedis()
+
+	watcher, writer := MustWatcherWriter(runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	produce(t, writer, subtree, values)
+
+	ch := make(chan *string, 128)
+	subCancel, err := watcher.Subscribe(subtree, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer subCancel()
+
+	doneCh := make(chan struct{})
+	go func() {
+		defer close(doneCh)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		consumeUnordered(t, ctx, ch, values)
+	}()
+
+	<-doneCh
+}
+
+func consumeOrdered(t *testing.T, ctx context.Context, ch chan *string, values []string) {
+	t.Helper()
+
+	for i, expected := range values {
+		select {
+		case val := <-ch:
+			if *val != expected {
+				t.Fatalf("expected value %s, got %s in position %d", expected, *val, i)
+			}
+		case <-ctx.Done():
+			t.Fatal("failed to receive all expected items within 10 seconds")
+		}
+	}
+}
+
+func consumeUnordered(t *testing.T, ctx context.Context, ch chan *string, values []string) {
+	t.Helper()
+
+	uniq := make(map[string]struct{}, len(values))
+
+	for range values {
+		select {
+		case val := <-ch:
+			uniq[*val] = struct{}{}
+		case <-ctx.Done():
+			t.Fatal("failed to receive all expected items within 10 seconds")
+		}
+	}
+
+	// we've received len(values) values; check the size of the unique index
+	// matches.
+	if len(uniq) != len(values) {
+		t.Fatalf("failed to receive %d unique elements; got: %d", len(values), len(uniq))
+	}
+}
+
+func produce(t *testing.T, writer *Writer, subtree *Subtree, values []string) {
+	for i, s := range values {
+		if seq, err := writer.Write(subtree, &s); err != nil {
+			t.Fatalf("failed while writing key to subtree: %s", err)
+		} else if seq != int64(i)+1 {
+			t.Fatalf("expected seq == i+1; seq: %d; i: %d", seq, i)
+		}
+	}
+}
+
+func generateValues(length int) []string {
+	values := make([]string, 0, length)
+	for i := 0; i < length; i++ {
+		values = append(values, fmt.Sprintf("item-%d", i))
+	}
+	return values
+}
+
+func randomTestSubtree() *Subtree {
+	return &Subtree{
+		GroupKey:    fmt.Sprintf("test-%d", rand.Int()),
+		PayloadType: reflect.TypeOf((*string)(nil)),
+		KeyFunc:     func(payload interface{}) string { return *payload.(*string) },
 	}
 }

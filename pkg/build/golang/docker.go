@@ -316,28 +316,25 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 }
 
 func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
-	// AWS ECR repository name is testground-<plan_name>.
-	repo := fmt.Sprintf("testground-%s", in.TestPlan.Name)
+	uri := in.EnvConfig.DockerHub.Repo + "/testground"
 
-	uri := "nonsens3/testground"
-
-	// Tag the image under the AWS ECR repository.
 	tag := uri + ":" + in.BuildID
-	log.Infow("tagging image", "source", out.ArtifactPath, "tag", tag, "repo", repo)
+	log.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
 
 	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
 	}
 
 	auth := types.AuthConfig{
-		Username: "nonsens3",
-		Password: "426066c3-d44b-470a-a9f0-1537e3f23fe4",
+		Username: in.EnvConfig.DockerHub.Username,
+		Password: in.EnvConfig.DockerHub.AccessToken,
 	}
-	authBytes, _ := json.Marshal(auth)
+	authBytes, err := json.Marshal(auth)
+	if err != nil {
+		return err
+	}
 	authBase64 := base64.URLEncoding.EncodeToString(authBytes)
 
-	// TODO for some reason, this push is way slower than the equivalent via the
-	// docker CLI. Needs investigation.
 	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
 		RegistryAuth: authBase64,
 	})
@@ -345,7 +342,7 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 		return err
 	}
 
-	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", repo)
+	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
 
 	// Pipe the docker output to stdout.
 	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {

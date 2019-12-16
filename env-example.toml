@@ -9,6 +9,11 @@ access_key_id = "<aws access key id>"
 secret_access_key = "<aws secret access key>"
 region = "<aws region>"
 
+["dockerhub"]
+repo = "repo to be used for testground"
+username = "username"
+access_token = "docker hub access token"
+
 # You can set parameter for run or build strategies that apply in your
 # environment. They will be applied with the following precedence (highest
 # to lowest):
