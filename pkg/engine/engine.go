@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -204,7 +205,7 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 	return res, err
 }
 
-func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
+func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
 	// Find the test plan.
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
@@ -287,7 +288,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	input.TestPlan = plan
 	input.EnvConfig = *e.envcfg
 
-	return run.Run(input, output)
+	return run.Run(ctx, input, output)
 }
 
 func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {

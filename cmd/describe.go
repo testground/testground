@@ -19,6 +19,9 @@ var DescribeCommand = cli.Command{
 }
 
 func describeCommand(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
 	if c.NArg() == 0 {
 		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("missing term to describe; " + server.TermExplanation)
@@ -26,16 +29,15 @@ func describeCommand(c *cli.Context) error {
 
 	term := c.Args().First()
 
-	api, cancel, err := setupClient()
+	api, err := setupClient(ctx)
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	req := &client.DescribeRequest{
 		Term: term,
 	}
-	resp, err := api.Describe(context.Background(), req)
+	resp, err := api.Describe(ctx, req)
 	if err != nil {
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}

@@ -56,6 +56,9 @@ var RunCommand = cli.Command{
 }
 
 func runCommand(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
 	if c.NArg() != 1 {
 		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("missing test name")
@@ -85,11 +88,10 @@ func runCommand(c *cli.Context) error {
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 
-	api, cancel, err := setupClient()
+	api, err := setupClient(ctx)
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	if artifactPath == "" {
 		// Now that we've verified that the test plan and the test case exist, build
@@ -106,7 +108,7 @@ func runCommand(c *cli.Context) error {
 			Builder:      builderId,
 		}
 
-		resp, err := api.Build(context.Background(), req)
+		resp, err := api.Build(ctx, req)
 		if err != nil {
 			return fmt.Errorf("fatal error from daemon: %s", err)
 		}
@@ -147,8 +149,11 @@ func runCommand(c *cli.Context) error {
 		BuilderID:    builderId,
 	}
 
-	resp, err := api.Run(context.Background(), runReq)
+	resp, err := api.Run(ctx, runReq)
 	if err != nil {
+		if err == context.Canceled {
+			return fmt.Errorf("interrupted")
+		}
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()

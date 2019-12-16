@@ -17,14 +17,16 @@ var ListCommand = cli.Command{
 	Action: listCommand,
 }
 
-func listCommand(ctx *cli.Context) error {
-	api, cancel, err := setupClient()
+func listCommand(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
+	api, err := setupClient(ctx)
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
-	resp, err := api.List(context.Background())
+	resp, err := api.List(ctx)
 	if err != nil {
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
@@ -33,24 +35,19 @@ func listCommand(ctx *cli.Context) error {
 	return client.ParseListResponse(resp)
 }
 
-func setupClient() (*client.Client, func(), error) {
-	cancel := func() {}
-
+func setupClient(ctx context.Context) (*client.Client, error) {
 	envcfg, err := config.GetEnvConfig()
 	if err != nil {
-		return nil, cancel, err
+		return nil, err
 	}
 	if envcfg.Client.Endpoint == "" {
-		var ctx context.Context
-		ctx, cancel = context.WithCancel(context.Background())
-
 		envcfg.Client.Endpoint, err = server.ListenAndServe(ctx)
 		if err != nil {
-			return nil, cancel, err
+			return nil, err
 		}
 	}
 
 	api := client.New(envcfg.Client.Endpoint)
 
-	return api, cancel, nil
+	return api, nil
 }

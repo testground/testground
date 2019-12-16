@@ -18,7 +18,9 @@ func ListenAndServe(ctx context.Context) (string, error) {
 
 	srv := New(listener.Addr().String())
 
+	exiting := make(chan struct{})
 	go func() {
+		defer close(exiting)
 		logging.S().Infow("listen and serve", "addr", srv.Addr)
 		err := srv.Serve(listener)
 		if err != nil && err != http.ErrServerClosed {
@@ -27,7 +29,12 @@ func ListenAndServe(ctx context.Context) (string, error) {
 	}()
 
 	go func() {
-		<-ctx.Done()
+		select {
+		case <-ctx.Done():
+		case <-exiting:
+			// already stopped.
+			return
+		}
 		logging.S().Infow("shutting down rpc server")
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

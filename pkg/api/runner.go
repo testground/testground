@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io"
 	"reflect"
 
@@ -18,7 +19,7 @@ type Runner interface {
 	ID() string
 
 	// Run runs a test case.
-	Run(job *RunInput, outputWriter io.Writer) (*RunOutput, error)
+	Run(ctx context.Context, job *RunInput, outputWriter io.Writer) (*RunOutput, error)
 
 	// ConfigType returns the configuration type of this runner.
 	ConfigType() reflect.Type

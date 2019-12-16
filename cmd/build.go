@@ -49,6 +49,9 @@ var BuildCommand = cli.Command{
 }
 
 func buildCommand(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
 	if c.NArg() != 1 {
 		return errors.New("test plan name must be provided")
 	}
@@ -58,11 +61,10 @@ func buildCommand(c *cli.Context) error {
 		builder = c.Generic("builder").(*EnumValue).String()
 	)
 
-	api, cancel, err := setupClient()
+	api, err := setupClient(ctx)
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	in, err := parseBuildInput(c)
 	if err != nil {
@@ -76,7 +78,7 @@ func buildCommand(c *cli.Context) error {
 		Builder:      builder,
 	}
 
-	resp, err := api.Build(context.Background(), req)
+	resp, err := api.Build(ctx, req)
 	if err != nil {
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}

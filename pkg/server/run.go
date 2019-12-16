@@ -38,7 +38,7 @@ func (srv *Server) runHandler(w http.ResponseWriter, r *http.Request, log *zap.S
 		BuilderID:    req.BuilderID,
 	}
 
-	result, err := engine.DoRun(req.Plan, req.Case, req.Runner, runIn, ioutils.NewWriteFlusher(tgw))
+	result, err := engine.DoRun(r.Context(), req.Plan, req.Case, req.Runner, runIn, ioutils.NewWriteFlusher(tgw))
 	if err != nil {
 		tgw.WriteError("engine run error", "err", err)
 		return
