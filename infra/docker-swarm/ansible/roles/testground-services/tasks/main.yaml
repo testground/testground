@@ -31,6 +31,8 @@
     args:
       - sidecar
       - --runner docker
+    env:
+      REDIS_HOST: "testground-redis"
     networks:
       - control
     placement:
