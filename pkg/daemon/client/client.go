@@ -25,6 +25,8 @@ type Client struct {
 
 // New initializes a new API client
 func New(endpoint string) *Client {
+	fmt.Printf("client initialized against addr: %s\n", endpoint)
+
 	return &Client{
 		client:   &http.Client{},
 		endpoint: endpoint,
