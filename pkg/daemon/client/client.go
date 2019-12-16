@@ -28,7 +28,7 @@ type Client struct {
 
 // New initializes a new API client
 func New(endpoint string) *Client {
-	logging.S().Infow("client initialized", "addr", endpoint)
+	logging.S().Infow("testground client initialized", "addr", endpoint)
 
 	return &Client{
 		client:   &http.Client{},
