@@ -28,12 +28,10 @@ Note: There is a limit of 100 pods per worker, so calculate the number of worker
 
 ```
 $  kubectl get nodes
-NAME                                                STATUS   ROLES    AGE     VERSION
-gke-standard-cluster-1-default-pool-bce3c7de-0f20   Ready    <none>   4h46m   v1.14.8-gke.17
-gke-standard-cluster-1-default-pool-bce3c7de-b623   Ready    <none>   4h46m   v1.14.8-gke.17
-gke-standard-cluster-1-default-pool-bce3c7de-btmc   Ready    <none>   4h46m   v1.14.8-gke.17
-gke-standard-cluster-1-default-pool-bce3c7de-gprr   Ready    <none>   4h47m   v1.14.8-gke.17
-gke-standard-cluster-1-default-pool-bce3c7de-sbdv   Ready    <none>   4h46m   v1.14.8-gke.17
+NAME                  STATUS   ROLES    AGE   VERSION
+pool-jyub1rb95-snl2   Ready    <none>   60m   v1.16.2
+pool-jyub1rb95-snl5   Ready    <none>   60m   v1.16.2
+pool-jyub1rb95-snl6   Ready    <none>   60m   v1.16.2
 ```
 
 ## Setup Testground remote dependencies on your cluster
