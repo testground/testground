@@ -12,11 +12,15 @@ spec:
         name: testground-sidecar
     spec:
       terminationGracePeriodSeconds: 10
+      hostPID: true
       containers:
       - name: testground-sidecar
         image: ipfs/testground:latest
         command: ["testground"]
         args: ["sidecar", "--runner", "docker"]
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_ADMIN"]
         env:
         - name: REDIS_HOST
           value: "redis-master"
