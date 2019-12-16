@@ -1,0 +1,42 @@
+name = "basic-tcp"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/basic-tcp"
+
+[defaults]
+builder = "docker:go"
+runner = "local:docker"
+
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/basic-tcp"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "upload"
+instances = { min = 2, max = 20000, default = 2 }
+
+  [testcases.params]
+  size = { type = "size", desc = "size", unit = "bytes", default = 1000000 }
+  chunk-size = { type = "size", desc = "chunk size", unit = "bytes", default = 102400 }
+  incoming-buffer-size = { type = "size", desc = "chunk size", unit = "bytes", default = 204800 }
+  delay-between-uploads = { type = "int", desc = "delay", unit = "milliseconds", default = 100 }
+
+# seq 1
+[[testcases]]
+name = "upload-with-shaping"
+instances = { min = 2, max = 20000, default = 2 }
+
+  [testcases.params]
+  size = { type = "size", desc = "size", unit = "bytes", default = 1000000 }
+  chunk-size = { type = "size", desc = "chunk size", unit = "bytes", default = 102400 }
+  incoming-buffer-size = { type = "size", desc = "chunk size", unit = "bytes", default = 204800 }
+  bandwidth = { type = "size", desc = "throttle bandwidth", unit = "bytes/s", default = 1048576 }
+  delay-between-uploads = { type = "int", desc = "delay", unit = "milliseconds", default = 7000 }
+
