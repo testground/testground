@@ -34,6 +34,6 @@ func TestDescribeUnexistingPlan(t *testing.T) {
 	})
 
 	if err == nil {
-		t.Fail()
+		t.Fatal("expected to get an err, due to non-existing test plan, but got nil")
 	}
 }

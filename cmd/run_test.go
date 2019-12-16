@@ -62,7 +62,7 @@ func TestIncompatibleRun(t *testing.T) {
 	})
 
 	if err == nil {
-		t.Fail()
+		t.Fatal("expected to get an err, due to incompatible builder and runner, but got nil")
 	}
 }
 
@@ -82,6 +82,6 @@ func TestCompatibleRun(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 }
