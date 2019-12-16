@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ipfs/testground/pkg/logging"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/ipfs/testground/cmd"
+	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
@@ -18,11 +18,11 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "v",
-			Usage: "verbose output (equivalent to INFO log level)",
+			Usage: "verbose output (equivalent to DEBUG log level)",
 		},
 		cli.BoolFlag{
 			Name:  "vv",
-			Usage: "super verbose output (equivalent to DEBUG log level)",
+			Usage: "super verbose output (equivalent to DEBUG log level for now, it may accommodate TRACE in the future)",
 		},
 	}
 	// Disable the built-in -v flag (version), to avoid collisions with the
@@ -57,10 +57,10 @@ func configureLogging(c *cli.Context) {
 	// Apply verbosity flags.
 	switch {
 	case c.Bool("v"):
-		logging.SetLevel(zapcore.InfoLevel)
+		logging.SetLevel(zapcore.DebugLevel)
 	case c.Bool("vv"):
 		logging.SetLevel(zapcore.DebugLevel)
 	default:
-		// Do nothing; level remains at default (WARN).
+		// Do nothing; level remains at default (INFO).
 	}
 }
