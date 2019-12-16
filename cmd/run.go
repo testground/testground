@@ -88,7 +88,7 @@ func runCommand(c *cli.Context) error {
 		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
 	}
 
-	api, err := setupClient(ctx)
+	api, err := setupClient()
 	if err != nil {
 		return err
 	}

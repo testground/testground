@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -27,11 +28,10 @@ func daemonCommand(c *cli.Context) error {
 		return err
 	}
 
-	if envcfg.Daemon.Listen == "" {
-		logging.S().Fatal("missing daemon configuration. copy env-example.yaml to .env.toml and configure [daemon] section")
-	}
-
-	srv := server.New(envcfg.Daemon.Listen)
+	var (
+		listen = envcfg.Daemon.Listen
+		srv    = server.New(listen)
+	)
 
 	exiting := make(chan struct{})
 	defer close(exiting)
@@ -55,7 +55,7 @@ func daemonCommand(c *cli.Context) error {
 		logging.S().Infow("rpc server stopped")
 	}()
 
-	logging.S().Infow("listen and serve", "addr", srv.Addr)
+	fmt.Printf("daemon listening on addr: %s\n", srv.Addr)
 	err = srv.ListenAndServe()
 	if err == http.ErrServerClosed {
 		err = nil
