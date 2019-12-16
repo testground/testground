@@ -12,6 +12,12 @@
 
 This document is explaining how to execute a Testground test plan locally, while Testground targets a Kubernetes cluster on Digital Ocean for execution of all tasks. Images are built locally by Testground via Docker, and pushed to Docker Hub. Redis is to be installed manually on Kubernetes, prior to running any test plans.
 
+## Introduction
+
+1. `kubectl` - `kubectl` is a command line interface for running commands against Kubernetes clusters. It sends commands to the Kubernetes master, and all `kubectl` commands are run on the developer's machine in this tutorial. `kubectl` has to be configured with access parameters so that it has access to any given Kubernetes cluster.
+
+2. `helm` - `helm` is a package manager for Kubernetes. If you have configured `kubectl` to a given cluster, then `helm` also has access to it, and you can run `helm` commands from your local machine towards it.
+
 ## Setup Kubernetes Cluster on Digital Ocean
 
 1. Create a Kubernetes cluster on Digital Ocean, with the necessary number of workers.
