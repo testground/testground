@@ -1,0 +1,4 @@
+cluster-name   = "<cluster_name>"
+cluster-region = "eu-central-1"
+key-name       = "<key_name, doesn't need to match anything>"
+public-key     = "<copy your pubkey here>"

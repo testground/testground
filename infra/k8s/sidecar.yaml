@@ -24,11 +24,9 @@ spec:
       hostPID: true
       containers:
       - name: testground-sidecar
-        image: ubuntu:latest
-        #command: ["testground"]
-        command: ["sleep"]
-        args: ["3600"]
-        #args: ["sidecar", "--runner", "docker"]
+        image: ipfs/testground:latest
+        command: ["testground"]
+        args: ["sidecar", "--runner", "docker"]
         securityContext:
           capabilities:
             add: ["NET_ADMIN", "SYS_ADMIN", "SYS_TIME"]
