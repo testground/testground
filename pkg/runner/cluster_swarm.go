@@ -66,7 +66,7 @@ type ClusterSwarmRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		image = input.ArtifactPath
 		seq   = input.Seq
@@ -75,7 +75,7 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 	)
 
 	// global timeout of 1 minute for the scheduling.
-	ctx, cancelFn := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancelFn := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancelFn()
 
 	// Sanity check.

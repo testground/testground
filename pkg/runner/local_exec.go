@@ -20,7 +20,7 @@ type LocalExecutableRunner struct{}
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		plan        = input.TestPlan
 		seq         = input.Seq
@@ -49,7 +49,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOu
 
 		// This context gets cancelled when the runner has finished, which in
 		// turn signals the temporary Redis instance to shut down.
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		cmd := exec.CommandContext(ctx, "redis-server", "--notify-keyspace-events", "$szxK")
@@ -107,7 +107,7 @@ func (*LocalExecutableRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOu
 		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
 		id := fmt.Sprintf("instance %3d", i)
 
-		cmd := exec.Command(input.ArtifactPath)
+		cmd := exec.CommandContext(ctx, input.ArtifactPath)
 		stdout, _ := cmd.StdoutPipe()
 		stderr, _ := cmd.StderrPipe()
 		cmd.Env = env
