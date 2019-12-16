@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -16,6 +17,10 @@ import (
 	"github.com/ipfs/testground/pkg/dockermanager"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+)
+
+const (
+	EnvRedisHost = "REDIS_HOST"
 )
 
 // dockerLinks maps a set of container networks to container link devices.
@@ -45,7 +50,9 @@ type DockerInstanceManager struct {
 
 func NewDockerManager() (InstanceManager, error) {
 	// TODO: Generalize this to a list of services.
-	redisIp, err := net.ResolveIPAddr("ip4", "testground-redis")
+	redisHost := os.Getenv(EnvRedisHost)
+
+	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve redis host: %w", err)
 	}
