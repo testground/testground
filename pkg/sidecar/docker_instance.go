@@ -49,8 +49,6 @@ type DockerInstanceManager struct {
 }
 
 func NewDockerManager() (InstanceManager, error) {
-	redisHost := os.Getenv(EnvRedisHost)
-
 	// TODO: Generalize this to a list of services.
 	redisHost := os.Getenv(EnvRedisHost)
 
