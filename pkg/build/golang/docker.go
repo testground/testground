@@ -329,7 +329,10 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 		Username: in.EnvConfig.DockerHub.Username,
 		Password: in.EnvConfig.DockerHub.AccessToken,
 	}
-	authBytes, _ := json.Marshal(auth)
+	authBytes, err := json.Marshal(auth)
+	if err != nil {
+		return err
+	}
 	authBase64 := base64.URLEncoding.EncodeToString(authBytes)
 
 	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
