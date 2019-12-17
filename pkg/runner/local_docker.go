@@ -338,6 +338,7 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
+			Env:        []string{"REDIS_HOST=testground-redis"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
