@@ -19,7 +19,7 @@ func listCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	api, err := setupClient()
+	api, err := setupClient(c)
 	if err != nil {
 		return err
 	}

@@ -1,6 +1,8 @@
 package server
 
 import (
+	"context"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -27,7 +29,11 @@ func GetEngine() (*engine.Engine, error) {
 }
 
 type Server struct {
-	*http.Server
+	server *http.Server
+	l      net.Listener
+
+	startOnce sync.Once
+	closeOnce sync.Once
 }
 
 // New creates a new Server and attaches the following handlers:
@@ -36,8 +42,11 @@ type Server struct {
 // * POST /build: sends a `build` request to the daemon. builds a test plan.
 // * POST /run: sends a `run` request to the daemon. (builds and) runs test case with name `<testplan>/<testcase>`.
 // A type-safe client for this server can be found in the `pkg/daemon/client` package.
-func New(listenAddr string) *Server {
-	srv := &Server{}
+func New(listenAddr string) (*Server, error) {
+	var (
+		err error
+		srv = &Server{}
+	)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/list", loggingHandler(srv.listHandler)).Methods("GET")
@@ -45,14 +54,43 @@ func New(listenAddr string) *Server {
 	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
 	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
 
-	srv.Server = &http.Server{
+	srv.server = &http.Server{
 		Handler:      r,
-		Addr:         listenAddr,
 		WriteTimeout: 600 * time.Second,
 		ReadTimeout:  600 * time.Second,
 	}
 
-	return srv
+	srv.l, err = net.Listen("tcp", listenAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
+}
+
+func (s *Server) Start() (err error) {
+	s.startOnce.Do(func() { 
+		go s.server.Serve(s.l)	//nolint
+	})
+	if err == nil {
+		logging.S().Infow("daemon listening", "addr", s.Addr())
+	}
+	return err
+}
+
+func (s *Server) Addr() string {
+	return s.l.Addr().String()
+}
+
+func (s *Server) Port() int {
+	return s.l.Addr().(*net.TCPAddr).Port
+}
+
+func (s *Server) Shutdown(ctx context.Context) (err error) {
+	s.closeOnce.Do(func() {
+		err = s.server.Shutdown(ctx)
+	})
+	return err
 }
 
 func loggingHandler(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {
