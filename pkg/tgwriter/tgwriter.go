@@ -2,9 +2,11 @@ package tgwriter
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/docker/docker/pkg/ioutils"
 	"io"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -71,6 +73,15 @@ func (tgw *TgWriter) WriteResult(res interface{}) {
 
 func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
 	tgw.log.Warnw(message, keysAndValues...)
+
+	if len(keysAndValues) > 0 {
+		b := &strings.Builder{}
+		for i := 0; i < len(keysAndValues); i = i + 2 {
+			fmt.Fprintf(b, "%s: %s;", keysAndValues[i], keysAndValues[i+1])
+		}
+		kvs := b.String()
+		message = message + "; " + kvs[:len(kvs)-1]
+	}
 
 	pld := Msg{
 		Type: "error",
