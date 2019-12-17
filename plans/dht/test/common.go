@@ -71,6 +71,8 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 		return nil, nil, fmt.Errorf("not enough peers")
 	}
 
+	runenv.Message("connmgr parameters: hi=%d, lo=%d", max, min)
+
 	node, err := libp2p.New(
 		ctx,
 		// Use only the TCP transport without reuseport.
