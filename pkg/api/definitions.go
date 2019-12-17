@@ -46,7 +46,7 @@ type Parameter struct {
 	Type        string
 	Description string `toml:"desc"`
 	Unit        string
-	Default     string
+	Default     interface{}
 }
 
 // TestCaseInstances expresses how many instances this test case can run.
