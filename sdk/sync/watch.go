@@ -99,8 +99,11 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 //
 // In both cases, the chan will only receive a single element before closure.
 func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-chan error {
-	resCh := make(chan error)
+	log := w.re.SLogger()
 
+	log.Debugw("setting barrier for state", "state", state, "required", required)
+
+	resCh := make(chan error)
 	go func() {
 		defer close(resCh)
 
@@ -123,6 +126,8 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 					return
 				}
 				// loop over
+				log.Debugw("insufficient instances in state; looping", "state", state, "required", required, "current", last)
+
 			case <-ctx.Done():
 				// Context fired before we got enough elements.
 				err := fmt.Errorf("context deadline exceeded waiting on %s; not enough elements, required: %d, got: %d", state, required, last)

@@ -33,6 +33,7 @@ var (
 type Writer struct {
 	lk     sync.RWMutex
 	client *redis.Client
+	re     *runtime.RunEnv
 	doneCh chan struct{}
 
 	// root is the namespace under which this test run writes. It is derived
@@ -59,6 +60,7 @@ func NewWriter(runenv *runtime.RunEnv) (w *Writer, err error) {
 
 	w = &Writer{
 		client:       client,
+		re:           runenv,
 		root:         basePrefix(runenv),
 		doneCh:       make(chan struct{}),
 		ownSet:       make(map[string][]string),
@@ -128,6 +130,8 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err er
 		return -1, err
 	}
 
+	w.re.SLogger().Debugw("writing payload to subtree", "subtree", subtree.GroupKey, "our_seq", seq)
+
 	// If we are within the first 5 nodes writing to this subtree, we're
 	// responsible for keeping the index key alive. Having _all_ nodes
 	// refreshing the index keys would be wasteful, so selecting a few
@@ -179,13 +183,18 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err er
 // SignalEntry signals entry into the specified state, and returns how many
 // instances are currently in this state, including the caller.
 func (w *Writer) SignalEntry(s State) (current int64, err error) {
+	log := w.re.SLogger()
+
+	log.Debugw("signalling entry to state", "state", s)
+
 	// Increment a counter on the state key.
 	key := strings.Join([]string{w.root, "states", string(s)}, ":")
 	seq, err := w.client.Incr(key).Result()
-
 	if err != nil {
 		return -1, err
 	}
+
+	log.Debugw("instances in state", "state", s, "count", seq)
 
 	// If we're within the first 5 instances to write to this state key, we're a
 	// supervisor and responsible for keeping it alive. See comment on the
