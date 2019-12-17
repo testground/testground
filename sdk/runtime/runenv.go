@@ -222,20 +222,17 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 	return re, nil
 }
 
+// IsParamSet checks if a certain parameter is set.
+func (re *RunEnv) IsParamSet(name string) bool {
+	_, ok := re.TestInstanceParams[name]
+	return ok
+}
+
 // StringParam returns a string parameter, or "" if the parameter is not set.
 // The second return value indicates if the parameter was set.
 func (re *RunEnv) StringParam(name string) (s string, ok bool) {
 	v, ok := re.TestInstanceParams[name]
 	return v, ok
-}
-
-// StringParamD returns a string parameter, or the default value if not set.
-func (re *RunEnv) StringParamD(name string, def string) string {
-	s, ok := re.StringParam(name)
-	if !ok {
-		return def
-	}
-	return s
 }
 
 // IntParam returns an int parameter, or -1 if the parameter is not set. The
@@ -249,15 +246,6 @@ func (re *RunEnv) IntParam(name string) (i int, ok bool) {
 	return i, err == nil
 }
 
-// IntParamD returns an int parameter, or the default value if not set.
-func (re *RunEnv) IntParamD(name string, def int) int {
-	i, ok := re.IntParam(name)
-	if !ok {
-		return def
-	}
-	return i
-}
-
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
 // The second return value indicates if the parameter was set.
 func (re *RunEnv) BooleanParam(name string) (b bool, ok bool) {
@@ -268,15 +256,6 @@ func (re *RunEnv) BooleanParam(name string) (b bool, ok bool) {
 	return false, ok
 }
 
-// BooleanParamD returns a Boolean parameter, or the default value if not set.
-func (re *RunEnv) BooleanParamD(name string, def bool) bool {
-	b, ok := re.BooleanParam(name)
-	if !ok {
-		return def
-	}
-	return b
-}
-
 // StringArrayParam returns an array of string parameter, or an empty array
 // if it does not exist. The second returns value indicates if the parameter
 // was (un)set or (in)valid.
@@ -284,16 +263,6 @@ func (re *RunEnv) StringArrayParam(name string) (a []string, ok bool) {
 	a = []string{}
 	ok = re.JSONParam(name, &a)
 	return a, ok
-}
-
-// StringArrayParamD returns an array of string parameter or the default one
-// if the parameter was not set or is invalid.
-func (re *RunEnv) StringArrayParamD(name string, def []string) []string {
-	a := []string{}
-	if ok := re.JSONParam(name, &a); !ok {
-		return def
-	}
-	return a
 }
 
 // JSONParam unmarshals a JSON parameter in an arbitrary interface.
