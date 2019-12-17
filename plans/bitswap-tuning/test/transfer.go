@@ -29,11 +29,13 @@ var RootCidSubtree = &sync.Subtree{
 // Transfer data from S seeds to L leeches
 func Transfer(runenv *runtime.RunEnv) {
 	// Test Parameters
-	timeout := time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
-	leechCount := runenv.IntParamD("leech_count", 1)
-	passiveCount := runenv.IntParamD("passive_count", 0)
-	requestStagger := time.Duration(runenv.IntParamD("request_stagger", 0)) * time.Millisecond
-	fileSize := runenv.IntParamD("file_size", 200*1024*1024)
+	timeoutRaw, _ := runenv.IntParam("timeout_secs")
+	timeout := time.Duration(timeoutRaw) * time.Second
+	leechCount, _ := runenv.IntParam("leech_count")
+	passiveCount, _ := runenv.IntParam("passive_count")
+	requestStaggerRaw, _ := runenv.IntParam("request_stagger")
+	requestStagger := time.Duration(requestStaggerRaw) * time.Millisecond
+	fileSize, _ := runenv.IntParam("file_size")
 
 	/// --- Set up
 
