@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"context"
+	"github.com/ipfs/testground/pkg/server"
 	"net/http"
 	"time"
 
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/server"
 	"github.com/urfave/cli"
 )
 
@@ -27,10 +27,11 @@ func daemonCommand(c *cli.Context) error {
 		return err
 	}
 
-	var (
-		listen = envcfg.Daemon.Listen
-		srv    = server.New(listen)
-	)
+	listen := envcfg.Daemon.Listen
+	srv, err := server.New(listen)
+	if err != nil {
+		return err
+	}
 
 	exiting := make(chan struct{})
 	defer close(exiting)
@@ -54,8 +55,8 @@ func daemonCommand(c *cli.Context) error {
 		logging.S().Infow("rpc server stopped")
 	}()
 
-	logging.S().Infow("daemon listening", "addr", srv.Addr)
-	err = srv.ListenAndServe()
+	logging.S().Infow("listen and serve", "addr", srv.Addr)
+	err = srv.Start()
 	if err == http.ErrServerClosed {
 		err = nil
 	}

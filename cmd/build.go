@@ -61,7 +61,7 @@ func buildCommand(c *cli.Context) error {
 		builder = c.Generic("builder").(*EnumValue).String()
 	)
 
-	api, err := setupClient()
+	api, err := setupClient(c)
 	if err != nil {
 		return err
 	}

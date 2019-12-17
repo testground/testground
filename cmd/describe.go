@@ -29,7 +29,7 @@ func describeCommand(c *cli.Context) error {
 
 	term := c.Args().First()
 
-	api, err := setupClient()
+	api, err := setupClient(c)
 	if err != nil {
 		return err
 	}
