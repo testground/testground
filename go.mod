@@ -29,8 +29,8 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
-	github.com/ipfs/testground/sdk/sync v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
+	github.com/ipfs/testground/sdk/sync v0.0.0-20190921111954-a84ff142a5a3
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -49,6 +49,7 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.uber.org/zap v1.12.0
+	golang.org/x/crypto v0.0.0-20190926180335-cea2066c6411 // indirect
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e // indirect
