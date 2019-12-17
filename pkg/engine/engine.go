@@ -282,6 +282,13 @@ func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, ru
 		return nil, fmt.Errorf("error while generating test run ID: %w", err)
 	}
 
+	// Add the default parameters set on the manifest.
+	for paramName, paramValue := range tcase.Parameters {
+		if _, ok := input.Parameters[paramName]; !ok {
+			input.Parameters[paramName] = paramValue.Default
+		}
+	}
+
 	input.RunID = id.String()
 	input.RunnerConfig = cfg
 	input.Seq = seq
