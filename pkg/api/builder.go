@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"io"
 	"reflect"
 
@@ -15,7 +16,7 @@ type Builder interface {
 	ID() string
 
 	// Build performs a build.
-	Build(input *BuildInput, output io.Writer) (*BuildOutput, error)
+	Build(ctx context.Context, input *BuildInput, output io.Writer) (*BuildOutput, error)
 
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type

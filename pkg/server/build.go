@@ -35,7 +35,7 @@ func (srv *Server) buildHandler(w http.ResponseWriter, r *http.Request, log *zap
 		BuildConfig:  req.BuildConfig,
 	}
 
-	out, err := engine.DoBuild(req.Plan, req.Builder, in, tgw)
+	out, err := engine.DoBuild(r.Context(), req.Plan, req.Builder, in, tgw)
 	if err != nil {
 		tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
 		return
