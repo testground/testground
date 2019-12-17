@@ -18,11 +18,7 @@ func runSingle(t *testing.T, args ...string) error {
 		t.Fatal(err)
 	}
 
-	err = srv.Start()
-	if err != nil {
-		t.Fatal(err)
-	}
-
+	go srv.Serve()                           //nolint
 	defer srv.Shutdown(context.Background()) //nolint
 
 	app := cli.NewApp()

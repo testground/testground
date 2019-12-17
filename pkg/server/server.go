@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -31,9 +32,7 @@ func GetEngine() (*engine.Engine, error) {
 type Server struct {
 	server *http.Server
 	l      net.Listener
-
-	startOnce sync.Once
-	closeOnce sync.Once
+	doneCh chan struct{}
 }
 
 // New creates a new Server and attaches the following handlers:
@@ -54,6 +53,7 @@ func New(listenAddr string) (*Server, error) {
 	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
 	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
 
+	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{
 		Handler:      r,
 		WriteTimeout: 600 * time.Second,
@@ -68,14 +68,18 @@ func New(listenAddr string) (*Server, error) {
 	return srv, nil
 }
 
-func (s *Server) Start() (err error) {
-	s.startOnce.Do(func() { 
-		go s.server.Serve(s.l)	//nolint
-	})
-	if err == nil {
-		logging.S().Infow("daemon listening", "addr", s.Addr())
+// Serve starts the server and blocks until the server is closed, either
+// explicitly via Shutdown, or due to a fault condition. It propagates the
+// non-nil err return value from http.Serve.
+func (s *Server) Serve() error {
+	select {
+	case <-s.doneCh:
+		return fmt.Errorf("tried to reuse a stopped server")
+	default:
 	}
-	return err
+
+	logging.S().Infow("daemon listening", "addr", s.Addr())
+	return s.server.Serve(s.l)
 }
 
 func (s *Server) Addr() string {
@@ -86,11 +90,9 @@ func (s *Server) Port() int {
 	return s.l.Addr().(*net.TCPAddr).Port
 }
 
-func (s *Server) Shutdown(ctx context.Context) (err error) {
-	s.closeOnce.Do(func() {
-		err = s.server.Shutdown(ctx)
-	})
-	return err
+func (s *Server) Shutdown(ctx context.Context) error {
+	defer close(s.doneCh)
+	return s.server.Shutdown(ctx)
 }
 
 func loggingHandler(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {
