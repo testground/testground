@@ -37,7 +37,11 @@ name = "ipfs-add-defaults"
 instances = { min = 1, max = 1, default = 1 }
 
   [testcases.params]
-  some_param = { type = "int", desc = "some param", unit = "peers" }
+    [testcases.params.file-sizes]
+      type = "string array"
+      desc = "An array of File Sizes to be tested"
+      unit = "SI Units"
+      default = ["1MB", "10MB", "100MB"]
 
 # seq 1
 [[testcases]]
@@ -45,7 +49,11 @@ name = "ipfs-add-trickle-dag"
 instances = { min = 1, max = 1, default = 1 }
 
   [testcases.params]
-  some_param = { type = "int", desc = "some param", unit = "peers" }
+    [testcases.params.file-sizes]
+      type = "string array"
+      desc = "An array of File Sizes to be tested"
+      unit = "SI Units"
+      default = ["1MB", "10MB", "100MB"]
 
 # seq 2
 [[testcases]]
@@ -53,7 +61,16 @@ name = "ipfs-add-dir-sharding"
 instances = { min = 1, max = 1, default = 1 }
 
   [testcases.params]
-  some_param = { type = "int", desc = "some param", unit = "peers" }
+    [testcases.params.dir-cfg]
+      type = "object"
+      desc = "An Array containing objects that describe how deep/nested a directory goes and the size of files that can be found throughout"
+      unit = "SI Units"
+      [[testcases.params.dir-cfg.default]]
+        depth = 10
+        size = "1MB"
+      [[testcases.params.dir-cfg.default]]
+        depth = 50
+        size = "1MB"
 
 # seq 3
 [[testcases]]
