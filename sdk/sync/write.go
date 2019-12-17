@@ -3,14 +3,13 @@ package sync
 import (
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 )
 
 var (
@@ -40,11 +39,6 @@ type Writer struct {
 	// from the RunEnv.
 	root string
 
-	// ownSet tracks the keys written and owned by this Writer, grouped by
-	// GroupKey. We drop these keys when stopping gracefully, i.e. when Close()
-	// is called.
-	ownSet map[string][]string
-
 	// keepAliveSet are the keys we are responsible for keeping alive. This is a
 	// superset of ownset + special keys we are responsible for keeping alive.
 	keepAliveSet map[string]struct{}
@@ -63,7 +57,6 @@ func NewWriter(runenv *runtime.RunEnv) (w *Writer, err error) {
 		re:           runenv,
 		root:         basePrefix(runenv),
 		doneCh:       make(chan struct{}),
-		ownSet:       make(map[string][]string),
 		keepAliveSet: make(map[string]struct{}),
 	}
 
@@ -99,7 +92,8 @@ func (w *Writer) keepAlive() {
 	}
 }
 
-// Write writes a payload in the sync tree for the test.
+// Write writes a payload in the sync tree for the test, which is backed by a
+// Redis stream.
 //
 // It _panics_ if the payload's type does not match the expected type for the
 // subtree.
@@ -119,23 +113,36 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err er
 		return -1, err
 	}
 
-	// Calculate the index key. This key itself holds a Redis SET enumerating
-	// all children. The seq ordinal and the actual leaf nodes are nested using
-	// this key as a prefix.
-	idx := w.root + ":" + subtree.GroupKey
+	// Calculate the stream key.
+	key := w.root + ":" + subtree.GroupKey
 
-	// Claim an seq by incrementing the :seq child key.
-	seq, err = w.client.Incr(idx + ":seq").Result()
+	// Perform a Redis transaction, adding the item to the stream and fetching
+	// the XLEN of the stream.
+	var xlen *redis.IntCmd
+	_, err = w.client.TxPipelined(func(pipe redis.Pipeliner) error {
+		pipe.XAdd(&redis.XAddArgs{
+			Stream: key,
+			ID:     "*",
+			Values: map[string]interface{}{
+				RedisStreamPayloadKey: bytes,
+			},
+		})
+		xlen = pipe.XLen(key)
+		return nil
+	})
+
 	if err != nil {
 		return -1, err
 	}
 
-	w.re.SLogger().Debugw("writing payload to subtree", "subtree", subtree.GroupKey, "our_seq", seq)
+	seq = xlen.Val()
+
+	w.re.SLogger().Debugw("wrote payload to stream", "subtree", subtree.GroupKey, "our_seq", seq)
 
 	// If we are within the first 5 nodes writing to this subtree, we're
-	// responsible for keeping the index key alive. Having _all_ nodes
-	// refreshing the index keys would be wasteful, so selecting a few
-	// supervisors deterministically is appropriate.
+	// responsible for keeping the stream alive. Having _all_ nodes refreshing
+	// the stream keys would be wasteful, so selecting a few supervisors
+	// deterministically is appropriate.
 	//
 	// TODO(raulk) this is not entirely sound. In some test choreographies, the
 	// first 5 nodes may legitimately finish first (or they may be biased in
@@ -144,38 +151,9 @@ func (w *Writer) Write(subtree *Subtree, payload interface{}) (seq int64, err er
 	// to become a problem. Let's cross that bridge when we get to it.
 	if seq <= 5 {
 		w.lk.Lock()
-		w.keepAliveSet[idx] = struct{}{}
+		w.keepAliveSet[key] = struct{}{}
 		w.lk.Unlock()
 	}
-
-	// Payload key segments:
-	// run:<runid>:plan:<plan_name>:case:<case_name>:<group_key>:<payload_key>:<seq>
-	// e.g.
-	// run:123:plan:dht:case:lookup_peers:nodes:QmPeer:417
-	payloadKey := strings.Join([]string{idx, subtree.KeyFunc(payload), strconv.Itoa(int(seq))}, ":")
-
-	// Perform a Redis transaction setting the payload key, adding it to the
-	// index set, and extending the expiry of the latter.
-	err = w.client.Watch(func(tx *redis.Tx) error {
-		_, err := tx.Pipelined(func(pipe redis.Pipeliner) error {
-			pipe.Set(payloadKey, bytes, TTL)
-			pipe.SAdd(idx, payloadKey)
-			pipe.Expire(idx, TTL)
-			return nil
-		})
-		return err
-	})
-
-	if err != nil {
-		return -1, err
-	}
-
-	// Update the ownset and refreshset.
-	w.lk.Lock()
-	os := w.ownSet[subtree.GroupKey]
-	w.ownSet[subtree.GroupKey] = append(os, payloadKey)
-	w.keepAliveSet[payloadKey] = struct{}{}
-	w.lk.Unlock()
 
 	return seq, err
 }
@@ -215,17 +193,6 @@ func (w *Writer) Close() error {
 	w.lk.Lock()
 	defer w.lk.Unlock()
 
-	// Drop all keys owned by this writer.
-	for g, os := range w.ownSet {
-		if err := w.client.SRem(g, os).Err(); err != nil {
-			return err
-		}
-		if err := w.client.Del(os...).Err(); err != nil {
-			return err
-		}
-	}
-
-	w.ownSet = nil
 	w.keepAliveSet = nil
 
 	return nil

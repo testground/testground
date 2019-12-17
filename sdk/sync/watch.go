@@ -9,7 +9,7 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -42,12 +42,22 @@ func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
 // Subscribe watches a subtree and emits updates on the specified channel.
 //
 // The element type of the channel must match the payload type of the Subtree.
-func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() error, err error) {
+//
+// We close the supplied channel when the subscription ends, in all cases. At
+// that point, the caller should consume the error (or nil value) from the
+// returned errCh.
+//
+// The user can cancel the subscription by calling the returned cancelFn. The
+// subscription will die if an internal error occurs, in which case the cancelFn
+// should also be called.
+func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (func() error, error) {
 	chV := reflect.ValueOf(ch)
 	if k := chV.Kind(); k != reflect.Chan {
 		return nil, fmt.Errorf("value is not a channel: %T", ch)
 	}
-	if err = subtree.AssertType(chV.Type().Elem()); err != nil {
+
+	if err := subtree.AssertType(chV.Type().Elem()); err != nil {
+		chV.Close()
 		return nil, err
 	}
 
@@ -63,7 +73,10 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 		w:       w,
 		subtree: subtree,
 		client:  w.client,
-		root:    root,
+		key:     root,
+		connCh:  make(chan int64, 1),
+		closeCh: make(chan struct{}),
+		errCh:   make(chan error, 1),
 		outCh:   chV,
 	}
 
@@ -71,11 +84,10 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 	w.lk.Unlock()
 
 	// Start the subscription.
-	if err := sub.start(); err != nil {
-		return nil, err
-	}
+	sub.closeWg.Add(1)
+	go sub.process()
 
-	cancel = func() error {
+	cancelFn := func() error {
 		w.lk.Lock()
 		defer w.lk.Unlock()
 
@@ -86,7 +98,7 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (cancel func() err
 
 		return sub.stop()
 	}
-	return cancel, nil
+	return cancelFn, nil
 }
 
 // Barrier awaits until the specified amount of items are advertising to be in

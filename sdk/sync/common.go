@@ -12,7 +12,7 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 )
 
 const (
