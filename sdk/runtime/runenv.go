@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -211,55 +212,84 @@ func (re *RunEnv) IsParamSet(name string) bool {
 }
 
 // StringParam returns a string parameter, or "" if the parameter is not set.
-// The second return value indicates if the parameter was set.
-func (re *RunEnv) StringParam(name string) (s string, ok bool) {
-	v, ok := re.TestInstanceParams[name]
-	return v, ok
-}
-
-// IntParam returns an int parameter, or -1 if the parameter is not set. The
-// second return value indicates if the parameter was set.
-func (re *RunEnv) IntParam(name string) (i int, ok bool) {
+func (re *RunEnv) StringParam(name string) string {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
-		return -1, false
+		panic(fmt.Errorf("%s was not set", name))
 	}
+	return v
+}
+
+func (re *RunEnv) BytesParam(name string) uint64 {
+	v, _ := re.TestInstanceParams[name]
+	m, err := humanize.ParseBytes(v)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+// IntParam returns an int parameter, or -1 if the parameter is not set or
+// the conversion failed. It panics on error.
+func (re *RunEnv) IntParam(name string) int {
+	v, ok := re.TestInstanceParams[name]
+	if !ok {
+		panic(fmt.Errorf("%s was not set", name))
+	}
+
 	i, err := strconv.Atoi(v)
-	return i, err == nil
+	if err != nil {
+		panic(err)
+	}
+	return i
 }
 
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
-// The second return value indicates if the parameter was set.
-func (re *RunEnv) BooleanParam(name string) (b bool, ok bool) {
-	s, ok := re.TestInstanceParams[name]
+func (re *RunEnv) BooleanParam(name string) bool {
+	s, _ := re.TestInstanceParams[name]
 	if s == "true" {
-		return true, ok
+		return true
 	}
-	return false, ok
+	return false
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array
-// if it does not exist. The second returns value indicates if the parameter
-// was (un)set or (in)valid.
-func (re *RunEnv) StringArrayParam(name string) (a []string, ok bool) {
-	a = []string{}
-	ok = re.JSONParam(name, &a)
-	return a, ok
+// if it does not exist. It panics on error.
+func (re *RunEnv) StringArrayParam(name string) []string {
+	a := []string{}
+	re.JSONParam(name, &a)
+	return a
+}
+
+// BytesArrayParam returns an array of uint64 elements which represent sizes,
+// in bytes. If the response is nil, then there was an error parsing the input.
+// It panics on error.
+func (re *RunEnv) BytesArrayParam(name string) []uint64 {
+	humanSizes := re.StringArrayParam(name)
+	sizes := []uint64{}
+
+	for _, size := range humanSizes {
+		n, err := humanize.ParseBytes(size)
+		if err != nil {
+			panic(err)
+		}
+		sizes = append(sizes, n)
+	}
+
+	return sizes
 }
 
 // JSONParam unmarshals a JSON parameter in an arbitrary interface.
-// It returns if the parameter was (un)set or (in)valid.
-func (re *RunEnv) JSONParam(name string, v interface{}) (ok bool) {
+// It panics on error.
+func (re *RunEnv) JSONParam(name string, v interface{}) {
 	s, ok := re.TestInstanceParams[name]
 	if !ok {
-		return false
+		panic(fmt.Errorf("%s was not set", name))
 	}
 
 	if err := json.Unmarshal([]byte(s), v); err != nil {
-		return false
+		panic(err)
 	}
-
-	return true
 }
 
 // // ExtractRunEnv extracts the test context from a context.Context object.
