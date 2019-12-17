@@ -75,7 +75,7 @@ type DockerGoBuilderConfig struct {
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
@@ -91,11 +91,12 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	}
 
 	var (
-		log         = logging.S().With("buildId", in.BuildID)
-		id          = build.CanonicalBuildID(in)
-		cli, err    = client.NewClientWithOpts(cliopts...)
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+		log      = logging.S().With("buildId", in.BuildID)
+		id       = build.CanonicalBuildID(in)
+		cli, err = client.NewClientWithOpts(cliopts...)
 	)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	if err != nil {
@@ -130,7 +131,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	)
 
 	// Copy the plan's source; go-getter will create the dir.
-	if err := getter.Get(plandst, plansrc); err != nil {
+	if err := getter.Get(plandst, plansrc, getter.WithContext(ctx)); err != nil {
 		return nil, err
 	}
 	if err := materializeSymlink(plandst); err != nil {
@@ -147,7 +148,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		return nil, err
 	}
 
-	if err := getter.Get(sdkdst, sdksrc); err != nil {
+	if err := getter.Get(sdkdst, sdksrc, getter.WithContext(ctx)); err != nil {
 		return nil, err
 	}
 	if err := materializeSymlink(sdkdst); err != nil {
@@ -165,7 +166,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		}
 
 		// Initialize a fresh go.mod file.
-		cmd := exec.Command("go", "mod", "init", cfg.ModulePath)
+		cmd := exec.CommandContext(ctx, "go", "mod", "init", cfg.ModulePath)
 		cmd.Dir = plandst
 		out, _ := cmd.CombinedOutput()
 		if !strings.Contains(string(out), "creating new go.mod") {
@@ -187,7 +188,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
 
 	// Write replace directives.
-	cmd := exec.Command("go", append([]string{"mod", "edit"}, replaces...)...)
+	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 	cmd.Dir = plandst
 	_, err = cmd.CombinedOutput()
 	if err != nil {
