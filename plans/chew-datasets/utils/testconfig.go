@@ -25,59 +25,48 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	cfg = TestConfig{}
 
 	if acceptFiles {
-		// Usage: --test-param file-sizes='["10GB"]'
-		sizes, ok := runenv.StringArrayParam("file-sizes")
-		if ok {
-			for _, size := range sizes {
-				n, err := humanize.ParseBytes(size)
-				if err != nil {
-					return cfg, err
-				}
-
-				file, err := CreateRandomFile(runenv, os.TempDir(), int64(n))
-				if err != nil {
-					return nil, err
-				}
-
-				runenv.Message("%s: %s file created", file, humanize.Bytes(n))
-
-				cfg = append(cfg, &TestDir{
-					Path: file,
-					Size: int64(n),
-				})
+		sizes := runenv.BytesArrayParam("file-sizes")
+		for _, size := range sizes {
+			file, err := CreateRandomFile(runenv, os.TempDir(), int64(size))
+			if err != nil {
+				return nil, err
 			}
+
+			runenv.Message("%s: %s file created", file, humanize.Bytes(size))
+
+			cfg = append(cfg, &TestDir{
+				Path: file,
+				Size: int64(size),
+			})
 		}
 	}
 
 	if acceptDirs {
-		// Usage: --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 100, "size": "1MB"}]
 		dirConfigs := []rawDirConfig{}
-		ok := runenv.JSONParam("dir-cfg", &dirConfigs)
-		if ok {
-			for _, dir := range dirConfigs {
-				n, err := humanize.ParseBytes(dir.Size)
-				if err != nil {
-					return nil, err
-				}
-
-				path, err := CreateRandomDirectory(runenv, os.TempDir(), dir.Depth)
-				if err != nil {
-					return nil, err
-				}
-
-				_, err = CreateRandomFile(runenv, path, int64(n))
-				if err != nil {
-					return nil, err
-				}
-
-				runenv.Message("%s: %s directory created", humanize.Bytes(n), path)
-
-				cfg = append(cfg, &TestDir{
-					Path:  path,
-					Depth: dir.Depth,
-					Size:  int64(n),
-				})
+		runenv.JSONParam("dir-cfg", &dirConfigs)
+		for _, dir := range dirConfigs {
+			n, err := humanize.ParseBytes(dir.Size)
+			if err != nil {
+				return nil, err
 			}
+
+			path, err := CreateRandomDirectory(runenv, os.TempDir(), dir.Depth)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = CreateRandomFile(runenv, path, int64(n))
+			if err != nil {
+				return nil, err
+			}
+
+			runenv.Message("%s: %s directory created", humanize.Bytes(n), path)
+
+			cfg = append(cfg, &TestDir{
+				Path:  path,
+				Depth: dir.Depth,
+				Size:  int64(n),
+			})
 		}
 	}
 
