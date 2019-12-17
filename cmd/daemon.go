@@ -55,8 +55,8 @@ func daemonCommand(c *cli.Context) error {
 		logging.S().Infow("rpc server stopped")
 	}()
 
-	logging.S().Infow("listen and serve", "addr", srv.Addr)
-	err = srv.Start()
+	logging.S().Infow("listen and serve", "addr", srv.Addr())
+	err = srv.Serve()
 	if err == http.ErrServerClosed {
 		err = nil
 	}
