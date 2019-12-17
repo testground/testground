@@ -3,6 +3,7 @@ package engine
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"reflect"
@@ -285,7 +286,11 @@ func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, ru
 	// Add the default parameters set on the manifest.
 	for paramName, paramValue := range tcase.Parameters {
 		if _, ok := input.Parameters[paramName]; !ok {
-			input.Parameters[paramName] = paramValue.Default
+			data, err := json.Marshal(paramValue.Default)
+			if err != nil {
+				return nil, err
+			}
+			input.Parameters[paramName] = string(data)
 		}
 	}
 
