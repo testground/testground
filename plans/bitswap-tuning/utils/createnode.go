@@ -45,7 +45,7 @@ func (n *Node) Close() {
 
 // CreateNode creates a libp2p Node with a Bitswap instance
 func CreateNode(ctx context.Context, runenv *runtime.RunEnv) (*Node, error) {
-	bstoreDelay := runenv.IntParamD("bstore_delay_ms", 0)
+	bstoreDelay, _ := runenv.IntParam("bstore_delay_ms")
 
 	h, err := libp2p.New(ctx)
 	if err != nil {
