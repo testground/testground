@@ -33,11 +33,21 @@ func (tc *SimpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemb
 	node := ensemble.GetNode("adder")
 	client := node.Client()
 
-	file := utils.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
-	defer os.Remove(file.Name())
+	filePath, err := runenv.CreateRandomFile(ensemble.TempDir(), tc.SizeBytes)
+	if err != nil {
+		runenv.Abort(err)
+		return
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		runenv.Abort(err)
+		return
+	}
+	defer os.Remove(filePath)
 
 	tstarted := time.Now()
-	_, err := client.Add(file)
+	_, err = client.Add(file)
 	if err != nil {
 		runenv.Abort(err)
 		return

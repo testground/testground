@@ -36,8 +36,18 @@ func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 	getter := ensemble.GetNode("getter").Client()
 
 	// generate a random file of the designated size.
-	file := utils.TempRandFile(runenv, ensemble.TempDir(), tc.SizeBytes)
-	defer os.Remove(file.Name())
+	filePath, err := runenv.CreateRandomFile(ensemble.TempDir(), tc.SizeBytes)
+	if err != nil {
+		runenv.Abort(err)
+		return
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		runenv.Abort(err)
+		return
+	}
+	defer os.Remove(filePath)
 
 	tstarted := time.Now()
 	cid, err := adder.Add(file)
