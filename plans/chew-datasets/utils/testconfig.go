@@ -27,7 +27,7 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	if acceptFiles {
 		sizes := runenv.BytesArrayParam("file-sizes")
 		for _, size := range sizes {
-			file, err := CreateRandomFile(runenv, os.TempDir(), int64(size))
+			file, err := runenv.CreateRandomFile(os.TempDir(), int64(size))
 			if err != nil {
 				return nil, err
 			}
@@ -50,12 +50,12 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 				return nil, err
 			}
 
-			path, err := CreateRandomDirectory(runenv, os.TempDir(), dir.Depth)
+			path, err := runenv.CreateRandomDirectory(os.TempDir(), dir.Depth)
 			if err != nil {
 				return nil, err
 			}
 
-			_, err = CreateRandomFile(runenv, path, int64(n))
+			_, err = runenv.CreateRandomFile(path, int64(n))
 			if err != nil {
 				return nil, err
 			}
