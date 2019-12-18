@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os/exec"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -36,8 +35,6 @@ func ensureRedis(t *testing.T) (close func()) {
 	}
 
 	cmd := exec.Command("redis-server", "-")
-	// enable keyspace events.
-	cmd.Stdin = strings.NewReader(`notify-keyspace-events "$szxKE"`)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("failed to start redis: %s", err)
 	}

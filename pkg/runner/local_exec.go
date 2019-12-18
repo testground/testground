@@ -52,7 +52,7 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, "redis-server", "--notify-keyspace-events", "$szxK")
+		cmd := exec.CommandContext(ctx, "redis-server")
 		if err := cmd.Start(); err == nil {
 			fmt.Fprintln(ow, "temporary redis instance started successfully")
 		} else {

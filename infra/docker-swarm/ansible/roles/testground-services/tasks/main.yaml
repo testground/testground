@@ -13,7 +13,6 @@
     image: "redis:latest"
     command: redis-server
     args:
-      - --notify-keyspace-events $szxK
       - --save ""
       - --appendonly no
     networks:

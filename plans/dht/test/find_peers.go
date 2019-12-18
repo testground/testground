@@ -18,10 +18,10 @@ func FindPeers(runenv *runtime.RunEnv) {
 		BucketSize:  runenv.IntParamD("bucket_size", 2),
 		AutoRefresh: runenv.BooleanParamD("auto_refresh", true),
 	}
+
 	if opts.NFindPeers > runenv.TestInstanceCount {
 		runenv.Abort("NFindPeers greater than the number of test instances")
 		return
-
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -88,6 +88,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 			Unit:           "ns",
 			ImprovementDir: -1,
 		}, float64(time.Now().Sub(t).Nanoseconds()))
+
 		found++
 	}
 	runenv.OK()
