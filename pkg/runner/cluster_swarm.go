@@ -117,8 +117,22 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
+	const maxNameLength = 63
+	var shortRunID string
+	prefix := fmt.Sprintf("tg-%s-%s-", input.TestPlan.Name, testcase.Name)
+	suffix := "-default"
+	availableChars := maxNameLength - len(prefix) - len(suffix)
+	if availableChars < 4 {
+		return nil, fmt.Errorf("test plan name + test case name too long")
+	}
+	if len(input.RunID) > availableChars {
+		shortRunID = input.RunID[len(input.RunID)-availableChars:]
+	} else {
+		shortRunID = input.RunID
+	}
+
 	var (
-		sname    = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
+		sname    = prefix + shortRunID
 		replicas = uint64(input.Instances)
 	)
 
@@ -158,7 +172,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		},
 	}
 
-	networkResp, err := cli.NetworkCreate(ctx, sname+"-default", networkSpec)
+	networkResp, err := cli.NetworkCreate(ctx, sname+suffix, networkSpec)
 	if err != nil {
 		return nil, err
 	}
