@@ -76,7 +76,7 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (func() error, err
 		key:     root,
 		connCh:  make(chan int64, 1),
 		closeCh: make(chan struct{}),
-		errCh:   make(chan struct{}),
+		doneCh:  make(chan struct{}),
 		outCh:   chV,
 	}
 

@@ -3,7 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
-	"sync"
+	"strconv"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -12,8 +12,6 @@ const RedisStreamPayloadKey = "payload"
 
 // subscription represents long-lived subscription of a consumer to a subtree.
 type subscription struct {
-	lk sync.RWMutex
-
 	client  *redis.Client
 	w       *Watcher
 	subtree *Subtree
@@ -26,7 +24,7 @@ type subscription struct {
 	// no connection was created (e.g. error situation).
 	connCh  chan int64
 	closeCh chan struct{}
-	errCh   chan struct{}
+	doneCh  chan struct{}
 	result  error
 }
 
@@ -43,7 +41,7 @@ func (s *subscription) isClosed() bool {
 // blocking XREAD. The XREAD will be cancelled when the subscription is
 // cancelled.
 func (s *subscription) process() {
-	defer close(s.errCh)
+	defer close(s.doneCh)
 	defer s.outCh.Close()
 
 	var (
@@ -82,10 +80,12 @@ func (s *subscription) process() {
 	}
 
 	var last redis.XMessage
-	for {
+	for !s.isClosed() {
 		streams, err := conn.XRead(args).Result()
 		if err != nil && err != redis.Nil {
-			s.result = fmt.Errorf("failed to XREAD from subtree stream: %w", err)
+			if !s.isClosed() {
+				s.result = fmt.Errorf("failed to XREAD from subtree stream: %w", err)
+			}
 			return
 		}
 
@@ -108,11 +108,6 @@ func (s *subscription) process() {
 			}
 		}
 
-		// Return if the subscription has been closed.
-		if s.isClosed() {
-			return
-		}
-
 		args.Streams[1] = last.ID
 	}
 }
@@ -120,20 +115,24 @@ func (s *subscription) process() {
 // stop stops this subcription.
 func (s *subscription) stop() error {
 	if s.isClosed() {
-		<-s.errCh
+		<-s.doneCh
 		return s.result
 	}
 
 	close(s.closeCh)
 
-	if connID := <-s.connCh; connID != -1 {
+	connID := <-s.connCh
+
+	// We have a connection to close.
+	if connID != -1 {
 		// this subscription has a connection associated with it.
-		if err := s.client.ClientUnblock(connID).Err(); err != nil {
-			s.lk.Unlock()
-			return fmt.Errorf("failed to unblock connection: %w", err)
+		if err := s.client.ClientKillByFilter("id", strconv.Itoa(int(connID))).Err(); err != nil {
+			err := fmt.Errorf("failed to kill connection: %w", err)
+			s.w.re.Message("%s", err)
+			return err
 		}
 	}
 
-	<-s.errCh
+	<-s.doneCh
 	return s.result
 }
