@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"sort"
@@ -28,6 +29,7 @@ import (
 
 func init() {
 	os.Setenv("LIBP2P_TCP_REUSEPORT", "false")
+	swarm.BackoffBase = 0
 }
 
 const minTestInstances = 16
@@ -229,6 +231,17 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 		if isBootstrapper {
 			runenv.Message("bootstrap: am bootstrapper")
+			go func() {
+				for {
+					select {
+					case <-time.After(1 * time.Second):
+						runenv.Message("bootstrapper peer count: %d", len(dht.Host().Network().Peers()))
+						continue
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
 			// Announce ourself as a bootstrap node.
 			if _, err := writer.Write(BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
 				return err
@@ -237,11 +250,14 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			// bootstrappers.
 		}
 
+		runenv.Message("bootstrap: getting bootstrappers")
 		// List all the bootstrappers.
 		bootstrapPeers, err := getBootstrappers(ctx, runenv, watcher, opts)
 		if err != nil {
 			return err
 		}
+
+		runenv.Message("bootstrap: got %d bootstrappers", len(bootstrapPeers))
 
 		if isBootstrapper {
 			// If we're a bootstrapper, connect to all of them.
@@ -262,7 +278,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	runenv.Message("bootstrap: dialing %v", toDial)
 
 	// Connect to our peers.
-	if err := Connect(ctx, dht, toDial...); err != nil {
+	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 		return err
 	}
 
@@ -341,7 +357,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	if len(dht.Host().Network().Peers()) == 0 {
 		// TODO: Report this as an error?
 		runenv.Message("bootstrap: fully disconnected, reconnecting.")
-		if err := Connect(ctx, dht, toDial...); err != nil {
+		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 			return err
 		}
 		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
@@ -389,23 +405,40 @@ func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 			return nil, fmt.Errorf("timed out waiting for bootstrappers")
 		}
 	}
+	runenv.Message("got all bootstrappers: %d", len(peers))
 	return peers, nil
 }
 
 // Connect connects a host to a set of peers.
 //
 // Automatically skips our own peer.
-func Connect(ctx context.Context, dht *kaddht.IpfsDHT, toDial ...peer.AddrInfo) error {
+func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, toDial ...peer.AddrInfo) error {
+	tryConnect := func(ctx context.Context, ai peer.AddrInfo, attempts int) error {
+		var err error
+		for i := 1; i <= attempts; i++ {
+			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
+			select {
+			case <-time.After(time.Duration(rand.Intn(500)+100) * time.Millisecond):
+			case <-ctx.Done():
+				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
+			}
+			if err = dht.Host().Connect(ctx, ai); err == nil {
+				return nil
+			} else {
+				runenv.Message("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+			}
+		}
+		return fmt.Errorf("failed while dialing peer %v, attempts: %d: %w", ai.Addrs, attempts, err)
+	}
+
 	// Dial to all the other peers.
-	count := 0
 	for _, ai := range toDial {
 		if ai.ID == dht.Host().ID() {
 			continue
 		}
-		if err := dht.Host().Connect(ctx, ai); err != nil {
-			return fmt.Errorf("error while dialing peer %v: %w", ai.Addrs, err)
+		if err := tryConnect(ctx, ai, 5); err != nil {
+			return err
 		}
-		count++
 	}
 
 	return nil
