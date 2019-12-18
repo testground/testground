@@ -92,6 +92,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(opts.BucketSize),
+		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
 	}
 
 	if !opts.AutoRefresh {
