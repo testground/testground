@@ -25,9 +25,9 @@
     mode: 0644
   notify: restart filebeat
 
-- name: Ensure Filebeat is started and enabled at boot.
+- name: Ensure Filebeat is restarted and enabled at boot.
   service:
     name: filebeat
-    state: started
+    state: restarted
     enabled: true
 
