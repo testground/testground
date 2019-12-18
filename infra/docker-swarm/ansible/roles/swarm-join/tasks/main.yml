@@ -1,6 +1,3 @@
-#- name: Join Swarm Cluster as a Worker
-  #command: docker swarm join --token {{ token }} {{ manager }}:2377
-
 - name: Join Swarm Cluster as a Worker
   docker_swarm:
     state: join
