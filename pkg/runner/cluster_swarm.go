@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/docker/docker/api/types/network"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/logging"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -133,8 +133,20 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
 	}
 
+	// We can't create a network for every testplan on the same range,
+	// so we check how many networks we have and decide based on this number
+	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	currentNetworkId := 10 + len(networks)
+
+	subnet := fmt.Sprintf("10.%d.0.0/16", currentNetworkId)
+	gateway := fmt.Sprintf("10.%d.0.1", currentNetworkId)
+
 	// Create the data network.
-	log.Infow("creating data network", "name", sname)
+	log.Infow("creating data network", "name", sname, "subnet", subnet)
 
 	networkSpec := types.NetworkCreate{
 		Driver:         "overlay",
@@ -146,8 +158,8 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		IPAM: &network.IPAM{
 			Driver: "default",
 			Config: []network.IPAMConfig{{
-				Subnet:  "192.168.0.0/16",
-				Gateway: "192.168.0.1",
+				Subnet:  subnet,
+				Gateway: gateway,
 			}},
 		},
 		Labels: map[string]string{
