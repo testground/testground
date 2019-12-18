@@ -76,7 +76,7 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (func() error, err
 		key:     root,
 		connCh:  make(chan int64, 1),
 		closeCh: make(chan struct{}),
-		errCh:   make(chan error, 1),
+		errCh:   make(chan struct{}),
 		outCh:   chV,
 	}
 
@@ -84,7 +84,6 @@ func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (func() error, err
 	w.lk.Unlock()
 
 	// Start the subscription.
-	sub.closeWg.Add(1)
 	go sub.process()
 
 	cancelFn := func() error {

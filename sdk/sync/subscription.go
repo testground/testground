@@ -26,8 +26,8 @@ type subscription struct {
 	// no connection was created (e.g. error situation).
 	connCh  chan int64
 	closeCh chan struct{}
-	closeWg sync.WaitGroup
-	errCh   chan error
+	errCh   chan struct{}
+	result  error
 }
 
 func (s *subscription) isClosed() bool {
@@ -43,7 +43,7 @@ func (s *subscription) isClosed() bool {
 // blocking XREAD. The XREAD will be cancelled when the subscription is
 // cancelled.
 func (s *subscription) process() {
-	defer s.closeWg.Done()
+	defer close(s.errCh)
 	defer s.outCh.Close()
 
 	var (
@@ -55,7 +55,7 @@ func (s *subscription) process() {
 	startSeq, err := s.client.XLen(key).Result()
 	if err != nil {
 		s.connCh <- -1
-		s.errCh <- fmt.Errorf("failed to fetch current length of stream: %w", err)
+		s.result = fmt.Errorf("failed to fetch current length of stream: %w", err)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (s *subscription) process() {
 	id, err := conn.ClientID().Result()
 	if err != nil {
 		s.connCh <- -1
-		s.errCh <- fmt.Errorf("failed to get the current conn id: %w", err)
+		s.result = fmt.Errorf("failed to get the current conn id: %w", err)
 		return
 	}
 
@@ -85,7 +85,7 @@ func (s *subscription) process() {
 	for {
 		streams, err := conn.XRead(args).Result()
 		if err != nil && err != redis.Nil {
-			s.errCh <- fmt.Errorf("failed to XREAD from subtree stream: %w", err)
+			s.result = fmt.Errorf("failed to XREAD from subtree stream: %w", err)
 			return
 		}
 
@@ -110,20 +110,18 @@ func (s *subscription) process() {
 
 		// Return if the subscription has been closed.
 		if s.isClosed() {
-			s.errCh <- nil
 			return
 		}
 
 		args.Streams[1] = last.ID
 	}
-
-	s.errCh <- nil
 }
 
 // stop stops this subcription.
 func (s *subscription) stop() error {
 	if s.isClosed() {
-		return fmt.Errorf("called stop on subscription multiple times")
+		<-s.errCh
+		return s.result
 	}
 
 	close(s.closeCh)
@@ -136,6 +134,6 @@ func (s *subscription) stop() error {
 		}
 	}
 
-	s.closeWg.Wait()
-	return <-s.errCh
+	<-s.errCh
+	return s.result
 }
