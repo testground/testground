@@ -3,61 +3,29 @@ package sync
 import (
 	"fmt"
 	"reflect"
-	"strings"
-	"sync"
+	"strconv"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v7"
 )
+
+const RedisStreamPayloadKey = "payload"
 
 // subscription represents long-lived subscription of a consumer to a subtree.
 type subscription struct {
-	lk sync.RWMutex
-
-	root     string
-	startSeq int
-
+	client  *redis.Client
 	w       *Watcher
 	subtree *Subtree
-	client  *redis.Client
-	ps      *redis.PubSub
+	key     string
 
-	outCh   reflect.Value
-	inCh    <-chan *redis.Message
+	outCh reflect.Value
+
+	// connCh stores the connection ID of the subscription's conn. Consuming
+	// from here should always return a value, either a connection ID or -1 if
+	// no connection was created (e.g. error situation).
+	connCh  chan int64
 	closeCh chan struct{}
-	closeWg sync.WaitGroup
-}
-
-// start subscribes to keyspace notifications for the subtree, and brings the
-// state of the subscription forward to match the state of the store.
-
-// It does so in two phases:
-//
-//   1. Replay store: read the current state of the subtree from Redis, and
-//      replay it to the consumer.
-//   2. Replay buffer: reconcile the events we received during the replay
-//      phase (which we stored in a local buffer). Drain the queue and switch
-//      to online consumption.
-//
-// From then on, it broadcasts events received in real-time.
-func (s *subscription) start() error {
-	s.ps = s.client.PSubscribe("__keyspace@0__:" + s.root + ":*")
-	s.inCh = s.ps.Channel()
-
-	// Get the current counter; we'll only process entries prior or equal to
-	// this counter. This is a way of pinning state.
-	seq, err := s.client.Get(s.root + ":seq").Int()
-	if err != nil && err != redis.Nil {
-		return err
-	}
-
-	s.startSeq = seq
-
-	s.closeWg.Add(1)
-	go func() {
-		s.process()
-		s.closeWg.Done()
-	}()
-	return nil
+	doneCh  chan struct{}
+	result  error
 }
 
 func (s *subscription) isClosed() bool {
@@ -69,225 +37,102 @@ func (s *subscription) isClosed() bool {
 	}
 }
 
-// process does the heavy-lifting of this subscription.
+// process subscribes to a stream from position 0 performing an indefinite
+// blocking XREAD. The XREAD will be cancelled when the subscription is
+// cancelled.
 func (s *subscription) process() {
-	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", s.startSeq)
+	defer close(s.doneCh)
+	defer s.outCh.Close()
 
-	// Sync: store state can slide while we synchronize. To deal with that, we
-	// pin our sync procedure to the seq counter's value as soon as we start the
-	// subscription (startSeq). For entries with seq lower than or equal to the
-	// startSeq, we read them off the iterator. For entries higher, we will be
-	// receiving them via pubsub.
 	var (
-		keys   []string                    // gets reassigned on every iteration.
-		dead   = make(map[string]struct{}) // accumulates dead/expired elements for pruning.
-		cursor uint64                      // current state of the cursor
-		err    error
+		key    = s.key
 		sendFn = reflect.Value(s.outCh).Send // shorthand
 		typ    = s.subtree.PayloadType.Elem()
 	)
 
-	log.Infow("syncing subscription")
-	log.Infow("replaying store")
-
-	// --------------------
-	// --- REPLAY STORE ---
-	// --------------------
-
-	for i := 0; !s.isClosed(); i++ {
-		// Read elements from the set in increments of 1000.
-		keys, cursor, err = s.client.SScan(s.root, cursor, "", 1000).Result()
-		if err != nil {
-			panic(err)
-		}
-
-		log.Debugw("replay iteration", "iteration", i, "key_count", len(keys))
-
-		// Filter keys to retain only those whose seq is lower or equal to the
-		// start seq.
-		filtered := make([]string, 0, len(keys))
-		for _, k := range keys {
-			if seq := seqFromKey(k); seq > s.startSeq {
-				continue
-			}
-			filtered = append(filtered, k)
-		}
-		keys = filtered
-		filtered = nil
-
-		log.Debugf("entries <= startSeq: %d", len(keys))
-
-		// Fetch all the indexed keys; we need to verify they exist. Some may
-		// have expired.
-		if len(keys) > 0 {
-			res, err := s.client.MGet(keys...).Result()
-			if err != nil {
-				panic(err)
-			}
-
-			// Iterate over keys.
-			for i, k := range keys {
-				if res[i] == nil {
-					// Mark this key as dead. Do not send in consumer channel.
-					dead[k] = struct{}{}
-					log.Debugw("found dead key in group set", "key", k)
-					continue
-				}
-
-				// Deserialize the value, and publish to the consumer.
-				log.Debugw("delivering item to subscriber", "key", k)
-				payload, err := decodePayload(res[i], typ)
-				if err != nil {
-					panic(err)
-				}
-				sendFn(payload)
-			}
-		}
-
-		if cursor == 0 {
-			// We've exhausted the scan. Break out of the loop.
-			break
-		}
-	}
-
-	// Free this slice.
-	keys = nil
-
-	// Housekeeping. Prune elements that are still in the index but no
-	// longer exist (i.e. expired elements).
-	// CAUTION: these events will arrive as deletions on the set.
-	if l := len(dead); l > 0 {
-		go func() {
-			keys := make([]string, 0, l)
-			for k := range dead {
-				keys = append(keys, k)
-			}
-			del, err := s.client.SRem(s.root, keys).Result()
-			if err != nil {
-				panic(fmt.Sprintf("pruning dead keys from index key failed: %s", err))
-			}
-			log.Infow("successfully pruned dead keys", "prunable", len(dead), "pruned", del)
-			dead = nil // let the slice go.
-		}()
-	}
-
-	// Abort early if we're closed.
-	if s.isClosed() {
+	startSeq, err := s.client.XLen(key).Result()
+	if err != nil {
+		s.connCh <- -1
+		s.result = fmt.Errorf("failed to fetch current length of stream: %w", err)
 		return
 	}
 
-	// Function to extract the key from a pubsub notification.
-	extractKey := func(msg *redis.Message) string {
-		key := strings.TrimPrefix(msg.Channel, "__keyspace@0__:")
-		return key
+	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", startSeq)
+
+	// Get a connection and store its connection ID, so that stop() can unblock
+	// it upon closure.
+	conn := s.client.Conn()
+	defer conn.Close()
+
+	id, err := conn.ClientID().Result()
+	if err != nil {
+		s.connCh <- -1
+		s.result = fmt.Errorf("failed to get the current conn id: %w", err)
+		return
 	}
 
-	// ---------------------
-	// --- REPLAY BUFFER ---
-	// ---------------------
+	// store the conn ID in the channel.
+	s.connCh <- id
 
-	log.Infow("replaying buffer")
-
-	var pendingKeys []string
-Loop:
-	for {
-		select {
-		case msg, ok := <-s.inCh:
-			if !ok {
-				return
-			}
-			if key := extractKey(msg); key != "" && msg.Payload == "set" {
-				pendingKeys = append(pendingKeys, key)
-			}
-		default:
-			break Loop
-		}
+	args := &redis.XReadArgs{
+		Streams: []string{key, "0"},
+		Block:   0,
 	}
 
-	log.Infof("received %d notifications during replay", len(pendingKeys))
-
-	// Do a multi-get for the pending keys.
-	if len(pendingKeys) > 0 {
-		pendingVals, err := s.client.MGet(pendingKeys...).Result()
-		if err != nil {
-			panic(err)
-		}
-		for i, v := range pendingVals {
-			if v == nil {
-				continue
-			}
-
-			log.Debugw("delivering item to subscriber", "key", pendingKeys[i])
-
-			p, err := decodePayload(v, typ)
-			if err != nil {
-				log.Warnf("unable to decode item: %s", err)
-				panic(err)
-			}
-
-			// Abort early if we're closed.
-			if s.isClosed() {
-				return
-			}
-
-			sendFn(p)
-		}
-		pendingKeys, pendingVals = nil, nil
-	}
-
-	log.Infow("now consuming actively")
-
-	// --- FORWARD CONSUMPTION ---
-
+	var last redis.XMessage
 	for !s.isClosed() {
-		select {
-		case msg, ok := <-s.inCh:
-			if !ok {
-				return
+		streams, err := conn.XRead(args).Result()
+		if err != nil && err != redis.Nil {
+			if !s.isClosed() {
+				s.result = fmt.Errorf("failed to XREAD from subtree stream: %w", err)
 			}
-			log.Debugw("received keyspace notification", "message", msg)
-			switch msg.Payload {
-			case "set":
-				key := extractKey(msg)
-				if key == "" {
+			return
+		}
+
+		if len(streams) > 0 {
+			stream := streams[0]
+			for _, last = range stream.Messages {
+				payload, ok := last.Values[RedisStreamPayloadKey]
+				if !ok {
+					log.Warnw("received stream entry without payload entry", "payload", last)
 					continue
 				}
 
-				// TODO: batch GETs.
-				switch v, err := s.client.Get(key).Result(); err {
-				case redis.Nil:
-					log.Warnf("we received a notification for a key that disappeared: %s", key)
-				case nil:
-					p, err := decodePayload(v, typ)
-					if err != nil {
-						log.Warnf("unable to decode item: %s", err)
-						panic(err)
-					}
-					log.Debugw("delivering item to subscriber", "key", key)
-					sendFn(p)
-				default:
-					panic(err)
+				p, err := decodePayload(payload, typ)
+				if err != nil {
+					log.Warnf("unable to decode item: %s", err)
+					continue
 				}
-
-			default:
+				log.Debugw("delivering item to subscriber", "key", key)
+				sendFn(p)
 			}
 		}
+
+		args.Streams[1] = last.ID
 	}
 }
 
 // stop stops this subcription.
 func (s *subscription) stop() error {
-	if err := s.ps.Close(); err != nil {
-		return err
+	if s.isClosed() {
+		<-s.doneCh
+		return s.result
 	}
 
-	if err := s.ps.Unsubscribe("__keyspace@0__:" + s.subtree.GroupKey); err != nil {
-		return err
+	close(s.closeCh)
+
+	connID := <-s.connCh
+
+	// We have a connection to close.
+	if connID != -1 {
+		// this subscription has a connection associated with it.
+		if err := s.client.ClientKillByFilter("id", strconv.Itoa(int(connID))).Err(); err != nil {
+			err := fmt.Errorf("failed to kill connection: %w", err)
+			s.w.re.Message("%s", err)
+			return err
+		}
 	}
 
-	s.closeWg.Wait()
-
-	v := reflect.Value(s.outCh)
-	v.Close()
-	return nil
+	<-s.doneCh
+	return s.result
 }

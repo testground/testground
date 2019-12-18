@@ -316,7 +316,6 @@ func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 		ContainerConfig: &container.Config{
 			Image:      "redis",
 			Entrypoint: []string{"redis-server"},
-			Cmd:        []string{"--notify-keyspace-events", "$szxK"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),

@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"os/exec"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -26,7 +25,7 @@ func init() {
 func ensureRedis(t *testing.T) (close func()) {
 	t.Helper()
 
-	runenv := runtime.CurrentRunEnv()
+	runenv := runtime.RandomRunEnv()
 
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
@@ -36,8 +35,6 @@ func ensureRedis(t *testing.T) (close func()) {
 	}
 
 	cmd := exec.Command("redis-server", "-")
-	// enable keyspace events.
-	cmd.Stdin = strings.NewReader(`notify-keyspace-events "$szxKE"`)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("failed to start redis: %s", err)
 	}
@@ -61,7 +58,7 @@ func TestWatcherWriter(t *testing.T) {
 	close := ensureRedis(t)
 	defer close()
 
-	runenv := runtime.CurrentRunEnv()
+	runenv := runtime.RandomRunEnv()
 
 	watcher, err := NewWatcher(runenv)
 	if err != nil {
@@ -71,6 +68,9 @@ func TestWatcherWriter(t *testing.T) {
 
 	peersCh := make(chan *peer.AddrInfo, 16)
 	cancel, err := watcher.Subscribe(PeerSubtree, peersCh)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer cancel()
 
 	if err != nil {
@@ -209,6 +209,74 @@ func TestWriteAllBeforeWatch(t *testing.T) {
 	}()
 
 	<-doneCh
+}
+
+func TestSequenceOnWrite(t *testing.T) {
+	var (
+		iterations = 1000
+		runenv     = runtime.RandomRunEnv()
+		subtree    = randomTestSubtree()
+	)
+
+	closeRedis := ensureRedis(t)
+	defer closeRedis()
+
+	s := "a"
+	for i := 1; i <= iterations; i++ {
+		w, err := NewWriter(runenv)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		seq, err := w.Write(subtree, &s)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if seq != int64(i) {
+			t.Fatalf("expected seq %d, got %d", i, seq)
+		}
+
+		w.Close()
+	}
+}
+
+func TestCloseSubscription(t *testing.T) {
+	close := ensureRedis(t)
+	defer close()
+
+	var (
+		runenv  = runtime.RandomRunEnv()
+		subtree = randomTestSubtree()
+	)
+
+	watcher, writer := MustWatcherWriter(runenv)
+
+	ch := make(chan *string, 128)
+	cancel, err := watcher.Subscribe(subtree, ch)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	s := "foo"
+	if _, err := writer.Write(subtree, &s); err != nil {
+		t.Fatal(err)
+	}
+
+	v, ok := <-ch
+	if !ok && *v != s {
+		t.Fatalf("expected channel to be open, and v to be %s; was: %s", s, *v)
+	}
+
+	// cancel the subscription.
+	if err := cancel(); err != nil {
+		t.Fatal(err)
+	}
+
+	v, ok = <-ch
+	if ok && *v != "" {
+		t.Fatalf("expected channel to be closed, and v to be empty; was: %s", *v)
+	}
 }
 
 func consumeOrdered(t *testing.T, ctx context.Context, ch chan *string, values []string) {
