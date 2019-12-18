@@ -1,3 +1,7 @@
+# Pause for 10 seconds for worker nodes to connect to master
+- pause:
+    seconds: 10
+
 - name: Create Testground overlay control network
   docker_network:
     name: control
@@ -6,6 +10,10 @@
     enable_ipv6: no
     ipam_config:
       - subnet: 10.1.0.0/16
+
+# Pause for 20 seconds to propagate network to workers
+- pause:
+    seconds: 20
 
 - name: Start Redis service
   docker_swarm_service:
@@ -22,18 +30,6 @@
       constraints:
         - node.labels.TGRole == redis
 
-- name: Start sidecar service
-  docker_swarm_service:
-    name: testground-sidecar
-    image: "nonsens3/testground:latest"
-    mode: global
-    command: testground
-    args:
-      - sidecar
-      - --runner docker
-    networks:
-      - control
-    placement:
-      constraints:
-        - node.labels.TGRole == worker
-
+# Pause for 20 seconds after starting redis
+- pause:
+    seconds: 20

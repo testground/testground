@@ -49,7 +49,7 @@
 - hosts: role_worker
   name: Join workers to Docker Swarm cluster
   become: true
-  gather_facts: False
+  gather_facts: false
   vars:
       token: "{{ hostvars[groups['role_manager'][0]]['worker_token']['stdout'] }}"
       manager: "{{ hostvars[groups['role_manager'][0]]['manager_ipv4']['stdout'] }}"
@@ -60,7 +60,7 @@
 - hosts: role_redis
   name: Join Redis to Docker Swarm cluster
   become: true
-  gather_facts: False
+  gather_facts: true
   vars:
       token: "{{ hostvars[groups['role_manager'][0]]['worker_token']['stdout'] }}"
       manager: "{{ hostvars[groups['role_manager'][0]]['manager_ipv4']['stdout'] }}"
@@ -75,3 +75,10 @@
   roles:
     - swarm-label
     - testground-services
+
+- hosts: role_worker
+  name: Run sidecar container on every worker node
+  become: true
+  gather_facts: true
+  roles:
+    - testground-sidecar
