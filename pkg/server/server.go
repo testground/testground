@@ -1,6 +1,9 @@
 package server
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -27,7 +30,9 @@ func GetEngine() (*engine.Engine, error) {
 }
 
 type Server struct {
-	*http.Server
+	server *http.Server
+	l      net.Listener
+	doneCh chan struct{}
 }
 
 // New creates a new Server and attaches the following handlers:
@@ -36,8 +41,11 @@ type Server struct {
 // * POST /build: sends a `build` request to the daemon. builds a test plan.
 // * POST /run: sends a `run` request to the daemon. (builds and) runs test case with name `<testplan>/<testcase>`.
 // A type-safe client for this server can be found in the `pkg/daemon/client` package.
-func New(listenAddr string) *Server {
-	srv := &Server{}
+func New(listenAddr string) (*Server, error) {
+	var (
+		err error
+		srv = &Server{}
+	)
 
 	r := mux.NewRouter()
 	r.HandleFunc("/list", loggingHandler(srv.listHandler)).Methods("GET")
@@ -45,14 +53,46 @@ func New(listenAddr string) *Server {
 	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
 	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
 
-	srv.Server = &http.Server{
+	srv.doneCh = make(chan struct{})
+	srv.server = &http.Server{
 		Handler:      r,
-		Addr:         listenAddr,
 		WriteTimeout: 600 * time.Second,
 		ReadTimeout:  600 * time.Second,
 	}
 
-	return srv
+	srv.l, err = net.Listen("tcp", listenAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
+}
+
+// Serve starts the server and blocks until the server is closed, either
+// explicitly via Shutdown, or due to a fault condition. It propagates the
+// non-nil err return value from http.Serve.
+func (s *Server) Serve() error {
+	select {
+	case <-s.doneCh:
+		return fmt.Errorf("tried to reuse a stopped server")
+	default:
+	}
+
+	logging.S().Infow("daemon listening", "addr", s.Addr())
+	return s.server.Serve(s.l)
+}
+
+func (s *Server) Addr() string {
+	return s.l.Addr().String()
+}
+
+func (s *Server) Port() int {
+	return s.l.Addr().(*net.TCPAddr).Port
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	defer close(s.doneCh)
+	return s.server.Shutdown(ctx)
 }
 
 func loggingHandler(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {

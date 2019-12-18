@@ -67,7 +67,7 @@ type LocalDockerRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		image = input.ArtifactPath
 		seq   = input.Seq
@@ -117,7 +117,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 		return nil, err
 	}
 
-	dataNetworkID, err := newDataNetwork(cli, logging.S(), runenv, "default")
+	dataNetworkID, err := newDataNetwork(ctx, cli, logging.S(), runenv, "default")
 	if err != nil {
 		return nil, err
 	}
@@ -133,20 +133,20 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 	}
 
 	// Ensure we have a control network.
-	controlNetworkID, err := ensureControlNetwork(cli, log)
+	controlNetworkID, err := ensureControlNetwork(ctx, cli, log)
 	if err != nil {
 		return nil, err
 	}
 
 	// Ensure that we have a testground-redis container; if not, create it.
-	_, err = ensureRedisContainer(cli, log, controlNetworkID)
+	_, err = ensureRedisContainer(ctx, cli, log, controlNetworkID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Ensure that we have a testground-sidecar container; if not, we'll
 	// create it.
-	_, err = ensureSidecarContainer(cli, log, controlNetworkID)
+	_, err = ensureSidecarContainer(ctx, cli, log, controlNetworkID)
 	if err != nil {
 		if err.Error() == "image not found" {
 			newErr := errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
@@ -176,9 +176,9 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 		}
 
 		// Create the container.
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		res, err := cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
-		cancel()
+		cctx, ccancel := context.WithTimeout(ctx, 1*time.Minute)
+		res, err := cli.ContainerCreate(cctx, ccfg, hcfg, nil, name)
+		ccancel()
 
 		if err != nil {
 			break
@@ -187,7 +187,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 		containers = append(containers, res.ID)
 
 		// TODO: Remove this when we get the sidecar working. It'll do this for us.
-		err = attachContainerToNetwork(cli, res.ID, dataNetworkID)
+		err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
 		if err != nil {
 			break
 		}
@@ -209,7 +209,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 	if !cfg.Unstarted {
 		log.Infow("starting containers", "count", len(containers))
 
-		g, ctx := errgroup.WithContext(context.Background())
+		g, ctx := errgroup.WithContext(ctx)
 		for _, id := range containers {
 			if err != nil {
 				break
@@ -237,7 +237,7 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 
 	if !cfg.Background {
 		output := NewConsoleOutput()
-		ctx, cancel := context.WithCancel(context.Background())
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		for _, id := range containers {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
@@ -290,13 +290,13 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 	return merr.ErrorOrNil()
 }
 
-func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	return docker.EnsureBridgeNetwork(context.Background(), log, cli, "testground-control", true)
+func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
+	return docker.EnsureBridgeNetwork(ctx, log, cli, "testground-control", true)
 }
 
-func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
 	return docker.NewBridgeNetwork(
-		context.Background(),
+		ctx,
 		cli,
 		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
 		true,
@@ -310,8 +310,8 @@ func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.Run
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.
-func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-redis",
 		ContainerConfig: &container.Config{
 			Image:      "redis",
@@ -331,13 +331,14 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 }
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
-func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+func ensureSidecarContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
+			Env:        []string{"REDIS_HOST=testground-redis"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
@@ -365,15 +366,15 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 
 // attachContainerToNetwork attaches the provided container to the specified
 // network.
-func attachContainerToNetwork(cli *client.Client, containerID string, networkID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func attachContainerToNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
 //nolint this function is unused, but it may come in handy.
-func detachContainerFromNetwork(cli *client.Client, containerID string, networkID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func detachContainerFromNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return cli.NetworkDisconnect(ctx, networkID, containerID, true)
 }

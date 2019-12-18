@@ -2,6 +2,7 @@ package engine
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"reflect"
@@ -143,7 +144,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, testplan string, builder string, input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
@@ -197,7 +198,7 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 	input.BuildConfig = cfg
 	input.EnvConfig = *e.envcfg
 
-	res, err := bm.Build(input, output)
+	res, err := bm.Build(ctx, input, output)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +206,7 @@ func (e *Engine) DoBuild(testplan string, builder string, input *api.BuildInput,
 	return res, err
 }
 
-func (e *Engine) DoRun(testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
+func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
 	// Find the test plan.
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
@@ -288,7 +289,7 @@ func (e *Engine) DoRun(testplan string, testcase string, runner string, input *a
 	input.TestPlan = plan
 	input.EnvConfig = *e.envcfg
 
-	return run.Run(input, output)
+	return run.Run(ctx, input, output)
 }
 
 func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {

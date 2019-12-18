@@ -1,25 +1,18 @@
-package cmd
+package cmd_test
 
 import (
 	"testing"
-
-	"github.com/urfave/cli"
 )
 
 func TestAbortedTestShouldFailLocal(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	err := runSingle(t,
 		"run",
 		"placebo/abort",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:exec",
-	})
+	)
 
 	if err == nil {
 		t.Fail()
@@ -27,19 +20,14 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 }
 
 func TestAbortedTestShouldFailDocker(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	err := runSingle(t,
 		"run",
 		"placebo/abort",
 		"--builder",
 		"docker:go",
 		"--runner",
 		"local:docker",
-	})
+	)
 
 	if err == nil {
 		t.Fail()
@@ -47,19 +35,14 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 }
 
 func TestIncompatibleRun(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	err := runSingle(t,
 		"run",
 		"placebo/ok",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:docker",
-	})
+	)
 
 	if err == nil {
 		t.Fail()
@@ -67,19 +50,14 @@ func TestIncompatibleRun(t *testing.T) {
 }
 
 func TestCompatibleRun(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	err := runSingle(t,
 		"run",
 		"placebo/ok",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:exec",
-	})
+	)
 
 	if err != nil {
 		t.Fail()

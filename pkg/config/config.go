@@ -15,6 +15,8 @@ import (
 const (
 	EnvTestgroundSrcDir  = "TESTGROUND_SRCDIR"
 	EnvTestgroundWorkDir = "TESTGROUND_WORKDIR"
+
+	DefaultListenAddr = "localhost:8042"
 )
 
 const gomodHeader = "module github.com/ipfs/testground"
@@ -91,6 +93,12 @@ func GetEnvConfig() (*EnvConfig, error) {
 }
 
 func applyDefaults(ec *EnvConfig) {
+	if ec.Daemon.Listen == "" {
+		ec.Daemon.Listen = DefaultListenAddr
+	}
+	if ec.Client.Endpoint == "" {
+		ec.Client.Endpoint = DefaultListenAddr
+	}
 }
 
 // locateSrcDir attempts to locate the source directory for the testground. We

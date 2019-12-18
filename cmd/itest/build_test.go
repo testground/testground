@@ -1,23 +1,16 @@
-package cmd
+package cmd_test
 
 import (
 	"testing"
-
-	"github.com/urfave/cli"
 )
 
 func TestBuildExecGo(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	err := runSingle(t,
 		"build",
 		"placebo",
 		"--builder",
 		"exec:go",
-	})
+	)
 
 	if err != nil {
 		t.Fatal(err)
@@ -25,17 +18,15 @@ func TestBuildExecGo(t *testing.T) {
 }
 
 func TestBuildDockerGo(t *testing.T) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = Commands
-
-	err := app.Run([]string{
-		"testground",
+	// TODO: this test assumes that docker is running locally, and that we can
+	// pick the .env.toml file this way, in case the user has defined a custom
+	// docker endpoint. I don't think those assumptions stand.
+	err := runSingle(t,
 		"build",
 		"placebo",
 		"--builder",
 		"docker:go",
-	})
+	)
 
 	if err != nil {
 		t.Fatal(err)

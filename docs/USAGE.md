@@ -1,6 +1,9 @@
 # Usage
 
-We kindly ask you to read through the [SPEC](./SPEC.md) first and give this project a run first in your local machine. It is a fast moving project at the moment, and it might require some tinkering and experimentation to compensate for the lack of documentation.
+We kindly ask you to read through the [SPEC](./SPEC.md) first and give this
+project a run first in your local machine. It is a fast moving project at the
+moment, and it might require some tinkering and experimentation to compensate
+for the lack of documentation.
 
 ## Setup
 
@@ -25,27 +28,28 @@ Now, test that everything is installed correctly by running the following from w
 
 ```bash
 > ./testground
-attempting to guess testground base directory; for better control set ${TESTGROUND_SRCDIR}
-successfully located testground base directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
 NAME:
    testground - A new cli application
 
-   USAGE:
-      testground [global options] command [command options] [arguments...]
+USAGE:
+   testground [global options] command [command options] [arguments...]
 
-   COMMANDS:
-      run      (builds and) runs test case with name `testplan/testcase`
-      list     list all test plans and test cases
-      build    builds a test plan
-      help, h  Shows a list of commands or help for one command
+COMMANDS:
+   run       (builds and) runs test case with name `<testplan>/<testcase>`. List test cases with `list` command
+   list      list all test plans and test cases
+   build     builds a test plan
+   describe  describes a test plan or test case
+   sidecar   runs the sidecar daemon
+   daemon    start a long-running daemon process
+   help, h   Shows a list of commands or help for one command
 
-   GLOBAL OPTIONS:
-      -v          verbose output (equivalent to INFO log level)
-      --vv        super verbose output (equivalent to DEBUG log level)
-     --help, -h  show help
+GLOBAL OPTIONS:
+   -v          verbose output (equivalent to INFO log level)
+   --vv        super verbose output (equivalent to DEBUG log level)
+   --help, -h  show help
 ```
 
-#### How testground guesses the source directory
+### How testground guesses the source directory
 
 In order to build test plans, Testground needs to know where its source directory is located. Testground can infer the path in the following circumstances:
 
@@ -54,8 +58,56 @@ In order to build test plans, Testground needs to know where its source director
 
 For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
 
+## Starting a testground daemon
 
-### Running the tests locally with Testground
+---
+
+⚠️ In the past, if the `[client]` section in the `.env.toml` file was not set
+up, we would start an embedded daemon to service the request. To avoid
+confusion, we no longer do that.
+
+---
+
+Testground has a daemon/client architecture:
+
+* The daemon performs the heavy-lifting. It populates a catalogue of test plans,
+  performs builds, and schedules runs, amongst other things.
+    * The daemon is intended to run in a server setting, but can of course be
+      run locally in a fashion similar to the IPFS daemon/client CLI.
+    * The daemon exposes an HTTP API to receive client commands.
+* The client is a lightweight CLI tool that sends commands to the daemon via its
+  HTTP API.
+
+Start the daemon with:
+
+```bash
+> testground daemon
+```
+
+Now you can run commands, such as:
+
+```bash
+> ./testground -vv run dht/find-peers \
+      --builder=docker:go \
+      --runner=cluster:swarm \
+      --build-cfg bypass_cache=true \
+      --instances=50 \
+      --test-param n_find_peers=5 \
+      --test-param bucket_size=10 \
+      --test-param timeout_secs=300 \
+      --build-cfg push_registry=true \
+      --build-cfg registry_type=aws
+```
+
+By default, the daemon will listen on endpoint `http://localhost:8042`. To
+configure the listen address, refer to the `[daemon]` settings on the
+[env-example.toml](../env-example.toml) file at the root of this repo.
+
+The client CLI will also expect to find the daemon at `http://localhost:8042`.
+To configure a custom endpoint address, refer to the `[client]` settings on the
+[env-example.toml](../env-example.toml) file at the root of this repo.
+
+## Running the tests locally with Testground
 
 To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
 
@@ -95,7 +147,7 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
 
-### Running a test outside of Testground orchestrator
+## Running a test outside of Testground orchestrator
 
 You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
 
@@ -115,13 +167,13 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 # ... test output
 ```
 
-### Running a Test Plan on the Testground Cloud Infrastructure
+## Running a Test Plan on the Testground Cloud Infrastructure
 
-#### Getting your own backend running (create a cluster in AWS)
+### Getting your own backend running (create a cluster in AWS)
 
 Follow the tutorial in the [infra folder](../infra)
 
-#### Link your local Testground envinronment with your Docker Swarm Cluster running in AWS
+### Link your local Testground envinronment with your Docker Swarm Cluster running in AWS
 
 Testground automatically loads an `.env.toml` file at root of your source directory. It contains environment settings, such as:
 
@@ -130,7 +182,7 @@ Testground automatically loads an `.env.toml` file at root of your source direct
 
 You can initialize a new `.env.toml` file by copying the prototype [`env-example.toml`](env-example.toml) supplied in this repo to your testground source root. Refer to the comments in that example for explanations of usage.
 
-#### Running a test case in a AWS backend
+### Running a test case in a AWS backend
 
 Once you have done the step above, you will need to create an SSH tunnel to the AWS instanced created with the `terraform apply` call. To do so:
 
