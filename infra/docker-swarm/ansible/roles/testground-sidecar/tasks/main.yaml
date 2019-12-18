@@ -10,6 +10,8 @@
       - name: "control"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
+    env:
+      REDIS_HOST: "testground-redis"
     capabilities:
       - sys_admin
       - net_admin
