@@ -11,9 +11,21 @@
     ipam_config:
       - subnet: 10.1.0.0/16
 
-# Pause for 20 seconds to propagate network to workers
 - pause:
-    seconds: 20
+    seconds: 5
+
+# Propagate `control` network on all hosts in the Swarm
+- name: Start sleep service
+  docker_swarm_service:
+    name: sleep
+    image: "alpine"
+    mode: global
+    command: sleep 36000
+    networks:
+      - control
+
+- pause:
+    seconds: 5
 
 - name: Start Redis service
   docker_swarm_service:
