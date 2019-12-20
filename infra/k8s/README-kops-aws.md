@@ -1,23 +1,41 @@
-# Setting up a self-managed Kubernetes cluster on AWS for Testground
+# Setting up a self-managed Kubernetes cluster with kops on AWS for Testground
 
 In this directory, you will find:
 
 ```
 » tree
 .
-├── README-kops.md
+├── README-kops-aws.md
 └── kops                   # Kubernetes resources for setting up networking with Flannel
 ```
+
+## Introduction
+
+Kubernetes Operations (kops) is a tool which helps to create, destroy, upgrade and maintain production-grade Kubernetes clusters from the command line. We use it to create a k8s cluster on AWS.
+
+We use CoreOS Flannel for networking on Kubernetes - both for the default Kubernetes network, and for a secondary overlay network that pods can attach to on-demand.
+
+kops uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the default Kubernetes network.
+
+We use 10.0.0.0/8 for the secondary overlay network.
+
+In order to have two networks managed by Flannel, we run two `flanneld` daemons on every host.
+
+The first `flanneld` manages the default k8s network and connects directly to the Kubernetes API.
+
+The second `flanneld` manages the secondary overlay network and connects to its own etcd cluster.
+
 
 ## Requirements
 
 - 1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
 
-## Set up infrastructure with Terraform
+
+## Set up infrastructure with kops
 
 1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
-2. Create a bucket for KOPS state. This is similar to Terraform state bucket.
+2. Create a bucket for kops state. This is similar to Terraform state bucket.
 
 ```
 aws s3api create-bucket \
@@ -25,7 +43,7 @@ aws s3api create-bucket \
     --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
 ```
 
-3. Pick up a cluster name, and set zone and KOPS state store
+3. Pick up a cluster name, and set zone and kops state store
 
 ```
 export NAME=my-first-cluster-kops.k8s.local
