@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -135,15 +136,22 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	// We can't create a network for every testplan on the same range,
 	// so we check how many networks we have and decide based on this number
-	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{})
+	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg(
+				"label",
+				"testground.name=default",
+			),
+		),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	currentNetworkId := 10 + len(networks)
-
-	subnet := fmt.Sprintf("10.%d.0.0/16", currentNetworkId)
-	gateway := fmt.Sprintf("10.%d.0.1", currentNetworkId)
+	subnet, gateway, err := getIPAMParams(len(networks))
+	if err != nil {
+		return nil, err
+	}
 
 	// Create the data network.
 	log.Infow("creating data network", "name", sname, "subnet", subnet)
@@ -388,4 +396,17 @@ func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 		time.Sleep(sleep)
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
+}
+
+func getIPAMParams(lenNetworks int) (string, string, error) {
+	if lenNetworks > 4095 {
+		return "", "", errors.New("space exhausted")
+	}
+	a := 16 + lenNetworks/256
+	b := 0 + lenNetworks%256
+
+	subnet := fmt.Sprintf("%d.%d.0.0/16", a, b)
+	gateway := fmt.Sprintf("%d.%d.0.1", a, b)
+
+	return subnet, gateway, nil
 }
