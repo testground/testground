@@ -111,3 +111,9 @@ kubectl apply -f ./flannel2-conf.yml
 kubectl apply -f sample-pod.yml
 kubectl apply -f sample-pod2.yml
 ```
+
+12. Destroy the cluster when you're done working on it
+
+```
+kops delete cluster $NAME --yes
+```
