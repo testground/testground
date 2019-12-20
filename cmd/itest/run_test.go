@@ -49,7 +49,7 @@ func TestIncompatibleRun(t *testing.T) {
 	}
 }
 
-func TestCompatibleRun(t *testing.T) {
+func TestCompatibleRunLocal(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/ok",
@@ -57,6 +57,21 @@ func TestCompatibleRun(t *testing.T) {
 		"exec:go",
 		"--runner",
 		"local:exec",
+	)
+
+	if err != nil {
+		t.Fail()
+	}
+}
+
+func TestCompatibleRunDocker(t *testing.T) {
+	err := runSingle(t,
+		"run",
+		"placebo/ok",
+		"--builder",
+		"docker:go",
+		"--runner",
+		"local:docker",
 	)
 
 	if err != nil {
