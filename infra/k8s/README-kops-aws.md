@@ -19,11 +19,13 @@ kops uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the defau
 
 We use 10.0.0.0/8 for the secondary overlay network.
 
-In order to have two networks managed by Flannel, we run two `flanneld` daemons on every host.
+In order to have two networks managed by Flannel, we run two `flanneld` daemons on every host, and we also run the [Multus CNI](https://github.com/intel/multus-cni).
 
 The first `flanneld` manages the default k8s network and connects directly to the Kubernetes API.
 
 The second `flanneld` manages the secondary overlay network and connects to its own etcd cluster.
+
+Multus CNI is used so that we can attach multiple network interfaces to pods, through the use of NetworkAttachmentDefinition annotations (see `sample-pod.yml` for an example).
 
 
 ## Requirements
