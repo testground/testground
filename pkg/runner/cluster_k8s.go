@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -68,7 +69,7 @@ func defaultKubernetesConfig() KubernetesConfig {
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		image = input.ArtifactPath
 		seq   = input.Seq
@@ -94,9 +95,6 @@ func (*ClusterK8sRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput,
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        true,
 	}
-
-	// Serialize the runenv into env variables to pass to docker.
-	//env := util.ToOptionsSlice(runenv.ToEnvVars())
 
 	env := util.ToEnvVar(runenv.ToEnvVars())
 
