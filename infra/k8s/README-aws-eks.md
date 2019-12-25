@@ -1,11 +1,11 @@
-# Setting up a Kubernetes cluster on AWS for Testground
+# Setting up a managed Kubernetes cluster on AWS EKS for Testground
 
 In this directory, you will find:
 
 ```
 » tree
 .
-├── README-aws.md
+├── README-aws-eks.md
 └── aws
     └── terraform          # Playbooks used to setup AWS EKS cluster for Testground - EC2 instances, security groups, networks, etc.
 ```
