@@ -27,6 +27,7 @@ jobs:
         - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
         - golangci-lint run       # run a bunch of code checkers/linters in parallel
         - go build ./...          # build the project
+        - docker build -t ipfs/testground .
         - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... # Run all the tests with the race detector enabled
         - go build .
       after_success:
