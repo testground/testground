@@ -25,7 +25,7 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	cfg = TestConfig{}
 
 	if acceptFiles {
-		sizes := runenv.BytesArrayParam("file-sizes")
+		sizes := runenv.SizeArrayParam("file-sizes")
 		for _, size := range sizes {
 			file, err := runenv.CreateRandomFile(os.TempDir(), int64(size))
 			if err != nil {
