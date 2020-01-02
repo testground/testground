@@ -195,7 +195,7 @@ func (l *NetlinkLink) AddrAdd(ip *net.IPNet) error {
 //
 // NOTE: This won't work in docker; use docker connect/disconnect.
 func (l *NetlinkLink) AddrDel(ip *net.IPNet) error {
-	return l.handle.AddrAdd(l.Link, &netlink.Addr{IPNet: ip})
+	return l.handle.AddrDel(l.Link, &netlink.Addr{IPNet: ip})
 }
 
 // ListV4 lists all IPv4 addresses associated with the link.
