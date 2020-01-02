@@ -220,7 +220,7 @@ func (re *RunEnv) StringParam(name string) string {
 	return v
 }
 
-func (re *RunEnv) BytesParam(name string) uint64 {
+func (re *RunEnv) SizeParam(name string) uint64 {
 	v, _ := re.TestInstanceParams[name]
 	m, err := humanize.ParseBytes(v)
 	if err != nil {
@@ -261,10 +261,10 @@ func (re *RunEnv) StringArrayParam(name string) []string {
 	return a
 }
 
-// BytesArrayParam returns an array of uint64 elements which represent sizes,
+// SizeArrayParam returns an array of uint64 elements which represent sizes,
 // in bytes. If the response is nil, then there was an error parsing the input.
 // It panics on error.
-func (re *RunEnv) BytesArrayParam(name string) []uint64 {
+func (re *RunEnv) SizeArrayParam(name string) []uint64 {
 	humanSizes := re.StringArrayParam(name)
 	sizes := []uint64{}
 
