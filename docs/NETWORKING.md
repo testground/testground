@@ -7,7 +7,7 @@ control and a data network.
 * Test instances communicate with the sync service, and _only_ the sync service,
   over the control network.
 
-The local runner will use your machines local network interfaces.
+The local runner will use your machine's local network interfaces. For now, this runner doesn't support traffic shaping.
 
 ## Control Network
 
