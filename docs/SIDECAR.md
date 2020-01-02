@@ -66,7 +66,7 @@ if err != nil {
 
 ### Configure: Create
 
-Once the network is ready, you'll need ot actually _configure_ your network.
+Once the network is ready, you'll need to actually _configure_ your network.
 
 ```go
 config := sync.NetworkConfig{
