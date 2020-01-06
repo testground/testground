@@ -43,12 +43,12 @@ func main() {
 		TestConfig:   cfg,
 	}
 
-	mode, modeSet := runenv.StringParam("mode")
+	mode := runenv.StringParam("mode")
 
 	testCoreAPI := true
 	testDaemon := true
 
-	if modeSet {
+	if mode != "" {
 		switch mode {
 		case "daemon":
 			testCoreAPI = false
