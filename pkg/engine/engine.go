@@ -30,6 +30,7 @@ var AllRunners = []api.Runner{
 	&runner.LocalDockerRunner{},
 	&runner.LocalExecutableRunner{},
 	&runner.ClusterSwarmRunner{},
+	&runner.ClusterK8sRunner{},
 }
 
 // Engine is the central runtime object of the system. It knows about all test
