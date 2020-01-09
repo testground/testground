@@ -4,6 +4,7 @@ package sidecar
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/hashicorp/go-multierror"
@@ -34,7 +35,7 @@ func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Ins
 	// Get a redis reader/writer.
 	watcher, writer, err := sync.WatcherWriter(runenv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("during sync.WatcherWriter: %w", err)
 	}
 
 	return &Instance{

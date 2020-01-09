@@ -26,7 +26,7 @@ type Watcher struct {
 func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
 	client, err := redisClient(runenv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("during redisClient: %w", err)
 	}
 
 	prefix := basePrefix(runenv)
