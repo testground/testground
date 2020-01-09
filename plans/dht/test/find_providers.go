@@ -16,14 +16,14 @@ import (
 
 func FindProviders(runenv *runtime.RunEnv) {
 	opts := &SetupOpts{
-		Timeout:        time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
-		RandomWalk:     runenv.BooleanParamD("random_walk", false),
-		NBootstrap:     runenv.IntParamD("n_bootstrap", 1),
-		NFindPeers:     runenv.IntParamD("n_find_peers", 1),
-		BucketSize:     runenv.IntParamD("bucket_size", 2),
-		AutoRefresh:    runenv.BooleanParamD("auto_refresh", true),
-		NodesProviding: runenv.IntParamD("nodes_providing", 10),
-		RecordCount:    runenv.IntParamD("record_count", 5),
+		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
+		RandomWalk:     runenv.BooleanParam("random_walk"),
+		NBootstrap:     runenv.IntParam("n_bootstrap"),
+		NFindPeers:     runenv.IntParam("n_find_peers"),
+		BucketSize:     runenv.IntParam("bucket_size"),
+		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
+		NodesProviding: runenv.IntParam("nodes_providing"),
+		RecordCount:    runenv.IntParam("record_count"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
