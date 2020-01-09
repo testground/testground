@@ -116,8 +116,4 @@ kops delete cluster $NAME --yes
 
 ## Known issues
 
-1. When `weave` is not the first cni defined under `annotations.cni`, pods cannot reach each other via the weave interface. It is not clear why at this point.
-
-2. When pods are started without `annotations.cni` they are not always attached to the Flannel network by default - you have to explicitly set an annotation. It is not clear why at this point.
-
-3. Due to 1. even though we are using weave, currently we can't benefit from functionality like [Dynamically Attaching and Detaching Applications](https://www.weave.works/docs/net/latest/tasks/manage/dynamically-attach-containers/). When you create a pod with only Flannel network as annotation, and later dynamically attach an interface through the host machine with `weave`, this interface is not accessible to other pods in the network.
+1. When pods are started without `annotations.cni` they are not always attached to the Flannel network by default - you have to explicitly set an annotation. It is not clear why at this point.

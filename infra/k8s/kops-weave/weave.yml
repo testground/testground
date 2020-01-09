@@ -170,6 +170,8 @@ items:
               env:
                 - name: EXTRA_ARGS
                   value: --log-level=debug
+                - name: EXPECT_NPC
+                  value: "0"
                 - name: HOSTNAME
                   valueFrom:
                     fieldRef:
@@ -199,22 +201,6 @@ items:
                   mountPath: /host/var/lib/dbus
                 - name: lib-modules
                   mountPath: /lib/modules
-                - name: xtables-lock
-                  mountPath: /run/xtables.lock
-            - name: weave-npc
-              env:
-                - name: HOSTNAME
-                  valueFrom:
-                    fieldRef:
-                      apiVersion: v1
-                      fieldPath: spec.nodeName
-              image: 'docker.io/weaveworks/weave-npc:2.6.0'
-              resources:
-                requests:
-                  cpu: 10m
-              securityContext:
-                privileged: true
-              volumeMounts:
                 - name: xtables-lock
                   mountPath: /run/xtables.lock
           hostNetwork: true

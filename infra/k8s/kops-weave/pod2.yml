@@ -4,7 +4,7 @@ kind: Pod
 metadata:
   name: pod2
   annotations:
-    cni: "weave,flannel"
+    cni: "flannel,weave"
 spec:
   affinity:
     podAntiAffinity:
@@ -19,7 +19,7 @@ spec:
   containers:
   - name: pod2
     command: ["/bin/bash", "-c", "trap : TERM INT; sleep infinity & wait"]
-    image: dougbtv/centos-network
+    image: nonsens3/netcat
     ports:
     - containerPort: 80
     securityContext:
