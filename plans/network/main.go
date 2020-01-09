@@ -255,7 +255,7 @@ func main() {
 		return
 	}
 
-	err = pingPong("10", 20*time.Millisecond, 25*time.Millisecond)
+	err = pingPong("10", 20*time.Millisecond, 30*time.Millisecond)
 	if err != nil {
 		runenv.Abort(err)
 		return
