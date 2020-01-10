@@ -138,20 +138,9 @@ Works when tested with Flannel and Weave.
 - functionality out of the box for attach/detach to subnets (Flannel might be supporting this as well through the CNI)
 
 
-* Known issues - Multus CNI and Weave
-
-1. When `weave` is not the default network defined under *v1.multus-cni.io/default-network*, pods cannot reach each other via the *weave* NIC. It is not clear why at this point.
-
-2. Due to 1. even though we are using weave, currently we can't benefit from functionality like Dynamically Attaching and Detaching Applications. When you create a pod with only Flannel network as annotation, and later dynamically attach an interface through the host machine with `weave`, this interface is not accessible to other pods in the network.
-
-
 * Known issues - CNI-Genie and Weave
 
-1. When `weave` is not the first CNI defined under *annotations.cni*, pods cannot reach each other via the *weave* NIC. It is not clear why at this point.
-
-2. When pods are started without *annotations.cni* they are not always attached to the Flannel network by default - you have to explicitly set an annotation. It is not clear why at this point.
-
-3. Due to 1. even though we are using weave, currently we can't benefit from functionality like Dynamically Attaching and Detaching Applications. When you create a pod with only Flannel network as annotation, and later dynamically attach an interface through the host machine with `weave`, this interface is not accessible to other pods in the network.
+1. When pods are started without *annotations.cni* they are not always attached to the Flannel network by default - you have to explicitly set an annotation. It is not clear why at this point.
 
 
 * Additional resources
