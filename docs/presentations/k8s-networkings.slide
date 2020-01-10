@@ -61,7 +61,7 @@ It is not trivial to install any CNI we want on these managed solutions, because
 
 Running DaemonSets for various CNIs frequently fails because they have certain expectations about the host system, which are not met.
 
-Therefore we are focusing on self-mananged k8s clusters, built using well-supported tools like *kops*
+Therefore we are focusing on self-managed k8s clusters, built using well-supported tools like *kops*
 
 
 * CNI plugins for overlay networks we are considering
