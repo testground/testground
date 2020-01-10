@@ -129,6 +129,15 @@ Supports multiple NICs per container & per pod.
 Works when tested with Flannel and Weave.
 
 
+* Choosing Weave over Flannel for data plane
+
+- dynamically managed IPAM (Weave), rather than statically (Flannel)
+
+- less overhead in running the network (Flannel needs etcd for the control plane, in Weave it is built-in)
+
+- functionality out of the box for attach/detach to subnets (Flannel might be supporting this as well through the CNI)
+
+
 * Known issues - Multus CNI and Weave
 
 1. When `weave` is not the default network defined under *v1.multus-cni.io/default-network*, pods cannot reach each other via the *weave* NIC. It is not clear why at this point.
