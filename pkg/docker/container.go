@@ -87,7 +87,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 		}
 		found := false
 		for _, summary := range images {
-			if summary.RepoTags[0] == opts.ContainerConfig.Image {
+			if len(summary.RepoTags) > 0 && summary.RepoTags[0] == opts.ContainerConfig.Image {
 				found = true
 				break
 			}
