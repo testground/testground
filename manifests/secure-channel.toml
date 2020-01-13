@@ -1,0 +1,38 @@
+name = "secure-channel"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file://${TESTGROUND_SRCDIR}/plans/secure-channel"
+
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[build_strategies."docker:go"]
+enabled = false
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/secure-channel"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+[build_strategies."exec:go"]
+enabled = true
+module_path = "github.com/ipfs/testground/plans/secure-channel"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = false
+
+[run_strategies."local:exec"]
+enabled = true
+
+[run_strategies."cluster:swarm"]
+enabled = false
+
+# seq 0
+[[testcases]]
+name = "transfer"
+instances = { min = 2, max = 200, default = 2 }
+
+  [testcases.params]
+  secure_channel = { type = "string", desc = "the secure channel protocol to use. values are: secio, noise, tls" }
+  payload_size = { type = "int", desc = "size of payload to transfer between peers", unit = "bytes" }
