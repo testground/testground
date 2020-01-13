@@ -125,7 +125,7 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 
 func (n *node) handleStream(stream core.Stream) {
 	remotePeer := stream.Conn().RemotePeer()
-	n.runenv.Message(fmt.Sprintf("new stream from %s", remotePeer.Pretty()))
+	n.runenv.Message("new stream from %s", remotePeer.Pretty())
 
 	buf := make([]byte, n.payloadSize)
 	c, err := stream.Read(buf)
@@ -136,7 +136,7 @@ func (n *node) handleStream(stream core.Stream) {
 		n.runenv.Abort(fmt.Errorf("expected to read %d bytes, received %d", n.payloadSize, c))
 	}
 
-	n.runenv.Message(fmt.Sprintf("read %d bytes from %s", c, remotePeer.Pretty()))
+	n.runenv.Message("read %d bytes from %s", c, remotePeer.Pretty())
 	n.payloadReceived = true
 	if n.payloadSent {
 		n.runenv.Message("payload sent and received. signalling test end")
@@ -148,7 +148,7 @@ func (n *node) handleStream(stream core.Stream) {
 }
 
 func (n *node) initiateTransfer(p peer.ID) {
-	n.runenv.Message(fmt.Sprintf("initiating transfer to %s", p.Pretty()))
+	n.runenv.Message("initiating transfer to %s", p.Pretty())
 
 	stream, err := n.host.NewStream(n.ctx, p, protocolID)
 	if err != nil {
