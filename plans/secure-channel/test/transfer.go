@@ -19,6 +19,10 @@ import (
 
 const protocolID = "/testground/secure-channel/transfer"
 
+var (
+	metricTimeToTransfer = &runtime.MetricDefinition{Name: "transfer_time", Unit: "ns", ImprovementDir: -1}
+)
+
 func TestDataTransfer(runenv *runtime.RunEnv) {
 	n, err := makeNode(runenv)
 	if err != nil {
@@ -68,7 +72,6 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 		return nil, fmt.Errorf("error constructing libp2p host: %s", err)
 	}
 
-	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(h))
@@ -77,6 +80,8 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 	}
 
 	isInitiator := seq%2 == 0
+
+	runenv.Message("I am %s with addrs: %v. isInitator=%t", h.ID(), h.Addrs(), isInitiator)
 
 	// get addrs for all peers
 	peerCh := make(chan *peer.AddrInfo)
@@ -88,7 +93,13 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 	}
 
 	// add peers to peerstore so we can dial them later
+	var remotePeers []peer.AddrInfo
 	for _, ai := range addrInfos {
+		// ignore ourselves
+		if ai.ID == h.ID() {
+			continue
+		}
+		remotePeers = append(remotePeers, ai)
 		h.Peerstore().AddAddrs(ai.ID, ai.Addrs, peerstore.RecentlyConnectedAddrTTL)
 	}
 
@@ -99,7 +110,7 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 
 		ctx:         ctx,
 		host:        h,
-		remotePeers: addrInfos,
+		remotePeers: remotePeers,
 		isInitiator: isInitiator,
 		payloadSize: payloadSize,
 	}
@@ -145,7 +156,10 @@ func (n *node) initiateTransfer(p peer.ID) {
 		return
 	}
 
+	startTime := time.Now()
 	c, err := stream.Write(makePayload(n.payloadSize))
+	elapsed := time.Now().Sub(startTime).Nanoseconds()
+
 	if err != nil {
 		n.runenv.Abort(fmt.Errorf("error writing to stream: %s", err))
 	}
@@ -153,7 +167,8 @@ func (n *node) initiateTransfer(p peer.ID) {
 		n.runenv.Abort(fmt.Errorf("expected to write %d bytes, wrote %d", n.payloadSize, c))
 	}
 
-	n.runenv.Message(fmt.Sprintf("wrote %d bytes to %s", c, p.Pretty()))
+	n.runenv.EmitMetric(metricTimeToTransfer, float64(elapsed))
+	n.runenv.Message("wrote %d bytes to %s", c, p.Pretty())
 	n.payloadSent = true
 	if n.payloadReceived {
 		n.runenv.Message("payload sent and received. signalling test end")
