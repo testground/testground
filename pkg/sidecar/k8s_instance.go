@@ -271,11 +271,17 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	if !online {
 		// No, we're not.
 		// Connect.
-		//netconf, err := buildNCL("net:" + n.subnet)
-		netconf, err := buildNCL(n.subnet)
-
-		if cfg.IPv4 != nil {
-			netconf, err = buildNCL(cfg.IPv4.IP.String())
+		var (
+			netconf *libcni.NetworkConfigList
+			err     error
+		)
+		if cfg.IPv4 == nil {
+			netconf, err = buildNCL(n.subnet)
+		} else {
+			netconf, err = buildNCL(cfg.IPv4.String())
+		}
+		if err != nil {
+			return fmt.Errorf("failed to build network config: %w", err)
 		}
 		if cfg.IPv6 != nil {
 			return errors.New("ipv6 not supported")

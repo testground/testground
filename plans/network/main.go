@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -26,6 +27,7 @@ func main() {
 		return
 	}
 
+	logging.S().Debug("before sync.MustWatcherWriter")
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 	defer writer.Close()
@@ -35,6 +37,7 @@ func main() {
 		return
 	}
 
+	logging.S().Debug("before sync.WaitNetworkInitialized")
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		runenv.Abort(err)
 		return
@@ -66,12 +69,14 @@ func main() {
 		State: "network-configured",
 	}
 
+	logging.S().Debug("before writer config")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
+	logging.S().Debug("before barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
 		runenv.Abort(err)
@@ -92,6 +97,7 @@ func main() {
 	}
 
 	// Get a sequence number
+	logging.S().Debug("get a sequence number")
 	seq, err := writer.Write(&sync.Subtree{
 		GroupKey:    "ip-allocation",
 		PayloadType: reflect.TypeOf(""),
@@ -131,12 +137,14 @@ func main() {
 		defer listener.Close()
 	}
 
+	logging.S().Debug("before writing changed ip config to redis")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
+	logging.S().Debug("waiting for barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
 		runenv.Abort(err)
@@ -243,18 +251,21 @@ func main() {
 	config.Default.Latency = 10 * time.Millisecond
 	config.State = "latency-reduced"
 
+	logging.S().Debug("writing new config with latency reduced")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
+	logging.S().Debug("waiting at barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
+	logging.S().Debug("ping pong")
 	err = pingPong("10", 20*time.Millisecond, 30*time.Millisecond)
 	if err != nil {
 		runenv.Abort(err)
