@@ -38,10 +38,12 @@ func TestDataTransfer(runenv *runtime.RunEnv) {
 	err = n.waitForAll("end")
 	if err != nil {
 		runenv.Abort(fmt.Errorf("error waiting for peers to signal test end: %s", err))
+		n.teardown()
 		return
 	}
 
 	runenv.OK()
+	n.teardown()
 }
 
 type node struct {
@@ -51,6 +53,7 @@ type node struct {
 
 	ctx  context.Context
 	host host.Host
+	teardown func()
 
 	remotePeers []peer.AddrInfo
 	isInitiator bool
@@ -63,17 +66,22 @@ type node struct {
 func makeNode(runenv *runtime.RunEnv) (*node, error) {
 	channelName := runenv.StringParam("secure_channel")
 	payloadSize := runenv.IntParam("payload_size")
+	timeoutRaw := runenv.IntParam("timeout_secs")
+	timeout := time.Duration(timeoutRaw) * time.Second
 
-	// TODO: use context with configurable timeout
-	ctx := context.Background()
+	watcher, writer := sync.MustWatcherWriter(runenv)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	teardown := func() {
+		cancel()
+		watcher.Close()
+		writer.Close()
+	}
 
 	h, err := libp2p.New(ctx, securityOptForChannel(channelName))
 	if err != nil {
 		return nil, fmt.Errorf("error constructing libp2p host: %s", err)
 	}
 
-
-	watcher, writer := sync.MustWatcherWriter(runenv)
 	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(h))
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err)
@@ -87,7 +95,7 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 	peerCh := make(chan *peer.AddrInfo)
 	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
 	defer cancelSub()
-	addrInfos, err := addrInfosFromChan(peerCh, runenv.TestInstanceCount, 1*time.Minute)
+	addrInfos, err := addrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("error getting remote peer addrs: %s", err)
 	}
@@ -110,6 +118,8 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 
 		ctx:         ctx,
 		host:        h,
+		teardown:    teardown,
+
 		remotePeers: remotePeers,
 		isInitiator: isInitiator,
 		payloadSize: payloadSize,

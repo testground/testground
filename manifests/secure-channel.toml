@@ -36,3 +36,4 @@ instances = { min = 2, max = 200, default = 2 }
   [testcases.params]
   secure_channel = { type = "string", desc = "the secure channel protocol to use. values are: secio, noise, tls" }
   payload_size = { type = "int", desc = "size of payload to transfer between peers", unit = "bytes" }
+  timeout_secs = { type = "int", desc = "timeout", unit = "seconds", default = 60 }
