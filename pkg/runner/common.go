@@ -6,10 +6,11 @@ import (
 )
 
 // Use consistent IP address ranges for both the data and the control subnet.
-// _which_
+// This range was selected as it's specifically set aside for testing and
+// shouldn't conflict with any real networks.
 var (
-	controlSubnet  = "192.168.0.0/16"
-	controlGateway = "192.168.0.1"
+	controlSubnet  = "192.18.0.0/16"
+	controlGateway = "192.18.0.1"
 )
 
 func nextDataNetwork(lenNetworks int) (string, string, error) {
