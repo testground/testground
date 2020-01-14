@@ -6,7 +6,7 @@ In this directory, you will find:
 » tree
 .
 ├── README-kops-aws.md
-└── kops                   # Kubernetes resources for setting up networking with Flannel
+└── kops-flannel                   # Kubernetes resources for setting up networking with Flannel
 ```
 
 ## Introduction
