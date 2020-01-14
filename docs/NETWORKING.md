@@ -11,7 +11,7 @@ The local runner will use your machine's local network interfaces. For now, this
 
 ## Control Network
 
-The "control network" runs on 192.168.0.1/16 and should only be used to
+The "control network" runs on 192.18.0.1/16 and should only be used to
 communicate with the sync service.
 
 After the sidecar is finished [initializing the
