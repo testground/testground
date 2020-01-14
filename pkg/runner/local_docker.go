@@ -44,8 +44,10 @@ type LocalDockerRunnerConfig struct {
 	// Unstarted creates the containers without starting them (default: false).
 	Unstarted bool `toml:"no_start"`
 	// Background avoids tailing the output of containers, and displaying it as
-	// log messages (default: true).
+	// log messages (default: false).
 	Background bool `toml:"background"`
+	// LogFile sends output to a log file as structured JSON (default: not set)
+	LogFile string `toml:"log_file"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -242,7 +244,12 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 	}
 
 	if !cfg.Background {
-		output := NewConsoleOutput()
+		var output *EventManager
+		if cfg.LogFile != "" {
+			output = NewEventManager(NewFileLogger(cfg.LogFile))
+		} else {
+			output = NewEventManager(NewConsoleLogger())
+		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		for _, id := range containers {
