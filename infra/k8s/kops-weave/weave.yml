@@ -163,6 +163,16 @@ items:
           labels:
             name: weave-net
         spec:
+          initContainers:
+          - name: iproute-add
+            image: busybox
+            securityContext:
+              privileged: true
+            command:
+            - sh
+            - -ac
+            - >
+              ip route && ip route add 100.64.0.0/24 via $(ip route | grep cni0 | awk '{print $7'}) || true
           containers:
             - name: weave
               command:
