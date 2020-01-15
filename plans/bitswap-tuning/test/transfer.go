@@ -16,7 +16,7 @@ import (
 )
 
 // NOTE: To run use:
-// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master" --build-cfg bypass_cache=true
+// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master"
 
 var RootCidSubtree = &sync.Subtree{
 	GroupKey:    "root-cid",

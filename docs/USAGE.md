@@ -90,7 +90,6 @@ Now you can run commands, such as:
 > ./testground -vv run dht/find-peers \
       --builder=docker:go \
       --runner=cluster:swarm \
-      --build-cfg bypass_cache=true \
       --instances=50 \
       --test-param n_find_peers=5 \
       --test-param bucket_size=10 \
@@ -135,8 +134,7 @@ This next command is your first test! It runs the lookup-peers test from the DHT
 ```
 > testground run dht/find-peers \
     --builder=docker:go \
-    --runner=local:docker \
-    --build-cfg bypass_cache=true
+    --runner=local:docker
 ...
 ```
 
@@ -196,7 +194,6 @@ Then, all you need to do is use cluster:swarm runner, example:
 ./testground -vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:swarm \
-    --build-cfg bypass_cache=true \
     --build-cfg push_registry=true \
     --build-cfg registry_type=aws
 ```

@@ -58,7 +58,6 @@ kubectl apply -f sidecar.yaml
 $  testground -vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
-    --build-cfg bypass_cache=true \
     --build-cfg push_registry=true \
     --build-cfg registry_type=dockerhub \
     --run-cfg keep_service=true \
