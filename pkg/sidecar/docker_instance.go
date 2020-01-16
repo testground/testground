@@ -283,10 +283,8 @@ func (dn *DockerNetwork) ListAvailable() []string {
 
 func (dn *DockerNetwork) ListActive() []string {
 	networks := make([]string, 0, len(dn.activeLinks))
-	for name := range dn.availableLinks {
-		if _, ok := dn.activeLinks[name]; ok {
-			networks = append(networks, name)
-		}
+	for name := range dn.activeLinks {
+		networks = append(networks, name)
 	}
 	return networks
 }
