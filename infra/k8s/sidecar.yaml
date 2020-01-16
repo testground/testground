@@ -21,7 +21,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: testground-sidecar
-        image: nonsens3/testground:latest
+        image: ipfs/testground:latest
         command: ["testground"]
         args: ["--vv", "sidecar", "--runner", "k8s"]
         securityContext:
