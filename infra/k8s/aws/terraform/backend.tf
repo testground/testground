@@ -1,4 +1,0 @@
-terraform {
-  backend "s3" {
-  }
-}
