@@ -23,6 +23,7 @@ import (
 const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
+	podCidr              = "100.96.0.0/11"
 )
 
 type K8sInstanceManager struct {
@@ -151,8 +152,6 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	}
 
 	gw := redisRoute.Gw
-
-	podCidr := "100.96.0.0/11"
 
 	// Remove the original routes
 	for _, route := range controlLinkRoutes {
