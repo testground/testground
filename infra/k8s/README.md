@@ -13,15 +13,15 @@ In this directory, you will find:
 
 Kubernetes Operations (kops) is a tool which helps to create, destroy, upgrade and maintain production-grade Kubernetes clusters from the command line. We use it to create a k8s cluster on AWS.
 
-We use CoreOS Flannel for networking on Kubernetes - for the default Kubernetes network
+We use CoreOS Flannel for networking on Kubernetes - for the default Kubernetes network, which in Testground terms is called the `control` network.
 
-We use Weave For a secondary overlay network that pods can attach to on-demand
+We use Weave for the `data` plane on Testground - a secondary overlay network that we attach to containers on-demand.
 
-kops uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the default Kubernetes network.
+`kops` uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the `control` network.
 
-We use 10.32.0.0/11 for the secondary overlay network with Weave.
+Weave by default uses 10.32.0.0/11 as CIDR, so this is the CIDR for the Testground `data` network. The `sidecar` is responsible for setting up the `data` network for every testplan instance.
 
-In order to have two different networks attached to pods in Kubernetes, we also need to run the [Multus CNI](https://github.com/intel/multus-cni), or the [CNI-Genie CNI](https://github.com/cni-genie/CNI-Genie). In this tutorial we use CNI-Genie.
+In order to have two different networks attached to pods in Kubernetes, we run the [CNI-Genie CNI](https://github.com/cni-genie/CNI-Genie).
 
 
 ## Requirements
