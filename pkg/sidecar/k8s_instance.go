@@ -284,7 +284,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			return fmt.Errorf("failed to add network through cni plugin: %w", err)
 		}
 
-		netlinkByName, err := n.nl.LinkByName(ifName)
+		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
 		if err != nil {
 			return fmt.Errorf("failed to get link by name: %w", err)
 		}
