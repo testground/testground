@@ -20,6 +20,11 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
+const (
+	controlNetworkIfname = "eth0"
+	dataNetworkIfname    = "eth1"
+)
+
 type K8sInstanceManager struct {
 	redis   net.IP
 	manager *dockermanager.Manager
@@ -123,9 +128,9 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	// Remove all routes but redis and the data subnet
 
 	// We've found a control network (or some other network).
-	controlLink, err := netlinkHandle.LinkByName("eth0")
+	controlLink, err := netlinkHandle.LinkByName(controlNetworkIfname)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get link by name eth0: %w", err)
+		return nil, fmt.Errorf("failed to get link by name %s: %w", controlNetworkIfname, err)
 	}
 
 	// Get the routes to redis. We need to keep these.
@@ -266,12 +271,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 
 		cniArgs := [][2]string{}                   // empty
 		capabilityArgs := map[string]interface{}{} // empty
-		ifName := "eth1"
 
 		rt := &libcni.RuntimeConf{
 			ContainerID:    n.container.ID,
 			NetNS:          n.netnsPath,
-			IfName:         ifName,
+			IfName:         dataNetworkIfname,
 			Args:           cniArgs,
 			CapabilityArgs: capabilityArgs,
 		}
