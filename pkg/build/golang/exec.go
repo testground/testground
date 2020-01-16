@@ -28,10 +28,9 @@ var (
 type ExecGoBuilder struct{}
 
 type ExecGoBuilderConfig struct {
-	ModulePath  string `toml:"module_path" overridable:"yes"`
-	ExecPkg     string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod  bool   `toml:"fresh_gomod" overridable:"yes"`
-	BypassCache bool   `toml:"bypass_cache" overridable:"yes"`
+	ModulePath string `toml:"module_path" overridable:"yes"`
+	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
+	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
 }
 
 // Build builds a testplan written in Go and outputs an executable.
@@ -46,13 +45,6 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 		bin  = fmt.Sprintf("exec-go--%s-%s", input.TestPlan.Name, id)
 		path = filepath.Join(input.Directories.WorkDir(), bin)
 	)
-
-	if !cfg.BypassCache {
-		// TODO check if executable.
-		if _, err := os.Stat(path); err == nil {
-			return &api.BuildOutput{ArtifactPath: path}, nil
-		}
-	}
 
 	// Create a temp dir, and copy the source into it.
 	tmp, err := ioutil.TempDir("", input.TestPlan.Name)

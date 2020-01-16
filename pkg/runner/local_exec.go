@@ -94,7 +94,7 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 	}
 
 	// Spawn as many instances as the input parameters require.
-	console := NewConsoleOutput()
+	console := NewEventManager(NewConsoleLogger())
 	commands := make([]*exec.Cmd, 0, instances)
 	defer func() {
 		for _, cmd := range commands {

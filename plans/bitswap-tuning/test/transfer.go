@@ -16,7 +16,7 @@ import (
 )
 
 // NOTE: To run use:
-// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master" --build-cfg bypass_cache=true
+// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master"
 
 var RootCidSubtree = &sync.Subtree{
 	GroupKey:    "root-cid",
@@ -29,13 +29,11 @@ var RootCidSubtree = &sync.Subtree{
 // Transfer data from S seeds to L leeches
 func Transfer(runenv *runtime.RunEnv) {
 	// Test Parameters
-	timeoutRaw, _ := runenv.IntParam("timeout_secs")
-	timeout := time.Duration(timeoutRaw) * time.Second
-	leechCount, _ := runenv.IntParam("leech_count")
-	passiveCount, _ := runenv.IntParam("passive_count")
-	requestStaggerRaw, _ := runenv.IntParam("request_stagger")
-	requestStagger := time.Duration(requestStaggerRaw) * time.Millisecond
-	fileSize, _ := runenv.IntParam("file_size")
+	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
+	leechCount := runenv.IntParam("leech_count")
+	passiveCount := runenv.IntParam("passive_count")
+	requestStagger := time.Duration(runenv.IntParam("request_stagger")) * time.Millisecond
+	fileSize := runenv.IntParam("file_size")
 
 	/// --- Set up
 

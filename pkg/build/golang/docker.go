@@ -25,7 +25,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
@@ -49,7 +48,6 @@ type DockerGoBuilderConfig struct {
 	ModulePath    string `toml:"module_path" overridable:"yes"`
 	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
 	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
-	BypassCache   bool   `toml:"bypass_cache" overridable:"yes"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
@@ -101,16 +99,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	if err != nil {
 		return nil, err
-	}
-
-	if !cfg.BypassCache {
-		// Check if an image for this build already exists.
-		if exists, err := imageExists(ctx, cli, id); err != nil {
-			return nil, err
-		} else if exists {
-			fmt.Println("found cached docker image for:", id)
-			return &api.BuildOutput{ArtifactPath: id}, nil
-		}
 	}
 
 	// Create a temp dir, and copy the source into it.
@@ -444,14 +432,4 @@ func materializeSymlink(dir string) error {
 		return err
 	}
 	return copy.Copy(ref, dir)
-}
-
-func imageExists(ctx context.Context, cli *client.Client, id string) (bool, error) {
-	summary, err := cli.ImageList(ctx, types.ImageListOptions{
-		Filters: filters.NewArgs(filters.Arg("reference", id)),
-	})
-	if err != nil {
-		return false, err
-	}
-	return len(summary) > 0, nil
 }
