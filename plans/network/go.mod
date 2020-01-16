@@ -3,12 +3,13 @@ module github.com/ipfs/testground/plans/network
 go 1.13
 
 require (
-	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
-	github.com/ipfs/testground/sdk/sync v0.0.0-00010101000000-000000000000
-	github.com/kr/pretty v0.1.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
+	github.com/containernetworking/cni v0.7.1 // indirect
+	github.com/ipfs/testground v0.0.0-20200111081546-c39eb09092da
+	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
+	github.com/ipfs/testground/sdk/sync v0.0.0-20190921111954-a84ff142a5a3
+	k8s.io/client-go v11.0.0+incompatible // indirect
 )
 
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
+
 replace github.com/ipfs/testground/sdk/sync => ../../sdk/sync

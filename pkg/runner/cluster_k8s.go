@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -96,7 +97,20 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestSidecar:        true,
 	}
 
+	var err error
+	_, runenv.TestSubnet, err = net.ParseCIDR("10.33.10.0/24")
+	if err != nil {
+		return nil, err
+	}
+
 	env := util.ToEnvVar(runenv.ToEnvVars())
+
+	redisCfg := v1.EnvVar{
+		Name:  "REDIS_HOST",
+		Value: "redis-master",
+	}
+
+	env = append(env, redisCfg)
 
 	// Define k8s client configuration
 	config := defaultKubernetesConfig()
@@ -140,6 +154,9 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
 						"testground.runid":    input.RunID,
+					},
+					Annotations: map[string]string{
+						"cni": "flannel",
 					},
 				},
 				Spec: v1.PodSpec{

@@ -2,25 +2,32 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: testground-sidecar
+  annotations:
+    cni: "flannel"
 spec:
   selector:
     matchLabels:
       name: testground-sidecar
   template:
     metadata:
+      annotations:
+        cni: "flannel"
       labels:
         name: testground-sidecar
     spec:
       terminationGracePeriodSeconds: 10
       hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       containers:
       - name: testground-sidecar
         image: ipfs/testground:latest
         command: ["testground"]
-        args: ["sidecar", "--runner", "docker"]
+        args: ["--vv", "sidecar", "--runner", "k8s"]
         securityContext:
           capabilities:
-            add: ["NET_ADMIN", "SYS_ADMIN"]
+            add: ["NET_ADMIN", "SYS_ADMIN", "SYS_TIME"]
+          privileged: true
         env:
         - name: REDIS_HOST
           value: "redis-master"
@@ -33,8 +40,13 @@ spec:
         volumeMounts:
           - name: dockersock
             mountPath: "/var/run/docker.sock"
+          - name: cnibin
+            mountPath: "/host/opt/cni/bin"
       volumes:
       - name: dockersock
         hostPath:
           path: /var/run/docker.sock
+      - name: cnibin
+        hostPath:
+          path: /opt/cni/bin
 
