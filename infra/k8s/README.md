@@ -5,7 +5,7 @@ In this directory, you will find:
 ```
 » tree
 .
-├── README-kops-aws.md
+├── README.md
 └── kops-weave                     # Kubernetes resources for setting up networking with Weave and Flannel
 ```
 
