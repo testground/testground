@@ -247,7 +247,9 @@ master:
   ## Redis Master additional pod labels and annotations
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   podLabels: {}
-  podAnnotations: {}
+  podAnnotations: {
+    cni: "flannel"
+  }
 
   ## Redis Master resource requests and limits
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/

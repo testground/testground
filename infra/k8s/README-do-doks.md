@@ -55,13 +55,13 @@ kubectl apply -f sidecar.yaml
 ## Run a Testground testplan
 
 ```
-$  testground -vv run dht/find-peers \
+testground -vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
     --build-cfg registry_type=dockerhub \
     --run-cfg keep_service=true \
-    --instances=328
+    --instances=16
 ```
 
 ## Destroying the cluster

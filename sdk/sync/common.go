@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
@@ -59,6 +60,8 @@ func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
 		MaxRetries:  3,
 		ReadTimeout: 10 * time.Second,
 	}
+
+	logging.S().Debugw("redis options", "addr", opts.Addr)
 
 	client = redis.NewClient(opts)
 

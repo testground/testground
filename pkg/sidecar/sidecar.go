@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/sync"
 )
 
 var runners = map[string]func() (InstanceManager, error){
 	"docker": NewDockerManager,
+	"k8s":    NewK8sManager,
 	// TODO: local
 }
 
@@ -44,6 +46,8 @@ func Run(runnerName string) error {
 		return fmt.Errorf("failed to initialize sidecar: %s", err)
 	}
 
+	logging.S().Infow("starting sidecar", "runner", runnerName)
+
 	defer manager.Close()
 
 	return manager.Manage(ctx, func(ctx context.Context, instance *Instance) error {
@@ -52,6 +56,14 @@ func Run(runnerName string) error {
 				instance.S().Warnf("failed to close instance: %s", err)
 			}
 		}()
+
+		err := instance.Network.ConfigureNetwork(ctx, &sync.NetworkConfig{
+			Network: "default",
+			Enable:  true,
+		})
+		if err != nil {
+			return err
+		}
 
 		/* TODO: Initialize all networks to the "down" state.
 		for _, n := range instance.Network.ListActive() {
