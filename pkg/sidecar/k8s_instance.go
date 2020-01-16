@@ -26,12 +26,11 @@ type K8sInstanceManager struct {
 }
 
 func NewK8sManager() (InstanceManager, error) {
-	// TODO: Generalize this to a list of services.
 	redisHost := os.Getenv(EnvRedisHost)
 
 	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve redis host: %w", err)
+		return nil, fmt.Errorf("failed to resolve redis: %w", err)
 	}
 
 	docker, err := dockermanager.NewManager()
@@ -50,14 +49,11 @@ func (d *K8sInstanceManager) Manage(
 	worker func(ctx context.Context, inst *Instance) error,
 ) error {
 	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
-		d.manager.S().Debugw("manage container id", "id", container.ID)
 		inst, err := d.manageContainer(ctx, container)
 		if err != nil {
-			return fmt.Errorf("when initializing the container: %w", err)
+			return fmt.Errorf("failed to initialise the container: %w", err)
 		}
-		// ignore that container
 		if inst == nil {
-			d.manager.S().Debugw("ignoring container id", "id", container.ID)
 			return nil
 		}
 		err = worker(ctx, inst)
@@ -189,28 +185,6 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	//}
 }
 
-func localAddresses() {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
-		return
-	}
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
-			continue
-		}
-		for _, a := range addrs {
-			switch v := a.(type) {
-			case *net.IPAddr:
-				fmt.Printf("%v : %s (%s)\n", i.Name, v, v.IP.DefaultMask())
-			}
-
-		}
-	}
-}
-
 type k8sLink struct {
 	*NetlinkLink
 	IPv4, IPv6 *net.IPNet
@@ -301,25 +275,25 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 
 		_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
 		if err != nil {
-			return fmt.Errorf("when AddNetworkList: %w", err)
+			return fmt.Errorf("failed to add network through cni plugin: %w", err)
 		}
 
 		netlinkByName, err := n.nl.LinkByName(ifName)
 		if err != nil {
-			return fmt.Errorf("when 2: %w", err)
+			return fmt.Errorf("failed to get link by name: %w", err)
 		}
 
 		// Register an active link.
 		handle, err := NewNetlinkLink(n.nl, netlinkByName)
 		if err != nil {
-			return fmt.Errorf("when new netlink link: %w", err)
+			return fmt.Errorf("failed to register new netlink: %w", err)
 		}
 		v4addrs, err := handle.ListV4()
 		if err != nil {
-			return fmt.Errorf("when 3: %w", err)
+			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
 		if len(v4addrs) != 1 {
-			return errors.New("expected 1 v4addrs")
+			return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
 		}
 
 		link = &k8sLink{
@@ -330,7 +304,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			netconf:     netconf,
 		}
 
-		logging.S().Debug("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
+		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
 
 		n.activeLinks[cfg.Network] = link
 	}
@@ -341,7 +315,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	}
 
 	if err := link.Shape(cfg.Default); err != nil {
-		return fmt.Errorf("when 4: %w", err)
+		return fmt.Errorf("failed to shape link: %w", err)
 	}
 	return nil
 }
