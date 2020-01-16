@@ -85,7 +85,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
 
-	if runenv.TestSidecar == false {
+	if !runenv.TestSidecar {
 		return nil, nil
 	}
 
@@ -154,7 +154,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		if route.Dst != nil && route.Dst.String() == podCidr {
 			fmt.Println("removing route for pod cidr", podCidr)
 			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete pod cidr route:", err)
+				return nil, fmt.Errorf("failed to delete pod cidr route: %v", err)
 			}
 
 			continue
@@ -162,27 +162,27 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 
 		if route.Dst != nil && route.Dst.Contains(gw) {
 			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete route while restricting gw route:", err)
+				return nil, fmt.Errorf("failed to delete route while restricting gw route: %v", err)
 			}
 
 			route.Dst.IP = gw
 			route.Dst.Mask = net.CIDRMask(32, 32)
 
 			if err := netlinkHandle.RouteAdd(&route); err != nil {
-				return nil, fmt.Errorf("failed to add route while restricting gw route:", err)
+				return nil, fmt.Errorf("failed to add route while restricting gw route: %v", err)
 			}
 		}
 
 		if route.Dst == nil && route.Src == nil {
 			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to drop default route:", err)
+				return nil, fmt.Errorf("failed to drop default route: %v", err)
 			}
 		}
 	}
 
 	// Add specific routes to redis if redis uses this link.
 	if err := netlinkHandle.RouteAdd(&redisRoute); err != nil {
-		return nil, fmt.Errorf("failed to add redis route:", err)
+		return nil, fmt.Errorf("failed to add redis route: %v", err)
 	}
 
 	return NewInstance(runenv, info.Config.Hostname, network)
