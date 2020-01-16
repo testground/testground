@@ -12,8 +12,8 @@ import (
 )
 
 var runners = map[string]func() (InstanceManager, error){
-	//"docker": NewDockerManager,
-	"k8s": NewK8sManager,
+	"docker": NewDockerManager,
+	"k8s":    NewK8sManager,
 	// TODO: local
 }
 

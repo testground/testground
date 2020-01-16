@@ -20,7 +20,6 @@ require (
 	github.com/containerd/containerd v1.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 // indirect
 	github.com/containernetworking/cni v0.7.1
-	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f
 	github.com/docker/go-connections v0.4.0 // indirect

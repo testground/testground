@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/containernetworking/cni/libcni"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
@@ -271,20 +270,21 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	if !online {
 		// No, we're not.
 		// Connect.
+		if cfg.IPv6 != nil {
+			return errors.New("ipv6 not supported")
+		}
+
 		var (
 			netconf *libcni.NetworkConfigList
 			err     error
 		)
 		if cfg.IPv4 == nil {
-			netconf, err = buildNCL(n.subnet)
+			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
-			netconf, err = buildNCL(cfg.IPv4.String())
+			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {
-			return fmt.Errorf("failed to build network config: %w", err)
-		}
-		if cfg.IPv6 != nil {
-			return errors.New("ipv6 not supported")
+			return fmt.Errorf("failed to generate new network config list: %w", err)
 		}
 
 		cniArgs := [][2]string{}                   // empty
@@ -298,8 +298,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			Args:           cniArgs,
 			CapabilityArgs: capabilityArgs,
 		}
-
-		spew.Dump(rt)
 
 		_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
 		if err != nil {
@@ -331,6 +329,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			rt:          rt,
 			netconf:     netconf,
 		}
+
+		logging.S().Debug("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
+
 		n.activeLinks[cfg.Network] = link
 	}
 
@@ -410,8 +411,9 @@ func (n *K8sNetwork) ListAvailable() []string {
 //return nil
 //}
 
-func buildNCL(addr string) (*libcni.NetworkConfigList, error) {
-	bytes := []byte(`
+func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, error) {
+	if t == "net" {
+		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
 		"name": "weave",
@@ -427,6 +429,33 @@ func buildNCL(addr string) (*libcni.NetworkConfigList, error) {
 		]
 }
 `)
+		return libcni.ConfListFromBytes(bytes)
+	}
 
-	return libcni.ConfListFromBytes(bytes)
+	if t == "ip" {
+		bytes := []byte(`
+{
+		"cniVersion": "0.3.0",
+		"name": "weave",
+		"plugins": [
+				{
+						"name": "weave",
+						"type": "weave-net",
+						"ipam": {
+								"ips": [
+								  {
+									  "version": "4",
+										"address": "` + addr + `"
+								  }
+								]
+						},
+						"hairpinMode": true
+				}
+		]
+}
+`)
+		return libcni.ConfListFromBytes(bytes)
+	}
+
+	return nil, errors.New("unknown type")
 }

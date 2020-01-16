@@ -30,7 +30,7 @@ spec:
           privileged: true
         env:
         - name: REDIS_HOST
-          value: "redis-headless"
+          value: "redis-master"
         resources:
           limits:
             memory: 200Mi
