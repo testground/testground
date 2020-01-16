@@ -334,10 +334,6 @@ func (n *K8sNetwork) ListActive() []string {
 	return networks
 }
 
-func (n *K8sNetwork) ListAvailable() []string {
-	panic("not implemented yet")
-}
-
 func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, error) {
 	switch t {
 	case "net":

@@ -28,7 +28,6 @@ type Network interface {
 	io.Closer
 	ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error
 	ListActive() []string
-	ListAvailable() []string
 }
 
 func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
