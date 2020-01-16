@@ -33,7 +33,7 @@ In order to have two different networks attached to pods in Kubernetes, we also 
 
 1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
-2. Create a bucket for kops state. This is similar to Terraform state bucket.
+2. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
 ```
 aws s3api create-bucket \
@@ -113,6 +113,19 @@ kubectl apply -f sidecar.yaml
 
 
 ## Run a Testground testplan
+
+```
+testground -vv run network/ping-pong \
+    --builder=docker:go \
+    --runner=cluster:k8s \
+    --build-cfg bypass_cache=true \
+    --build-cfg push_registry=true \
+    --build-cfg registry_type=dockerhub \
+    --run-cfg keep_service=true \
+    --instances=2
+```
+
+or
 
 ```
 testground -vv run dht/find-peers \
