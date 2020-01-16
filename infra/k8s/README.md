@@ -15,7 +15,7 @@ Kubernetes Operations (kops) is a tool which helps to create, destroy, upgrade a
 
 We use CoreOS Flannel for networking on Kubernetes - for the default Kubernetes network, which in Testground terms is called the `control` network.
 
-We use Weave for the `data` plane on Testground - a secondary overlay network that we attach to containers on-demand.
+We use Weave for the `data` plane on Testground - a secondary overlay network that we attach containers to on-demand.
 
 `kops` uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the `control` network.
 
