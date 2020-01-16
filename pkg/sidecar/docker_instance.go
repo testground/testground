@@ -283,10 +283,8 @@ func (dn *DockerNetwork) ListAvailable() []string {
 
 func (dn *DockerNetwork) ListActive() []string {
 	networks := make([]string, 0, len(dn.activeLinks))
-	for name := range dn.availableLinks {
-		if _, ok := dn.activeLinks[name]; ok {
-			networks = append(networks, name)
-		}
+	for name := range dn.activeLinks {
+		networks = append(networks, name)
 	}
 	return networks
 }
@@ -307,7 +305,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 			if err := dn.container.Manager.NetworkDisconnect(ctx, netId, dn.container.ID, true); err != nil {
 				return err
 			}
-			delete(dn.activeLinks, netId)
+			delete(dn.activeLinks, cfg.Network)
 		}
 		return nil
 	}
@@ -322,7 +320,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 		if err := dn.container.Manager.NetworkDisconnect(ctx, netId, dn.container.ID, true); err != nil {
 			return err
 		}
-		delete(dn.activeLinks, netId)
+		delete(dn.activeLinks, cfg.Network)
 	}
 
 	// Are we _connected_ to the network.
@@ -371,7 +369,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 			IPv4:        linkInfo.IPv4,
 			IPv6:        linkInfo.IPv6,
 		}
-		dn.activeLinks[netId] = link
+		dn.activeLinks[cfg.Network] = link
 	}
 
 	// We don't yet support applying per-subnet rules.
