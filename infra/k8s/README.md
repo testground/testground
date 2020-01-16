@@ -107,15 +107,17 @@ kubectl apply -f sidecar.yaml
 ```
 
 
-## Configure Testground to push the built images to Docker Hub
+## Configure and run your Testground daemon
 
-1. Edit your `.env.toml` and add credentials for your Docker Hub account where the ready images will be pushed to. You will need an access token from Docker Hub for that step.
+```
+testground --vv daemon
+```
 
 
 ## Run a Testground testplan
 
 ```
-testground -vv run network/ping-pong \
+testground --vv run network/ping-pong \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg bypass_cache=true \
@@ -128,7 +130,7 @@ testground -vv run network/ping-pong \
 or
 
 ```
-testground -vv run dht/find-peers \
+testground --vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
