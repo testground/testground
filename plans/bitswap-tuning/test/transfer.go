@@ -90,7 +90,7 @@ func Transfer(runenv *runtime.RunEnv) {
 	var rootCid cid.Cid
 	if isSeed {
 		// Generate a file of the given size and add it to the datastore
-		rootCid, err := setupSeed(ctx, node, fileSize, runenv)
+		rootCid, err := setupSeed(ctx, node, fileSize)
 		if err != nil {
 			runenv.Abort(fmt.Errorf("Failed to set up seed: %w", err))
 			return
@@ -185,7 +185,7 @@ func Transfer(runenv *runtime.RunEnv) {
 	runenv.OK()
 }
 
-func setupSeed(ctx context.Context, node *utils.Node, fileSize int, runenv *runtime.RunEnv) (cid.Cid, error) {
+func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, error) {
 	tmpFile := utils.RandReader(fileSize)
 	ipldNode, err := node.Add(ctx, tmpFile)
 	if err != nil {

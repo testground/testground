@@ -22,7 +22,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return err
 	}
 
-	// TODO: just put the hostname inside the runenv?
+	// TODO: just put the unique testplan id inside the runenv?
 	hostname, err := os.Hostname()
 	if err != nil {
 		return err
