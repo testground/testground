@@ -16,7 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-connmgr"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -120,7 +120,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return err
 	}
 
-	// TODO: just put the hostname inside the runenv?
+	// TODO: just put the unique testplan id inside the runenv?
 	hostname, err := os.Hostname()
 	if err != nil {
 		return err
