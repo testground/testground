@@ -98,7 +98,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	}
 
 	var err error
-	_, runenv.TestSubnet, err = net.ParseCIDR("10.33.10.0/24")
+	_, runenv.TestSubnet, err = net.ParseCIDR("16.0.10.0/24")
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +170,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									v1.ResourceMemory: resource.MustParse("30Mi"),
+									v1.ResourceCPU:    resource.MustParse("10m"),
 								},
 							},
 						},
