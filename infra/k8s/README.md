@@ -79,13 +79,19 @@ kubectl apply -f ./flannel.yml
 kubectl apply -f ./genie-plugin.yaml
 ```
 
-9. Install Weave
+9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+
+```
+kubectl apply -f ./dummy.yaml
+```
+
+10. Install Weave
 
 ```
 kubectl apply -f ./weave.yml
 ```
 
-10. Destroy the cluster when you're done working on it
+11. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
