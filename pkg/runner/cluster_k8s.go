@@ -170,6 +170,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									v1.ResourceMemory: resource.MustParse("30Mi"),
+									v1.ResourceCPU:    resource.MustParse("50m"),
 								},
 							},
 						},

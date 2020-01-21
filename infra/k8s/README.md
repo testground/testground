@@ -79,13 +79,19 @@ kubectl apply -f ./flannel.yml
 kubectl apply -f ./genie-plugin.yaml
 ```
 
-9. Install Weave
+9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+
+```
+kubectl apply -f ./dummy.yaml
+```
+
+10. Install Weave
 
 ```
 kubectl apply -f ./weave.yml
 ```
 
-10. Destroy the cluster when you're done working on it
+11. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
@@ -122,7 +128,7 @@ testground --vv run network/ping-pong \
     --runner=cluster:k8s \
     --build-cfg bypass_cache=true \
     --build-cfg push_registry=true \
-    --build-cfg registry_type=dockerhub \
+    --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
     --instances=2
 ```
@@ -134,7 +140,7 @@ testground --vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
-    --build-cfg registry_type=dockerhub \
+    --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
     --instances=16
 ```
