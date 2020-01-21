@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -98,7 +99,8 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	}
 
 	var err error
-	_, runenv.TestSubnet, err = net.ParseCIDR("10.33.10.0/24")
+	c := 1 + rand.Intn(200)
+	_, runenv.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.32.%d.0/21", c))
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +109,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	redisCfg := v1.EnvVar{
 		Name:  "REDIS_HOST",
-		Value: "redis-master",
+		Value: "redis-headless",
 	}
 
 	env = append(env, redisCfg)
@@ -169,8 +171,8 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 							Env:   env,
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
-									v1.ResourceMemory: resource.MustParse("30Mi"),
-									v1.ResourceCPU:    resource.MustParse("50m"),
+									v1.ResourceMemory: resource.MustParse("100Mi"),
+									v1.ResourceCPU:    resource.MustParse("100m"),
 								},
 							},
 						},
