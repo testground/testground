@@ -22,6 +22,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		NFindPeers:     runenv.IntParam("n_find_peers"),
 		BucketSize:     runenv.IntParam("bucket_size"),
 		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
+		FUndialable:    runenv.FloatParam("f_undialable"),
 		NodesProviding: runenv.IntParam("nodes_providing"),
 		RecordCount:    runenv.IntParam("record_count"),
 	}
@@ -33,7 +34,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
+	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		return err
 	}
@@ -41,12 +42,12 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
+	if err = Bootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
 		return err
 	}
 
 	if opts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, dht); err != nil {
+		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
 			return err
 		}
 	}
@@ -63,13 +64,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	switch {
-	case seq <= int64(opts.NodesProviding):
+	case node.seq <= opts.NodesProviding:
 		g := errgroup.Group{}
 		for i, cid := range cids {
 			c := cid
 			g.Go(func() error {
 				t := time.Now()
-				err := dht.Provide(ctx, c, true)
+				err := node.dht.Provide(ctx, c, true)
 
 				if err == nil {
 					runenv.Message("Provided CID: %s", c)
@@ -94,7 +95,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			c := cid
 			g.Go(func() error {
 				t := time.Now()
-				pids, err := dht.FindProviders(ctx, c)
+				pids, err := node.dht.FindProviders(ctx, c)
 
 				if err == nil {
 					runenv.EmitMetric(&runtime.MetricDefinition{

@@ -258,6 +258,21 @@ func (re *RunEnv) IntParam(name string) int {
 	return i
 }
 
+// FloatParam returns a float64 parameter, or -1.0 if the parameter is not set or
+// the conversion failed. It panics on error.
+func (re *RunEnv) FloatParam(name string) float64 {
+	v, ok := re.TestInstanceParams[name]
+	if !ok {
+		return -1.0
+	}
+
+	f, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
 func (re *RunEnv) BooleanParam(name string) bool {
 	s, _ := re.TestInstanceParams[name]
