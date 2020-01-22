@@ -55,13 +55,16 @@ func (d *K8sInstanceManager) Manage(
 	worker func(ctx context.Context, inst *Instance) error,
 ) error {
 	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(ctx, container)
 		if err != nil {
 			return fmt.Errorf("failed to initialise the container: %w", err)
 		}
 		if inst == nil {
+			logging.S().Debugw("ignoring container", "container", container.ID)
 			return nil
 		}
+		logging.S().Debugw("managing container", "container", container.ID)
 		err = worker(ctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
@@ -156,7 +159,8 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	// Remove the original routes
 	for _, route := range controlLinkRoutes {
 		if route.Dst != nil && route.Dst.String() == podCidr {
-			fmt.Println("removing route for pod cidr", podCidr)
+			logging.S().Debugw("removing route", "route.Src", route.Src.String(), "route.Dst", podCidr, "gw", route.Gw.String(), "container", container.ID)
+
 			if err := netlinkHandle.RouteDel(&route); err != nil {
 				return nil, fmt.Errorf("failed to delete pod cidr route: %v", err)
 			}
@@ -178,6 +182,20 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		}
 
 		if route.Dst == nil && route.Src == nil {
+			// if default route, get the gw and add a route for DNS
+			dnsRoute := route
+			dnsRoute.Src = nil
+			dnsRoute.Dst = &net.IPNet{
+				IP:   net.IPv4(100, 64, 0, 10),
+				Mask: net.CIDRMask(32, 32),
+			}
+
+			logging.S().Debugw("adding dns route", "container", container.ID)
+			if err := netlinkHandle.RouteAdd(&dnsRoute); err != nil {
+				return nil, fmt.Errorf("failed to add dns route to pod: %v", err)
+			}
+
+			logging.S().Debugw("removing default route", "container", container.ID)
 			if err := netlinkHandle.RouteDel(&route); err != nil {
 				return nil, fmt.Errorf("failed to drop default route: %v", err)
 			}
@@ -236,7 +254,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
 		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
 		// Disconnect and reconnect to change the IP addresses.
-		logging.S().Debug("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
+		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
 		//
 		// NOTE: We probably don't need to do this on local docker.
 		// However, we probably do with swarm.
