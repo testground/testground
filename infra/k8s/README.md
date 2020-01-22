@@ -83,7 +83,7 @@ kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml
 9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./dummy.yml
+kubectl apply -f ./infra/k8s/kops-weave/dummy.yml
 ```
 
 10. Install Weave
@@ -117,7 +117,7 @@ helm install redis stable/redis --values ./infra/k8s/redis-values.yaml
 3. Create a `Sidecar` service on your Kubernetes cluster.
 
 ```
-kubectl apply -f infra/k8s/sidecar.yaml
+kubectl apply -f ./infra/k8s/sidecar.yaml
 ```
 
 
