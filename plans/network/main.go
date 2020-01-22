@@ -27,7 +27,7 @@ func main() {
 		return
 	}
 
-	logging.S().Debug("before sync.MustWatcherWriter")
+	runenv.Message("before sync.MustWatcherWriter")
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 	defer writer.Close()
@@ -37,7 +37,7 @@ func main() {
 		return
 	}
 
-	logging.S().Debug("before sync.WaitNetworkInitialized")
+	runenv.Message("before sync.WaitNetworkInitialized")
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		runenv.Abort(err)
 		return
@@ -69,14 +69,14 @@ func main() {
 		State: "network-configured",
 	}
 
-	logging.S().Debug("before writer config")
+	runenv.Message("before writer config")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		runenv.Abort(err)
 		return
 	}
 
-	logging.S().Debug("before barrier")
+	runenv.Message("before barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
 		runenv.Abort(err)
@@ -97,7 +97,7 @@ func main() {
 	}
 
 	// Get a sequence number
-	logging.S().Debug("get a sequence number")
+	runenv.Message("get a sequence number")
 	seq, err := writer.Write(&sync.Subtree{
 		GroupKey:    "ip-allocation",
 		PayloadType: reflect.TypeOf(""),
