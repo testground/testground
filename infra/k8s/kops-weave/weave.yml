@@ -183,7 +183,7 @@ items:
                 - /home/weave/launch.sh
               env:
                 - name: EXTRA_ARGS
-                  value: --log-level=debug
+                  value: --log-level=info
                 - name: EXPECT_NPC
                   value: "0"
                 - name: IPALLOC_RANGE
