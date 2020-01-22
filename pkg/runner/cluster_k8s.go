@@ -30,6 +30,11 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
+func init() {
+	// Avoid collisions in picking up subnets
+	rand.Seed(time.Now().UnixNano())
+}
+
 func homeDir() string {
 	home, _ := os.UserHomeDir()
 	return home
