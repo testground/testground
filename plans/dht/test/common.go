@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/multiformats/go-multiaddr"
 	"go.uber.org/zap"
 	"math"
 	"math/rand"
