@@ -99,8 +99,8 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	}
 
 	var err error
-	c := 1 + rand.Intn(200)
-	_, runenv.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.32.%d.0/21", c))
+	b := 1 + rand.Intn(200)
+	_, runenv.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.%d.0.0/16", b))
 	if err != nil {
 		return nil, err
 	}
