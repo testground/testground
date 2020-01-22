@@ -17,6 +17,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		NFindPeers:  runenv.IntParam("n_find_peers"),
 		BucketSize:  runenv.IntParam("bucket_size"),
 		AutoRefresh: runenv.BooleanParam("auto_refresh"),
+		FUndialable: runenv.FloatParam("f_undialable"),
 	}
 
 	if opts.NFindPeers > runenv.TestInstanceCount {
@@ -30,7 +31,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
+	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
 		return err
 	}
@@ -38,12 +39,12 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
+	if err = Bootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
 		return err
 	}
 
 	if opts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, dht); err != nil {
+		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
 			return err
 		}
 	}
@@ -63,7 +64,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		if found >= opts.NFindPeers {
 			break
 		}
-		if len(dht.Host().Peerstore().Addrs(p.ID)) > 0 {
+		if len(node.host.Peerstore().Addrs(p.ID)) > 0 {
 			// Skip peer's we've already found (even if we've
 			// disconnected for some reason).
 			continue

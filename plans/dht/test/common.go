@@ -3,8 +3,10 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/multiformats/go-multiaddr"
 	"math"
 	"math/rand"
+	"net"
 	"os"
 	"reflect"
 	"sort"
@@ -25,6 +27,7 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	tcp "github.com/libp2p/go-tcp-transport"
+	"github.com/multiformats/go-multiaddr-net"
 )
 
 func init() {
@@ -43,6 +46,22 @@ type SetupOpts struct {
 	AutoRefresh    bool
 	NodesProviding int
 	RecordCount    int
+	FUndialable    float64
+}
+
+type NodeProperty int
+
+const (
+	Undefined NodeProperty = iota
+	Bootstrapper
+	Undialable
+)
+
+type NodeParams struct {
+	host       host.Host
+	dht        *kaddht.IpfsDHT
+	seq        int
+	properties map[NodeProperty]struct{}
 }
 
 // BootstrapSubtree represents a subtree under the test run's sync tree where
@@ -75,18 +94,37 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 
 	runenv.RecordMessage("connmgr parameters: hi=%d, lo=%d", max, min)
 
-	node, err := libp2p.New(
-		ctx,
+	// Generate bogus advertising address
+	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
+	if err != nil {
+		return nil, nil, err
+	}
+	tcpAddr.Port = rand.Intn(1024) + 1024
+	bogusAddr, err := manet.FromNetAddr(tcpAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	bogusAddrLst := []multiaddr.Multiaddr{bogusAddr}
+
+	libp2pOpts := []libp2p.Option{
 		// Use only the TCP transport without reuseport.
 		libp2p.Transport(func(u *tptu.Upgrader) *tcp.TcpTransport {
 			tpt := tcp.NewTCPTransport(u)
 			tpt.DisableReuseport = true
 			return tpt
 		}),
-		libp2p.DefaultListenAddrs,
+		libp2p.NoListenAddrs,
+		libp2p.AddrsFactory(func(listeningAddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+			if len(listeningAddrs) == 0 {
+				return bogusAddrLst
+			}
+			return listeningAddrs
+		}),
 		// Setup the connection manager to trim to
 		libp2p.ConnectionManager(connmgr.NewConnManager(min, max, ConnManagerGracePeriod)),
-	)
+	}
+
+	node, err := libp2p.New(ctx, libp2pOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,6 +144,24 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 		return nil, nil, err
 	}
 	return node, dht, nil
+}
+
+func getSubnetAddr(subnet *net.IPNet) (*net.TCPAddr, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		if ip, ok := addr.(*net.IPNet); ok {
+			if subnet.Contains(ip.IP) {
+				tcpAddr := &net.TCPAddr{IP: ip.IP}
+				return tcpAddr, nil
+			}
+		} else {
+			panic(fmt.Sprintf("%T", addr))
+		}
+	}
+	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this
@@ -147,12 +203,12 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 }
 
 // Setup sets up the elements necessary for the test cases
-func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (host.Host, *kaddht.IpfsDHT, []peer.AddrInfo, int64, error) {
+func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, []peer.AddrInfo, error) {
 	var seq int64
 
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
 	if runenv.TestInstanceCount < minTestInstances {
-		return nil, nil, nil, seq, fmt.Errorf(
+		return nil, nil, fmt.Errorf(
 			"requires at least %d instances, only %d started",
 			minTestInstances, runenv.TestInstanceCount,
 		)
@@ -160,26 +216,40 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 
 	err := SetupNetwork(ctx, runenv, watcher, writer)
 	if err != nil {
-		return nil, nil, nil, seq, err
+		return nil, nil, err
 	}
 
 	node, dht, err := NewDHTNode(ctx, runenv, opts)
 	if err != nil {
-		return nil, nil, nil, seq, err
+		return nil, nil, err
 	}
 
 	id := node.ID()
 	runenv.RecordMessage("I am %s with addrs: %v", id, node.Addrs())
 
 	if seq, err = writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
-		return nil, nil, nil, seq, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
+		return nil, nil, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
+	}
+
+	properties := getNodeProperties(int(seq), runenv.TestInstanceCount, opts)
+
+	if _, undialable := properties[Undialable]; !undialable {
+		tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
+		if err != nil {
+			return nil, nil, err
+		}
+		listenAddr, err := manet.FromNetAddr(tcpAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+		node.Network().Listen(listenAddr)
 	}
 
 	peerCh := make(chan *peer.AddrInfo, 16)
 	sctx, cancelSub := context.WithCancel(ctx)
 	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
 		cancelSub()
-		return nil, nil, nil, seq, err
+		return nil, nil, err
 	}
 	defer cancelSub()
 
@@ -189,7 +259,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		ai, ok := <-peerCh
 		if !ok {
-			return nil, nil, nil, seq, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
+			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
 		}
 		if ai.ID == id {
 			continue
@@ -201,7 +271,25 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return peers[i].ID < peers[j].ID
 	})
 
-	return node, dht, peers, seq, nil
+	return &NodeParams{
+		host:       node,
+		dht:        dht,
+		seq:        int(seq),
+		properties: properties,
+	}, peers, nil
+}
+
+func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{} {
+	properties := make(map[NodeProperty]struct{})
+	if seq <= opts.NBootstrap {
+		properties[Bootstrapper] = struct{}{}
+	} else {
+		numNonBootstrap := total - opts.NBootstrap
+		if int(float64(seq)/opts.FUndialable) < numNonBootstrap && false {
+			properties[Undialable] = struct{}{}
+		}
+	}
+	return properties
 }
 
 // Bootstrap brings the network into a completely bootstrapped and ready state.
@@ -215,15 +303,17 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 //   a. Forget the addresses of all peers we've disconnected from. Otherwise, FindPeer is useless.
 //   b. Re-connect to at least one node if we've disconnected from _all_ nodes.
 //      We may want to make this an error in the future?
-func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, dht *kaddht.IpfsDHT, peers []peer.AddrInfo, seq int64) error {
+func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers []peer.AddrInfo) error {
 	// Are we a bootstrap node?
-	isBootstrapper := int(seq) <= opts.NBootstrap
+	_, isBootstrapper := node.properties[Bootstrapper]
 
 	////////////////
 	// 1: CONNECT //
 	////////////////
 
 	runenv.RecordMessage("bootstrap: begin connect")
+
+	dht := node.dht
 
 	var toDial []peer.AddrInfo
 	if opts.NBootstrap > 0 {
@@ -269,7 +359,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			}
 		} else {
 			// Otherwise, connect to a random one (based on our sequence number).
-			toDial = append(toDial, bootstrapPeers[int(seq)%len(bootstrapPeers)])
+			toDial = append(toDial, bootstrapPeers[node.seq%len(bootstrapPeers)])
 		}
 	} else {
 		// No bootstrappers, dial the _next_ peer in the ring. This list
