@@ -312,8 +312,7 @@ func (re *RunParams) IntParam(name string) int {
 func (re *RunEnv) FloatParam(name string) float64 {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
-		panic(fmt.Errorf("%s was not set", name))
-		//return -1.0
+		return -1.0
 	}
 
 	f, err := strconv.ParseFloat(v, 32)
