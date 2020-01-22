@@ -82,7 +82,7 @@ kubectl apply -f ./genie-plugin.yaml
 9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./dummy.yaml
+kubectl apply -f ./dummy.yml
 ```
 
 10. Install Weave
