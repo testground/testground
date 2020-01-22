@@ -26,8 +26,9 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ## Requirements
 
-- 1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
-
+1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
+2. [AWS CLI](https://aws.amazon.com/cli)
+3. [helm](https://github.com/helm/helm)
 
 ## Set up infrastructure with kops
 
@@ -68,7 +69,7 @@ kops create cluster \
 6. Install Flannel
 
 ```
-kubectl apply -f ./flannel.yml
+kubectl apply -f ./infra/k8s/kops-weave/flannel.yml
 ```
 
 7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state.
@@ -76,19 +77,19 @@ kubectl apply -f ./flannel.yml
 8. Install CNI-Genie
 
 ```
-kubectl apply -f ./genie-plugin.yaml
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml
 ```
 
 9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./dummy.yml
+kubectl apply -f ./infra/k8s/kops-weave/dummy.yml
 ```
 
 10. Install Weave
 
 ```
-kubectl apply -f ./weave.yml
+kubectl apply -f ./infra/k8s/kops-weave/weave.yml
 ```
 
 11. Destroy the cluster when you're done working on it
@@ -100,16 +101,23 @@ kops delete cluster $NAME --yes
 
 ## Setup Testground remote dependencies on your cluster
 
-1. Create a `Redis` service on your Kubernetes cluster
+1. Set up Helm
 
 ```
-helm install redis stable/redis --values redis-values.yaml
+helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+helm repo update
 ```
 
-2. Create a `Sidecar` service on your Kubernetes cluster.
+2. Create a `Redis` service on your Kubernetes cluster
 
 ```
-kubectl apply -f sidecar.yaml
+helm install redis stable/redis --values ./infra/k8s/redis-values.yaml
+```
+
+3. Create a `Sidecar` service on your Kubernetes cluster.
+
+```
+kubectl apply -f ./infra/k8s/sidecar.yaml
 ```
 
 
