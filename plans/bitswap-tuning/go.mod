@@ -28,5 +28,5 @@ require (
 	github.com/libp2p/go-libp2p-host v0.1.0
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/pkg/errors v0.8.1
-	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 )
