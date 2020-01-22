@@ -103,6 +103,11 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestSidecar:        true,
 	}
 
+	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
+	// use an already used IP address, even if the container has been removed
+	// this functionality should be refactored asap, when we understand how weave releases IPs (or why it doesn't release
+	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
+	// collisions in concurrent testplan runs
 	var err error
 	b := 1 + rand.Intn(200)
 	_, runenv.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.%d.0.0/16", b))
