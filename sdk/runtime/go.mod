@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/dustin/go-humanize v1.0.0
-	github.com/ipfs/go-ipfs-files v0.0.6 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/stretchr/testify v1.4.0 // indirect
 	go.uber.org/atomic v1.4.0 // indirect
