@@ -186,6 +186,8 @@ items:
                   value: --log-level=debug
                 - name: EXPECT_NPC
                   value: "0"
+                - name: IPALLOC_RANGE
+                  value: "10.0.0.0/8"
                 - name: HOSTNAME
                   valueFrom:
                     fieldRef:
