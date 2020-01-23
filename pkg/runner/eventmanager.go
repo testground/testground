@@ -100,16 +100,18 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 	go func() {
 		defer stdout.Close()
 		defer c.wg.Done()
+		defer c.logger.sync()
 
 		decoder := json.NewDecoder(stdout)
-		var event runtime.Event
 		var (
 			// track both in case a test-case is so broken that it
 			// reports both a success and a failure.
 			failed = false
 			ok     = false
 		)
+
 		for {
+			var event runtime.Event
 			if err := decoder.Decode(&event); err != nil {
 				now := time.Now().UnixNano()
 				if err != io.EOF {
@@ -125,7 +127,6 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 					atomic.AddUint32(&c.failed, 1)
 				}
 
-				c.logger.sync()
 				return
 			}
 
