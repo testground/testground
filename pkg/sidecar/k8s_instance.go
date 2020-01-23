@@ -153,7 +153,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
 
-	ip := redisRoute.Dst.IP
+	redisIP := redisRoute.Dst.IP
 
 	routesToBeDeleted := []netlink.Route{}
 
@@ -173,14 +173,14 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		}
 
 		if route.Dst != nil {
-			if route.Dst.Contains(ip) {
+			if route.Dst.Contains(redisIP) {
 				newroute := route
 				newroute.Dst = &net.IPNet{
-					IP:   ip,
+					IP:   redisIP,
 					Mask: net.CIDRMask(32, 32),
 				}
 
-				logging.S().Debugw("adding redis route (ip)", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
 				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
 					logging.S().Warnw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
 				} else {
