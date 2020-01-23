@@ -31,37 +31,33 @@ func (tc *SimpleAddGetTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsem
 	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "adder", "getter")
 }
 
-func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
+func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) error {
 	adder := ensemble.GetNode("adder").Client()
 	getter := ensemble.GetNode("getter").Client()
 
 	// generate a random file of the designated size.
 	filePath, err := runenv.CreateRandomFile(ensemble.TempDir(), tc.SizeBytes)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	defer os.Remove(filePath)
 
 	tstarted := time.Now()
 	cid, err := adder.Add(file)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
 
 	addrs, err := ensemble.GetNode("adder").SwarmAddrs()
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -70,8 +66,7 @@ func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 	tstarted = time.Now()
 	err = getter.SwarmConnect(ctx, addrs[0])
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	runenv.EmitMetric(utils.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
@@ -79,9 +74,8 @@ func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 	tstarted = time.Now()
 	err = getter.Get(cid, ensemble.TempDir())
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	runenv.EmitMetric(utils.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
-	runenv.OK()
+	return nil
 }

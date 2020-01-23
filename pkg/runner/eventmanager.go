@@ -18,13 +18,14 @@ const (
 	Error eventType = iota
 	Ok
 	Fail
+	Crash
 	Incomplete
 	Message
 	Metric
 )
 
 func (et eventType) String() string {
-	return [...]string{"Error", "Ok", "Fail", "Incomplete", "Message", "Metric"}[et]
+	return [...]string{"Error", "Ok", "Fail", "Crash", "Incomplete", "Message", "Metric"}[et]
 }
 
 // eventLogger logs events to the console / a file / etc
@@ -134,9 +135,14 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 				case runtime.OutcomeOK:
 					ok = true
 					printMsg(event.Timestamp, Ok, event.Result.Reason)
-				default:
+				case runtime.OutcomeCrashed:
+					failed = true
+					printMsg(event.Timestamp, Crash, event.Result.Outcome, " ", event.Result.Reason, event.Result.Stack)
+				case runtime.OutcomeAborted:
 					failed = true
 					printMsg(event.Timestamp, Fail, event.Result.Outcome, " ", event.Result.Reason)
+				default:
+					panic(fmt.Sprintf("unknown outcome: %s", event.Result.Outcome))
 				}
 			} else if event.Metric != nil {
 				now := time.Unix(0, event.Timestamp)

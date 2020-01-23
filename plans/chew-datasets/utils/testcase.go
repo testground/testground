@@ -22,7 +22,7 @@ type TestCase interface {
 	AddRepoOptions() iptb.AddRepoOptions
 
 	// Execute executes the test case with the given options.
-	Execute(ctx context.Context, runenv *runtime.RunEnv, opts *TestCaseOptions)
+	Execute(ctx context.Context, runenv *runtime.RunEnv, opts *TestCaseOptions) error
 }
 
 // TestCaseOptions are the options to pass to the test case execute function.

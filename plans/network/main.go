@@ -14,17 +14,19 @@ import (
 )
 
 func main() {
+	runtime.Invoke(run)
+}
+
+func run(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	runenv := runtime.CurrentRunEnv()
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
 	}
 
 	if runenv.TestCaseSeq != 0 {
-		runenv.Abort("aborting")
-		return
+		return fmt.Errorf("aborting")
 	}
 
 	runenv.Message("before sync.MustWatcherWriter")
@@ -33,26 +35,22 @@ func main() {
 	defer writer.Close()
 
 	if !runenv.TestSidecar {
-		runenv.OK()
-		return
+		return nil
 	}
 
 	runenv.Message("before sync.WaitNetworkInitialized")
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	oldAddrs, err := net.InterfaceAddrs()
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	config := sync.NetworkConfig{
@@ -72,28 +70,24 @@ func main() {
 	runenv.Message("before writer config")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	runenv.Message("before barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	// Make sure that the IP addresses don't change unless we request it.
 
 	newAddrs, err := net.InterfaceAddrs()
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	if !sameAddrs(oldAddrs, newAddrs) {
-		runenv.Abort("interfaces changed")
-		return
+		return fmt.Errorf("interfaces changed")
 	}
 
 	// Get a sequence number
@@ -106,15 +100,13 @@ func main() {
 		},
 	}, hostname)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	runenv.Message("I am %d", seq)
 
 	if seq >= 1<<16 {
-		runenv.Abort("test-case only supports 2**16 instances")
-		return
+		return fmt.Errorf("test-case only supports 2**16 instances")
 	}
 
 	ipC := byte((seq >> 8) + 1)
@@ -131,8 +123,7 @@ func main() {
 	if seq == 1 {
 		listener, err = net.ListenTCP("tcp4", &net.TCPAddr{Port: 1234})
 		if err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 		defer listener.Close()
 	}
@@ -140,15 +131,13 @@ func main() {
 	logging.S().Debug("before writing changed ip config to redis")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	logging.S().Debug("waiting for barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	switch seq {
@@ -160,12 +149,10 @@ func main() {
 			Port: 1234,
 		})
 	default:
-		runenv.Abort("expected at most two test instances")
-		return
+		return fmt.Errorf("expected at most two test instances")
 	}
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	defer conn.Close()
@@ -244,8 +231,7 @@ func main() {
 	}
 	err = pingPong("200", 200*time.Millisecond, 205*time.Millisecond)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	config.Default.Latency = 10 * time.Millisecond
@@ -254,25 +240,22 @@ func main() {
 	logging.S().Debug("writing new config with latency reduced")
 	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	logging.S().Debug("waiting at barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	logging.S().Debug("ping pong")
 	err = pingPong("10", 20*time.Millisecond, 30*time.Millisecond)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
-	runenv.OK()
+	return nil
 }
 
 func sameAddrs(a, b []net.Addr) bool {
