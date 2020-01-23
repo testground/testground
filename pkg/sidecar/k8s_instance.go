@@ -142,49 +142,63 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	}
 
 	// Get the routes to redis. We need to keep these.
-	redisRoutes, err := netlinkHandle.RouteGet(d.redis)
+	redisRoute, err := getRedisRoute(netlinkHandle, d.redis)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+		return nil, fmt.Errorf("cant get route to redis: %s", err)
 	}
-
-	if len(redisRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
-	}
-
-	redisRoute := redisRoutes[0]
+	logging.S().Debugw("got redis route", "route.Src", redisRoute.Src, "route.Dst", redisRoute.Dst, "gw", redisRoute.Gw.String(), "container", container.ID)
 
 	controlLinkRoutes, err := netlinkHandle.RouteList(controlLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
 
-	gw := redisRoute.Gw
+	ip := redisRoute.Dst.IP
+
+	routesToBeDeleted := []netlink.Route{}
 
 	// Remove the original routes
 	for _, route := range controlLinkRoutes {
+		routeDst := "nil"
+		if route.Dst != nil {
+			routeDst = route.Dst.String()
+		}
+
+		logging.S().Debugw("inspecting controlLink route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+
 		if route.Dst != nil && route.Dst.String() == podCidr {
-			logging.S().Debugw("removing route", "route.Src", route.Src.String(), "route.Dst", podCidr, "gw", route.Gw.String(), "container", container.ID)
-
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete pod cidr route: %v", err)
-			}
-
+			logging.S().Debugw("marking for deletion podCidr dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+			routesToBeDeleted = append(routesToBeDeleted, route)
 			continue
 		}
 
-		if route.Dst != nil && route.Dst.Contains(gw) {
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete route while restricting gw route: %v", err)
+		if route.Dst != nil {
+			if route.Dst.Contains(ip) {
+				newroute := route
+				newroute.Dst = &net.IPNet{
+					IP:   ip,
+					Mask: net.CIDRMask(32, 32),
+				}
+
+				logging.S().Debugw("adding redis route (ip)", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
+					logging.S().Warnw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+				} else {
+					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				}
 			}
 
-			route.Dst.IP = gw
-			route.Dst.Mask = net.CIDRMask(32, 32)
-
-			if err := netlinkHandle.RouteAdd(&route); err != nil {
-				return nil, fmt.Errorf("failed to add route while restricting gw route: %v", err)
-			}
+			logging.S().Debugw("marking for deletion some dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+			routesToBeDeleted = append(routesToBeDeleted, route)
+			continue
 		}
 
+		logging.S().Debugw("marking for deletion random route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+		routesToBeDeleted = append(routesToBeDeleted, route)
+	}
+
+	// Adding DNS route
+	for _, route := range controlLinkRoutes {
 		if route.Dst == nil && route.Src == nil {
 			// if default route, get the gw and add a route for DNS
 			dnsRoute := route
@@ -198,17 +212,19 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 			if err := netlinkHandle.RouteAdd(&dnsRoute); err != nil {
 				return nil, fmt.Errorf("failed to add dns route to pod: %v", err)
 			}
-
-			logging.S().Debugw("removing default route", "container", container.ID)
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to drop default route: %v", err)
-			}
 		}
 	}
 
-	// Add specific routes to redis if redis uses this link.
-	if err := netlinkHandle.RouteAdd(&redisRoute); err != nil {
-		return nil, fmt.Errorf("failed to add redis route: %v", err)
+	for _, r := range routesToBeDeleted {
+		routeDst := "nil"
+		if r.Dst != nil {
+			routeDst = r.Dst.String()
+		}
+
+		logging.S().Debugw("really removing route", "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
+		if err := netlinkHandle.RouteDel(&r); err != nil {
+			logging.S().Warnw("failed to really delete route", "route.Src", r.Src, "gw", r.Gw, "route.Dst", routeDst, "container", container.ID, "err", err.Error())
+		}
 	}
 
 	return NewInstance(runenv, info.Config.Hostname, network)
@@ -404,4 +420,19 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	default:
 		return nil, errors.New("unknown type")
 	}
+}
+
+func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, error) {
+	redisRoutes, err := handle.RouteGet(redisIP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+	}
+
+	if len(redisRoutes) != 1 {
+		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
+	}
+
+	redisRoute := redisRoutes[0]
+
+	return &redisRoute, nil
 }

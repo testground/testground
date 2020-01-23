@@ -65,6 +65,9 @@ kops create cluster \
 ```
 
 5. Wait for `master` node to appear in `kubectl get nodes` - it will be in `NotReady` state as we haven't installed any Networking CNI yet.
+```
+watch 'kubectl get nodes -o wide'
+```
 
 6. Install Flannel
 
@@ -72,7 +75,12 @@ kops create cluster \
 kubectl apply -f ./infra/k8s/kops-weave/flannel.yml
 ```
 
-7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state.
+7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
+```
+watch 'kubectl get nodes -o wide'
+
+kubectl -n kube-system get pods -o wide
+```
 
 8. Install CNI-Genie
 
@@ -114,7 +122,9 @@ helm repo update
 helm install redis stable/redis --values ./infra/k8s/redis-values.yaml
 ```
 
-3. Create a `Sidecar` service on your Kubernetes cluster.
+3. Wait for `Redis` to be `Ready 1/1`
+
+4. Create a `Sidecar` service on your Kubernetes cluster.
 
 ```
 kubectl apply -f ./infra/k8s/sidecar.yaml
