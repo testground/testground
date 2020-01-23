@@ -257,8 +257,13 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		runenv.Message("bootstrap: got %d bootstrappers", len(bootstrapPeers))
 
 		if isBootstrapper {
-			// If we're a bootstrapper, connect to all of them.
-			toDial = bootstrapPeers
+			// If we're a bootstrapper, connect to all of them with IDs lexicographically less than us
+			toDial = make([]peer.AddrInfo, 0, len(bootstrapPeers))
+			for _, b := range bootstrapPeers {
+				if b.ID < dht.Host().ID() {
+					toDial = append(toDial, b)
+				}
+			}
 		} else {
 			// Otherwise, connect to a random one (based on our sequence number).
 			toDial = append(toDial, bootstrapPeers[int(seq)%len(bootstrapPeers)])
