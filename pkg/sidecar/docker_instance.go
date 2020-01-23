@@ -110,9 +110,14 @@ func (d *DockerInstanceManager) Manage(
 ) error {
 	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
 		inst, err := d.manageContainer(ctx, container)
-		if err != nil {
+		switch {
+		case err != nil:
 			return fmt.Errorf("when initializing the container: %w", err)
+		case inst == nil:
+			// not using the sidecar
+			return nil
 		}
+
 		err = worker(ctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
@@ -136,6 +141,17 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, fmt.Errorf("not running")
 	}
 
+	// Construct the runtime environment
+	runenv, err := runtime.ParseRunEnv(info.Config.Env)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse run environment: %w", err)
+	}
+
+	// Not using the sidecar, ignore this container.
+	if !runenv.TestSidecar {
+		return nil, nil
+	}
+
 	// TODO: cache this?
 	networks, err := container.Manager.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -147,13 +163,6 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list networks: %w", err)
-	}
-
-	// Construct the runtime environment
-
-	runenv, err := runtime.ParseRunEnv(info.Config.Env)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
 
 	// Get a netlink handle.
