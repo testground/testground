@@ -209,6 +209,18 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
+	defer func() {
+		log.Debugw("configuration for job", "keep_service", cfg.KeepService)
+		if cfg.KeepService {
+			log.Info("skipping removing the job due to user request")
+			return
+		}
+		err := clientset.BatchV1().Jobs(config.Namespace).Delete(jobName, &metav1.DeleteOptions{})
+		if err != nil {
+			log.Errorw("couldn't remove job", "job", jobName, "err", err)
+		}
+	}()
+
 	// Wait for job
 	start := time.Now()
 	for {
@@ -229,17 +241,6 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		time.Sleep(2000 * time.Millisecond)
 	}
 
-	defer func() {
-		log.Debugw("configuration for job", "keep_service", cfg.KeepService)
-		if cfg.KeepService {
-			log.Info("skipping removing the job due to user request")
-			return
-		}
-		err := clientset.BatchV1().Jobs(config.Namespace).Delete(jobName, &metav1.DeleteOptions{})
-		if err != nil {
-			log.Errorw("couldn't remove job", "job", jobName, "err", err)
-		}
-	}()
 
 	out := &api.RunOutput{RunnerID: "smth"}
 	return out, nil
