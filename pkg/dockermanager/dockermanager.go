@@ -3,6 +3,7 @@ package dockermanager
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -47,6 +48,15 @@ type Container struct {
 // Inspect inspects this docker container.
 func (dc *Container) Inspect(ctx context.Context) (types.ContainerJSON, error) {
 	return dc.Manager.ContainerInspect(ctx, dc.ID)
+}
+
+// Logs returns the logs for this docker container.
+func (dc *Container) Logs(ctx context.Context) (io.ReadCloser, error) {
+	return dc.Manager.ContainerLogs(ctx, dc.ID, types.ContainerLogsOptions{
+		ShowStderr: true,
+		ShowStdout: true,
+		Follow:     true,
+	})
 }
 
 // IsOnline returns whether or not the container is online.
