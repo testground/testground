@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync/atomic"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -30,9 +31,21 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
+var k8sSubnetIdx uint64 = 0
+
 func init() {
 	// Avoid collisions in picking up subnets
 	rand.Seed(time.Now().UnixNano())
+	k8sSubnetIdx = rand.Uint64() % 4096
+}
+
+func nextK8sSubnet() (*net.IPNet, error) {
+	subnet, _, err := nextDataNetwork(int(atomic.AddUint64(&k8sSubnetIdx, 1) % 4096))
+	if err != nil {
+		return nil, err
+	}
+	_, n, err := net.ParseCIDR(subnet)
+	return n, err
 }
 
 func homeDir() string {
@@ -109,8 +122,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
 	var err error
-	b := 1 + rand.Intn(200)
-	_, runenv.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.%d.0.0/16", b))
+	runenv.TestSubnet, err = nextK8sSubnet()
 	if err != nil {
 		return nil, err
 	}
