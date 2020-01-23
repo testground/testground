@@ -29,30 +29,27 @@ func (tc *SimpleAddTC) Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsemble
 	spec.AddNodesDefaultConfig(iptb.NodeOpts{Initialize: true, Start: true}, "adder")
 }
 
-func (tc *SimpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) {
+func (tc *SimpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) error {
 	node := ensemble.GetNode("adder")
 	client := node.Client()
 
 	filePath, err := runenv.CreateRandomFile(ensemble.TempDir(), tc.SizeBytes)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	defer os.Remove(filePath)
 
 	tstarted := time.Now()
 	_, err = client.Add(file)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
-	runenv.OK()
+	return nil
 }

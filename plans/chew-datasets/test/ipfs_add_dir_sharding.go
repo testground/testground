@@ -28,7 +28,7 @@ func (t *IpfsAddDirSharding) AddRepoOptions() iptb.AddRepoOptions {
 	}
 }
 
-func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
+func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
 		runenv.Message("Running against the Core API")
 
@@ -49,8 +49,7 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 		})
 
 		if err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
 
@@ -65,10 +64,8 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 		})
 
 		if err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
-
-	runenv.OK()
+	return nil
 }

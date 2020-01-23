@@ -13,5 +13,5 @@ type SmallBenchmarksTestCase interface {
 	Configure(runenv *runtime.RunEnv, spec *iptb.TestEnsembleSpec)
 
 	// Execute executes the test case with the given ensemble.
-	Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble)
+	Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemble) error
 }
