@@ -26,6 +26,10 @@ const (
 	podCidr              = "100.96.0.0/11"
 )
 
+var (
+	kubeDnsClusterIP = net.IPv4(100, 64, 0, 10)
+)
+
 type K8sInstanceManager struct {
 	redis   net.IP
 	manager *dockermanager.Manager
@@ -186,7 +190,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 			dnsRoute := route
 			dnsRoute.Src = nil
 			dnsRoute.Dst = &net.IPNet{
-				IP:   net.IPv4(100, 64, 0, 10),
+				IP:   kubeDnsClusterIP,
 				Mask: net.CIDRMask(32, 32),
 			}
 
