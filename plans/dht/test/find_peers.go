@@ -60,11 +60,11 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 	// Perform FIND_PEER N times.
 	found := 0
-	for _, p := range peers {
+	for p, _ := range peers {
 		if found >= opts.NFindPeers {
 			break
 		}
-		if len(node.host.Peerstore().Addrs(p.ID)) > 0 {
+		if len(node.host.Peerstore().Addrs(p)) > 0 {
 			// Skip peer's we've already found (even if we've
 			// disconnected for some reason).
 			continue
@@ -73,12 +73,12 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		t := time.Now()
 
 		ectx, cancel := context.WithCancel(ctx)
-		ectx = TraceQuery(ectx, runenv, p.ID.Pretty())
+		ectx = TraceQuery(ectx, runenv, p.Pretty())
 
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		_, err := dht.FindPeer(ectx, p.ID)
+		_, err := node.dht.FindPeer(ectx, p)
 		cancel()
 		if err != nil {
 			return fmt.Errorf("find peer failed: %s", err)
