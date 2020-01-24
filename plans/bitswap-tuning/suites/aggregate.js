@@ -2,101 +2,77 @@
 
 const fs = require('fs')
 
-const [,, filepath] = process.argv
-if (!filepath) {
-  throw new Error("usage: node parse.js <filepath>")
+const [,, basePath] = process.argv
+if (!basePath) {
+  throw new Error("usage: node aggregate.js <basepath>")
 }
 
-const data = fs.readFileSync(filepath)
-const logs = []
-for (const line of data.toString().split('\n')) {
-  try {
-    const log = JSON.parse(line)
-    logs.push(log)
-  } catch (e) {
-    // Ignore lines that cannot be parsed as JSON
-  }
-}
+run()
 
-const metricDefs = new Map()
-const instances = new Map()
-for (const log of logs) {
-  let instance = instances.get(log.instanceId)
-  if (!instance) {
-    instance = { metrics: [] }
-    instances.set(log.instanceId, instance)
-  }
+function run () {
+  const data = fs.readFileSync(0).toString() // STDIN_FILENO = 0
+  const metrics = parseMetrics(data)
 
-  // Figure out the node type for each instance
-  if (log.msg === 'I am a seed') {
-    instance.isSeed = true
-  } else if (log.msg === 'I am a leech') {
-    instance.isSeed = false
-  }
-
-  // Collect metrics for each instance
-  if (log.eventType === 'Metric' && log.metric) {
-    const metric = log.metric
-    instance.metrics.push(metric)
-    if (!metricDefs.has(metric.name)) {
-      metricDefs.set(metric.name, { unit: metric.unit })
-    }
-  }
-}
-
-const countWithIsSeed = (val) => [...instances.values()].reduce((a, i) => {
-  return a + (i.isSeed == val ? 1 : 0)
-}, 0)
-
-const stats = {
-  seed: {
-    count: countWithIsSeed(true),
-    metrics: new Map()
-  },
-  leech: {
-    count: countWithIsSeed(false),
-    metrics: new Map()
-  }, passive: {
-    count: countWithIsSeed(null),
-    metrics: new Map()
-  }
-}
-
-// Collect metrics by node type, grouped by metric name
-for (const instance of instances.values()) {
-  for (const metric of instance.metrics) {
-    const statsMetrics = (() => {
-      switch(instance.isSeed) {
-        case true: return stats.seed.metrics
-        case false: return stats.leech.metrics
-        default: return stats.passive.metrics
+  const byNodeType = groupBy(metrics, 'nodeType')
+  for (const [nodeType, metrics] of Object.entries(byNodeType)) {
+    const byName = groupBy(metrics, 'name')
+    for (const [name, metrics] of Object.entries(byName)) {
+      const byRun = groupBy(metrics, 'run')
+      const points = []
+      for (const runNum of Object.keys(byRun).sort(i => parseInt(i))) {
+        const metrics = byRun[runNum]
+        const byFileSize = groupBy(metrics, 'fileSize')
+        for (const [fileSize, metrics] of Object.entries(byFileSize)) {
+          const average = metrics.reduce((a, m) => a + m.value, 0) / metrics.length
+          points.push([fileSize, average])
+        }
       }
-    })()
-    let metrics = statsMetrics.get(metric.name)
-    if (!metrics) {
-      metrics = []
-      statsMetrics.set(metric.name, metrics)
+      writeResults(nodeType, name, 'average', points)
     }
-    metrics.push(metric.value)
   }
 }
 
-// Aggregate statistics for each metric
-for (const [statType, stat] of Object.entries(stats)) {
-  const asObject = {}
-  for (const [name, metrics] of stat.metrics) {
-    const metrics = stat.metrics.get(name)
-    asObject[name] = {
-      ...metricDefs.get(name),
-      stats: {
-        min: Math.min(...metrics),
-        max: Math.max(...metrics),
-        average: metrics.reduce((a,b) => a + b, 0) / metrics.length,
-        mean: metrics.sort()[Math.floor(metrics.length / 2)]
+function writeResults (nodeType, name, statName, points) {
+  const filePath = basePath + `.${nodeType}.${name}.${statName}.csv`
+  const content = points.map(p => p.join(',')).join('\n') + '\n'
+  fs.writeFileSync(filePath, content)
+}
+
+function parseMetrics (data) {
+  const metrics = []
+  for (const line of data.toString().split('\n')) {
+    let log = {}
+    try {
+      log = JSON.parse(line)
+    } catch (e) {
+    }
+
+    if (log.eventType === 'Metric') {
+      const metric = log.metric
+      const parts = metric.name.split(/\//)
+      // [ 'run:1', 'seq:2', 'file-size:10485760', 'Seed', 'msgs_rcvd' ]
+      if (parts.length !== 5) {
+        throw new Error(`Unexpected metric format ${metric}`)
       }
+
+      const [runDef, seqDef, fileSizeDef, nodeType, metricName] = parts
+      const run = runDef.split(':')[1]
+      const seq = seqDef.split(':')[1]
+      const fileSize = fileSizeDef.split(':')[1]
+
+      metrics.push({ run, seq, fileSize, nodeType, name: metricName, value: metric.value })
     }
   }
-  stat.metrics = asObject
+
+  return metrics
 }
 
-console.log(JSON.stringify(stats, null, 2))
+function groupBy (arr, key) {
+  const res = {}
+  for (const i of arr) {
+    const val = i[key]
+    res[val] = res[val] || []
+    res[val].push(i)
+  }
+  return res
+}

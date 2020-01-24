@@ -24,9 +24,7 @@ import (
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
-	"github.com/ipfs/testground/sdk/runtime"
-	libp2p "github.com/libp2p/go-libp2p"
-	host "github.com/libp2p/go-libp2p-host"
+	host "github.com/libp2p/go-libp2p-core/host"
 	"github.com/multiformats/go-multihash"
 	"github.com/pkg/errors"
 )
@@ -34,46 +32,32 @@ import (
 // Adapted from the netflix/p2plab repo under an Apache-2 license.
 // Original source code located at https://github.com/Netflix/p2plab/blob/master/peer/peer.go
 type Node struct {
-	Host    host.Host
 	Bitswap *bs.Bitswap
 	Dserv   ipld.DAGService
 }
 
-func (n *Node) Close() {
-	n.Bitswap.Close()
+func (n *Node) Close() error {
+	return n.Bitswap.Close()
 }
 
-// CreateNode creates a libp2p Node with a Bitswap instance
-func CreateNode(ctx context.Context, runenv *runtime.RunEnv) (*Node, error) {
-	bstoreDelay := 0
-	if runenv.IsParamSet("bstore_delay_ms") {
-		bstoreDelay = runenv.IntParam("bstore_delay_ms")
-	}
+func CreateBlockstore(ctx context.Context, bstoreDelay time.Duration) (blockstore.Blockstore, error) {
+	bsdelay := delay.Fixed(bstoreDelay)
+	dstore := ds_sync.MutexWrap(delayed.New(ds.NewMapDatastore(), bsdelay))
+	return blockstore.CachedBlockstore(ctx,
+		blockstore.NewBlockstore(ds_sync.MutexWrap(dstore)),
+		blockstore.DefaultCacheOpts())
+}
 
-	h, err := libp2p.New(ctx)
-	if err != nil {
-		return nil, err
-	}
-
+func CreateBitswapNode(ctx context.Context, h host.Host, bstore blockstore.Blockstore) (*Node, error) {
 	routing, err := nilrouting.ConstructNilRouting(nil, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	net := bsnet.NewFromIpfsHost(h, routing)
-
-	bsdelay := delay.Fixed(time.Duration(bstoreDelay) * time.Millisecond)
-	dstore := ds_sync.MutexWrap(delayed.New(ds.NewMapDatastore(), bsdelay))
-	bstore, err := blockstore.CachedBlockstore(ctx,
-		blockstore.NewBlockstore(ds_sync.MutexWrap(dstore)),
-		blockstore.DefaultCacheOpts())
-	if err != nil {
-		return nil, err
-	}
-
 	bitswap := bs.New(ctx, net, bstore).(*bs.Bitswap)
 	bserv := blockservice.New(bstore, bitswap)
 	dserv := merkledag.NewDAGService(bserv)
-	return &Node{h, bitswap, dserv}, nil
+	return &Node{bitswap, dserv}, nil
 }
 
 type AddSettings struct {

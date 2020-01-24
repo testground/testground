@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	host "github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
-	host "github.com/libp2p/go-libp2p-host"
 )
 
 func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Duration) ([]peer.AddrInfo, error) {
