@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -82,6 +83,10 @@ func (d *K8sInstanceManager) Close() error {
 }
 
 func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *dockermanager.Container) (inst *Instance, err error) {
+	// TODO: sidecar is racing to modify container network with CNI and pod getting ready
+	// we should probably adjust this function to be called when a pod is in `1/1 Ready` state, and not just listen on the docker socket
+	time.Sleep(20 * time.Second)
+
 	// Get the state/config of the cluster
 	info, err := container.Inspect(ctx)
 	if err != nil {
