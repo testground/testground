@@ -102,6 +102,19 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		return nil, nil
 	}
 
+	////////////
+	//  LOGS  //
+	////////////
+
+	logs, err := container.Logs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	//////////////////
+	//  NETWORKING  //
+	//////////////////
+
 	// Initialise CNI config
 	cninet := libcni.NewCNIConfig(filepath.SplitList("/host/opt/cni/bin"), nil)
 
@@ -227,7 +240,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		}
 	}
 
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
 }
 
 type k8sLink struct {

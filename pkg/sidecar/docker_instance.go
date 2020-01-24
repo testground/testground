@@ -152,6 +152,19 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, nil
 	}
 
+	////////////
+	//  LOGS  //
+	////////////
+
+	logs, err := container.Logs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	//////////////////
+	//  NETWORKING  //
+	//////////////////
+
 	// TODO: cache this?
 	networks, err := container.Manager.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -262,7 +275,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 			}
 		}
 	}
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
 }
 
 type dockerLink struct {

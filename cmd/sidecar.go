@@ -32,6 +32,11 @@ var SidecarCommand = cli.Command{
 				Allowed: sidecar.GetRunners(),
 			},
 		},
+		cli.StringFlag{
+			Name:     "logs",
+			Required: false,
+			Usage:    `Specifies where container STDERR/STDOUT should be written. If unspecified, the sidecar doesn't save the logs`,
+		},
 	},
 }
 
@@ -39,5 +44,5 @@ func sidecarCommand(c *cli.Context) error {
 	if runtime.GOOS != "linux" {
 		return ErrNotLinux
 	}
-	return sidecar.Run(c.String("runner"))
+	return sidecar.Run(c.String("runner"), c.String("logs"))
 }
