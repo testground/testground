@@ -229,7 +229,7 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		return nil
 	}
-	err = pingPong("200", 200*time.Millisecond, 205*time.Millisecond)
+	err = pingPong("200", 200*time.Millisecond, 210*time.Millisecond)
 	if err != nil {
 		return err
 	}
