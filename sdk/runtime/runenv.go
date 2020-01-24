@@ -46,6 +46,8 @@ type RunEnv struct {
 	TestBranch string `json:"test_branch,omitempty"`
 	TestTag    string `json:"test_tag,omitempty"`
 
+	TestArtifacts string `json:"test_artifacts,omitempty"`
+
 	TestInstanceCount  int               `json:"test_instance_count"`
 	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
 	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
@@ -111,7 +113,7 @@ func (re *RunEnv) Loggers() (*zap.Logger, *zap.SugaredLogger) {
 // initLoggers populates loggers from this RunEnv.
 func (re *RunEnv) initLoggers() {
 	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = zap.NewAtomicLevelAt(zapcore.FatalLevel)
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		l := zapcore.Level(0)
