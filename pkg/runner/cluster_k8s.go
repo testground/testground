@@ -129,6 +129,14 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	env := util.ToEnvVar(runenv.ToEnvVars())
 
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		env = append(env, v1.EnvVar{
+			Name:  "LOG_LEVEL",
+			Value: cfg.LogLevel,
+		})
+	}
+
 	redisCfg := v1.EnvVar{
 		Name:  "REDIS_HOST",
 		Value: "redis-headless",
@@ -240,7 +248,6 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		}
 		time.Sleep(2000 * time.Millisecond)
 	}
-
 
 	out := &api.RunOutput{RunnerID: "smth"}
 	return out, nil
