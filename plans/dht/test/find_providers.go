@@ -64,7 +64,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	switch {
-	case node.seq <= opts.NodesProviding:
+	case node.info.seq <= opts.NodesProviding:
 		g := errgroup.Group{}
 		for i, cid := range cids {
 			c := cid

@@ -3,13 +3,11 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/multiformats/go-multiaddr"
 	"math"
 	"math/rand"
 	"net"
 	"os"
 	"reflect"
-	"sort"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -19,6 +17,7 @@ import (
 
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -27,6 +26,7 @@ import (
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	tcp "github.com/libp2p/go-tcp-transport"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multiaddr-net"
 )
 
@@ -58,10 +58,15 @@ const (
 )
 
 type NodeParams struct {
-	host       host.Host
-	dht        *kaddht.IpfsDHT
+	host host.Host
+	dht  *kaddht.IpfsDHT
+	info *NodeInfo
+}
+
+type NodeInfo struct {
 	seq        int
 	properties map[NodeProperty]struct{}
+	addrs      *peer.AddrInfo
 }
 
 // BootstrapSubtree represents a subtree under the test run's sync tree where
@@ -77,10 +82,10 @@ var BootstrapSubtree = &sync.Subtree{
 var ConnManagerGracePeriod = 1 * time.Second
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
-func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (host.Host, *kaddht.IpfsDHT, error) {
+func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, undialable bool) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
 
-	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount)))) * 2
+	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 1.2)
 	max := int(float64(min) * 1.1)
 
 	// We need enough connections to be able to trim some and still have a
@@ -99,29 +104,40 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 	if err != nil {
 		return nil, nil, err
 	}
-	tcpAddr.Port = rand.Intn(1024) + 1024
-	bogusAddr, err := manet.FromNetAddr(tcpAddr)
-	if err != nil {
-		return nil, nil, err
-	}
-	bogusAddrLst := []multiaddr.Multiaddr{bogusAddr}
 
 	libp2pOpts := []libp2p.Option{
+		libp2p.Identity(idKey),
 		// Use only the TCP transport without reuseport.
 		libp2p.Transport(func(u *tptu.Upgrader) *tcp.TcpTransport {
 			tpt := tcp.NewTCPTransport(u)
 			tpt.DisableReuseport = true
 			return tpt
 		}),
-		libp2p.NoListenAddrs,
-		libp2p.AddrsFactory(func(listeningAddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
-			if len(listeningAddrs) == 0 {
-				return bogusAddrLst
-			}
-			return listeningAddrs
-		}),
 		// Setup the connection manager to trim to
 		libp2p.ConnectionManager(connmgr.NewConnManager(min, max, ConnManagerGracePeriod)),
+	}
+
+	if undialable {
+		tcpAddr.Port = rand.Intn(1024) + 1024
+		bogusAddr, err := manet.FromNetAddr(tcpAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+		bogusAddrLst := []multiaddr.Multiaddr{bogusAddr}
+
+		libp2pOpts = append(libp2pOpts,
+			libp2p.NoListenAddrs,
+			libp2p.AddrsFactory(func(listeningAddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
+				return bogusAddrLst
+			}))
+	} else {
+		addr, err := manet.FromNetAddr(tcpAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		libp2pOpts = append(libp2pOpts,
+			libp2p.ListenAddrs(addr))
 	}
 
 	node, err := libp2p.New(ctx, libp2pOpts...)
@@ -146,7 +162,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 	return node, dht, nil
 }
 
-func getSubnetAddr(subnet *net.IPNet) (*net.TCPAddr, error) {
+func getSubnetAddr(subnet *runtime.IPNet) (*net.TCPAddr, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return nil, err
@@ -200,8 +216,9 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 }
 
 // Setup sets up the elements necessary for the test cases
-func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, []peer.AddrInfo, error) {
-	var seq int64
+func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
+	testNode := &NodeParams{info: &NodeInfo{}}
+	otherNodes := make(map[peer.ID]*NodeInfo)
 
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
 	if runenv.TestInstanceCount < minTestInstances {
@@ -216,41 +233,70 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return nil, nil, err
 	}
 
-	node, dht, err := NewDHTNode(ctx, runenv, opts)
+	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	id := node.ID()
-	runenv.Message("I am %s with addrs: %v", id, node.Addrs())
-
-	if seq, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
-		return nil, nil, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
+	id, err := peer.IDFromPrivateKey(priv)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	properties := getNodeProperties(int(seq), runenv.TestInstanceCount, opts)
-
-	if _, undialable := properties[Undialable]; !undialable {
-		tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
-		if err != nil {
-			return nil, nil, err
-		}
-		listenAddr, err := manet.FromNetAddr(tcpAddr)
-		if err != nil {
-			return nil, nil, err
-		}
-		node.Network().Listen(listenAddr)
+	if _, err = writer.Write(PeerIDSubtree, &id); err != nil {
+		return nil, nil, fmt.Errorf("failed to write peer id subtree in sync service: %w", err)
 	}
 
-	peerCh := make(chan *peer.AddrInfo, 16)
-	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
+	peerIDCh := make(chan *peer.ID, 16)
+	cancelSub, err := watcher.Subscribe(PeerIDSubtree, peerIDCh)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer cancelSub()
 
 	// TODO: remove this if it becomes too much coordination effort.
-	peers := make([]peer.AddrInfo, 0, runenv.TestInstanceCount)
+	// Grab list of other peers that are available for this run.
+	for i := 0; i < runenv.TestInstanceCount; i++ {
+		select {
+		case p := <-peerIDCh:
+			if *p == id {
+				testNode.info.seq = i
+				testNode.info.properties = getNodeProperties(i, runenv.TestInstanceCount, opts)
+				continue
+			}
+			otherNodes[*p] = &NodeInfo{
+				seq:        i,
+				properties: getNodeProperties(i, runenv.TestInstanceCount, opts),
+			}
+		case <-ctx.Done():
+			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
+		}
+	}
+
+	_, undialable := testNode.info.properties[Undialable]
+	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, undialable)
+	if err != nil {
+		return nil, nil, err
+	}
+	testNode.info.addrs = host.InfoFromHost(testNode.host)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	runenv.Message("I am %s with addrs: %v", id, testNode.info.addrs)
+
+	if _, err = writer.Write(sync.PeerSubtree, testNode.info.addrs); err != nil {
+		return nil, nil, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
+	}
+
+	peerCh := make(chan *peer.AddrInfo, 16)
+	cancelSub, err = watcher.Subscribe(sync.PeerSubtree, peerCh)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer cancelSub()
+
+	// TODO: remove this if it becomes too much coordination effort.
 	// Grab list of other peers that are available for this run.
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
@@ -258,22 +304,23 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 			if ai.ID == id {
 				continue
 			}
-			peers = append(peers, *ai)
+			otherNodes[ai.ID].addrs = ai
 		case <-ctx.Done():
 			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
 		}
 	}
 
-	sort.Slice(peers, func(i, j int) bool {
-		return peers[i].ID < peers[j].ID
-	})
+	if testNode.info.seq == 0 {
+		m := make(map[peer.ID]bool)
+		for _, info := range otherNodes {
+			_, undialable = info.properties[Undialable]
+			m[info.addrs.ID] = undialable
+		}
 
-	return &NodeParams{
-		host:       node,
-		dht:        dht,
-		seq:        int(seq),
-		properties: properties,
-	}, peers, nil
+		runenv.Message("%v", m)
+	}
+
+	return testNode, otherNodes, nil
 }
 
 func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{} {
@@ -281,9 +328,14 @@ func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{
 	if seq <= opts.NBootstrap {
 		properties[Bootstrapper] = struct{}{}
 	} else {
-		numNonBootstrap := total - opts.NBootstrap
-		if int(float64(seq)/opts.FUndialable) < numNonBootstrap && false {
-			properties[Undialable] = struct{}{}
+		numNonBootstrap := total
+		if opts.NBootstrap > 0 {
+			numNonBootstrap -= opts.NBootstrap
+		}
+		if opts.FUndialable > 0 {
+			if int(float64(seq)/opts.FUndialable) < numNonBootstrap {
+				properties[Undialable] = struct{}{}
+			}
 		}
 	}
 	return properties
@@ -300,9 +352,9 @@ func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{
 //   a. Forget the addresses of all peers we've disconnected from. Otherwise, FindPeer is useless.
 //   b. Re-connect to at least one node if we've disconnected from _all_ nodes.
 //      We may want to make this an error in the future?
-func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers []peer.AddrInfo) error {
+func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) error {
 	// Are we a bootstrap node?
-	_, isBootstrapper := node.properties[Bootstrapper]
+	_, isBootstrapper := node.info.properties[Bootstrapper]
 
 	////////////////
 	// 1: CONNECT //
@@ -356,15 +408,45 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			}
 		} else {
 			// Otherwise, connect to a random one (based on our sequence number).
-			toDial = append(toDial, bootstrapPeers[node.seq%len(bootstrapPeers)])
+			toDial = append(toDial, bootstrapPeers[node.info.seq%len(bootstrapPeers)])
 		}
 	} else {
-		// No bootstrappers, dial the _next_ peer in the ring. This list
-		// is sorted.
-		idx := sort.Search(len(peers), func(i int) bool {
-			return peers[i].ID > dht.Host().ID()
-		}) % len(peers)
-		toDial = append(toDial, peers[idx])
+		switch {
+		case opts.NBootstrap == 0:
+			// No bootstrappers, dial the _next_ peer in the ring
+
+			mySeqNo := node.info.seq
+			var targetSeqNo int
+			if mySeqNo == runenv.TestInstanceCount-1 {
+				targetSeqNo = 0
+			} else {
+				targetSeqNo = mySeqNo + 1
+			}
+			// look for the node with sequence number 0
+			for _, info := range peers {
+				if info.seq == targetSeqNo {
+					toDial = append(toDial, *info.addrs)
+					break
+				}
+			}
+		case opts.NBootstrap == -1:
+			// Create mesh of peers
+			if _, undialable := node.info.properties[Undialable]; undialable {
+				toDial = make([]peer.AddrInfo, 0, len(peers))
+				for _, info := range peers {
+					if _, undialable := info.properties[Undialable]; !undialable {
+						toDial = append(toDial, *info.addrs)
+					}
+				}
+			} else {
+				toDial = make([]peer.AddrInfo, 0, len(peers))
+				for p, info := range peers {
+					if _, undialable := info.properties[Undialable]; !undialable && p < dht.Host().ID() {
+						toDial = append(toDial, *info.addrs)
+					}
+				}
+			}
+		}
 	}
 
 	runenv.Message("bootstrap: dialing %v", toDial)
@@ -415,6 +497,8 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 	runenv.Message("bootstrap: begin trim")
 
+	outputGraph(node.host, runenv, "bt")
+
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
 
@@ -426,6 +510,8 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-trimmed"); err != nil {
 		return err
 	}
+
+	outputGraph(node.host, runenv, "at")
 
 	///////////////////////////
 	// 4: FORGET & RECONNECT //
@@ -588,5 +674,13 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 	err := Sync(ctx, runenv, watcher, writer, "end")
 	if err != nil {
 		runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
+	}
+}
+
+func outputGraph(host host.Host, runenv *runtime.RunEnv, graphID string) {
+	for _, c := range host.Network().Conns() {
+		if c.Stat().Direction == network.DirOutbound {
+			runenv.Message("graph %s: %s -> %s;", graphID, c.LocalPeer(), c.RemotePeer())
+		}
 	}
 }

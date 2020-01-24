@@ -43,7 +43,7 @@ instances = { min = 16, max = 10000, default = 16 }
   bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
   n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
   timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
-  f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.2 }
+  f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
 
 # seq 1
 [[testcases]]
