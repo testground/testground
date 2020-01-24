@@ -114,6 +114,7 @@ func (re *RunEnv) Loggers() (*zap.Logger, *zap.SugaredLogger) {
 func (re *RunEnv) initLoggers() {
 	cfg := zap.NewDevelopmentConfig()
 	cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	cfg.Encoding = "json"
 
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		l := zapcore.Level(0)
