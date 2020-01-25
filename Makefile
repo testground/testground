@@ -1,5 +1,5 @@
 pre-commit:
-	python -m pip install pre-commit --upgrade
+	python -m pip install pre-commit --upgrade --user
 	pre-commit install --install-hooks
 
 docker-ipfs-testground:
