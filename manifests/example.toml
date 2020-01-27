@@ -37,6 +37,10 @@ name = "failure"
 instances = { min = 1, max = 200, default = 1 }
 
 [[testcases]]
+name = "panic"
+instances = { min = 1, max = 200, default = 1 }
+
+[[testcases]]
 name = "params"
 instances = { min = 1, max = 200, default = 1 }
   [testcases.params]

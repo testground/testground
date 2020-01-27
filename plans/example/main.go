@@ -18,6 +18,8 @@ func run(runenv *runtime.RunEnv) error {
 		return ExampleOutput(runenv)
 	case "failure":
 		return ExampleFailure(runenv)
+	case "panic":
+		return ExamplePanic(runenv)
 	case "params":
 		return ExampleParams(runenv)
 	default:
