@@ -4,6 +4,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// ExampleParams prints out the params passed to it.
 func ExampleParams(runenv *runtime.RunEnv) error {
 	runenv.Message("Params are defined in toml manifest")
 	runenv.Message("Params can be overridden by the commandline!")
