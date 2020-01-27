@@ -1,9 +1,9 @@
 # Tools and commands that are helpful during running Testground on Kubernetes
 
-1. `confirm_weave.sh`
+1. `confirm_dns_route.sh`
 
-A command which makes sure that `weave` has setup routes on `host` machines correctly. Lines returned should be the number of nodes in the cluster.
+A command which makes sure that a DNS route has been setup on all `host` machines. Number of lines returned should be the number of nodes in the cluster.
 
 ```
-confirm_weave | wc -l
+./confirm_dns_route.sh | wc -l
 ```
