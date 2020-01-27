@@ -22,6 +22,8 @@ func run(runenv *runtime.RunEnv) error {
 		return ExamplePanic(runenv)
 	case "params":
 		return ExampleParams(runenv)
+	case "sync":
+		return ExampleSync(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)

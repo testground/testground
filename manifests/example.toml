@@ -47,3 +47,7 @@ instances = { min = 1, max = 200, default = 1 }
   param1 = { type = "int", desc = "some param 1", unit = "widgets", default=1 }
   param2 = { type = "int", desc = "some param 2", unit = "widgets", default=2 }
   param3 = { type = "int", desc = "some param 3", unit = "widgets", default=3 }
+
+[[testcases]]
+name = "sync"
+instances = { min = 2, max = 200, default = 5 }
