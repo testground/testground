@@ -172,6 +172,7 @@ items:
             - sh
             - -ac
             - >
+              sleep 20 &&
               export GW=$(ip route | grep cni0 | awk '{print $7}') &&
               echo $GW &&
               ip route &&

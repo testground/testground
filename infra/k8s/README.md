@@ -56,9 +56,9 @@ export ZONES=eu-central-1a
 kops create cluster \
   --zones $ZONES \
   --master-zones $ZONES \
-  --master-size m4.xlarge \
-  --node-size m4.xlarge \
-  --node-count 2 \
+  --master-size c5.2xlarge \
+  --node-size c5.2xlarge \
+  --node-count 8 \
   --networking cni \
   --name $NAME \
   --yes
@@ -82,25 +82,13 @@ watch 'kubectl get nodes -o wide'
 kubectl -n kube-system get pods -o wide
 ```
 
-8. Install CNI-Genie
+8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
 ```
 
-9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/dummy.yml
-```
-
-10. Install Weave
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/weave.yml
-```
-
-11. Destroy the cluster when you're done working on it
+9. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
