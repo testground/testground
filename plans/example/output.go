@@ -8,7 +8,7 @@ import (
 // This method emits two Messages and one Metric
 func ExampleOutput(runenv *runtime.RunEnv) error {
 	runenv.Message("Hello, World.")
-	runenv.Message("Additional arguments ", runenv.TestInstanceParams)
+	runenv.Message("Additional arguments: %d", len(runenv.TestInstanceParams))
 	def := runtime.MetricDefinition{
 		Name:           "donkeypower",
 		Unit:           "kiloforce",
