@@ -31,3 +31,7 @@ enabled = true
 [[testcases]]
 name = "output"
 instances = { min = 1, max = 200, default = 1 }
+
+[[testcases]]
+name = "failure"
+instances = { min = 1, max = 200, default = 1 }

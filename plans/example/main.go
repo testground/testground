@@ -16,6 +16,8 @@ func run(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
 	case "output":
 		return ExampleOutput(runenv)
+	case "failure":
+		return ExampleFailure(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)
