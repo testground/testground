@@ -37,8 +37,8 @@ name = "find-peers"
 instances = { min = 16, max = 10000, default = 16 }
 
   [testcases.params]
-  auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = "true" }
-  random_walk   = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = "false" }
+  auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
+  random_walk   = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
   n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
   bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
   n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
@@ -51,8 +51,8 @@ instances = { min = 16, max = 250, default = 16 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers", default = 2 }
-  auto_refresh = { type = "bool", desc = "", unit = "bool", default = "true" }
-  random_walk = { type = "bool", desc = "", unit = "bool", default = "false" }
+  auto_refresh = { type = "bool", desc = "", unit = "bool", default = true }
+  random_walk = { type = "bool", desc = "", unit = "bool", default = false }
   timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 60 }
   n_bootstrap = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
   n_find_peers = { type = "int", desc = "number of peers to find", unit = "int", default = 1 }

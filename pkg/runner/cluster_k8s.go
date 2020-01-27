@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 	v1batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -94,13 +94,15 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	// Build a runenv.
 	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
+		TestPlan:               input.TestPlan.Name,
+		TestCase:               testcase.Name,
+		TestRun:                input.RunID,
+		TestCaseSeq:            seq,
+		TestInstanceCount:      input.TotalInstances,
+		TestInstanceParams:     input.Parameters,
+		TestSidecar:            true,
+		TestGroupInstanceCount: input.Instances,
+		TestGroupID:            input.GroupID,
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -115,7 +117,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	env := util.ToEnvVar(runenv.ToEnvVars())
+	env := conv.ToEnvVar(runenv.ToEnvVars())
 
 	redisCfg := v1.EnvVar{
 		Name:  "REDIS_HOST",

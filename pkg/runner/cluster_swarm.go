@@ -11,8 +11,8 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
@@ -89,13 +89,15 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	// Build a runenv.
 	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
+		TestPlan:               input.TestPlan.Name,
+		TestCase:               testcase.Name,
+		TestRun:                input.RunID,
+		TestCaseSeq:            seq,
+		TestInstanceCount:      input.TotalInstances,
+		TestInstanceParams:     input.Parameters,
+		TestSidecar:            true,
+		TestGroupInstanceCount: input.Instances,
+		TestGroupID:            input.GroupID,
 	}
 
 	// Create a docker client.
@@ -170,6 +172,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 			"testground.plan":     input.TestPlan.Name,
 			"testground.testcase": testcase.Name,
 			"testground.runid":    input.RunID,
+			"testground.groupid":  input.GroupID,
 			"testground.name":     "default", // default name. TODO: allow multiple networks.
 		},
 	}
@@ -200,7 +203,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	log.Infow("network created successfully", "id", networkID)
 
 	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
+	env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
 	// Set the log level if provided in cfg.
 	if cfg.LogLevel != "" {

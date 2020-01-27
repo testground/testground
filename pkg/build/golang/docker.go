@@ -18,10 +18,8 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -90,7 +88,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	var (
 		log      = logging.S().With("buildId", in.BuildID)
-		id       = build.CanonicalBuildID(in)
+		id       = in.BuildID
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
@@ -222,7 +220,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	defer resp.Body.Close()
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(resp.Body, output); err != nil {
+	if err := docker.PipeOutput(resp.Body, output); err != nil {
 		return nil, err
 	}
 
@@ -295,7 +293,7 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	}
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
 		return err
 	}
 
@@ -334,7 +332,7 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
 		return err
 	}
 

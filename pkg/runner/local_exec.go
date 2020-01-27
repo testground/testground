@@ -83,14 +83,16 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 
 	// Build a runenv.
 	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        false,
-		TestSubnet:         localSubnet,
+		TestPlan:               input.TestPlan.Name,
+		TestCase:               testcase.Name,
+		TestRun:                input.RunID,
+		TestCaseSeq:            seq,
+		TestInstanceCount:      input.TotalInstances,
+		TestInstanceParams:     input.Parameters,
+		TestSidecar:            false,
+		TestSubnet:             localSubnet,
+		TestGroupID:            input.GroupID,
+		TestGroupInstanceCount: input.Instances,
 	}
 
 	// Spawn as many instances as the input parameters require.
@@ -139,7 +141,7 @@ func (*LocalExecutableRunner) ID() string {
 }
 
 func (*LocalExecutableRunner) ConfigType() reflect.Type {
-	return reflect.TypeOf(&LocalExecutableRunnerCfg{})
+	return reflect.TypeOf(LocalExecutableRunnerCfg{})
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {

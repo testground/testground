@@ -1,4 +1,4 @@
-package server
+package daemon
 
 import (
 	"encoding/json"
@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/tgwriter"
 	"go.uber.org/zap"
 )

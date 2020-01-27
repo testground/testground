@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/ipfs/testground/pkg/logging"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/engine"
-	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/urfave/cli"
 )
@@ -27,10 +27,15 @@ var BuildCommand = cli.Command{
 	Action:    buildCommand,
 	ArgsUsage: "[<testplan>]",
 	Flags: []cli.Flag{
+		cli.StringFlag{
+			Name:  "file, f",
+			Usage: "path to a composition `FILE`; this flag is exclusive of all other flags",
+		},
 		cli.GenericFlag{
 			Name: "builder, b",
 			Value: &EnumValue{
 				Allowed: builders,
+				Default: "exec:go",
 			},
 		},
 		cli.StringSliceFlag{
@@ -48,69 +53,53 @@ var BuildCommand = cli.Command{
 	`,
 }
 
-func buildCommand(c *cli.Context) error {
+func buildCommand(c *cli.Context) (err error) {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	if c.NArg() != 1 {
-		return errors.New("test plan name must be provided")
+	comp := new(api.Composition)
+	if file := c.String("file"); file != "" {
+		if c.NumFlags() > 2 {
+			// NumFlags counts 1 flag per variant, i.e. f and file are
+			// considered towards the count, despite one being an alias for the
+			// other.
+			return fmt.Errorf("composition files are incompatible with all other CLI flags")
+		}
+
+		if _, err = toml.DecodeFile(file, comp); err != nil {
+			return fmt.Errorf("failed to process composition file: %w", err)
+		}
+
+		if err = comp.Validate(); err != nil {
+			return fmt.Errorf("invalid composition file: %w", err)
+		}
+	} else {
+		if comp, err = createSingletonComposition(c); err != nil {
+			return err
+		}
 	}
 
-	var (
-		plan    = c.Args().First()
-		builder = c.Generic("builder").(*EnumValue).String()
-	)
-
-	api, err := setupClient(c)
+	cl, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	in, err := parseBuildInput(c)
-	if err != nil {
-		return err
-	}
-
-	req := &client.BuildRequest{
-		Dependencies: in.Dependencies,
-		BuildConfig:  in.BuildConfig,
-		Plan:         plan,
-		Builder:      builder,
-	}
-
-	resp, err := api.Build(ctx, req)
+	req := &client.BuildRequest{Composition: *comp}
+	resp, err := cl.Build(ctx, req)
 	if err != nil {
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}
 	defer resp.Close()
 
-	_, err = client.ParseBuildResponse(resp)
-	return err
-}
-
-func parseBuildInput(c *cli.Context) (*api.BuildInput, error) {
-	var (
-		deps = c.StringSlice("dep")
-		cfg  = c.StringSlice("build-cfg")
-	)
-
-	d, err := util.ToOptionsMap(deps, false)
-	if err != nil {
-		return nil, err
+	switch res, err := client.ParseBuildResponse(resp); err {
+	case nil:
+		for i, out := range res {
+			logging.S().Infow("generated build artifact", "group", comp.Groups[i].ID, "artifact", out.ArtifactPath)
+		}
+		return nil
+	case context.Canceled:
+		return fmt.Errorf("interrupted")
+	default:
+		return fmt.Errorf("fatal error from daemon: %w", err)
 	}
-	dependencies, err := util.ToStringStringMap(d)
-	if err != nil {
-		return nil, err
-	}
-
-	config, err := util.ToOptionsMap(cfg, true)
-	if err != nil {
-		return nil, err
-	}
-
-	in := &api.BuildInput{
-		Dependencies: dependencies,
-		BuildConfig:  config,
-	}
-	return in, err
 }

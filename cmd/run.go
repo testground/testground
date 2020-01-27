@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/engine"
-	"github.com/ipfs/testground/pkg/util"
+	"github.com/ipfs/testground/pkg/logging"
 
+	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
 )
 
@@ -33,6 +34,7 @@ var RunCommand = cli.Command{
 			Name: "runner, r",
 			Value: &EnumValue{
 				Allowed: runners,
+				Default: "local:exec",
 			},
 			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
@@ -40,7 +42,7 @@ var RunCommand = cli.Command{
 			Name:  "use-build, ub",
 			Usage: "specifies the artifact to use (from a previous build)",
 		},
-		cli.IntFlag{
+		cli.UintFlag{
 			Name:  "instances, i",
 			Usage: "number of instances of the test case to run",
 		},
@@ -55,107 +57,90 @@ var RunCommand = cli.Command{
 	),
 }
 
-func runCommand(c *cli.Context) error {
-	ctx, cancel := context.WithCancel(ProcessContext())
-	defer cancel()
+func runCommand(c *cli.Context) (err error) {
+	comp := new(api.Composition)
+	if file := c.String("file"); file != "" {
+		if c.NumFlags() > 2 {
+			// NumFlags counts 1 flag per variant, i.e. f and file are
+			// considered towards the count, despite one being an alias for the
+			// other.
+			return fmt.Errorf("composition files are incompatible with all other CLI flags")
+		}
 
-	if c.NArg() != 1 {
-		_ = cli.ShowSubcommandHelp(c)
-		return errors.New("missing test name")
+		if _, err = toml.DecodeFile(file, comp); err != nil {
+			return fmt.Errorf("failed to process composition file: %w", err)
+		}
+
+		if err = comp.Validate(); err != nil {
+			return fmt.Errorf("invalid composition file: %w", err)
+		}
+	} else {
+		if comp, err = createSingletonComposition(c); err != nil {
+			return err
+		}
 	}
 
-	// Extract flags and arguments.
-	var (
-		testcase     = c.Args().First()
-		builderId    = c.Generic("builder").(*EnumValue).String()
-		runnerId     = c.Generic("runner").(*EnumValue).String()
-		runcfg       = c.StringSlice("run-cfg")
-		instances    = c.Int("instances")
-		testparams   = c.StringSlice("test-param")
-		artifactPath = c.String("use-build")
-	)
-
-	// Validate this test case was provided.
-	if testcase == "" {
-		_ = cli.ShowSubcommandHelp(c)
-		return errors.New("no test case provided; use the `list` command to view available test cases")
-	}
-
-	// Validate the test case format.
-	comp := strings.Split(testcase, "/")
-	if len(comp) != 2 {
-		_ = cli.ShowSubcommandHelp(c)
-		return errors.New("wrong format for test case name, should be: `testplan/testcase`")
-	}
-
-	api, err := setupClient(c)
+	cl, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	if artifactPath == "" {
-		// Now that we've verified that the test plan and the test case exist, build
-		// the testplan.
-		in, err := parseBuildInput(c)
-		if err != nil {
-			return fmt.Errorf("error while parsing build input: %w", err)
-		}
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
 
-		req := &client.BuildRequest{
-			Dependencies: in.Dependencies,
-			BuildConfig:  in.BuildConfig,
-			Plan:         comp[0],
-			Builder:      builderId,
+	// Check if we have any groups without an build artifact; if so, trigger a
+	// build for those.
+	var retain []int
+	for i, grp := range comp.Groups {
+		if grp.Run.Artifact == "" {
+			retain = append(retain, i)
 		}
+	}
 
-		resp, err := api.Build(ctx, req)
-		if err != nil {
-			return fmt.Errorf("fatal error from daemon: %s", err)
-		}
-
-		out, err := client.ParseBuildResponse(resp)
+	if len(retain) > 0 {
+		bcomp, err := comp.PickGroups(retain...)
 		if err != nil {
 			return err
 		}
 
-		artifactPath = out.ArtifactPath
-		builderId = out.BuilderID
-	}
-
-	// Process run cfg override.
-	cfgOverride, err := util.ToOptionsMap(runcfg, true)
-	if err != nil {
-		return err
-	}
-
-	// Pick up test parameters.
-	p, err := util.ToOptionsMap(testparams, false)
-	if err != nil {
-		return err
-	}
-	parameters, err := util.ToStringStringMap(p)
-	if err != nil {
-		return err
-	}
-
-	runReq := &client.RunRequest{
-		Plan:         comp[0],
-		Case:         comp[1],
-		Runner:       runnerId,
-		Instances:    instances,
-		ArtifactPath: artifactPath,
-		Parameters:   parameters,
-		RunnerConfig: cfgOverride,
-		BuilderID:    builderId,
-	}
-
-	resp, err := api.Run(ctx, runReq)
-	if err != nil {
-		if err == context.Canceled {
+		resp, err := cl.Build(ctx, &client.BuildRequest{Composition: bcomp})
+		switch err {
+		case nil:
+			// noop
+		case context.Canceled:
 			return fmt.Errorf("interrupted")
+		default:
+			return fmt.Errorf("fatal error from daemon: %w", err)
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+
+		defer resp.Close() // yeah, Close could be called sooner, but it's not worth the verbosity.
+
+		bout, err := client.ParseBuildResponse(resp)
+		if err != nil {
+			return err
+		}
+
+		// Populate the returned build IDs.
+		for i, groupIdx := range retain {
+			logging.S().Infow("generated build artifact", "group", comp.Groups[groupIdx].ID, "artifact", bout[i].ArtifactPath)
+			comp.Groups[groupIdx].Run.Artifact = bout[i].ArtifactPath
+		}
 	}
+
+	req := &client.RunRequest{
+		Composition: *comp,
+	}
+
+	resp, err := cl.Run(ctx, req)
+	switch err {
+	case nil:
+		// noop
+	case context.Canceled:
+		return fmt.Errorf("interrupted")
+	default:
+		return fmt.Errorf("fatal error from daemon: %w", err)
+	}
+
 	defer resp.Close()
 
 	return client.ParseRunResponse(resp)

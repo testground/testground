@@ -1,11 +1,11 @@
-package server
+package daemon
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
-	aapi "github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/tgwriter"
 	"go.uber.org/zap"
 )
@@ -29,19 +29,11 @@ func (srv *Server) runHandler(w http.ResponseWriter, r *http.Request, log *zap.S
 		return
 	}
 
-	runIn := &aapi.RunInput{
-		Instances:    req.Instances,
-		ArtifactPath: req.ArtifactPath,
-		RunnerConfig: req.RunnerConfig, // cfgOverride,
-		Parameters:   req.Parameters,
-		BuilderID:    req.BuilderID,
-	}
-
-	result, err := engine.DoRun(r.Context(), req.Plan, req.Case, req.Runner, runIn, tgw)
+	out, err := engine.DoRun(r.Context(), &req.Composition, tgw)
 	if err != nil {
-		tgw.WriteError("engine run error", "err", err)
+		tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
 		return
 	}
 
-	tgw.WriteResult(result)
+	tgw.WriteResult(out)
 }

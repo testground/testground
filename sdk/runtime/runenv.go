@@ -18,20 +18,20 @@ import (
 type key int
 
 const (
-	EnvTestPlan           = "TEST_PLAN"
-	EnvTestBranch         = "TEST_BRANCH"
-	EnvTestCase           = "TEST_CASE"
-	EnvTestTag            = "TEST_TAG"
-	EnvTestRun            = "TEST_RUN"
-	EnvTestRepo           = "TEST_REPO"
-	EnvTestSubnet         = "TEST_SUBNET"
-	EnvTestCaseSeq        = "TEST_CASE_SEQ"
-	EnvTestSidecar        = "TEST_SIDECAR"
-	EnvTestInstanceCount  = "TEST_INSTANCE_COUNT"
-	EnvTestInstanceRole   = "TEST_INSTANCE_ROLE"
-	EnvTestInstanceParams = "TEST_INSTANCE_PARAMS"
-
-	// runEnvContextKey key = iota
+	EnvTestPlan               = "TEST_PLAN"
+	EnvTestBranch             = "TEST_BRANCH"
+	EnvTestCase               = "TEST_CASE"
+	EnvTestTag                = "TEST_TAG"
+	EnvTestRun                = "TEST_RUN"
+	EnvTestRepo               = "TEST_REPO"
+	EnvTestSubnet             = "TEST_SUBNET"
+	EnvTestCaseSeq            = "TEST_CASE_SEQ"
+	EnvTestSidecar            = "TEST_SIDECAR"
+	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
+	EnvTestInstanceRole       = "TEST_INSTANCE_ROLE"
+	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
+	EnvTestGroupID            = "TEST_GROUP_ID"
+	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
 )
 
 // RunEnv encapsulates the context for this test run.
@@ -49,6 +49,9 @@ type RunEnv struct {
 	TestInstanceCount  int               `json:"test_instance_count"`
 	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
 	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
+
+	TestGroupID            string `json:"test_group_id,omitempty"`
+	TestGroupInstanceCount int    `json:"test_group_instance_count,omitempty"`
 
 	// true if the test has access to the sidecar.
 	TestSidecar bool `json:"test_sidecar,omitempty"`
@@ -76,18 +79,20 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 	}
 
 	out := map[string]string{
-		EnvTestSidecar:        strconv.FormatBool(re.TestSidecar),
-		EnvTestPlan:           re.TestPlan,
-		EnvTestBranch:         re.TestBranch,
-		EnvTestCase:           re.TestCase,
-		EnvTestTag:            re.TestTag,
-		EnvTestRun:            re.TestRun,
-		EnvTestRepo:           re.TestRepo,
-		EnvTestSubnet:         re.TestSubnet.String(),
-		EnvTestCaseSeq:        strconv.Itoa(re.TestCaseSeq),
-		EnvTestInstanceCount:  strconv.Itoa(re.TestInstanceCount),
-		EnvTestInstanceRole:   re.TestInstanceRole,
-		EnvTestInstanceParams: packParams(re.TestInstanceParams),
+		EnvTestSidecar:            strconv.FormatBool(re.TestSidecar),
+		EnvTestPlan:               re.TestPlan,
+		EnvTestBranch:             re.TestBranch,
+		EnvTestCase:               re.TestCase,
+		EnvTestTag:                re.TestTag,
+		EnvTestRun:                re.TestRun,
+		EnvTestRepo:               re.TestRepo,
+		EnvTestSubnet:             re.TestSubnet.String(),
+		EnvTestCaseSeq:            strconv.Itoa(re.TestCaseSeq),
+		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
+		EnvTestInstanceRole:       re.TestInstanceRole,
+		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
+		EnvTestGroupID:            re.TestGroupID,
+		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
 	}
 
 	return out
@@ -134,6 +139,7 @@ func (re *RunEnv) initLoggers() {
 		zap.String("branch", re.TestBranch),
 		zap.String("tag", re.TestTag),
 		zap.Int("instances", re.TestInstanceCount),
+		zap.String("group", re.TestGroupID),
 	)
 	re.slogger = re.logger.Sugar()
 }
@@ -172,18 +178,20 @@ func toNet(s string) *net.IPNet {
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
 	re := &RunEnv{
-		TestSidecar:        toBool(os.Getenv(EnvTestSidecar)),
-		TestPlan:           os.Getenv(EnvTestPlan),
-		TestCase:           os.Getenv(EnvTestCase),
-		TestRun:            os.Getenv(EnvTestRun),
-		TestTag:            os.Getenv(EnvTestTag),
-		TestBranch:         os.Getenv(EnvTestBranch),
-		TestRepo:           os.Getenv(EnvTestRepo),
-		TestSubnet:         toNet(os.Getenv(EnvTestSubnet)),
-		TestCaseSeq:        toInt(os.Getenv(EnvTestCaseSeq)),
-		TestInstanceCount:  toInt(os.Getenv(EnvTestInstanceCount)),
-		TestInstanceRole:   os.Getenv(EnvTestInstanceRole),
-		TestInstanceParams: unpackParams(os.Getenv(EnvTestInstanceParams)),
+		TestSidecar:            toBool(os.Getenv(EnvTestSidecar)),
+		TestPlan:               os.Getenv(EnvTestPlan),
+		TestCase:               os.Getenv(EnvTestCase),
+		TestRun:                os.Getenv(EnvTestRun),
+		TestTag:                os.Getenv(EnvTestTag),
+		TestBranch:             os.Getenv(EnvTestBranch),
+		TestRepo:               os.Getenv(EnvTestRepo),
+		TestSubnet:             toNet(os.Getenv(EnvTestSubnet)),
+		TestCaseSeq:            toInt(os.Getenv(EnvTestCaseSeq)),
+		TestInstanceCount:      toInt(os.Getenv(EnvTestInstanceCount)),
+		TestInstanceRole:       os.Getenv(EnvTestInstanceRole),
+		TestInstanceParams:     unpackParams(os.Getenv(EnvTestInstanceParams)),
+		TestGroupID:            os.Getenv(EnvTestGroupID),
+		TestGroupInstanceCount: toInt(os.Getenv(EnvTestGroupInstanceCount)),
 	}
 
 	re.initLoggers()
@@ -193,29 +201,24 @@ func CurrentRunEnv() *RunEnv {
 
 // ParseRunEnv parses a list of environment variables into a RunEnv.
 func ParseRunEnv(env []string) (*RunEnv, error) {
-	// TODO: validate
-	envMap := make(map[string]string, len(env))
-	for _, s := range env {
-		i := strings.IndexByte(s, '=')
-		if i <= 0 {
-			return nil, fmt.Errorf("invalid env variable in RunEnv: %s", s)
-		}
-		key, value := s[:i], s[i+1:]
-		envMap[key] = value
+	m, err := ParseKeyValues(env)
+	if err != nil {
+		return nil, err
 	}
+
 	re := &RunEnv{
-		TestSidecar:        toBool(envMap[EnvTestSidecar]),
-		TestPlan:           envMap[EnvTestPlan],
-		TestCase:           envMap[EnvTestCase],
-		TestRun:            envMap[EnvTestRun],
-		TestTag:            envMap[EnvTestTag],
-		TestBranch:         envMap[EnvTestBranch],
-		TestRepo:           envMap[EnvTestRepo],
-		TestSubnet:         toNet(envMap[EnvTestSubnet]),
-		TestCaseSeq:        toInt(envMap[EnvTestCaseSeq]),
-		TestInstanceCount:  toInt(envMap[EnvTestInstanceCount]),
-		TestInstanceRole:   envMap[EnvTestInstanceRole],
-		TestInstanceParams: unpackParams(envMap[EnvTestInstanceParams]),
+		TestSidecar:        toBool(m[EnvTestSidecar]),
+		TestPlan:           m[EnvTestPlan],
+		TestCase:           m[EnvTestCase],
+		TestRun:            m[EnvTestRun],
+		TestTag:            m[EnvTestTag],
+		TestBranch:         m[EnvTestBranch],
+		TestRepo:           m[EnvTestRepo],
+		TestSubnet:         toNet(m[EnvTestSubnet]),
+		TestCaseSeq:        toInt(m[EnvTestCaseSeq]),
+		TestInstanceCount:  toInt(m[EnvTestInstanceCount]),
+		TestInstanceRole:   m[EnvTestInstanceRole],
+		TestInstanceParams: unpackParams(m[EnvTestInstanceParams]),
 	}
 
 	re.initLoggers()
@@ -310,19 +313,6 @@ func (re *RunEnv) JSONParam(name string, v interface{}) {
 	}
 }
 
-// // ExtractRunEnv extracts the test context from a context.Context object.
-// func ExtractRunEnv(ctx context.Context) *RunEnv {
-// 	c := ctx.Value(runEnvContextKey)
-// 	if c == nil {
-// 		panic("test context is nil")
-// 	}
-// 	tctx, ok := c.(*RunEnv)
-// 	if !ok {
-// 		panic("test context has unexpected type")
-// 	}
-// 	return tctx
-// }
-
 // RandomRunEnv generates a random RunEnv for testing purposes.
 func RandomRunEnv() *RunEnv {
 	b := make([]byte, 32)
@@ -343,7 +333,16 @@ func RandomRunEnv() *RunEnv {
 	}
 }
 
-// // NewContextWithRunEnv returns a new context containing the run environment.
-// func NewContextWithRunEnv(ctx context.Context) context.Context {
-// 	return context.WithValue(ctx, runEnvContextKey, CurrentRunEnv())
-// }
+// Copied from github.com/ipfs/testground/pkg/conv, because we don't want the
+// SDK to depend on that package.
+func ParseKeyValues(in []string) (res map[string]string, err error) {
+	res = make(map[string]string, len(in))
+	for _, d := range in {
+		splt := strings.Split(d, "=")
+		if len(splt) != 2 {
+			return nil, fmt.Errorf("invalid key-value: %s", d)
+		}
+		res[splt[0]] = splt[1]
+	}
+	return res, nil
+}

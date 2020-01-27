@@ -9,6 +9,9 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/ipfs/testground/pkg/logging"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/google/uuid"
 
 	"github.com/BurntSushi/toml"
@@ -145,13 +148,24 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, testplan string, builder string, input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.Writer) ([]*api.BuildOutput, error) {
+	if err := comp.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid composition: %w", err)
+	}
+
+	var (
+		testplan = comp.Global.Plan
+		builder  = comp.Global.Builder
+	)
+
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
 		return nil, fmt.Errorf("unknown test plan: %s", testplan)
 	}
 
 	if builder == "" {
+		// TODO remove plan-specified runners and builders. Now that we have
+		// compositions, everything must be explicit.
 		builder = plan.Defaults.Builder
 	}
 
@@ -161,53 +175,101 @@ func (e *Engine) DoBuild(ctx context.Context, testplan string, builder string, i
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
-	// Compile all configurations to coalesce. Precedence (highest to lowest):
+	// This var compiles all configurations to coalesce.
+	//
+	// Precedence (highest to lowest):
+	//
 	//  1. CLI --run-param, --build-param flags.
 	//  2. .env.toml.
 	//  3. Test plan definition.
-	//  4. Builder defaults (applied by the builder).
-	var cfgs []map[string]interface{}
+	//  4. Builder defaults (applied by the builder itself, nothing to do here).
+	//
+	var cfg config.CoalescedConfig
 
-	// 3. Get the base configuration of the build strategy.
-	planCfg, ok := plan.BuildStrategies[builder]
-	if !ok {
+	// Add the base configuration of the build strategy (point 3 above).
+	if c, ok := plan.BuildStrategies[builder]; !ok {
 		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
-	}
-	cfgs = append(cfgs, planCfg)
-
-	// 2. Get the env config for the builder.
-	envCfg, ok := e.envcfg.BuildStrategies[builder]
-	if ok {
-		cfgs = append(cfgs, envCfg)
+	} else {
+		cfg = cfg.Append(c)
 	}
 
-	// 1. Get overrides from the CLI.
-	if overrides := input.BuildConfig; overrides != nil {
-		// We have config overrides.
-		cfgs = append(cfgs, overrides.(map[string]interface{}))
+	var (
+		// no need to synchronise access, as each goroutine will write its
+		// response in its index.
+		ress   = make([]*api.BuildOutput, len(comp.Groups))
+		errgrp = errgroup.Group{}
+		cancel context.CancelFunc
+	)
+
+	// obtain an explicitly cancellable context so we can stop build jobs if
+	// something fails.
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+
+	// Trigger a build for each group, and wait until all of them are done.
+	for i, grp := range comp.Groups {
+		// Reset the config to contain only the plan's config.
+		cfg := cfg[:1]
+
+		// 2. Get the env config for the builder.
+		cfg = cfg.Append(e.envcfg.BuildStrategies[builder])
+
+		// 1. Get overrides from the CLI.
+		cfg = cfg.Append(grp.Build.Configuration)
+
+		// Coalesce all configurations and deserialise into the config type
+		// mandated by the builder.
+		obj, err := cfg.CoalesceIntoType(bm.ConfigType())
+		if err != nil {
+			return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+		}
+
+		ii, grpp := i, grp // captures
+		errgrp.Go(func() (err error) {
+			logging.S().Infow("performing build for group", "plan", testplan, "group", grpp.ID, "builder", builder)
+
+			in := &api.BuildInput{
+				BuildID:      uuid.New().String(),
+				BuildConfig:  obj,
+				EnvConfig:    *e.envcfg,
+				Directories:  e.envcfg,
+				TestPlan:     plan,
+				Dependencies: grpp.Build.Dependencies.AsMap(),
+			}
+
+			res, err := bm.Build(ctx, in, output)
+			if err != nil {
+				logging.S().Infow("build failed", "plan", testplan, "group", grpp.ID, "builder", builder, "error", err)
+				return err
+			}
+
+			res.BuilderID = bm.ID()
+			ress[ii] = res
+			logging.S().Infow("build succeeded", "plan", testplan, "group", grpp.ID, "builder", builder, "artifact", res.ArtifactPath)
+			return nil
+		})
 	}
 
-	// Coalesce all configs and deserialize into the provided type.
-	cfg, err := coalesceConfigsIntoType(bm.ConfigType(), cfgs...)
-	if err != nil {
-		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-	}
-
-	input.BuildID = uuid.New().String()
-	input.Directories = e.envcfg
-	input.TestPlan = plan
-	input.BuildConfig = cfg
-	input.EnvConfig = *e.envcfg
-
-	res, err := bm.Build(ctx, input, output)
-	if err != nil {
+	// Wait until all goroutines are done. If any failed, return the error.
+	if err := errgrp.Wait(); err != nil {
 		return nil, err
 	}
-	res.BuilderID = bm.ID()
-	return res, err
+
+	return ress, nil
 }
 
-func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, runner string, input *api.RunInput, output io.Writer) (*api.RunOutput, error) {
+func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Writer) (*api.RunOutput, error) {
+	if err := comp.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid composition: %w", err)
+	}
+
+	var (
+		testplan = comp.Global.Plan
+		testcase = comp.Global.Case
+		builder  = comp.Global.Builder
+		runner   = comp.Global.Runner
+	)
+
 	// Find the test plan.
 	plan := e.TestCensus().PlanByName(testplan)
 	if plan == nil {
@@ -221,7 +283,15 @@ func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, ru
 	}
 
 	if runner == "" {
+		// TODO remove plan-specified runners and builders. Now that we have
+		// compositions, everything must be explicit.
 		runner = plan.Defaults.Runner
+	}
+
+	if builder == "" {
+		// TODO remove plan-specified runners and builders. Now that we have
+		// compositions, everything must be explicit.
+		runner = plan.Defaults.Builder
 	}
 
 	// Get the runner.
@@ -231,77 +301,126 @@ func (e *Engine) DoRun(ctx context.Context, testplan string, testcase string, ru
 	}
 
 	// Check if builder and runner are compatible
-	if !stringInSlice(input.BuilderID, run.CompatibleBuilders()) {
-		return nil, fmt.Errorf("cannot use runner %v with build from %v", runner, input.BuilderID)
+	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
+		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	// Fall back to default instance count if none was provided.
-	// Else validate the desired number of instances is within bounds.
-	if instances := input.Instances; instances == 0 {
-		input.Instances = tcase.Instances.Default
-	} else if instances < tcase.Instances.Minimum || instances > tcase.Instances.Maximum {
-		str := "instance count outside (%d) of allowable range [%d, %d] for test %s"
-		err := fmt.Errorf(str, instances, tcase.Instances.Minimum, tcase.Instances.Maximum, testcase)
+	// Validate the desired number of instances is within bounds.
+	if t := int(comp.Global.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
+		str := "total instance count outside (%d) of allowable range [%d, %d] for test case %s"
+		err := fmt.Errorf(str, t, tcase.Instances.Minimum, tcase.Instances.Maximum, testcase)
 		return nil, err
-	}
-
-	// Compile all configurations to coalesce. Precedence (highest to lowest):
-	//  1. CLI --run-param, --build-param flags.
-	//  2. .env.toml.
-	//  3. Test plan definition.
-	//  4. Runner defaults (applied by the runner).
-	var cfgs []map[string]interface{}
-
-	// 3. Get the base configuration of the run strategy.
-	planCfg, ok := plan.RunStrategies[runner]
-	if !ok {
-		return nil, fmt.Errorf("test plan does not support runner: %s", runner)
-	}
-	cfgs = append(cfgs, planCfg)
-
-	// 2. Get the env config for the runner.
-	envCfg, ok := e.envcfg.RunStrategies[runner]
-	if ok {
-		cfgs = append(cfgs, envCfg)
-	}
-
-	// 1. Get overrides from the CLI.
-	if overrides := input.RunnerConfig; overrides != nil {
-		// We have config overrides.
-		cfgs = append(cfgs, overrides.(map[string]interface{}))
-	}
-
-	// Coalesce all configs and deserialize into the provided type.
-	cfg, err := coalesceConfigsIntoType(run.ConfigType(), cfgs...)
-	if err != nil {
-		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
 	// TODO generate the run id with a mononotically increasing counter; persist
 	// the run ID in the state db.
+	//
+	// This Run ID is shared by all groups in the composition.
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("error while generating test run ID: %w", err)
 	}
 
-	// Add the default parameters set on the manifest.
-	for paramName, paramValue := range tcase.Parameters {
-		if _, ok := input.Parameters[paramName]; !ok {
-			data, err := json.Marshal(paramValue.Default)
-			if err != nil {
-				return nil, err
-			}
-			input.Parameters[paramName] = string(data)
-		}
+	// This var compiles all configurations to coalesce.
+	//
+	// Precedence (highest to lowest):
+	//
+	//  1. CLI --run-param, --build-param flags.
+	//  2. .env.toml.
+	//  3. Test plan definition.
+	//  4. Builder defaults (applied by the builder itself, nothing to do here).
+	//
+	var cfg config.CoalescedConfig
+
+	// Add the base configuration of the build strategy (point 3 above).
+	if c, ok := plan.RunStrategies[runner]; !ok {
+		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
+	} else {
+		cfg = cfg.Append(c)
 	}
 
-	input.RunID = id.String()
-	input.RunnerConfig = cfg
-	input.Seq = seq
-	input.TestPlan = plan
-	input.EnvConfig = *e.envcfg
+	// Create a coalesced configuration for test case parameters.
+	defaultParams := make(map[string]string, len(tcase.Parameters))
+	for n, v := range tcase.Parameters {
+		data, err := json.Marshal(v.Default)
+		if err != nil {
+			logging.S().Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
+			continue
+		}
+		defaultParams[n] = string(data)
+	}
 
-	return run.Run(ctx, input, output)
+	var (
+		errgrp = errgroup.Group{}
+		cancel context.CancelFunc
+	)
+
+	// obtain an explicitly cancellable context so we can stop build jobs if
+	// something fails.
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+
+	// Trigger a build for each group, and wait until all of them are done.
+	for _, grp := range comp.Groups {
+		// Reset the config to contain only the plan's config.
+		cfg := cfg[:1]
+
+		// 2. Get the env config for the builder.
+		cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+
+		// 1. Get overrides from the CLI.
+		cfg = cfg.Append(grp.Run.Configuration)
+
+		// Coalesce all configurations and deserialise into the config type
+		// mandated by the builder.
+		obj, err := cfg.CoalesceIntoType(run.ConfigType())
+		if err != nil {
+			return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+		}
+
+		params := make(map[string]string, len(defaultParams)+len(grp.Run.TestParams))
+		for k, v := range defaultParams {
+			params[k] = v
+		}
+		for k, v := range grp.Run.TestParams {
+			params[k] = v
+		}
+
+		grpp := grp
+		errgrp.Go(func() (err error) {
+			logging.S().Infow("running group", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount())
+
+			in := &api.RunInput{
+				RunID:          id.String(),
+				EnvConfig:      *e.envcfg,
+				Directories:    e.envcfg,
+				RunnerConfig:   obj,
+				ArtifactPath:   grpp.Run.Artifact,
+				TotalInstances: int(comp.Global.TotalInstances),
+				Instances:      int(grpp.CalculatedInstanceCount()),
+				GroupID:        grpp.ID,
+				TestPlan:       plan,
+				Seq:            seq,
+				Parameters:     params,
+			}
+
+			_, err = run.Run(ctx, in, output)
+			if err == nil {
+				logging.S().Infow("group run finished successfully", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount())
+			} else {
+				logging.S().Infow("group run finished in error", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount(), "error", err)
+			}
+
+			return err
+		})
+	}
+
+	// Wait until all goroutines are done. If any failed, return the error.
+	if err := errgrp.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &api.RunOutput{RunnerID: runner}, nil
 }
 
 func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {

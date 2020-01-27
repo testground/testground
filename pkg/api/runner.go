@@ -41,8 +41,12 @@ type RunInput struct {
 	// TestPlan is the definition of the test plan containing the test case to
 	// run.
 	TestPlan *TestPlanDefinition
-	// Instances is the number of instances to run.
+	// TotalInstances is the total number of instances participating in this test case.
+	TotalInstances int
+	// Instances is the number of instances to run with this configuration.
 	Instances int
+	// GroupID is the id of the instance group this run pertains to.
+	GroupID string
 	// ArtifactPath can be a docker image ID or an executable path; it's
 	// runner-dependent.
 	ArtifactPath string
@@ -53,8 +57,6 @@ type RunInput struct {
 	// RunnerConfig is the configuration of the runner sourced from the test
 	// plan manifest, coalesced with any user-provided overrides.
 	RunnerConfig interface{}
-	// BuilderID is the ID of the builder used.
-	BuilderID string
 }
 
 type RunOutput struct {

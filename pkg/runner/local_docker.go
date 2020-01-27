@@ -9,15 +9,15 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/docker/docker/api/types/filters"
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
@@ -99,13 +99,15 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 
 	// Build a runenv.
 	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
+		TestPlan:               input.TestPlan.Name,
+		TestCase:               testcase.Name,
+		TestRun:                input.RunID,
+		TestCaseSeq:            seq,
+		TestInstanceCount:      input.TotalInstances,
+		TestInstanceParams:     input.Parameters,
+		TestSidecar:            true,
+		TestGroupInstanceCount: input.Instances,
+		TestGroupID:            input.GroupID,
 	}
 
 	// Create a docker client.
@@ -156,7 +158,7 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 	}
 
 	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
+	env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
 	// Set the log level if provided in cfg.
 	if cfg.LogLevel != "" {
@@ -177,6 +179,7 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 				"testground.plan":     input.TestPlan.Name,
 				"testground.testcase": testcase.Name,
 				"testground.runid":    input.RunID,
+				"testground.groupid":  input.GroupID,
 			},
 		}
 		hcfg := &container.HostConfig{

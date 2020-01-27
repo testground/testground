@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/testground/cmd"
-	"github.com/ipfs/testground/pkg/server"
+	"github.com/ipfs/testground/pkg/daemon"
 
 	"github.com/urfave/cli"
 )
