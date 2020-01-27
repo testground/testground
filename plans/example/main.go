@@ -10,8 +10,8 @@ func main() {
 	runtime.Invoke(run)
 }
 
-// Demonstrate test output functions
-// This method emits two Messages and one Metric
+// Pick a different example function to run
+// depending on the name of the test case.
 func run(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
 	case "output":
