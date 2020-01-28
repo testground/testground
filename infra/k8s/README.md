@@ -59,36 +59,25 @@ kops create cluster \
   --master-size c5.2xlarge \
   --node-size c5.2xlarge \
   --node-count 8 \
-  --networking cni \
+  --networking flannel \
   --name $NAME \
   --yes
 ```
 
-5. Wait for `master` node to appear in `kubectl get nodes` - it will be in `NotReady` state as we haven't installed any Networking CNI yet.
-```
-watch 'kubectl get nodes -o wide'
-```
-
-6. Install Flannel
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/flannel.yml
-```
-
-7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
+5. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
 ```
 watch 'kubectl get nodes -o wide'
 
 kubectl -n kube-system get pods -o wide
 ```
 
-8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+6. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
 kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
 ```
 
-9. Destroy the cluster when you're done working on it
+7. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
