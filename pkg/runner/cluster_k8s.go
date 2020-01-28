@@ -192,6 +192,14 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 					},
 				},
 				Spec: v1.PodSpec{
+					SecurityContext: &v1.PodSecurityContext{
+						Sysctls: []v1.Sysctl{
+							{
+								Name:  "net.core.somaxconn",
+								Value: "10000",
+							},
+						},
+					},
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
