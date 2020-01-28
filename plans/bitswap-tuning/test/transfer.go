@@ -41,6 +41,7 @@ func (nt nodeType) String() string {
 func Transfer(runenv *runtime.RunEnv) error {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
+	runTimeout := time.Duration(runenv.IntParam("run_timeout_secs")) * time.Second
 	parallelGenMax := runenv.IntParam("parallel_gen_mb") * 1024 * 1024
 	leechCount := runenv.IntParam("leech_count")
 	passiveCount := runenv.IntParam("passive_count")
@@ -184,18 +185,22 @@ func Transfer(runenv *runtime.RunEnv) error {
 	for sizeIndex, fileSize := range fileSizes {
 		// If the total amount of seed data to be generated is greater than
 		// parallelGenMax, generate seed data in series
-		genSeedSerial := fileSize*seedCount > parallelGenMax
+		genSeedSerial := seedCount > 2 || fileSize*seedCount > parallelGenMax
 
 		// Run the test runCount times
 		var rootCid cid.Cid
 		for runNum := 1; runNum < runCount+1; runNum++ {
+			// Reset the timeout for each run
+			ctx, cancel := context.WithTimeout(ctx, runTimeout)
+			defer cancel()
+
 			isFirstRun := runNum == 1
 			runId := fmt.Sprintf("%d-%d", sizeIndex, runNum)
 
 			// Wait for all nodes to be ready to start the run
 			signalAndWaitForAll("start-run-" + runId)
 
-			runenv.Message("Starting run %d / %d", runNum, runCount)
+			runenv.Message("Starting run %d / %d (%d bytes)", runNum, runCount, fileSize)
 			var bsnode *utils.Node
 			rootCidSubtree := getRootCidSubtree(sizeIndex)
 
@@ -252,7 +257,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 				}
 			case Leech:
 				// For leeches, create a new blockstore on each run
-				bstore, err := utils.CreateBlockstore(ctx, bstoreDelay)
+				bstore, err = utils.CreateBlockstore(ctx, bstoreDelay)
 				if err != nil {
 					return err
 				}
@@ -339,6 +344,25 @@ func Transfer(runenv *runtime.RunEnv) error {
 				if err != nil {
 					return fmt.Errorf("Error disconnecting: %w", err)
 				}
+			}
+
+			if nodetp == Leech {
+				// Free up memory by clearing the leech blockstore at the end of each run.
+				// Note that although we create a new blockstore for the leech at the
+				// start of the run, explicitly cleaning up the blockstore from the
+				// previous run allows it to be GCed.
+				if err := utils.ClearBlockstore(ctx, bstore); err != nil {
+					runenv.Abort(fmt.Errorf("Error clearing blockstore: %w", err))
+					return
+				}
+			}
+		}
+		if nodetp == Seed {
+			// Free up memory by clearing the seed blockstore at the end of each
+			// set of tests over the current file size.
+			if err := utils.ClearBlockstore(ctx, bstore); err != nil {
+				runenv.Abort(fmt.Errorf("Error clearing blockstore: %w", err))
+				return
 			}
 		}
 	}
