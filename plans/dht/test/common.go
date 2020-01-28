@@ -420,7 +420,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 		for i := 1; i <= attempts; i++ {
 			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
 			select {
-			case <-time.After(time.Duration(rand.Intn(500)+100) * time.Millisecond):
+			case <-time.After(time.Duration(rand.Intn(500)+6000) * time.Millisecond):
 			case <-ctx.Done():
 				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
