@@ -50,7 +50,7 @@ export KOPS_STATE_STORE=s3://kops-backend-bucket
 export ZONES=eu-central-1a
 ```
 
-4. Create The cluster
+4. Generate the cluster spec
 
 ```
 kops create cluster \
@@ -61,23 +61,40 @@ kops create cluster \
   --node-count 8 \
   --networking flannel \
   --name $NAME \
-  --yes
+  --dry-run \
+  -o yaml > cluster.yaml
 ```
 
-5. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
+5. Update `kubelet` section in spec with:
+```
+  kubelet:
+    anonymousAuth: false
+    maxPods: 200
+    allowedUnsafeSysctls:
+    - net.core.somaxconn
+```
+
+6. Create cluster
+```
+kops create -f cluster.yaml
+kops create secret --name $NAME sshpublickey admin -i ~/.ssh/id_rsa.pub
+kops update cluster $NAME --yes
+```
+
+7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
 ```
 watch 'kubectl get nodes -o wide'
 
 kubectl -n kube-system get pods -o wide
 ```
 
-6. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
 kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
 ```
 
-7. Destroy the cluster when you're done working on it
+9. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
