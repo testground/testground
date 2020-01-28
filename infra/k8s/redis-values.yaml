@@ -183,9 +183,9 @@ securityContext:
   ##
   ## Uncomment the setting below to increase the net.core.somaxconn value
   ##
-  # sysctls:
-  # - name: net.core.somaxconn
-  #   value: "10000"
+  sysctls:
+  - name: net.core.somaxconn
+    value: "10000"
 
 ## Use password authentication
 usePassword: false
@@ -226,6 +226,7 @@ master:
   ## ref: https://redis.io/topics/config
   ##
   configmap:
+
   ## Redis additional command line flags
   ##
   ## Can be used to specify command line flags, for example:
@@ -233,7 +234,8 @@ master:
   ## extraFlags:
   ##  - "--maxmemory-policy volatile-ttl"
   ##  - "--repl-backlog-size 1024mb"
-  extraFlags: []
+  extraFlags:
+  - "--maxclients 10000"
   ## Comma-separated list of Redis commands to disable
   ##
   ## Can be used to disable Redis commands for security reasons.

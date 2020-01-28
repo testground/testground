@@ -50,29 +50,35 @@ export KOPS_STATE_STORE=s3://kops-backend-bucket
 export ZONES=eu-central-1a
 ```
 
-4. Create The cluster
+4. Generate the cluster spec
 
 ```
 kops create cluster \
   --zones $ZONES \
   --master-zones $ZONES \
-  --master-size m4.xlarge \
-  --node-size m4.xlarge \
-  --node-count 2 \
-  --networking cni \
+  --master-size c5.2xlarge \
+  --node-size c5.2xlarge \
+  --node-count 8 \
+  --networking flannel \
   --name $NAME \
-  --yes
+  --dry-run \
+  -o yaml > cluster.yaml
 ```
 
-5. Wait for `master` node to appear in `kubectl get nodes` - it will be in `NotReady` state as we haven't installed any Networking CNI yet.
+5. Update `kubelet` section in spec with:
 ```
-watch 'kubectl get nodes -o wide'
+  kubelet:
+    anonymousAuth: false
+    maxPods: 200
+    allowedUnsafeSysctls:
+    - net.core.somaxconn
 ```
 
-6. Install Flannel
-
+6. Create cluster
 ```
-kubectl apply -f ./infra/k8s/kops-weave/flannel.yml
+kops create -f cluster.yaml
+kops create secret --name $NAME sshpublickey admin -i ~/.ssh/id_rsa.pub
+kops update cluster $NAME --yes
 ```
 
 7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
@@ -82,25 +88,13 @@ watch 'kubectl get nodes -o wide'
 kubectl -n kube-system get pods -o wide
 ```
 
-8. Install CNI-Genie
+8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
 ```
 
-9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/dummy.yml
-```
-
-10. Install Weave
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/weave.yml
-```
-
-11. Destroy the cluster when you're done working on it
+9. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes

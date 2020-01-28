@@ -192,6 +192,14 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 					},
 				},
 				Spec: v1.PodSpec{
+					SecurityContext: &v1.PodSecurityContext{
+						Sysctls: []v1.Sysctl{
+							{
+								Name:  "net.core.somaxconn",
+								Value: "10000",
+							},
+						},
+					},
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
@@ -243,7 +251,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
 			break
 		}
-		if time.Since(start) > 5*time.Minute {
+		if time.Since(start) > 10*time.Minute {
 			return nil, errors.New("timeout")
 		}
 		time.Sleep(2000 * time.Millisecond)
