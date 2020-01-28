@@ -72,42 +72,16 @@ type LocalDockerRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
-		image = input.ArtifactPath
-		seq   = input.Seq
-		log   = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		seq = input.Seq
+		log = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		err error
 	)
-
-	var (
-		cfg   = defaultConfig
-		incfg = input.RunnerConfig.(*LocalDockerRunnerConfig)
-	)
-
-	// Merge the incoming configuration with the default configuration.
-	if err := mergo.Merge(&cfg, incfg, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("error while merging configurations: %w", err)
-	}
 
 	// Sanity check.
 	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
 		return nil, fmt.Errorf("invalid test case seq %d for plan %s", seq, input.TestPlan.Name)
-	}
-
-	// Get the test case.
-	testcase := input.TestPlan.TestCases[seq]
-
-	// Build a runenv.
-	runenv := &runtime.RunEnv{
-		TestPlan:               input.TestPlan.Name,
-		TestCase:               testcase.Name,
-		TestRun:                input.RunID,
-		TestCaseSeq:            seq,
-		TestInstanceCount:      input.TotalInstances,
-		TestInstanceParams:     input.Parameters,
-		TestSidecar:            true,
-		TestGroupInstanceCount: input.Instances,
-		TestGroupID:            input.GroupID,
 	}
 
 	// Create a docker client.
@@ -116,16 +90,106 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 		return nil, err
 	}
 
-	// Create a network.
-	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, logging.S(), runenv, "default")
+	// Ensure we have a control network.
+	ctrlnid, err := ensureControlNetwork(ctx, cli, log)
 	if err != nil {
 		return nil, err
 	}
-	runenv.TestSubnet = subnet
 
-	// Unless we're keeping the containers, delete the network when we're done.
+	// Ensure that we have a testground-redis container; if not, create it.
+	_, err = ensureRedisContainer(ctx, cli, log, ctrlnid)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure that we have a testground-sidecar container; if not, we'll
+	// create it.
+	_, err = ensureSidecarContainer(ctx, cli, log, ctrlnid)
+	if err != nil && err.Error() == "image not found" {
+		return nil, errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
+	}
+
+	// Get the test case.
+	testcase := input.TestPlan.TestCases[seq]
+
+	// Build a template runenv.
+	template := runtime.RunEnv{
+		TestPlan:          input.TestPlan.Name,
+		TestCase:          testcase.Name,
+		TestRun:           input.RunID,
+		TestCaseSeq:       seq,
+		TestInstanceCount: input.TotalInstances,
+		TestSidecar:       true,
+	}
+
+	// Create a network.
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, logging.S(), &template, "default")
+	if err != nil {
+		return nil, err
+	}
+
+	template.TestSubnet = subnet
+
+	// Merge the incoming configuration with the default configuration.
+	cfg := defaultConfig
+	if err := mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
+		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	}
+
+	var containers []string
+	for _, g := range input.Groups {
+		runenv := template
+		runenv.TestGroupInstanceCount = g.Instances
+		runenv.TestGroupID = g.ID
+		runenv.TestInstanceParams = g.Parameters
+
+		// Serialize the runenv into env variables to pass to docker.
+		env := conv.ToOptionsSlice(runenv.ToEnvVars())
+
+		// Set the log level if provided in cfg.
+		if cfg.LogLevel != "" {
+			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+		}
+
+		// Start as many containers as group instances.
+		for i := 0; i < g.Instances; i++ {
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, g.ID, i)
+			log.Infow("creating container", "name", name)
+
+			ccfg := &container.Config{
+				Image: g.ArtifactPath,
+				Env:   env,
+				Labels: map[string]string{
+					"testground.plan":     input.TestPlan.Name,
+					"testground.testcase": testcase.Name,
+					"testground.runid":    input.RunID,
+					"testground.groupid":  g.ID,
+				},
+			}
+			hcfg := &container.HostConfig{
+				NetworkMode: container.NetworkMode(ctrlnid),
+			}
+
+			// Create the container.
+			var res container.ContainerCreateCreatedBody
+			res, err = cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
+			if err != nil {
+				break
+			}
+
+			containers = append(containers, res.ID)
+
+			// TODO: Remove this when we get the sidecar working. It'll do this for us.
+			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
+			if err != nil {
+				break
+			}
+		}
+	}
+
 	if !cfg.KeepContainers {
 		defer func() {
+			_ = deleteContainers(cli, log, containers)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -134,97 +198,18 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 		}()
 	}
 
-	// Ensure we have a control network.
-	controlNetworkID, err := ensureControlNetwork(ctx, cli, log)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure that we have a testground-redis container; if not, create it.
-	_, err = ensureRedisContainer(ctx, cli, log, controlNetworkID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure that we have a testground-sidecar container; if not, we'll
-	// create it.
-	_, err = ensureSidecarContainer(ctx, cli, log, controlNetworkID)
-	if err != nil {
-		if err.Error() == "image not found" {
-			newErr := errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
-			return nil, newErr
-		}
-		return nil, err
-	}
-
-	// Serialize the runenv into env variables to pass to docker.
-	env := conv.ToOptionsSlice(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-	}
-
-	// Start as many containers as test case instances.
-	var containers []string
-	for i := 0; i < input.Instances; i++ {
-		name := fmt.Sprintf("tg-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, i)
-
-		log.Infow("creating container", "name", name)
-
-		ccfg := &container.Config{
-			Image: image,
-			Env:   env,
-			Labels: map[string]string{
-				"testground.plan":     input.TestPlan.Name,
-				"testground.testcase": testcase.Name,
-				"testground.runid":    input.RunID,
-				"testground.groupid":  input.GroupID,
-			},
-		}
-		hcfg := &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
-		}
-
-		// Create the container.
-		cctx, ccancel := context.WithTimeout(ctx, 1*time.Minute)
-		res, err := cli.ContainerCreate(cctx, ccfg, hcfg, nil, name)
-		ccancel()
-
-		if err != nil {
-			break
-		}
-
-		containers = append(containers, res.ID)
-
-		// TODO: Remove this when we get the sidecar working. It'll do this for us.
-		err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
-		if err != nil {
-			break
-		}
-	}
-
-	if !cfg.KeepContainers {
-		defer deleteContainers(cli, log, containers) //nolint
-		// ^^ nolint: this method already logs errors; this is a cleanup action,
-		// if an error is returned, there's nothing we can do anyway.
-	}
-
-	// If an error occurred interim, delete all containers, and abort.
+	// If an error occurred interim, abort.
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 
-	// Start the containers, unless the NoStart option is specified.
+	// Start the containers.
 	if !cfg.Unstarted {
 		log.Infow("starting containers", "count", len(containers))
-
 		g, ctx := errgroup.WithContext(ctx)
+
 		for _, id := range containers {
-			if err != nil {
-				break
-			}
 			g.Go(func(id string) func() error {
 				return func() error {
 					log.Debugw("starting container", "id", id)

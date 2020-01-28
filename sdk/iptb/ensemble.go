@@ -34,7 +34,7 @@ func NewTestEnsemble(ctx context.Context, spec *TestEnsembleSpec) *TestEnsemble 
 }
 
 // Initialize initializes the ensemble by materializing the IPTB testbed and associating nodes with tags.
-func (te *TestEnsemble) Initialize() {
+func (te *TestEnsemble) Healthcheck() {
 	var (
 		tags   = te.spec.tags
 		count  = len(tags)

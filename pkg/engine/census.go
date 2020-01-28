@@ -16,6 +16,8 @@ type TestCensus struct {
 	m  map[string]*api.TestPlanDefinition
 }
 
+var _ api.TestCensus = (*TestCensus)(nil)
+
 func newTestCensus() *TestCensus {
 	return &TestCensus{
 		m: make(map[string]*api.TestPlanDefinition),

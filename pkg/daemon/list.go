@@ -1,34 +1,35 @@
 package daemon
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
-	"go.uber.org/zap"
 )
 
-func (srv *Server) listHandler(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger) {
-	log.Debugw("handle request", "command", "list")
-	defer log.Debugw("request handled", "command", "list")
+func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("****************")
+		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
 
-	tgw := tgwriter.New(w, log)
+		log.Debugw("handle request", "command", "list")
+		defer log.Debugw("request handled", "command", "list")
 
-	engine, err := GetEngine()
-	if err != nil {
-		log.Errorw("get engine error", "err", err)
-		return
-	}
+		tgw := tgwriter.New(w, log)
 
-	plans := engine.TestCensus().ListPlans()
-	for _, tp := range plans {
-		for _, tc := range tp.TestCases {
-			_, err := tgw.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
-			if err != nil {
-				log.Errorf("could not write response back", "err", err)
+		plans := engine.TestCensus().ListPlans()
+		for _, tp := range plans {
+			for _, tc := range tp.TestCases {
+				_, err := tgw.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
+				if err != nil {
+					log.Errorf("could not write response back", "err", err)
+				}
+				w.(http.Flusher).Flush()
 			}
-			w.(http.Flusher).Flush()
 		}
-	}
 
-	tgw.WriteResult("Done")
+		tgw.WriteResult("Done")
+	}
 }

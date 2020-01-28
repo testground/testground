@@ -13,8 +13,8 @@ author  = "raulk"
 [global]
 plan    = "dht"
 case    = "find-peers"
-builder = "exec:go"
-runner  = "local:exec"
+builder = "docker:go"
+runner  = "local:docker"
 
 total_instances = 100
 

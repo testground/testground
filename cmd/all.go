@@ -106,14 +106,14 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed while parsing build config: %w", err)
 	}
-	comp.Groups[0].Build.Configuration = conv.InferTypedMap(config)
+	comp.Global.BuildConfig = conv.InferTypedMap(config)
 
 	// Run configuration.
 	config, err = conv.ParseKeyValues(runcfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed while parsing run config: %w", err)
 	}
-	comp.Groups[0].Run.Configuration = conv.InferTypedMap(config)
+	comp.Global.RunConfig = conv.InferTypedMap(config)
 
 	// Test parameters.
 	parameters, err := conv.ParseKeyValues(testparams)

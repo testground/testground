@@ -33,30 +33,45 @@ type Runner interface {
 type RunInput struct {
 	// RunID is the run id assigned to this job by the Engine.
 	RunID string
+
 	// EnvConfig is the env configuration of the engine. Not a pointer to force
 	// a copy.
 	EnvConfig config.EnvConfig
-	// Directories providers accessors to directories managed by the runtime.
-	Directories Directories
-	// TestPlan is the definition of the test plan containing the test case to
-	// run.
-	TestPlan *TestPlanDefinition
-	// TotalInstances is the total number of instances participating in this test case.
-	TotalInstances int
-	// Instances is the number of instances to run with this configuration.
-	Instances int
-	// GroupID is the id of the instance group this run pertains to.
-	GroupID string
-	// ArtifactPath can be a docker image ID or an executable path; it's
-	// runner-dependent.
-	ArtifactPath string
-	// Seq is the test case seq number to run.
-	Seq int
-	// Parameters are the runtime parameters to the test case.
-	Parameters map[string]string
+
 	// RunnerConfig is the configuration of the runner sourced from the test
 	// plan manifest, coalesced with any user-provided overrides.
 	RunnerConfig interface{}
+
+	// Directories providers accessors to directories managed by the runtime.
+	Directories Directories
+
+	// TestPlan is the definition of the test plan containing the test case to
+	// run.
+	TestPlan *TestPlanDefinition
+
+	// Seq is the test case seq number to run.
+	Seq int
+
+	// TotalInstances is the total number of instances participating in this test case.
+	TotalInstances int
+
+	// Groups enumerates the groups participating in this run.
+	Groups []RunGroup
+}
+
+type RunGroup struct {
+	// ID is the id of the instance group this run pertains to.
+	ID string
+
+	// Instances is the number of instances to run with this configuration.
+	Instances int
+
+	// ArtifactPath can be a docker image ID or an executable path; it's
+	// runner-dependent.
+	ArtifactPath string
+
+	// Parameters are the runtime parameters to the test case.
+	Parameters map[string]string
 }
 
 type RunOutput struct {

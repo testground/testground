@@ -39,8 +39,14 @@ type Global struct {
 	// Builder is the builder we're using.
 	Builder string `toml:"builder" json:"builder" validate:"required"`
 
+	// BuildConfig specifies the build configuration for this run.
+	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
+
 	// Runner is the runner we're using.
 	Runner string `toml:"runner" json:"runner" validate:"required"`
+
+	// RunConfig specifies the run configuration for this run.
+	RunConfig map[string]interface{} `toml:"run_config" json:"run_config"`
 }
 
 type Metadata struct {
@@ -95,9 +101,6 @@ type Build struct {
 	// Dependencies specifies any upstream dependency overrides to apply to this
 	// build.
 	Dependencies Dependencies `toml:"dependencies" json:"dependencies"`
-
-	// Configuration specifies the build configuration for this build.
-	Configuration map[string]interface{} `toml:"config" json:"config"`
 }
 
 func (d Dependencies) AsMap() map[string]string {
@@ -111,9 +114,6 @@ func (d Dependencies) AsMap() map[string]string {
 type Run struct {
 	// Artifact specifies the build artifact to use for this run.
 	Artifact string `toml:"artifact" json:"artifact"`
-
-	// Configuration specifies the run configuration for this run.
-	Configuration map[string]interface{} `toml:"config" json:"config"`
 
 	// TestParams specify the test parameters to pass down to instances of this
 	// group.

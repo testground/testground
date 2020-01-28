@@ -5,35 +5,34 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
-	"go.uber.org/zap"
 )
 
-func (srv *Server) runHandler(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger) {
-	log.Debugw("handle request", "command", "run")
-	defer log.Debugw("request handled", "command", "run")
+func (srv *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
 
-	tgw := tgwriter.New(w, log)
+		log.Debugw("handle request", "command", "run")
+		defer log.Debugw("request handled", "command", "run")
 
-	var req client.RunRequest
-	err := json.NewDecoder(r.Body).Decode(&req)
-	if err != nil {
-		tgw.WriteError("cannot json decode request body", "err", err)
-		return
+		tgw := tgwriter.New(w, log)
+
+		var req client.RunRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			tgw.WriteError("cannot json decode request body", "err", err)
+			return
+		}
+
+		out, err := engine.DoRun(r.Context(), &req.Composition, tgw)
+		if err != nil {
+			tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
+			return
+		}
+
+		tgw.WriteResult(out)
 	}
-
-	engine, err := GetEngine()
-	if err != nil {
-		tgw.WriteError("get engine error", "err", err)
-		return
-	}
-
-	out, err := engine.DoRun(r.Context(), &req.Composition, tgw)
-	if err != nil {
-		tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
-		return
-	}
-
-	tgw.WriteResult(out)
 }

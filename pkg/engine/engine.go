@@ -1,25 +1,20 @@
 package engine
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
-	"reflect"
 	"sync"
-
-	"github.com/ipfs/testground/pkg/logging"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/google/uuid"
-
-	"github.com/BurntSushi/toml"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
+
+	"github.com/google/uuid"
+	"golang.org/x/sync/errgroup"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -54,7 +49,10 @@ type Engine struct {
 	// runners binds runners to their identifying key.
 	runners map[string]api.Runner
 	envcfg  *config.EnvConfig
+	ctx     context.Context
 }
+
+var _ api.Engine = (*Engine)(nil)
 
 type EngineConfig struct {
 	Builders  []api.Builder
@@ -68,6 +66,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		builders: make(map[string]api.Builder, len(cfg.Builders)),
 		runners:  make(map[string]api.Runner, len(cfg.Runners)),
 		envcfg:   cfg.EnvConfig,
+		ctx:      context.Background(),
 	}
 
 	for _, b := range cfg.Builders {
@@ -103,7 +102,7 @@ func NewDefaultEngine() (*Engine, error) {
 	return e, nil
 }
 
-func (e *Engine) TestCensus() *TestCensus {
+func (e *Engine) TestCensus() api.TestCensus {
 	e.lk.RLock()
 	defer e.lk.RUnlock()
 
@@ -186,11 +185,24 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	//
 	var cfg config.CoalescedConfig
 
-	// Add the base configuration of the build strategy (point 3 above).
+	// 3. Add the base configuration of the build strategy.
 	if c, ok := plan.BuildStrategies[builder]; !ok {
 		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
 	} else {
 		cfg = cfg.Append(c)
+	}
+
+	// 2. Get the env config for the builder.
+	cfg = cfg.Append(e.envcfg.BuildStrategies[builder])
+
+	// 1. Get overrides from the CLI.
+	cfg = cfg.Append(comp.Global.BuildConfig)
+
+	// Coalesce all configurations and deserialise into the config type
+	// mandated by the builder.
+	obj, err := cfg.CoalesceIntoType(bm.ConfigType())
+	if err != nil {
+		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
 	var (
@@ -208,22 +220,6 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 
 	// Trigger a build for each group, and wait until all of them are done.
 	for i, grp := range comp.Groups {
-		// Reset the config to contain only the plan's config.
-		cfg := cfg[:1]
-
-		// 2. Get the env config for the builder.
-		cfg = cfg.Append(e.envcfg.BuildStrategies[builder])
-
-		// 1. Get overrides from the CLI.
-		cfg = cfg.Append(grp.Build.Configuration)
-
-		// Coalesce all configurations and deserialise into the config type
-		// mandated by the builder.
-		obj, err := cfg.CoalesceIntoType(bm.ConfigType())
-		if err != nil {
-			return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-		}
-
 		ii, grpp := i, grp // captures
 		errgrp.Go(func() (err error) {
 			logging.S().Infow("performing build for group", "plan", testplan, "group", grpp.ID, "builder", builder)
@@ -339,6 +335,19 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		cfg = cfg.Append(c)
 	}
 
+	// 2. Get the env config for the builder.
+	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+
+	// 1. Get overrides from the CLI.
+	cfg = cfg.Append(comp.Global.RunConfig)
+
+	// Coalesce all configurations and deserialise into the config type
+	// mandated by the builder.
+	obj, err := cfg.CoalesceIntoType(run.ConfigType())
+	if err != nil {
+		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
 	// Create a coalesced configuration for test case parameters.
 	defaultParams := make(map[string]string, len(tcase.Parameters))
 	for n, v := range tcase.Parameters {
@@ -350,34 +359,19 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		defaultParams[n] = string(data)
 	}
 
-	var (
-		errgrp = errgroup.Group{}
-		cancel context.CancelFunc
-	)
-
-	// obtain an explicitly cancellable context so we can stop build jobs if
-	// something fails.
-	ctx, cancel = context.WithCancel(ctx)
-	defer cancel()
+	in := api.RunInput{
+		RunID:          id.String(),
+		EnvConfig:      *e.envcfg,
+		RunnerConfig:   obj,
+		Directories:    e.envcfg,
+		TestPlan:       plan,
+		Seq:            seq,
+		TotalInstances: int(comp.Global.TotalInstances),
+		Groups:         make([]api.RunGroup, 0, len(comp.Groups)),
+	}
 
 	// Trigger a build for each group, and wait until all of them are done.
 	for _, grp := range comp.Groups {
-		// Reset the config to contain only the plan's config.
-		cfg := cfg[:1]
-
-		// 2. Get the env config for the builder.
-		cfg = cfg.Append(e.envcfg.RunStrategies[runner])
-
-		// 1. Get overrides from the CLI.
-		cfg = cfg.Append(grp.Run.Configuration)
-
-		// Coalesce all configurations and deserialise into the config type
-		// mandated by the builder.
-		obj, err := cfg.CoalesceIntoType(run.ConfigType())
-		if err != nil {
-			return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-		}
-
 		params := make(map[string]string, len(defaultParams)+len(grp.Run.TestParams))
 		for k, v := range defaultParams {
 			params[k] = v
@@ -386,62 +380,33 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 			params[k] = v
 		}
 
-		grpp := grp
-		errgrp.Go(func() (err error) {
-			logging.S().Infow("running group", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount())
+		g := api.RunGroup{
+			ID:           grp.ID,
+			Instances:    int(grp.CalculatedInstanceCount()),
+			ArtifactPath: grp.Run.Artifact,
+			Parameters:   params,
+		}
 
-			in := &api.RunInput{
-				RunID:          id.String(),
-				EnvConfig:      *e.envcfg,
-				Directories:    e.envcfg,
-				RunnerConfig:   obj,
-				ArtifactPath:   grpp.Run.Artifact,
-				TotalInstances: int(comp.Global.TotalInstances),
-				Instances:      int(grpp.CalculatedInstanceCount()),
-				GroupID:        grpp.ID,
-				TestPlan:       plan,
-				Seq:            seq,
-				Parameters:     params,
-			}
-
-			_, err = run.Run(ctx, in, output)
-			if err == nil {
-				logging.S().Infow("group run finished successfully", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount())
-			} else {
-				logging.S().Infow("group run finished in error", "plan", testplan, "case", testcase, "group", grpp.ID, "runner", runner, "instances", grpp.CalculatedInstanceCount(), "error", err)
-			}
-
-			return err
-		})
+		in.Groups = append(in.Groups, g)
 	}
 
-	// Wait until all goroutines are done. If any failed, return the error.
-	if err := errgrp.Wait(); err != nil {
-		return nil, err
+	_, err = run.Run(ctx, &in, output)
+	if err == nil {
+		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+	} else {
+		logging.S().Infow("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return &api.RunOutput{RunnerID: runner}, nil
 }
 
-func coalesceConfigsIntoType(typ reflect.Type, cfgs ...map[string]interface{}) (interface{}, error) {
-	m := make(map[string]interface{})
+// EnvConfig returns the EnvConfig for this Engine.
+func (e *Engine) EnvConfig() config.EnvConfig {
+	return *e.envcfg
+}
 
-	// Copy all values into coalesced map.
-	for _, cfg := range cfgs {
-		for k, v := range cfg {
-			m[k] = v
-		}
-	}
-
-	// Serialize map into TOML, and then deserialize into the appropriate type.
-	buf := new(bytes.Buffer)
-	if err := toml.NewEncoder(buf).Encode(m); err != nil {
-		return nil, fmt.Errorf("error while encoding into TOML: %w", err)
-	}
-
-	v := reflect.New(typ).Interface()
-	_, err := toml.DecodeReader(buf, v)
-	return v, err
+func (e *Engine) Context() context.Context {
+	return e.ctx
 }
 
 func stringInSlice(a string, list []string) bool {
