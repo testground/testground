@@ -40,7 +40,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	runenv.Message("My seqeuence ID: %d\n", seq)
+	runenv.Message("My seqeuence ID: %d", seq)
 
 	readyState := sync.State("ready")
 	startState := sync.State("start")
