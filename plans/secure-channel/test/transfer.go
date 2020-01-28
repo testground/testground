@@ -3,21 +3,26 @@ package test
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"time"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+
 	core "github.com/libp2p/go-libp2p-core"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	host "github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-	"math/rand"
-	"time"
 )
 
 const protocolID = "/testground/secure-channel/transfer"
 
 var (
-	metricTimeToTransfer = &runtime.MetricDefinition{Name: "transfer_time", Unit: "ns", ImprovementDir: -1}
+	metricWriteTime = &runtime.MetricDefinition{Name: "write_time", Unit: "ns", ImprovementDir: -1}
+	metricReadTime = &runtime.MetricDefinition{Name: "read_time", Unit: "ns", ImprovementDir: -1}
 )
 
 func TestDataTransfer(runenv *runtime.RunEnv) error {
@@ -52,7 +57,7 @@ type node struct {
 
 	remotePeers []peer.AddrInfo
 	isInitiator bool
-	payloadSize int
+	payloadSize int64
 
 	payloadSent     bool
 	payloadReceived bool
@@ -74,7 +79,6 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 
 
 
-	//h, err := bhost.NewBlankHost()
 	priv, _, err := crypto.GenerateKeyPair(crypto.Ed25519, 256)
 	if err != nil {
 		return nil, fmt.Errorf("error generating keypair: %w", err)
@@ -124,7 +128,7 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 
 		remotePeers: remotePeers,
 		isInitiator: isInitiator,
-		payloadSize: payloadSize,
+		payloadSize: int64(payloadSize),
 	}
 	h.SetStreamHandler(protocolID, n.handleStream)
 	err = n.signalAndWaitForAll("ready")
@@ -139,16 +143,19 @@ func (n *node) handleStream(stream core.Stream) {
 	remotePeer := stream.Conn().RemotePeer()
 	n.runenv.Message("new stream from %s", remotePeer.Pretty())
 
-	buf := make([]byte, n.payloadSize)
-	c, err := stream.Read(buf)
+	start := time.Now()
+	c, err := io.Copy(ioutil.Discard, stream)
 	if err != nil {
-		panic(fmt.Errorf("error reading from stream: %s", err))
+		panic(fmt.Errorf("error reading from remote stream: %v", err))
 	}
 	if c != n.payloadSize {
-		panic(fmt.Errorf("expected to read %d bytes, received %d", n.payloadSize, c))
+		panic(fmt.Errorf("expected to read %d bytes, got %d", n.payloadSize, c))
 	}
 
-	n.runenv.Message("read %d bytes from %s", c, remotePeer.Pretty())
+	elapsed := time.Since(start)
+	n.runenv.EmitMetric(metricReadTime, float64(elapsed.Nanoseconds()))
+
+	n.runenv.Message("read %d bytes from %s in %d ms", c, remotePeer.Pretty(), elapsed.Milliseconds())
 	n.payloadReceived = true
 	if n.payloadSent {
 		n.runenv.Message("payload sent and received. signalling test end")
@@ -167,9 +174,19 @@ func (n *node) initiateTransfer(p peer.ID) {
 		panic(fmt.Errorf("error opening stream to %s: %s", p.Pretty(), err))
 	}
 
-	startTime := time.Now()
-	c, err := stream.Write(makePayload(n.payloadSize))
-	elapsed := time.Now().Sub(startTime).Nanoseconds()
+	r := rand.New(rand.NewSource(42))
+	start := time.Now()
+	lr := io.LimitReader(r, n.payloadSize)
+
+	c, err := io.Copy(stream, lr)
+	if err != nil {
+		panic(fmt.Errorf("failed to write out bytes: %v", err))
+	}
+	elapsed := time.Since(start)
+	err = stream.Close()
+	if err != nil {
+		n.runenv.Message("error closing stream: %v", err)
+	}
 
 	if err != nil {
 		panic(fmt.Errorf("error writing to stream: %s", err))
@@ -178,8 +195,8 @@ func (n *node) initiateTransfer(p peer.ID) {
 		panic(fmt.Errorf("expected to write %d bytes, wrote %d", n.payloadSize, c))
 	}
 
-	n.runenv.EmitMetric(metricTimeToTransfer, float64(elapsed))
-	n.runenv.Message("wrote %d bytes to %s", c, p.Pretty())
+	n.runenv.EmitMetric(metricWriteTime, float64(elapsed.Nanoseconds()))
+	n.runenv.Message("wrote %d bytes to %s in %dms", c, p.Pretty(), elapsed.Milliseconds())
 	n.payloadSent = true
 	if n.payloadReceived {
 		n.runenv.Message("payload sent and received. signalling test end")
@@ -187,17 +204,6 @@ func (n *node) initiateTransfer(p peer.ID) {
 	} else {
 		n.runenv.Message("payload sent, awaiting transfer from remote peer to complete test")
 	}
-}
-
-func makePayload(n int) []byte {
-	buf := make([]byte, n)
-	reader := rand.New(rand.NewSource(2))
-	_, err := reader.Read(buf)
-	if err != nil {
-		panic(fmt.Sprintf("error reading random data: %s", err))
-	}
-
-	return buf
 }
 
 func (n *node) signal(stateName string) error {
