@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	libp2p "github.com/libp2p/go-libp2p"
 	core "github.com/libp2p/go-libp2p-core"
+	"github.com/libp2p/go-libp2p-core/crypto"
 	host "github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/peerstore"
-	noise "github.com/libp2p/go-libp2p-noise"
-	secio "github.com/libp2p/go-libp2p-secio"
-	tls "github.com/libp2p/go-libp2p-tls"
 	"math/rand"
 	"time"
 )
@@ -23,11 +20,10 @@ var (
 	metricTimeToTransfer = &runtime.MetricDefinition{Name: "transfer_time", Unit: "ns", ImprovementDir: -1}
 )
 
-func TestDataTransfer(runenv *runtime.RunEnv) {
+func TestDataTransfer(runenv *runtime.RunEnv) error {
 	n, err := makeNode(runenv)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	if n.isInitiator {
@@ -37,13 +33,12 @@ func TestDataTransfer(runenv *runtime.RunEnv) {
 
 	err = n.waitForAll("end")
 	if err != nil {
-		runenv.Abort(fmt.Errorf("error waiting for peers to signal test end: %s", err))
 		n.teardown()
-		return
+		return fmt.Errorf("error waiting for peers to signal test end: %s", err)
 	}
 
-	runenv.OK()
 	n.teardown()
+	return nil
 }
 
 type node struct {
@@ -77,7 +72,14 @@ func makeNode(runenv *runtime.RunEnv) (*node, error) {
 		writer.Close()
 	}
 
-	h, err := libp2p.New(ctx, securityOptForChannel(channelName))
+
+
+	//h, err := bhost.NewBlankHost()
+	priv, _, err := crypto.GenerateKeyPair(crypto.Ed25519, 256)
+	if err != nil {
+		return nil, fmt.Errorf("error generating keypair: %w", err)
+	}
+	h, err := newHost(ctx, channelName, priv)
 	if err != nil {
 		return nil, fmt.Errorf("error constructing libp2p host: %s", err)
 	}
@@ -140,10 +142,10 @@ func (n *node) handleStream(stream core.Stream) {
 	buf := make([]byte, n.payloadSize)
 	c, err := stream.Read(buf)
 	if err != nil {
-		n.runenv.Abort(fmt.Errorf("error reading from stream: %s", err))
+		panic(fmt.Errorf("error reading from stream: %s", err))
 	}
 	if c != n.payloadSize {
-		n.runenv.Abort(fmt.Errorf("expected to read %d bytes, received %d", n.payloadSize, c))
+		panic(fmt.Errorf("expected to read %d bytes, received %d", n.payloadSize, c))
 	}
 
 	n.runenv.Message("read %d bytes from %s", c, remotePeer.Pretty())
@@ -162,8 +164,7 @@ func (n *node) initiateTransfer(p peer.ID) {
 
 	stream, err := n.host.NewStream(n.ctx, p, protocolID)
 	if err != nil {
-		n.runenv.Abort(fmt.Errorf("error opening stream to %s: %s", p.Pretty(), err))
-		return
+		panic(fmt.Errorf("error opening stream to %s: %s", p.Pretty(), err))
 	}
 
 	startTime := time.Now()
@@ -171,10 +172,10 @@ func (n *node) initiateTransfer(p peer.ID) {
 	elapsed := time.Now().Sub(startTime).Nanoseconds()
 
 	if err != nil {
-		n.runenv.Abort(fmt.Errorf("error writing to stream: %s", err))
+		panic(fmt.Errorf("error writing to stream: %s", err))
 	}
 	if c != n.payloadSize {
-		n.runenv.Abort(fmt.Errorf("expected to write %d bytes, wrote %d", n.payloadSize, c))
+		panic(fmt.Errorf("expected to write %d bytes, wrote %d", n.payloadSize, c))
 	}
 
 	n.runenv.EmitMetric(metricTimeToTransfer, float64(elapsed))
@@ -231,19 +232,6 @@ func (n *node) signalAndWaitForAll(stateName string) error {
 	}
 
 	return n.waitForAll(stateName)
-}
-
-func securityOptForChannel(channelName string) libp2p.Option {
-	switch channelName {
-	case "secio":
-		return libp2p.Security(secio.ID, secio.New)
-	case "tls":
-		return libp2p.Security(tls.ID, tls.New)
-	case "noise":
-		return libp2p.Security(noise.ID, noise.Maker())
-	}
-
-	panic("unknown secure_channel option " + channelName)
 }
 
 func addrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Duration) ([]peer.AddrInfo, error) {
