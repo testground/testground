@@ -24,10 +24,10 @@ import (
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
-	libp2p "github.com/libp2p/go-libp2p"
 	core "github.com/libp2p/go-libp2p-core"
 	"github.com/multiformats/go-multihash"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 // Adapted from the netflix/p2plab repo under an Apache-2 license.
@@ -47,6 +47,21 @@ func CreateBlockstore(ctx context.Context, bstoreDelay time.Duration) (blockstor
 	return blockstore.CachedBlockstore(ctx,
 		blockstore.NewBlockstore(ds_sync.MutexWrap(dstore)),
 		blockstore.DefaultCacheOpts())
+}
+
+func ClearBlockstore(ctx context.Context, bstore blockstore.Blockstore) error {
+	ks, err := bstore.AllKeysChan(ctx)
+	if err != nil {
+		return err
+	}
+	g := errgroup.Group{}
+	for k := range ks {
+		c := k
+		g.Go(func() error {
+			return bstore.DeleteBlock(c)
+		})
+	}
+	return g.Wait()
 }
 
 func CreateBitswapNode(ctx context.Context, h core.Host, bstore blockstore.Blockstore) (*Node, error) {
