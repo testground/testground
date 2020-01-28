@@ -26,6 +26,11 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
 
+	ctx, err := monitorEvents(ctx, runenv)
+	if err != nil {
+		return err
+	}
+
 	watcher, writer := sync.MustWatcherWriter(runenv)
 	defer watcher.Close()
 	defer writer.Close()
