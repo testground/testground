@@ -2,11 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 	"math/rand"
 	"reflect"
 	"time"
+
+	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 // ExampleSync demonstrates synchronization between instances in the test group.
