@@ -85,7 +85,7 @@ var ConnManagerGracePeriod = 1 * time.Second
 func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, undialable bool) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
 
-	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 1.2)
+	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
 	max := int(float64(min) * 1.1)
 
 	// We need enough connections to be able to trim some and still have a
@@ -446,6 +446,64 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 					}
 				}
 			}
+		case opts.NBootstrap == -2:
+			/*
+				Connect to log(n) of the network and then bootstrap
+			*/
+			targetSize := int(math.Log2(float64(len(peers)+1)) / 2)
+			plist := make([]*NodeInfo, len(peers)+1)
+			for _, info := range peers {
+				plist[info.seq] = info
+			}
+			plist[node.info.seq] = node.info
+
+			rng := rand.New(rand.NewSource(0))
+			rng.Shuffle(len(plist), func(i, j int) {
+				plist[i], plist[j] = plist[j], plist[i]
+			})
+
+			index := -1
+			for i, info := range plist {
+				if info.seq == node.info.seq {
+					index = i
+				}
+			}
+
+			minIndex := index - targetSize
+			maxIndex := index + targetSize
+
+			switch {
+			case minIndex < 0:
+				wrapIndex := len(plist) + minIndex
+				minIndex = 0
+
+				for _, info := range plist[wrapIndex:] {
+					if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
+						toDial = append(toDial, *info.addrs)
+					}
+				}
+			case maxIndex > len(plist):
+				wrapIndex := maxIndex - len(plist) + 1
+				maxIndex = len(plist)
+
+				for _, info := range plist[:wrapIndex] {
+					if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
+						toDial = append(toDial, *info.addrs)
+					}
+				}
+			}
+
+			for _, info := range plist[minIndex:index] {
+				if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
+					toDial = append(toDial, *info.addrs)
+				}
+			}
+
+			for _, info := range plist[index+1 : maxIndex] {
+				if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
+					toDial = append(toDial, *info.addrs)
+				}
+			}
 		}
 	}
 
@@ -475,6 +533,8 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	////////////////
 
 	runenv.Message("bootstrap: begin routing")
+
+	outputGraph(node.host, runenv, "br")
 
 	// Setup our routing tables.
 	if err := <-dht.RefreshRoutingTable(); err != nil {
