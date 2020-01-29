@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -81,6 +83,12 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 
 	testcase := plan.TestCases[seq]
 
+	// Create the assets directory
+	assetsDir := filepath.Join(input.EnvConfig.WorkDir(), input.TestPlan.Name, input.RunID, "assets")
+	if err := os.MkdirAll(assetsDir, 0777); err != nil {
+		return nil, err
+	}
+
 	// Build a runenv.
 	runenv := &runtime.RunEnv{
 		TestPlan:           input.TestPlan.Name,
@@ -91,6 +99,7 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        false,
 		TestSubnet:         localSubnet,
+		TestAssetsDir:      assetsDir,
 	}
 
 	// Spawn as many instances as the input parameters require.
