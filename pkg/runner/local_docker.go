@@ -107,7 +107,7 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        true,
-		TestArtifacts:      "/artifacts",
+		TestAssetsDir:      "/artifacts",
 	}
 
 	// Create a docker client.
@@ -219,7 +219,7 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 			Mounts: []mount.Mount{{
 				Type:   mount.TypeBind,
 				Source: artifactDir,
-				Target: runenv.TestArtifacts,
+				Target: runenv.TestAssetsDir,
 			}},
 		}
 

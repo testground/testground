@@ -64,7 +64,7 @@ func (re *RunEnv) CreateRandomDirectory(directoryPath string, depth uint) (strin
 //
 // Test artifacts will be saved when the test terminates and available for
 // further investigation. You can also manually create test
-// artifacts/directories under re.TestArtifacts.
+// artifacts/directories under re.TestAssetsDir.
 func (re *RunEnv) CreateArtifact(name string) (*os.File, error) {
-	return os.Create(filepath.Join(re.TestArtifacts, name))
+	return os.Create(filepath.Join(re.TestAssetsDir, name))
 }

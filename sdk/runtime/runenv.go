@@ -46,7 +46,7 @@ type RunEnv struct {
 	TestBranch string `json:"test_branch,omitempty"`
 	TestTag    string `json:"test_tag,omitempty"`
 
-	TestArtifacts string `json:"test_artifacts,omitempty"`
+	TestAssetsDir string `json:"test_assets_dir,omitempty"`
 
 	TestInstanceCount  int               `json:"test_instance_count"`
 	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
