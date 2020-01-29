@@ -9,7 +9,7 @@ coverage:
         # Commits pushed to master should not make the overall
         # project coverage decrease by more than 5%:
         target: auto
-        threshold: 5%
+        threshold: 100%
     patch:
       default:
         # https://docs.codecov.io/docs/commit-status#section-informational
@@ -22,4 +22,4 @@ coverage:
         # extension:
         # https://github.com/codecov/browser-extension
         target: auto
-        threshold: 5%
+        threshold: 100%
