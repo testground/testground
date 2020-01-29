@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strconv"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
@@ -83,9 +84,8 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 
 	testcase := plan.TestCases[seq]
 
-	// Create the assets directory
-	assetsDir := filepath.Join(input.EnvConfig.WorkDir(), input.TestPlan.Name, input.RunID, "assets")
-	if err := os.MkdirAll(assetsDir, 0777); err != nil {
+	runDir, err := getRunDir(input)
+	if err != nil {
 		return nil, err
 	}
 
@@ -99,7 +99,6 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        false,
 		TestSubnet:         localSubnet,
-		TestAssetsDir:      assetsDir,
 	}
 
 	// Spawn as many instances as the input parameters require.
@@ -115,12 +114,17 @@ func (*LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow i
 		_ = console.Wait()
 	}()
 
-	var env []string
-	for k, v := range runenv.ToEnvVars() {
-		env = append(env, k+"="+v)
-	}
-
 	for i := 0; i < instances; i++ {
+		runenv.TestAssetsDir = filepath.Join(runDir, strconv.Itoa(i))
+		if err := os.MkdirAll(runenv.TestAssetsDir, 0777); err != nil {
+			return nil, err
+		}
+
+		var env []string
+		for k, v := range runenv.ToEnvVars() {
+			env = append(env, k+"="+v)
+		}
+
 		logging.S().Infow("starting test case instance", "testcase", name, "runenv", env)
 		id := fmt.Sprintf("instance %3d", i)
 

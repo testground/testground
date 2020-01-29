@@ -3,6 +3,10 @@ package runner
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+
+	"github.com/ipfs/testground/pkg/api"
 )
 
 // Use consistent IP address ranges for both the data and the control subnet.
@@ -24,4 +28,20 @@ func nextDataNetwork(lenNetworks int) (string, string, error) {
 	gateway := fmt.Sprintf("%d.%d.0.1", a, b)
 
 	return subnet, gateway, nil
+}
+
+func getWorkDir(input *api.RunInput) (string, error) {
+	path := filepath.Join(input.EnvConfig.WorkDir(), "results")
+	err := os.MkdirAll(path, 0777)
+	return path, err
+}
+
+func getRunDir(input *api.RunInput) (string, error) {
+	workDir, err := getWorkDir(input)
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(workDir, input.TestPlan.Name, input.RunID)
+	err = os.MkdirAll(path, 0777)
+	return path, err
 }

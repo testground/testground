@@ -147,8 +147,8 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 	}
 
 	// Ensure the work dir.
-	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
-	if err := os.MkdirAll(workDir, 0777); err != nil {
+	workDir, err := getWorkDir(input)
+	if err != nil {
 		return nil, err
 	}
 
@@ -163,9 +163,8 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 		return nil, err
 	}
 
-	// Create the run output directory and write the runenv.
-	runDir := filepath.Join(workDir, input.TestPlan.Name, input.RunID)
-	if err := os.MkdirAll(runDir, 0777); err != nil {
+	runDir, err := getRunDir(input)
+	if err != nil {
 		return nil, err
 	}
 	if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
