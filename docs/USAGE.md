@@ -212,32 +212,41 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv){
+var testCases = []func(*runtime.RunEnv) error {
    test.MyTest1,
    test.MyTest2,
    // add any other tests you have in ./test
 }
 
 func main() {
-	runenv := runtime.CurrentRunEnv()
+	runtime.Invoke(run)
+}
+
+func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
 	}
 
 	// Demux to the right test case.
-	testCases[runenv.TestCaseSeq](runenv)
+	return testCases[runenv.TestCaseSeq](runenv)
 }
 ```
 
 Each test, in this case, will be created under the subdirectory `./test`. For example, for `test.MyTest1`, it must be a function with the following signature:
 
 ```go
-func MyTest1(runenv *runtime.RunEnv) {
+func MyTest1(runenv *runtime.RunEnv) error {
 	// Your test...
 }
 ```
 
-Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), such as `runenv.Ok()` and `runenv.Abort(error)`.
+Returning `nil` from a test case indicates that it completed successfully. If you return an error from a test case,
+the runner will tear down the test, and the test outcome will be `"aborted"`. You can also halt test
+execution by `panic`-ing, which causes the outcome to be recorded as `"crashed"`.
+
+Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), 
+such as [`runenv.Message`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.Message) and 
+[`runenv.EmitMetric`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.EmitMetric).
 
 To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/ipfs/testground/sdk/runtime).
 
@@ -246,7 +255,7 @@ To get custom parameters, passed via the flag `--test-param`, you can use the [p
 To use `myparam`, you should pass it to the test as `--test-param myparam="some value"`.
 
 ```go
-func MyTest1(runenv *runtime.RunEnv) {
+func MyTest1(runenv *runtime.RunEnv) error {
    param, ok := runenv.StringParam("myparam")
    if !ok {
       // Param was not set
@@ -282,8 +291,7 @@ with your test.
 
 ```go
 if err := sync.WaitNetworkInitialized(ctx context.Context, runenv, watcher); err != nil {
-    runtime.Abort(err)
-    return
+    return err // either panic, or make sure err propagates to the test case return value to abort test execution.
 }
 ```
 
