@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: s3bucket
+  namespace: default
+  labels:
+    k8s-app: s3bucket
+spec:
+  selector:
+    matchLabels:
+      name: s3bucket
+  template:
+    metadata:
+      annotations:
+        cni: "flannel"
+      labels:
+        name: s3bucket
+    spec:
+      containers:
+        - name: s3fs
+          image: nonsens3/s3fs
+          imagePullPolicy: Always
+          securityContext:
+            privileged: true
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: ""
+            - name: AWS_SECRET_ACCESS_KEY
+              value: ""
+            - name: S3_BUCKET
+              value: "assets-s3-bucket"
+            - name: MNT_POINT
+              value: "/s3fs-mount"
+            - name: S3_ENDPOINT
+              value: "https://s3.eu-central-1.amazonaws.com:443"
+            - name: S3_EXTRAVARS
+              value: ",use_path_request_style"
+          volumeMounts:
+            - name: s3-shared
+              mountPath: /s3fs-mount
+              mountPropagation: Bidirectional
+      volumes:
+      - name: s3-shared
+        hostPath:
+          path: /mnt
+          type: DirectoryOrCreate

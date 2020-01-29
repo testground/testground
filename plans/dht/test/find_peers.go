@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -21,6 +22,14 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 	if opts.NFindPeers > runenv.TestInstanceCount {
 		return fmt.Errorf("NFindPeers greater than the number of test instances")
+	}
+
+	d1 := []byte("hello\nfrom\nme")
+
+	runenv.Message(fmt.Sprintf("path is: %s", runenv.TestArtifacts))
+	err := ioutil.WriteFile(runenv.TestArtifacts+"/dat1", d1, 0644)
+	if err != nil {
+		runenv.Message(fmt.Sprintf("problem writing to TestArtifacts: err: %v", err))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)

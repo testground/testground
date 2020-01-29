@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,11 +19,10 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
-	v1batch "k8s.io/api/batch/v1"
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,6 +115,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestInstanceCount:  input.Instances,
 		TestInstanceParams: input.Parameters,
 		TestSidecar:        true,
+		TestArtifacts:      "/artifacts",
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -146,67 +148,156 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	// Define k8s client configuration
 	config := defaultKubernetesConfig()
-	k8scfg, err := clientcmd.BuildConfigFromFlags("", config.KubeConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("could not start k8s client from config: %v", err)
-	}
 
-	// Create the clientset
-	clientset, err := kubernetes.NewForConfig(k8scfg)
+	workers := 20
+	pool, err := NewPool(workers, config)
 	if err != nil {
-		return nil, fmt.Errorf("could not create clientset: %v", err)
+		return nil, err
 	}
 
 	var (
-		sname    = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
 		replicas = uint64(input.Instances)
 	)
 
-	log.Infow("creating k8s deployment", "name", sname, "image", image, "replicas", replicas)
-
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
 
-	// Create Kubernetes Job
-	jobRequest := &v1batch.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: jobName,
-			Labels: map[string]string{
-				"testground.plan":     input.TestPlan.Name,
-				"testground.testcase": testcase.Name,
-				"testground.runid":    input.RunID,
-			},
-		},
-		Spec: v1batch.JobSpec{
-			Parallelism:             int32Ptr(int32(replicas)),
-			Completions:             int32Ptr(int32(replicas)),
-			TTLSecondsAfterFinished: int32Ptr(600),
-			Template: v1.PodTemplateSpec{
+	log.Infow("deploying testground testplan run on k8s", "job-name", jobName, "image", image, "replicas", replicas)
+
+	mode := v1.MountPropagationHostToContainer
+	hostpathtype := v1.HostPathType("DirectoryOrCreate")
+
+	var g errgroup.Group
+
+	g.Go(func() error {
+		client, err := pool.Get(ctx)
+		if err != nil {
+			return err
+		}
+		defer pool.Put(client)
+
+		start := time.Now()
+		for {
+			if time.Since(start) > 10*time.Minute {
+				return errors.New("global timeout")
+			}
+			time.Sleep(5000 * time.Millisecond)
+
+			list := func(state string) int {
+				fieldSelector := fmt.Sprintf("status.phase=%s", state)
+				opts := metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("testground.runid=%s", input.RunID),
+					FieldSelector: fieldSelector,
+				}
+				res, err := client.CoreV1().Pods(config.Namespace).List(opts)
+				if err != nil {
+					log.Warnw("k8s client pods list error", "err", err.Error())
+					return -1
+				}
+				return len(res.Items)
+			}
+
+			results := map[string]int{}
+			var resultsMu sync.Mutex
+			states := []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+
+			var wg sync.WaitGroup
+			wg.Add(len(states))
+			for _, state := range states {
+				state := state
+				go func() {
+					defer wg.Done()
+
+					result := list(state)
+
+					resultsMu.Lock()
+					results[state] = result
+					resultsMu.Unlock()
+				}()
+			}
+			wg.Wait()
+
+			log.Debugw("testplan state", "succeeded", results["Succeeded"], "running", results["Running"], "pending", results["Pending"], "failed", results["Failed"], "unknown", results["Unknown"])
+
+			if results["Succeeded"] == int(replicas) {
+				return nil
+			}
+		}
+
+		return nil
+	})
+
+	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
+
+	for i := uint64(1); i <= replicas; i++ {
+		i := i
+		sem <- struct{}{}
+
+		podName := fmt.Sprintf("%s-%d", jobName, i)
+
+		defer func() {
+			if cfg.KeepService {
+				return
+			}
+			client, err := pool.Get(ctx)
+			if err != nil {
+				log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
+			}
+			defer pool.Put(client)
+			err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
+			if err != nil {
+				log.Errorw("couldn't remove pod", "pod", podName, "err", err)
+			}
+		}()
+
+		g.Go(func() error {
+			defer func() { <-sem }()
+
+			client, err := pool.Get(ctx)
+			if err != nil {
+				return err
+			}
+			defer pool.Put(client)
+
+			mnt := v1.HostPathVolumeSource{
+				Path: fmt.Sprintf("/mnt/%s/%s", input.RunID, podName),
+				Type: &hostpathtype,
+			}
+
+			// Create Kubernetes Pod
+			podRequest := &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
+					Name: podName,
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
 						"testground.runid":    input.RunID,
 					},
-					Annotations: map[string]string{
-						"cni": "flannel",
-					},
+					Annotations: map[string]string{"cni": "flannel"},
 				},
 				Spec: v1.PodSpec{
-					SecurityContext: &v1.PodSecurityContext{
-						Sysctls: []v1.Sysctl{
-							{
-								Name:  "net.core.somaxconn",
-								Value: "10000",
-							},
+					Volumes: []v1.Volume{
+						{
+							Name:         "s3-shared",
+							VolumeSource: v1.VolumeSource{HostPath: &mnt},
 						},
+					},
+					SecurityContext: &v1.PodSecurityContext{
+						Sysctls: []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}},
 					},
 					RestartPolicy: v1.RestartPolicyNever,
 					Containers: []v1.Container{
 						{
-							Name:  jobName,
+							Name:  podName,
 							Image: image,
 							Args:  []string{},
 							Env:   env,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:             "s3-shared",
+									MountPath:        runenv.TestArtifacts,
+									MountPropagation: &mode,
+								},
+							},
 							Resources: v1.ResourceRequirements{
 								Limits: v1.ResourceList{
 									v1.ResourceMemory: resource.MustParse("100Mi"),
@@ -216,45 +307,38 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 						},
 					},
 				},
-			},
-		},
+			}
+
+			_, err = client.CoreV1().Pods(config.Namespace).Create(podRequest)
+			return err
+		})
 	}
 
-	_, err = clientset.BatchV1().Jobs(config.Namespace).Create(jobRequest)
+	err = g.Wait()
 	if err != nil {
 		return nil, err
 	}
 
-	defer func() {
-		log.Debugw("configuration for job", "keep_service", cfg.KeepService)
-		if cfg.KeepService {
-			log.Info("skipping removing the job due to user request")
-			return
-		}
-		err := clientset.BatchV1().Jobs(config.Namespace).Delete(jobName, &metav1.DeleteOptions{})
-		if err != nil {
-			log.Errorw("couldn't remove job", "job", jobName, "err", err)
-		}
-	}()
+	for i := uint64(1); i <= replicas; i++ {
+		i := i
+		sem <- struct{}{}
 
-	// Wait for job
-	start := time.Now()
-	for {
-		job, err := clientset.BatchV1().Jobs(config.Namespace).Get(jobName, metav1.GetOptions{})
-		if err != nil {
-			log.Warnw("transient job error", "job", jobName, "err", err)
-			time.Sleep(300 * time.Millisecond)
-			continue
-		}
+		g.Go(func() error {
+			defer func() { <-sem }()
 
-		log.Debugw("job status", "job", jobName, "active", job.Status.Active, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
-		if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
-			break
-		}
-		if time.Since(start) > 10*time.Minute {
-			return nil, errors.New("timeout")
-		}
-		time.Sleep(2000 * time.Millisecond)
+			client, err := pool.Get(ctx)
+			if err != nil {
+				return err
+			}
+			defer pool.Put(client)
+
+			podName := fmt.Sprintf("%s-%d", jobName, i)
+
+			logs := getPodLogs(client, podName)
+
+			fmt.Print(logs)
+			return nil
+		})
 	}
 
 	out := &api.RunOutput{RunnerID: "smth"}
@@ -274,3 +358,26 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 }
 
 func int32Ptr(i int32) *int32 { return &i }
+
+func int64Ptr(i int64) *int64 { return &i }
+
+func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
+	podLogOpts := v1.PodLogOptions{
+		TailLines: int64Ptr(2),
+	}
+	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
+	podLogs, err := req.Stream()
+	if err != nil {
+		return "error in opening stream"
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "error in copy information from podLogs to buf"
+	}
+	str := buf.String()
+
+	return str
+}

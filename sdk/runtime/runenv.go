@@ -30,6 +30,7 @@ const (
 	EnvTestInstanceCount  = "TEST_INSTANCE_COUNT"
 	EnvTestInstanceRole   = "TEST_INSTANCE_ROLE"
 	EnvTestInstanceParams = "TEST_INSTANCE_PARAMS"
+	EnvTestArtifacts      = "TEST_ARTIFACTS"
 
 	// runEnvContextKey key = iota
 )
@@ -90,6 +91,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestInstanceCount:  strconv.Itoa(re.TestInstanceCount),
 		EnvTestInstanceRole:   re.TestInstanceRole,
 		EnvTestInstanceParams: packParams(re.TestInstanceParams),
+		EnvTestArtifacts:      re.TestArtifacts,
 	}
 
 	return out
@@ -182,6 +184,7 @@ func CurrentRunEnv() *RunEnv {
 		TestTag:            os.Getenv(EnvTestTag),
 		TestBranch:         os.Getenv(EnvTestBranch),
 		TestRepo:           os.Getenv(EnvTestRepo),
+		TestArtifacts:      os.Getenv(EnvTestArtifacts),
 		TestSubnet:         toNet(os.Getenv(EnvTestSubnet)),
 		TestCaseSeq:        toInt(os.Getenv(EnvTestCaseSeq)),
 		TestInstanceCount:  toInt(os.Getenv(EnvTestInstanceCount)),

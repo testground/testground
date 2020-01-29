@@ -91,7 +91,10 @@ kubectl -n kube-system get pods -o wide
 8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
 
 ```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
+              -f ./infra/k8s/kops-weave/dummy.yml \
+              -f ./infra/k8s/kops-weave/weave.yml \
+              -f ./infra/k8s/kops-weave/s3bucket.yml
 ```
 
 9. Destroy the cluster when you're done working on it
