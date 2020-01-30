@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -24,62 +25,109 @@ var runners = func() []string {
 
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
-	Name:      "run",
-	Usage:     "(builds and) runs test case with name `<testplan>/<testcase>`. List test cases with `list` command",
-	Action:    runCommand,
-	ArgsUsage: "[name]",
-	Flags: append(
-		BuildCommand.Flags, // inject all build command flags.
-		cli.GenericFlag{
-			Name: "runner, r",
-			Value: &EnumValue{
-				Allowed: runners,
-				Default: "local:exec",
+	Name:  "run",
+	Usage: "(Builds and) runs a test case. List test cases with the `list` command.",
+	Subcommands: cli.Commands{
+		cli.Command{
+			Name:    "composition",
+			Aliases: []string{"c"},
+			Usage:   "(Builds and) runs a composition.",
+			Action:  runCompositionCmd,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "file, f",
+					Usage: "path to a composition `FILE`",
+				},
+				cli.BoolFlag{
+					Name:  "write-artifacts, w",
+					Usage: "Writes the resulting build artifacts to the composition file.",
+				},
+				cli.BoolFlag{
+					Name:  "ignore-artifacts, i",
+					Usage: "Ignores any build artifacts present in the composition file.",
+				},
 			},
-			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
-		cli.StringFlag{
-			Name:  "use-build, ub",
-			Usage: "specifies the artifact to use (from a previous build)",
+		cli.Command{
+			Name:      "single",
+			Aliases:   []string{"s"},
+			Usage:     "(Builds and) runs a single group.",
+			Action:    runSingleCmd,
+			ArgsUsage: "[name]",
+			Flags: append(
+				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
+				cli.GenericFlag{
+					Name: "runner, r",
+					Value: &EnumValue{
+						Allowed: runners,
+						Default: "local:exec",
+					},
+					Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
+				},
+				cli.StringFlag{
+					Name:  "use-build, ub",
+					Usage: "specifies the artifact to use (from a previous build)",
+				},
+				cli.UintFlag{
+					Name:  "instances, i",
+					Usage: "number of instances of the test case to run",
+				},
+				cli.StringSliceFlag{
+					Name:  "run-cfg",
+					Usage: "override runner configuration",
+				},
+				cli.StringSliceFlag{
+					Name:  "test-param, p",
+					Usage: "provide a test parameter",
+				},
+			),
 		},
-		cli.UintFlag{
-			Name:  "instances, i",
-			Usage: "number of instances of the test case to run",
-		},
-		cli.StringSliceFlag{
-			Name:  "run-cfg",
-			Usage: "override runner configuration",
-		},
-		cli.StringSliceFlag{
-			Name:  "test-param, p",
-			Usage: "provide a test parameter",
-		},
-	),
+	},
 }
 
-func runCommand(c *cli.Context) (err error) {
+func runCompositionCmd(c *cli.Context) (err error) {
 	comp := new(api.Composition)
-	if file := c.String("file"); file != "" {
-		if c.NumFlags() > 2 {
-			// NumFlags counts 1 flag per variant, i.e. f and file are
-			// considered towards the count, despite one being an alias for the
-			// other.
-			return fmt.Errorf("composition files are incompatible with all other CLI flags")
-		}
+	file := c.String("file")
+	if file == "" {
+		return fmt.Errorf("no composition file supplied")
+	}
 
-		if _, err = toml.DecodeFile(file, comp); err != nil {
-			return fmt.Errorf("failed to process composition file: %w", err)
-		}
+	if _, err = toml.DecodeFile(file, comp); err != nil {
+		return fmt.Errorf("failed to process composition file: %w", err)
+	}
 
-		if err = comp.Validate(); err != nil {
-			return fmt.Errorf("invalid composition file: %w", err)
+	if err = comp.Validate(); err != nil {
+		return fmt.Errorf("invalid composition file: %w", err)
+	}
+
+	err = doRun(c, comp)
+	if err != nil {
+		return err
+	}
+
+	if c.Bool("write-artifacts") {
+		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write composition to file: %w", err)
 		}
-	} else {
-		if comp, err = createSingletonComposition(c); err != nil {
-			return err
+		enc := toml.NewEncoder(f)
+		if err := enc.Encode(comp); err != nil {
+			return fmt.Errorf("failed to encode composition into file: %w", err)
 		}
 	}
 
+	return nil
+}
+
+func runSingleCmd(c *cli.Context) (err error) {
+	comp := new(api.Composition)
+	if comp, err = createSingletonComposition(c); err != nil {
+		return err
+	}
+	return doRun(c, comp)
+}
+
+func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	cl, err := setupClient(c)
 	if err != nil {
 		return err
@@ -90,40 +138,30 @@ func runCommand(c *cli.Context) (err error) {
 
 	// Check if we have any groups without an build artifact; if so, trigger a
 	// build for those.
-	var retain []int
+	var buildIdx []int
+	ignore := c.Bool("ignore-artifacts")
 	for i, grp := range comp.Groups {
-		if grp.Run.Artifact == "" {
-			retain = append(retain, i)
+		if grp.Run.Artifact == "" || ignore {
+			buildIdx = append(buildIdx, i)
 		}
 	}
 
-	if len(retain) > 0 {
-		bcomp, err := comp.PickGroups(retain...)
+	if len(buildIdx) > 0 {
+		bcomp, err := comp.PickGroups(buildIdx...)
 		if err != nil {
 			return err
 		}
 
-		resp, err := cl.Build(ctx, &client.BuildRequest{Composition: bcomp})
-		switch err {
-		case nil:
-			// noop
-		case context.Canceled:
-			return fmt.Errorf("interrupted")
-		default:
-			return fmt.Errorf("fatal error from daemon: %w", err)
-		}
-
-		defer resp.Close() // yeah, Close could be called sooner, but it's not worth the verbosity.
-
-		bout, err := client.ParseBuildResponse(resp)
+		bout, err := doBuild(c, &bcomp)
 		if err != nil {
 			return err
 		}
 
 		// Populate the returned build IDs.
-		for i, groupIdx := range retain {
-			logging.S().Infow("generated build artifact", "group", comp.Groups[groupIdx].ID, "artifact", bout[i].ArtifactPath)
-			comp.Groups[groupIdx].Run.Artifact = bout[i].ArtifactPath
+		for i, groupIdx := range buildIdx {
+			g := &comp.Groups[groupIdx]
+			logging.S().Infow("generated build artifact", "group", g.ID, "artifact", bout[i].ArtifactPath)
+			g.Run.Artifact = bout[i].ArtifactPath
 		}
 	}
 
