@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -11,7 +10,6 @@ import (
 
 func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("****************")
 		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
 
 		log.Debugw("handle request", "command", "list")

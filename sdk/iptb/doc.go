@@ -12,7 +12,7 @@
 // each node as well.
 //
 // Once the specification work is over, the ensemble can be initialized by
-// calling the Healthcheck() method.
+// calling the Initialize() method.
 //
 // This creates the desired IPTB testbed and encapsulates it within a
 // TestEnsemble with friendly accessors to grab the instantiated nodes by tag,

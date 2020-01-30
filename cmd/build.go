@@ -3,13 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/testground/pkg/logging"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/engine"
+	"github.com/ipfs/testground/pkg/logging"
 
+	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
 )
 
