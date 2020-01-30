@@ -24,11 +24,20 @@ spec:
             privileged: true
           env:
             - name: AWS_ACCESS_KEY_ID
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: assets-s3-bucket
+                  key: access-key
             - name: AWS_SECRET_ACCESS_KEY
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: assets-s3-bucket
+                  key: secret-key
             - name: S3_BUCKET
-              value: "assets-s3-bucket"
+              valueFrom:
+                secretKeyRef:
+                  name: assets-s3-bucket
+                  key: bucket-name
             - name: MNT_POINT
               value: "/s3fs-mount"
             - name: S3_ENDPOINT

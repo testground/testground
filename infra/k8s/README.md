@@ -32,7 +32,16 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ## Set up infrastructure with kops
 
-1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
+1a. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
+
+1b. Get secrets for the S3 assets bucket from 1Password. You might want to persist those in your `rc` file.
+```
+eval $(op signin protocollabs)
+
+export ASSETS_BUCKET_NAME=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="bucket-name").v' | tr -d '"')
+export ASSETS_ACCESS_KEY=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="access-key").v' | tr -d '"')
+export ASSETS_SECRET_KEY=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="secret-key").v' | tr -d '"')
+```
 
 2. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
@@ -86,6 +95,13 @@ kops update cluster $NAME --yes
 watch 'kubectl get nodes -o wide'
 
 kubectl -n kube-system get pods -o wide
+```
+
+8. Add AWS Assets S3 bucket secrets to Kubernetes
+```
+kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSETS_ACCESS_KEY" \
+                                               --from-literal=secret-key="$ASSETS_SECRET_KEY" \
+                                               --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
 ```
 
 8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
