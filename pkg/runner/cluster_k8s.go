@@ -199,11 +199,13 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
+	var gg errgroup.Group
+
 	for i := 1; i <= replicas; i++ {
 		i := i
 		sem <- struct{}{}
 
-		g.Go(func() error {
+		gg.Go(func() error {
 			defer func() { <-sem }()
 
 			client, err := pool.Get(ctx)
@@ -219,6 +221,11 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			fmt.Print(logs)
 			return nil
 		})
+	}
+
+	err = gg.Wait()
+	if err != nil {
+		return nil, err
 	}
 
 	return &api.RunOutput{}, nil
