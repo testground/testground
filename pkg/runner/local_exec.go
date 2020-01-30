@@ -155,3 +155,8 @@ func (*LocalExecutableRunner) ConfigType() reflect.Type {
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	return []string{"exec:go"}
 }
+
+func (*LocalExecutableRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+	// TODO
+	panic("unimplemented")
+}

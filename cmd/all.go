@@ -20,6 +20,7 @@ var Commands = []cli.Command{
 	DescribeCommand,
 	SidecarCommand,
 	DaemonCommand,
+	CollectCommand,
 }
 
 var Flags = []cli.Flag{

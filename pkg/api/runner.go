@@ -27,6 +27,10 @@ type Runner interface {
 	// CompatibleBuilders returns the IDs of the builders whose artifacts this
 	// runner can work with.
 	CompatibleBuilders() []string
+
+	// CollectOutputs gathers the outputs from a run identified by runID and
+	// produces a zip file with the contents.
+	CollectOutputs(runID string) (io.ReadCloser, error)
 }
 
 // RunInput encapsulates the input options for running a test plan.
