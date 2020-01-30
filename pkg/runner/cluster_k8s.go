@@ -89,8 +89,6 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-// TODO runner option to keep containers alive instead of deleting them after
-// the test has run.
 func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
@@ -134,19 +132,16 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			Value: cfg.LogLevel,
 		})
 	}
-
 	redisCfg := v1.EnvVar{
 		Name:  "REDIS_HOST",
 		Value: "redis-headless",
 	}
-
 	env = append(env, redisCfg)
 
-	// Define k8s client configuration
-	config := defaultKubernetesConfig()
+	k8sConfig := defaultKubernetesConfig()
 
 	workers := 20
-	pool, err := NewPool(workers, config)
+	pool, err := NewPool(workers, k8sConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +155,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	replicas := input.Instances
 
 	g.Go(func() error {
-		return monitorTestplanRunState(ctx, pool, log, input.RunID, config.Namespace, int(input.Instances))
+		return monitorTestplanRunState(ctx, pool, log, input.RunID, k8sConfig.Namespace, int(input.Instances))
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -189,7 +184,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		g.Go(func() error {
 			defer func() { <-sem }()
 
-			return createPod(ctx, pool, podName, input, runenv, env, config.Namespace)
+			return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace)
 		})
 	}
 
@@ -220,8 +215,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		})
 	}
 
-	out := &api.RunOutput{RunnerID: "smth"}
-	return out, nil
+	return &api.RunOutput{}, nil
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -269,9 +263,9 @@ func monitorTestplanRunState(ctx context.Context, pool *Pool, log *zap.SugaredLo
 		if time.Since(start) > 10*time.Minute {
 			return errors.New("global timeout")
 		}
-		time.Sleep(5000 * time.Millisecond)
+		time.Sleep(2000 * time.Millisecond)
 
-		list := func(state string) int {
+		countPodsByState := func(state string) int {
 			fieldSelector := fmt.Sprintf("status.phase=%s", state)
 			opts := metav1.ListOptions{
 				LabelSelector: fmt.Sprintf("testground.runid=%s", runID),
@@ -285,8 +279,8 @@ func monitorTestplanRunState(ctx context.Context, pool *Pool, log *zap.SugaredLo
 			return len(res.Items)
 		}
 
-		results := map[string]int{}
-		var resultsMu sync.Mutex
+		counters := map[string]int{}
+		var countersMu sync.Mutex
 		states := []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
 		var wg sync.WaitGroup
@@ -296,18 +290,18 @@ func monitorTestplanRunState(ctx context.Context, pool *Pool, log *zap.SugaredLo
 			go func() {
 				defer wg.Done()
 
-				result := list(state)
+				n := countPodsByState(state)
 
-				resultsMu.Lock()
-				results[state] = result
-				resultsMu.Unlock()
+				countersMu.Lock()
+				counters[state] = n
+				countersMu.Unlock()
 			}()
 		}
 		wg.Wait()
 
-		log.Debugw("testplan state", "succeeded", results["Succeeded"], "running", results["Running"], "pending", results["Pending"], "failed", results["Failed"], "unknown", results["Unknown"])
+		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
-		if results["Succeeded"] == replicas {
+		if counters["Succeeded"] == replicas {
 			return nil
 		}
 	}
