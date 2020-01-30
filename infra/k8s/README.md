@@ -29,6 +29,7 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
 2. [AWS CLI](https://aws.amazon.com/cli)
 3. [helm](https://github.com/helm/helm)
+4. [op](https://support.1password.com/command-line-getting-started/).
 
 ## Set up infrastructure with kops
 
