@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 
 	utils "github.com/ipfs/testground/plans/chew-datasets/utils"
 	"github.com/ipfs/testground/sdk/iptb"
@@ -23,7 +24,7 @@ func (t *IpfsMfsDirSharding) AddRepoOptions() iptb.AddRepoOptions {
 	return nil
 }
 
-func (t *IpfsMfsDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
+func (t *IpfsMfsDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
 		runenv.Message("Running against the Core API")
 		runenv.Message("Not Implemented Yet")
@@ -34,5 +35,5 @@ func (t *IpfsMfsDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 		runenv.Message("Not Implemented Yet")
 	}
 
-	runenv.OK()
+	return fmt.Errorf("not implemented")
 }

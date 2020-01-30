@@ -25,7 +25,7 @@ func (t *IpfsAddDefaults) AddRepoOptions() iptb.AddRepoOptions {
 	return nil
 }
 
-func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) {
+func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
 		runenv.Message("Running against the Core API")
 
@@ -46,8 +46,7 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 		})
 
 		if err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
 
@@ -67,10 +66,8 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 		})
 
 		if err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
-
-	runenv.OK()
+	return nil
 }

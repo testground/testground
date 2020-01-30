@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -24,6 +25,10 @@ const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
 	podCidr              = "100.96.0.0/11"
+)
+
+var (
+	kubeDnsClusterIP = net.IPv4(100, 64, 0, 10)
 )
 
 type K8sInstanceManager struct {
@@ -55,13 +60,16 @@ func (d *K8sInstanceManager) Manage(
 	worker func(ctx context.Context, inst *Instance) error,
 ) error {
 	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(ctx, container)
 		if err != nil {
 			return fmt.Errorf("failed to initialise the container: %w", err)
 		}
 		if inst == nil {
+			logging.S().Debugw("ignoring container", "container", container.ID)
 			return nil
 		}
+		logging.S().Debugw("managing container", "container", container.ID)
 		err = worker(ctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
@@ -75,6 +83,10 @@ func (d *K8sInstanceManager) Close() error {
 }
 
 func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *dockermanager.Container) (inst *Instance, err error) {
+	// TODO: sidecar is racing to modify container network with CNI and pod getting ready
+	// we should probably adjust this function to be called when a pod is in `1/1 Ready` state, and not just listen on the docker socket
+	time.Sleep(20 * time.Second)
+
 	// Get the state/config of the cluster
 	info, err := container.Inspect(ctx)
 	if err != nil {
@@ -94,6 +106,19 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	if !runenv.TestSidecar {
 		return nil, nil
 	}
+
+	////////////
+	//  LOGS  //
+	////////////
+
+	logs, err := container.Logs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	//////////////////
+	//  NETWORKING  //
+	//////////////////
 
 	// Initialise CNI config
 	cninet := libcni.NewCNIConfig(filepath.SplitList("/host/opt/cni/bin"), nil)
@@ -135,61 +160,92 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	}
 
 	// Get the routes to redis. We need to keep these.
-	redisRoutes, err := netlinkHandle.RouteGet(d.redis)
+	redisRoute, err := getRedisRoute(netlinkHandle, d.redis)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+		return nil, fmt.Errorf("cant get route to redis: %s", err)
 	}
-
-	if len(redisRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
-	}
-
-	redisRoute := redisRoutes[0]
+	logging.S().Debugw("got redis route", "route.Src", redisRoute.Src, "route.Dst", redisRoute.Dst, "gw", redisRoute.Gw.String(), "container", container.ID)
 
 	controlLinkRoutes, err := netlinkHandle.RouteList(controlLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
 
-	gw := redisRoute.Gw
+	redisIP := redisRoute.Dst.IP
+
+	routesToBeDeleted := []netlink.Route{}
 
 	// Remove the original routes
 	for _, route := range controlLinkRoutes {
-		if route.Dst != nil && route.Dst.String() == podCidr {
-			fmt.Println("removing route for pod cidr", podCidr)
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete pod cidr route: %v", err)
-			}
+		routeDst := "nil"
+		if route.Dst != nil {
+			routeDst = route.Dst.String()
+		}
 
+		logging.S().Debugw("inspecting controlLink route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+
+		if route.Dst != nil && route.Dst.String() == podCidr {
+			logging.S().Debugw("marking for deletion podCidr dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+			routesToBeDeleted = append(routesToBeDeleted, route)
 			continue
 		}
 
-		if route.Dst != nil && route.Dst.Contains(gw) {
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to delete route while restricting gw route: %v", err)
+		if route.Dst != nil {
+			if route.Dst.Contains(redisIP) {
+				newroute := route
+				newroute.Dst = &net.IPNet{
+					IP:   redisIP,
+					Mask: net.CIDRMask(32, 32),
+				}
+
+				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
+					logging.S().Warnw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+				} else {
+					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				}
 			}
 
-			route.Dst.IP = gw
-			route.Dst.Mask = net.CIDRMask(32, 32)
-
-			if err := netlinkHandle.RouteAdd(&route); err != nil {
-				return nil, fmt.Errorf("failed to add route while restricting gw route: %v", err)
-			}
+			logging.S().Debugw("marking for deletion some dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+			routesToBeDeleted = append(routesToBeDeleted, route)
+			continue
 		}
 
+		logging.S().Debugw("marking for deletion random route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+		routesToBeDeleted = append(routesToBeDeleted, route)
+	}
+
+	// Adding DNS route
+	for _, route := range controlLinkRoutes {
 		if route.Dst == nil && route.Src == nil {
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to drop default route: %v", err)
+			// if default route, get the gw and add a route for DNS
+			dnsRoute := route
+			dnsRoute.Src = nil
+			dnsRoute.Dst = &net.IPNet{
+				IP:   kubeDnsClusterIP,
+				Mask: net.CIDRMask(32, 32),
+			}
+
+			logging.S().Debugw("adding dns route", "container", container.ID)
+			if err := netlinkHandle.RouteAdd(&dnsRoute); err != nil {
+				return nil, fmt.Errorf("failed to add dns route to pod: %v", err)
 			}
 		}
 	}
 
-	// Add specific routes to redis if redis uses this link.
-	if err := netlinkHandle.RouteAdd(&redisRoute); err != nil {
-		return nil, fmt.Errorf("failed to add redis route: %v", err)
+	for _, r := range routesToBeDeleted {
+		routeDst := "nil"
+		if r.Dst != nil {
+			routeDst = r.Dst.String()
+		}
+
+		logging.S().Debugw("really removing route", "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
+		if err := netlinkHandle.RouteDel(&r); err != nil {
+			logging.S().Warnw("failed to really delete route", "route.Src", r.Src, "gw", r.Gw, "route.Dst", routeDst, "container", container.ID, "err", err.Error())
+		}
 	}
 
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
 }
 
 type k8sLink struct {
@@ -236,7 +292,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
 		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
 		// Disconnect and reconnect to change the IP addresses.
-		logging.S().Debug("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
+		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
 		//
 		// NOTE: We probably don't need to do this on local docker.
 		// However, we probably do with swarm.
@@ -382,4 +438,19 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	default:
 		return nil, errors.New("unknown type")
 	}
+}
+
+func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, error) {
+	redisRoutes, err := handle.RouteGet(redisIP)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+	}
+
+	if len(redisRoutes) != 1 {
+		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
+	}
+
+	redisRoute := redisRoutes[0]
+
+	return &redisRoute, nil
 }

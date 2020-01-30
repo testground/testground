@@ -42,7 +42,7 @@ aws s3api create-bucket \
     --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
 ```
 
-3. Pick up a cluster name, and set zone and kops state store
+3. Pick up a cluster name, and set zone and kops state store. You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 
 ```
 export NAME=my-first-cluster-kops.k8s.local
@@ -50,49 +50,51 @@ export KOPS_STATE_STORE=s3://kops-backend-bucket
 export ZONES=eu-central-1a
 ```
 
-4. Create The cluster
+4. Generate the cluster spec. You could reuse it next time you create a cluster.
 
 ```
 kops create cluster \
   --zones $ZONES \
   --master-zones $ZONES \
-  --master-size m4.xlarge \
-  --node-size m4.xlarge \
-  --node-count 2 \
-  --networking cni \
+  --master-size c5.2xlarge \
+  --node-size c5.2xlarge \
+  --node-count 8 \
+  --networking flannel \
   --name $NAME \
-  --yes
+  --dry-run \
+  -o yaml > cluster.yaml
 ```
 
-5. Wait for `master` node to appear in `kubectl get nodes` - it will be in `NotReady` state as we haven't installed any Networking CNI yet.
-
-6. Install Flannel
-
+5. Update `kubelet` section in spec with:
 ```
-kubectl apply -f ./infra/k8s/kops-weave/flannel.yml
-```
-
-7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state.
-
-8. Install CNI-Genie
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml
+  kubelet:
+    anonymousAuth: false
+    maxPods: 200
+    allowedUnsafeSysctls:
+    - net.core.somaxconn
 ```
 
-9. Install Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
-
+6. Create cluster
 ```
-kubectl apply -f ./infra/k8s/kops-weave/dummy.yml
-```
-
-10. Install Weave
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/weave.yml
+kops create -f cluster.yaml
+kops create secret --name $NAME sshpublickey admin -i ~/.ssh/id_rsa.pub
+kops update cluster $NAME --yes
 ```
 
-11. Destroy the cluster when you're done working on it
+7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
+```
+watch 'kubectl get nodes -o wide'
+
+kubectl -n kube-system get pods -o wide
+```
+
+8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+
+```
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
+```
+
+9. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes
@@ -114,7 +116,9 @@ helm repo update
 helm install redis stable/redis --values ./infra/k8s/redis-values.yaml
 ```
 
-3. Create a `Sidecar` service on your Kubernetes cluster.
+3. Wait for `Redis` to be `Ready 1/1`
+
+4. Create a `Sidecar` service on your Kubernetes cluster.
 
 ```
 kubectl apply -f ./infra/k8s/sidecar.yaml
@@ -179,4 +183,5 @@ Testground is still in very early stage of development. It is possible that it c
 
 - [ ] 3. Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
 
-- [ ] 4. We need to decide where Testground is going to publish built docker images - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
+- [X] 4. We need to decide where Testground is going to publish built docker images - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
+Resolution: For now we are using AWS ECR, as clusters are also on AWS.

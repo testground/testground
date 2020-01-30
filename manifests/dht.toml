@@ -42,7 +42,7 @@ instances = { min = 16, max = 10000, default = 16 }
   n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
   bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
   n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
-  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 600 }
+  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
 
 # seq 1
 [[testcases]]

@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +9,8 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
+
+	"go.uber.org/zap/zapcore"
 )
 
 type eventType int
@@ -18,13 +19,14 @@ const (
 	Error eventType = iota
 	Ok
 	Fail
+	Crash
 	Incomplete
 	Message
 	Metric
 )
 
 func (et eventType) String() string {
-	return [...]string{"Error", "Ok", "Fail", "Incomplete", "Message", "Metric"}[et]
+	return [...]string{"Error", "Ok", "Fail", "Crash", "Incomplete", "Message", "Metric"}[et]
 }
 
 // eventLogger logs events to the console / a file / etc
@@ -88,28 +90,68 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 	go func() {
 		defer stderr.Close()
 		defer c.wg.Done()
-		scanner := bufio.NewScanner(stderr)
-		for scanner.Scan() {
-			c.msg(idx, id, time.Now(), Error, scanner.Text())
-		}
-		if err := scanner.Err(); err != nil {
-			c.msg(idx, id, time.Now(), Error, "stderr error: "+err.Error())
+
+		decoder := json.NewDecoder(stderr)
+		for {
+			event := make(map[string]json.RawMessage, 16)
+			if err := decoder.Decode(&event); err != nil {
+				if err != io.EOF {
+					now := time.Now().UnixNano()
+					printMsg(now, Error, "stderr error: "+err.Error())
+				}
+				return
+			}
+
+			var (
+				level               zapcore.Level
+				levelS              string
+				ts                  time.Time
+				name, code, message string
+			)
+
+			// Ignore everything less than a warning.
+			// Unless we can't parse the level.
+			_ = json.Unmarshal(event["L"], &levelS)
+			if err := level.Set(levelS); err == nil && level < zapcore.WarnLevel {
+				continue
+			}
+
+			// Dealing with errors just isn't worth it.
+			_ = json.Unmarshal(event["T"], &ts)
+			_ = json.Unmarshal(event["N"], &name)
+			_ = json.Unmarshal(event["C"], &code)
+			_ = json.Unmarshal(event["M"], &message)
+
+			// Filter down to the custom fields.
+			for _, k := range [...]string{
+				"L", "T", "N", "C", "M", "S",
+				"plan", "case", "run", "seq",
+				"repo", "commit", "branch",
+				"tag", "instances",
+			} {
+				delete(event, k)
+			}
+
+			fields, _ := json.Marshal(event)
+			c.msg(idx, id, ts, Error, fmt.Sprintf("%s %s %s\t%s", code, name, message, string(fields)))
 		}
 	}()
 
 	go func() {
 		defer stdout.Close()
 		defer c.wg.Done()
+		defer c.logger.sync()
 
 		decoder := json.NewDecoder(stdout)
-		var event runtime.Event
 		var (
 			// track both in case a test-case is so broken that it
 			// reports both a success and a failure.
 			failed = false
 			ok     = false
 		)
+
 		for {
+			var event runtime.Event
 			if err := decoder.Decode(&event); err != nil {
 				now := time.Now().UnixNano()
 				if err != io.EOF {
@@ -125,7 +167,6 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 					atomic.AddUint32(&c.failed, 1)
 				}
 
-				c.logger.sync()
 				return
 			}
 
@@ -134,9 +175,14 @@ func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 				case runtime.OutcomeOK:
 					ok = true
 					printMsg(event.Timestamp, Ok, event.Result.Reason)
-				default:
+				case runtime.OutcomeCrashed:
+					failed = true
+					printMsg(event.Timestamp, Crash, event.Result.Outcome, " ", event.Result.Reason, event.Result.Stack)
+				case runtime.OutcomeAborted:
 					failed = true
 					printMsg(event.Timestamp, Fail, event.Result.Outcome, " ", event.Result.Reason)
+				default:
+					panic(fmt.Sprintf("unknown outcome: %s", event.Result.Outcome))
 				}
 			} else if event.Metric != nil {
 				now := time.Unix(0, event.Timestamp)

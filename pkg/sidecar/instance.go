@@ -14,6 +14,7 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
+// Instance is a test instance as seen by the sidecar.
 type Instance struct {
 	logging.Logging
 
@@ -22,15 +23,27 @@ type Instance struct {
 	Writer   *sync.Writer
 	RunEnv   *runtime.RunEnv
 	Network  Network
+	Logs     Logs
 }
 
+// Network is a test instance's network, as seen by the sidecar.
+//
+// Sidecar runners must implement this interface.
 type Network interface {
 	io.Closer
 	ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error
 	ListActive() []string
 }
 
-func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
+// Logs are logs from a test instance.
+type Logs interface {
+	io.Closer
+	Stderr() io.Reader
+	Stdout() io.Reader
+}
+
+// NewInstance constructs a new test instance handle.
+func NewInstance(runenv *runtime.RunEnv, hostname string, network Network, logs Logs) (*Instance, error) {
 	// Get a redis reader/writer.
 	watcher, writer, err := sync.WatcherWriter(runenv)
 	if err != nil {
@@ -42,6 +55,7 @@ func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Ins
 		Hostname: hostname,
 		RunEnv:   runenv,
 		Network:  network,
+		Logs:     logs,
 		Watcher:  watcher,
 		Writer:   writer,
 	}, nil
@@ -53,5 +67,6 @@ func (inst *Instance) Close() error {
 	err = multierror.Append(err, inst.Watcher.Close())
 	err = multierror.Append(err, inst.Writer.Close())
 	err = multierror.Append(err, inst.Network.Close())
+	err = multierror.Append(err, inst.Logs.Close())
 	return err.ErrorOrNil()
 }

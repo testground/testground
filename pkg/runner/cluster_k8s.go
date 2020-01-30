@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -34,9 +35,21 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
+var k8sSubnetIdx uint64 = 0
+
 func init() {
 	// Avoid collisions in picking up subnets
 	rand.Seed(time.Now().UnixNano())
+	k8sSubnetIdx = rand.Uint64() % 4096
+}
+
+func nextK8sSubnet() (*net.IPNet, error) {
+	subnet, _, err := nextDataNetwork(int(atomic.AddUint64(&k8sSubnetIdx, 1) % 4096))
+	if err != nil {
+		return nil, err
+	}
+	_, n, err := net.ParseCIDR(subnet)
+	return n, err
 }
 
 func homeDir() string {
@@ -111,8 +124,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
 	var err error
-	b := 1 + rand.Intn(200)
-	_, template.TestSubnet, err = net.ParseCIDR(fmt.Sprintf("10.%d.0.0/16", b))
+	template.TestSubnet, err = nextK8sSubnet()
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +164,6 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	errgrp, errctx := errgroup.WithContext(ctx)
 	for _, g := range input.Groups {
 		jobName := strings.Join([]string{parent, g.ID}, ":")
-
 		jobs = append(jobs, jobName)
 
 		log.Infow("creating k8s deployment", "job", jobName, "image", g.ArtifactPath, "instances", g.Instances)
@@ -163,11 +174,18 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		runenv.TestInstanceParams = g.Parameters
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
-		redisCfg := v1.EnvVar{
+		env = append(env, v1.EnvVar{
 			Name:  "REDIS_HOST",
 			Value: "redis-headless",
+		})
+
+		// Set the log level if provided in cfg.
+		if cfg.LogLevel != "" {
+			env = append(env, v1.EnvVar{
+				Name:  "LOG_LEVEL",
+				Value: cfg.LogLevel,
+			})
 		}
-		env = append(env, redisCfg)
 
 		// Create Kubernetes Job
 		jobRequest := &v1batch.Job{
@@ -197,6 +215,14 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 						},
 					},
 					Spec: v1.PodSpec{
+						SecurityContext: &v1.PodSecurityContext{
+							Sysctls: []v1.Sysctl{
+								{
+									Name:  "net.core.somaxconn",
+									Value: "10000",
+								},
+							},
+						},
 						RestartPolicy: v1.RestartPolicyNever,
 						Containers: []v1.Container{
 							{
@@ -224,7 +250,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			}
 
 			// Wait for job.
-			for start := time.Now(); time.Since(start) <= 5*time.Minute; {
+			for start := time.Now(); time.Since(start) <= 10*time.Minute; {
 				select {
 				case <-errctx.Done():
 					return errctx.Err()

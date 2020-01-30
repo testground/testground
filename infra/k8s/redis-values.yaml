@@ -183,9 +183,9 @@ securityContext:
   ##
   ## Uncomment the setting below to increase the net.core.somaxconn value
   ##
-  # sysctls:
-  # - name: net.core.somaxconn
-  #   value: "10000"
+  sysctls:
+  - name: net.core.somaxconn
+    value: "10000"
 
 ## Use password authentication
 usePassword: false
@@ -226,6 +226,7 @@ master:
   ## ref: https://redis.io/topics/config
   ##
   configmap:
+
   ## Redis additional command line flags
   ##
   ## Can be used to specify command line flags, for example:
@@ -233,7 +234,8 @@ master:
   ## extraFlags:
   ##  - "--maxmemory-policy volatile-ttl"
   ##  - "--repl-backlog-size 1024mb"
-  extraFlags: []
+  extraFlags:
+  - "--maxclients 10000"
   ## Comma-separated list of Redis commands to disable
   ##
   ## Can be used to disable Redis commands for security reasons.
@@ -253,10 +255,10 @@ master:
 
   ## Redis Master resource requests and limits
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  # resources:
-  #   requests:
-  #     memory: 256Mi
-  #     cpu: 100m
+  resources:
+    requests:
+      memory: 2048Mi
+      cpu: 2000m
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
   ##
@@ -552,11 +554,15 @@ configmap: |-
 ## Sysctl InitContainer
 ## used to perform sysctl operation to modify Kernel settings (needed sometimes to avoid warnings)
 sysctlImage:
-  enabled: false
-  command: []
+  enabled: true
+  command:
+  - /bin/sh
+  - -c
+  - |
+    sysctl -w net.core.somaxconn=10000
   registry: docker.io
-  repository: bitnami/minideb
-  tag: stretch
+  repository: busybox
+  tag: latest
   pullPolicy: Always
   ## Optionally specify an array of imagePullSecrets.
   ## Secrets must be manually created in the namespace.

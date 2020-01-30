@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-func FindPeers(runenv *runtime.RunEnv) {
+func FindPeers(runenv *runtime.RunEnv) error {
 	opts := &SetupOpts{
 		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
 		RandomWalk:  runenv.BooleanParam("random_walk"),
@@ -20,8 +20,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 	}
 
 	if opts.NFindPeers > runenv.TestInstanceCount {
-		runenv.Abort("NFindPeers greater than the number of test instances")
-		return
+		return fmt.Errorf("NFindPeers greater than the number of test instances")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -33,22 +32,19 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
 	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	if opts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, dht); err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
 
@@ -79,8 +75,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
 		if _, err := dht.FindPeer(ctx, p.ID); err != nil {
-			runenv.Abort(fmt.Errorf("find peer failed: %s", err))
-			return
+			return fmt.Errorf("find peer failed: %s", err)
 		}
 
 		runenv.EmitMetric(&runtime.MetricDefinition{
@@ -91,5 +86,5 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 		found++
 	}
-	runenv.OK()
+	return nil
 }

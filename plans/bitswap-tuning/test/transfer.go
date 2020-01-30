@@ -27,7 +27,7 @@ var RootCidSubtree = &sync.Subtree{
 }
 
 // Transfer data from S seeds to L leeches
-func Transfer(runenv *runtime.RunEnv) {
+func Transfer(runenv *runtime.RunEnv) error {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
 	leechCount := runenv.IntParam("leech_count")
@@ -45,7 +45,7 @@ func Transfer(runenv *runtime.RunEnv) {
 	defer func() {
 		err := utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "end", watcher, writer)
 		if err != nil {
-			runenv.Abort(err)
+			runenv.SLogger().Error(err)
 		}
 		watcher.Close()
 		writer.Close()
@@ -53,23 +53,20 @@ func Transfer(runenv *runtime.RunEnv) {
 
 	// Set up network (with traffic shaping)
 	if err := utils.SetupNetwork(ctx, runenv, watcher, writer); err != nil {
-		runenv.Abort(fmt.Errorf("Failed to set up network %w", err))
-		return
+		return fmt.Errorf("Failed to set up network %w", err)
 	}
 
 	// Create libp2p node
 	node, err := utils.CreateNode(ctx, runenv)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	defer node.Close()
 
 	// Get sequence number of this host
 	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(node.Host))
 	if err != nil {
-		runenv.Abort(fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err))
-		return
+		return err
 	}
 
 	runenv.Message("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
@@ -92,21 +89,19 @@ func Transfer(runenv *runtime.RunEnv) {
 		// Generate a file of the given size and add it to the datastore
 		rootCid, err := setupSeed(ctx, node, fileSize)
 		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed to set up seed: %w", err))
-			return
+			return err
 		}
 
 		// Inform other nodes of the root CID
 		if _, err = writer.Write(RootCidSubtree, &rootCid); err != nil {
-			runenv.Abort(fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err))
-			return
+			return fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err)
 		}
 	} else if isLeech {
 		// Get the root CID from a seed
 		rootCidCh := make(chan *cid.Cid, 1)
 		cancelRootCidSub, err := watcher.Subscribe(RootCidSubtree, rootCidCh)
 		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err))
+			return fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err)
 		}
 
 		// Note: only need to get the root CID from one seed - it should be the
@@ -118,8 +113,7 @@ func Transfer(runenv *runtime.RunEnv) {
 			rootCid = *rootCidPtr
 		case <-time.After(timeout):
 			cancelRootCidSub()
-			runenv.Abort(fmt.Errorf("no root cid in %d seconds", timeout/time.Second))
-			return
+			return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
 		}
 	}
 
@@ -129,16 +123,14 @@ func Transfer(runenv *runtime.RunEnv) {
 	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
 	if err != nil {
 		cancelSub()
-		runenv.Abort(err)
-		return
+		return err
 	}
 	cancelSub()
 
 	// Dial all peers
 	dialed, err := utils.DialOtherPeers(ctx, node.Host, addrInfos)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	runenv.Message("Dialed %d other nodes", len(dialed))
 
@@ -165,8 +157,7 @@ func Transfer(runenv *runtime.RunEnv) {
 
 	stats, err := node.Bitswap.Stat()
 	if err != nil {
-		runenv.Abort(fmt.Errorf("Error getting stats from Bitswap: %w", err))
-		return
+		return fmt.Errorf("Error getting stats from Bitswap: %w", err)
 	}
 
 	if isLeech {
@@ -182,7 +173,7 @@ func Transfer(runenv *runtime.RunEnv) {
 
 	/// --- Ending the test
 
-	runenv.OK()
+	return nil
 }
 
 func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, error) {

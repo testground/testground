@@ -14,7 +14,7 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-func FindProviders(runenv *runtime.RunEnv) {
+func FindProviders(runenv *runtime.RunEnv) error {
 	opts := &SetupOpts{
 		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
 		RandomWalk:     runenv.BooleanParam("random_walk"),
@@ -35,22 +35,19 @@ func FindProviders(runenv *runtime.RunEnv) {
 
 	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
 	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	if opts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, dht); err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
 
@@ -88,9 +85,7 @@ func FindProviders(runenv *runtime.RunEnv) {
 		}
 
 		if err := g.Wait(); err != nil {
-			runenv.Abort(fmt.Errorf("failed while providing: %s", err))
-		} else {
-			runenv.OK()
+			return fmt.Errorf("failed while providing: %s", err)
 		}
 
 	default:
@@ -120,10 +115,8 @@ func FindProviders(runenv *runtime.RunEnv) {
 		}
 
 		if err := g.Wait(); err != nil {
-			runenv.Abort(fmt.Errorf("failed while finding providerss: %s", err))
-		} else {
-			runenv.OK()
+			return fmt.Errorf("failed while finding providerss: %s", err)
 		}
 	}
-
+	return nil
 }

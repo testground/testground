@@ -29,6 +29,7 @@ func (c *ConsoleLogger) msg(idx int, id string, elapsed time.Duration, evtType e
 		c.aurora.BgRed("ERROR").White(),
 		c.aurora.BgGreen("OK").White(),
 		c.aurora.BgRed("FAIL").White(),
+		c.aurora.BgBrightRed("CRASH").White(),
 		c.aurora.BgBrightRed("INCOMPLETE").White(),
 		c.aurora.BgWhite("MESSAGE").Black(),
 		c.aurora.BgBlue("METRIC").White(),

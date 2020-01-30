@@ -11,6 +11,7 @@ type Outcome string
 const (
 	OutcomeOK      = Outcome("ok")
 	OutcomeAborted = Outcome("aborted")
+	OutcomeCrashed = Outcome("crashed")
 )
 
 type MetricDefinition struct {
@@ -36,37 +37,7 @@ type Event struct {
 type Result struct {
 	Outcome Outcome `json:"outcome"`
 	Reason  string  `json:"reason,omitempty"`
-}
-
-// Abort outputs an abortion event, where reason is an object that will be
-// output as a message by stringing it.
-func (r *RunEnv) Abort(reason interface{}) {
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Result:    &Result{OutcomeAborted, fmt.Sprintf("%s", reason)},
-	}
-
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(bytes))
-}
-
-// OK outputs an OK event for this test execution.
-func (r *RunEnv) OK() {
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Result:    &Result{OutcomeOK, ""},
-	}
-
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(bytes))
+	Stack   string  `json:"stack,omitempty"`
 }
 
 // Message prints out an informational message.

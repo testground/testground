@@ -163,20 +163,6 @@ items:
           labels:
             name: weave-net
         spec:
-          initContainers:
-          - name: iproute-add
-            image: busybox
-            securityContext:
-              privileged: true
-            command:
-            - sh
-            - -ac
-            - >
-              export GW=$(ip route | grep cni0 | awk '{print $7'}) &&
-              echo $GW &&
-              ip route &&
-              ip route add 100.64.0.0/16 via $GW &&
-              ip route || true
           containers:
             - name: weave
               command:
@@ -187,7 +173,7 @@ items:
                 - name: EXPECT_NPC
                   value: "0"
                 - name: IPALLOC_RANGE
-                  value: "10.0.0.0/8"
+                  value: "16.0.0.0/4"
                 - name: HOSTNAME
                   valueFrom:
                     fieldRef:

@@ -257,8 +257,13 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		runenv.Message("bootstrap: got %d bootstrappers", len(bootstrapPeers))
 
 		if isBootstrapper {
-			// If we're a bootstrapper, connect to all of them.
-			toDial = bootstrapPeers
+			// If we're a bootstrapper, connect to all of them with IDs lexicographically less than us
+			toDial = make([]peer.AddrInfo, 0, len(bootstrapPeers))
+			for _, b := range bootstrapPeers {
+				if b.ID < dht.Host().ID() {
+					toDial = append(toDial, b)
+				}
+			}
 		} else {
 			// Otherwise, connect to a random one (based on our sequence number).
 			toDial = append(toDial, bootstrapPeers[int(seq)%len(bootstrapPeers)])
@@ -415,7 +420,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 		for i := 1; i <= attempts; i++ {
 			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
 			select {
-			case <-time.After(time.Duration(rand.Intn(500)+100) * time.Millisecond):
+			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
 			case <-ctx.Done():
 				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
@@ -492,6 +497,6 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) {
 	err := Sync(ctx, runenv, watcher, writer, "end")
 	if err != nil {
-		runenv.Abort(err)
+		runenv.SLogger().Error("end sync failed", err)
 	}
 }
