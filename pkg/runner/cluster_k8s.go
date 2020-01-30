@@ -147,7 +147,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	k8sConfig := defaultKubernetesConfig()
 
 	workers := 20
-	pool, err := NewPool(workers, k8sConfig)
+	pool, err := newPool(workers, k8sConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
 	return str
 }
 
-func monitorTestplanRunState(ctx context.Context, pool *Pool, log *zap.SugaredLogger, runID string, k8sNamespace string, replicas int) error {
+func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, runID string, k8sNamespace string, replicas int) error {
 	client, err := pool.Get(ctx)
 	if err != nil {
 		return err
@@ -315,7 +315,7 @@ func monitorTestplanRunState(ctx context.Context, pool *Pool, log *zap.SugaredLo
 	return nil
 }
 
-func createPod(ctx context.Context, pool *Pool, podName string, input *api.RunInput, runenv *runtime.RunEnv, env []v1.EnvVar, k8sNamespace string) error {
+func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv *runtime.RunEnv, env []v1.EnvVar, k8sNamespace string) error {
 	client, err := pool.Get(ctx)
 	if err != nil {
 		return err
