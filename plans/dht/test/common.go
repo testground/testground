@@ -517,6 +517,64 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 					toDial = append(toDial, *info.addrs)
 				}
 			}
+		case opts.NBootstrap == -3:
+			/*
+				Connect to log(n) of the network and then bootstrap
+			*/
+			plist := make([]*NodeInfo, len(peers) + 1)
+			for _, info := range peers {
+				plist[info.seq] = info
+			}
+			plist[node.info.seq] = node.info
+			targetSize := int(math.Log2(float64(len(plist))))
+
+			getRandomNodes := func (info *NodeInfo) map[int]*NodeInfo {
+				nodeLst := make([]*NodeInfo, len(plist))
+				copy(nodeLst, plist)
+				rng := rand.New(rand.NewSource(0))
+				rng = rand.New(rand.NewSource(int64(rng.Int31())+int64(node.info.seq)))
+				rng.Shuffle(len(nodeLst), func(i, j int) {
+					nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
+				})
+
+				foundSelf := false
+				nodes := make(map[int]*NodeInfo)
+				for _ , n := range nodeLst[:targetSize] {
+					if n.seq == info.seq {
+						foundSelf = true
+						continue
+					}
+					nodes[n.seq] = n
+				}
+				if foundSelf {
+					replacement := nodeLst[targetSize]
+					nodes[replacement.seq] = replacement
+				}
+
+				return nodes
+			}
+
+			candidateNodes := getRandomNodes(node.info)
+
+			// Because of TCP simultaneous connect issues we need to figure out if anyone will be dialing us.
+			// If they are then deterministically only one of us should
+
+			if _, undialble := node.info.properties[Undialable]; !undialble {
+				for _, info := range candidateNodes {
+					candidateDialList := getRandomNodes(info)
+					if _, ok := candidateDialList[node.info.seq]; ok && dht.Host().ID() < info.addrs.ID{
+						delete(candidateNodes, info.seq)
+					}
+				}
+			}
+
+			for _, info := range candidateNodes {
+				if _, undialable := info.properties[Undialable]; !undialable {
+					toDial = append(toDial, *info.addrs)
+				}
+			}
+		default:
+			return fmt.Errorf("invalid number of bootstrappers %d", opts.NBootstrap)
 		}
 	}
 
