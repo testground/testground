@@ -169,13 +169,25 @@ Do not forget to delete the cluster once you are done running test plans.
 
 Testground is still in very early stage of development. It is possible that it crashes, or doesn't properly clean-up after a testplan run. Here are a few commands that could be helpful for you to inspect the state of your Kubernetes cluster and clean up after Testground.
 
-- `kubectl delete pods -l testground.plan=dht --grace-period=0` - delete all pods that have the `testground.plan=dht` label
+1. Delete all pods that have the `testground.plan=dht` label (in case you used the `--run-cfg keep_service=true` setting on Testground.
+```
+kubectl delete pods -l testground.plan=dht --grace-period=0 --force
+```
 
-- `kubectl delete job <job-id, e.g. tg-dht-find-peers-e47e5301-d6f7-4ded-98e8-b2d3dc60a7bb>` - delete a specific job
+2. Restart the `sidecar` daemon which manages networks for all testplans
+```
+kubectl delete pods -l name=testground-sidecar --grace-period=0 --force
+```
 
-- `kubectl get pods -o wide` - get all pods
+3. Review all running pods
+```
+kubectl get pods -o wide
+```
 
-- `kubectl logs -f <pod-id, e.g. tg-dht-c95b5>` - follow logs from a given pod
+4. Get logs from a given pod
+```
+kubectl logs <pod-id, e.g. tg-dht-c95b5>
+```
 
 
 ## Known issues and future improvements
