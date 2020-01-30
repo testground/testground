@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
 	"github.com/ipfs/testground/pkg/daemon/client"
@@ -13,16 +15,21 @@ import (
 // CollectCommand is the specification of the `collect` command.
 var CollectCommand = cli.Command{
 	Name:      "collect",
-	Usage:     "TODO",
+	Usage:     "Produces a zip file with the output from a certain run",
 	Action:    collectCommand,
 	ArgsUsage: "[run-id]",
 	Flags: []cli.Flag{
 		cli.GenericFlag{
-			Name: "runner, r",
+			Name:     "runner, r",
+			Required: true,
 			Value: &EnumValue{
 				Allowed: runners,
 			},
 			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
+		},
+		cli.StringFlag{
+			Name:  "output, o",
+			Usage: "specifies a named output for the zip file",
 		},
 	},
 }
@@ -39,7 +46,12 @@ func collectCommand(c *cli.Context) error {
 	var (
 		runID    = c.Args().First()
 		runnerID = c.Generic("runner").(*EnumValue).String()
+		output   = runID + ".zip"
 	)
+
+	if o := c.String("output"); o != "" {
+		output = o
+	}
 
 	api, err := setupClient(c)
 	if err != nil {
@@ -60,7 +72,15 @@ func collectCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	// TODO: resp to file
+	file, err := os.Create(output)
+	if err != nil {
+		if err == context.Canceled {
+			return fmt.Errorf("interrupted")
+		}
+		return fmt.Errorf("fatal error from daemon: %s", err)
+	}
+	defer file.Close()
 
-	return nil
+	_, err = io.Copy(file, resp)
+	return err
 }
