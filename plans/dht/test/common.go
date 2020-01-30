@@ -82,18 +82,29 @@ var BootstrapSubtree = &sync.Subtree{
 var ConnManagerGracePeriod = 1 * time.Second
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
-func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, undialable bool) (host.Host, *kaddht.IpfsDHT, error) {
+func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, params *NodeParams) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
 
-	min := int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
-	max := int(float64(min) * 1.1)
+	_, undialable := params.info.properties[Undialable]
+	_, bootstrap := params.info.properties[Bootstrapper]
+
+	var min, max int
+
+	if bootstrap {
+		min = runenv.TestInstanceCount
+		max = runenv.TestInstanceCount
+	} else {
+		min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
+		max = int(float64(min) * 1.1)
+	}
 
 	// We need enough connections to be able to trim some and still have a
 	// few peers.
 	//
 	// Note: this check is redundant just to be explicit. If we have over 16
 	// peers, we're above this limit.
-	if min < 3 || max >= runenv.TestInstanceCount {
+	// 	if min < 3 || max >= runenv.TestInstanceCount {
+	if min < 3 {
 		return nil, nil, fmt.Errorf("not enough peers")
 	}
 
@@ -273,8 +284,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		}
 	}
 
-	_, undialable := testNode.info.properties[Undialable]
-	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, undialable)
+	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, testNode)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -313,7 +323,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	if testNode.info.seq == 0 {
 		m := make(map[peer.ID]bool)
 		for _, info := range otherNodes {
-			_, undialable = info.properties[Undialable]
+			_, undialable := info.properties[Undialable]
 			m[info.addrs.ID] = undialable
 		}
 
@@ -740,7 +750,7 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 func outputGraph(host host.Host, runenv *runtime.RunEnv, graphID string) {
 	for _, c := range host.Network().Conns() {
 		if c.Stat().Direction == network.DirOutbound {
-			runenv.Message("graph %s: %s -> %s;", graphID, c.LocalPeer(), c.RemotePeer())
+			runenv.SLogger().Named("Graph").Named(graphID).Infof("{\"From\": \"%s\", \"To\": \"%s\"}", c.LocalPeer(), c.RemotePeer())
 		}
 	}
 }
