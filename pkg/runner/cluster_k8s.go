@@ -311,8 +311,6 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 			return nil
 		}
 	}
-
-	return nil
 }
 
 func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv *runtime.RunEnv, env []v1.EnvVar, k8sNamespace string) error {
@@ -379,7 +377,5 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 	_, err = client.CoreV1().Pods(k8sNamespace).Create(podRequest)
 	return err
 }
-
-func int32Ptr(i int32) *int32 { return &i }
 
 func int64Ptr(i int64) *int64 { return &i }
