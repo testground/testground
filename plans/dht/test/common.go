@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"math/rand"
 	"os"
@@ -168,12 +167,6 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 
 	id := node.ID()
 	runenv.Message("I am %s with addrs: %v", id, node.Addrs())
-
-	filemsg := fmt.Sprintf("I am %s with addrs: %v", id, node.Addrs())
-	err = ioutil.WriteFile(runenv.TestArtifacts+"/dat2", []byte(filemsg), 0644)
-	if err != nil {
-		runenv.Message(fmt.Sprintf("problem writing to TestArtifacts: err: %v", err))
-	}
 
 	if seq, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
 		return nil, nil, nil, seq, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
