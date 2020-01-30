@@ -208,8 +208,8 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 				"testground.runid":    input.RunID,
 			},
 		}
-		assetsDir := filepath.Join(runDir, name)
-		err = os.Mkdir(assetsDir, 0777)
+		hostAssetsDir := filepath.Join(runDir, name)
+		err = os.Mkdir(hostAssetsDir, 0777)
 		if err != nil {
 			break
 		}
@@ -217,7 +217,7 @@ func (*LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wr
 			NetworkMode: container.NetworkMode(controlNetworkID),
 			Mounts: []mount.Mount{{
 				Type:   mount.TypeBind,
-				Source: assetsDir,
+				Source: hostAssetsDir,
 				Target: runenv.TestAssetsDir,
 			}},
 		}
