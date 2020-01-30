@@ -91,6 +91,21 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
+// CollectOutputs sends a `collectOutputs` request to the daemon.
+//
+// The Body in the response implement an io.ReadCloser and it's up to the caller to
+// close it.
+// The response is TODO (zip file?)
+func (c *Client) CollectOutputs(ctx context.Context, r *OutputsRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/outputs", bytes.NewReader(body.Bytes()))
+}
+
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 

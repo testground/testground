@@ -249,6 +249,11 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
+func (*ClusterK8sRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+	// TODO
+	panic("unimplemented")
+}
+
 func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),

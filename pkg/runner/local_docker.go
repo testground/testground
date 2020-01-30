@@ -486,3 +486,8 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
+
+func (*LocalDockerRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+	// TODO
+	panic("unimplemented")
+}
