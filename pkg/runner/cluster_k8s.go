@@ -33,6 +33,12 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
+const defaultK8sNetworkAnnotation = "flannel"
+
+var (
+	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
+)
+
 var k8sSubnetIdx uint64 = 0
 
 func init() {
@@ -318,6 +324,7 @@ func createPod(ctx context.Context, pool *Pool, podName string, input *api.RunIn
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	hostpathtype := v1.HostPathType("DirectoryOrCreate")
+	sharedVolumeName := "s3-shared"
 
 	mnt := v1.HostPathVolumeSource{
 		Path: fmt.Sprintf("/mnt/%s/%s", input.RunID, podName),
@@ -332,17 +339,17 @@ func createPod(ctx context.Context, pool *Pool, podName string, input *api.RunIn
 				"testground.testcase": runenv.TestCase,
 				"testground.runid":    input.RunID,
 			},
-			Annotations: map[string]string{"cni": "flannel"},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
 				{
-					Name:         "s3-shared",
+					Name:         sharedVolumeName,
 					VolumeSource: v1.VolumeSource{HostPath: &mnt},
 				},
 			},
 			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}},
+				Sysctls: testplanSysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
@@ -353,7 +360,7 @@ func createPod(ctx context.Context, pool *Pool, podName string, input *api.RunIn
 					Env:   env,
 					VolumeMounts: []v1.VolumeMount{
 						{
-							Name:             "s3-shared",
+							Name:             sharedVolumeName,
 							MountPath:        runenv.TestArtifacts,
 							MountPropagation: &mountPropagationMode,
 						},
