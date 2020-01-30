@@ -105,11 +105,10 @@ kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSET
                                                --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
 ```
 
-8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+8. Install CNI-Genie, Weave and S3 bucket daemonset
 
 ```
 kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
-              -f ./infra/k8s/kops-weave/dummy.yml \
               -f ./infra/k8s/kops-weave/weave.yml \
               -f ./infra/k8s/kops-weave/s3bucket.yml
 ```
