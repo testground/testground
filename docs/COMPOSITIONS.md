@@ -3,6 +3,17 @@
 A testground composition is a TOML file that specifies, in a declarative manner,
 all the information needed to run a testground job.
 
+Compositions enable testers to build and schedule test runs comprising instances
+built against different upstream dependencies. Compositions are defined in TOML
+files, and amongst other things, they specify:
+
+* the runner, builder, test plan, and test case.
+* total instance count.
+* groups participating in the run. For each group:
+  - number of instances (as count or percentage).
+  - upstream dependencies to override.
+  - test parameters for that group.
+
 ## File format
 
 The format for the TOML file is as follows:

@@ -7,6 +7,7 @@ import (
 func TestBuildExecGo(t *testing.T) {
 	err := runSingle(t,
 		"build",
+		"single",
 		"placebo",
 		"--builder",
 		"exec:go",
@@ -23,6 +24,7 @@ func TestBuildDockerGo(t *testing.T) {
 	// docker endpoint. I don't think those assumptions stand.
 	err := runSingle(t,
 		"build",
+		"single",
 		"placebo",
 		"--builder",
 		"docker:go",

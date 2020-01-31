@@ -7,20 +7,11 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
-	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
 )
-
-var builders = func() []string {
-	names := make([]string, 0, len(engine.AllBuilders))
-	for _, b := range engine.AllBuilders {
-		names = append(names, b.ID())
-	}
-	return names
-}()
 
 var BuildCommand = cli.Command{
 	Name:  "build",
@@ -49,12 +40,9 @@ var BuildCommand = cli.Command{
 			Action:    buildSingleCmd,
 			ArgsUsage: "[<testplan>]",
 			Flags: []cli.Flag{
-				cli.GenericFlag{
-					Name: "builder, b",
-					Value: &EnumValue{
-						Allowed: builders,
-						Default: "exec:go",
-					},
+				cli.StringFlag{
+					Name:  "builder, b",
+					Usage: "specifies the builder to use; values include: 'docker:go', 'exec:go'",
 				},
 				cli.StringSliceFlag{
 					Name:  "dep, d",
@@ -79,7 +67,7 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 	if _, err = toml.DecodeFile(file, comp); err != nil {
 		return fmt.Errorf("failed to process composition file: %w", err)
 	}
-	if err = comp.Validate(); err != nil {
+	if err = comp.ValidateForBuild(); err != nil {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 

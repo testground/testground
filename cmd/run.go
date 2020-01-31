@@ -4,24 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
-	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
 )
-
-var runners = func() []string {
-	names := make([]string, 0, len(engine.AllRunners))
-	for _, r := range engine.AllRunners {
-		names = append(names, r.ID())
-	}
-	return names
-}()
 
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
@@ -56,13 +46,9 @@ var RunCommand = cli.Command{
 			ArgsUsage: "[name]",
 			Flags: append(
 				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
-				cli.GenericFlag{
-					Name: "runner, r",
-					Value: &EnumValue{
-						Allowed: runners,
-						Default: "local:exec",
-					},
-					Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
+				cli.StringFlag{
+					Name:  "runner, r",
+					Usage: "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 				},
 				cli.StringFlag{
 					Name:  "use-build, ub",
@@ -96,7 +82,7 @@ func runCompositionCmd(c *cli.Context) (err error) {
 		return fmt.Errorf("failed to process composition file: %w", err)
 	}
 
-	if err = comp.Validate(); err != nil {
+	if err = comp.ValidateForRun(); err != nil {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 

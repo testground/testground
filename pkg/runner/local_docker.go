@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -69,7 +70,9 @@ var defaultConfig = LocalDockerRunnerConfig{
 // What we do here is slightly similar to what Docker Compose does, but we can't
 // use the latter because it's a python program and it doesn't expose a network
 // API.
-type LocalDockerRunner struct{}
+type LocalDockerRunner struct {
+	setupLk sync.Mutex
+}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
@@ -94,21 +97,26 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
+	r.setupLk.Lock()
+
 	// Ensure we have a control network.
 	ctrlnid, err := ensureControlNetwork(ctx, cli, log)
 	if err != nil {
+		r.setupLk.Unlock()
 		return nil, err
 	}
 
 	// Ensure that we have a testground-redis container; if not, create it.
 	_, err = ensureRedisContainer(ctx, cli, log, ctrlnid)
 	if err != nil {
+		r.setupLk.Unlock()
 		return nil, err
 	}
 
 	// Ensure the work dir.
 	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
 	if err := os.MkdirAll(workDir, 0777); err != nil {
+		r.setupLk.Unlock()
 		return nil, err
 	}
 
@@ -117,10 +125,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	switch _, err = ensureSidecarContainer(ctx, cli, workDir, log, ctrlnid); err {
 	case nil:
 	case errors.New("image not found"):
+		r.setupLk.Unlock()
 		return nil, errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
 	default:
+		r.setupLk.Unlock()
 		return nil, err
 	}
+
+	r.setupLk.Unlock()
 
 	// Build a template runenv.
 	template := runtime.RunEnv{
