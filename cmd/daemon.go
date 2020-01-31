@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"context"
-	"github.com/ipfs/testground/pkg/server"
 	"net/http"
 	"time"
 
 	"github.com/ipfs/testground/pkg/config"
+	"github.com/ipfs/testground/pkg/daemon"
 	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/urfave/cli"
 )
 
@@ -28,7 +29,7 @@ func daemonCommand(c *cli.Context) error {
 	}
 
 	listen := envcfg.Daemon.Listen
-	srv, err := server.New(listen)
+	srv, err := daemon.New(listen)
 	if err != nil {
 		return err
 	}

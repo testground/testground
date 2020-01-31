@@ -17,6 +17,7 @@ require (
 	github.com/aws/aws-sdk-go v1.25.32
 	github.com/containernetworking/cni v0.7.1
 	github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f
+	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-getter v1.4.0
@@ -33,6 +34,7 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.uber.org/zap v1.12.0
+	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0

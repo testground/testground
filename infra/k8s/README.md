@@ -134,8 +134,12 @@ testground --vv daemon
 
 ## Run a Testground testplan
 
+Use compositions: [/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
+
+or
+
 ```
-testground --vv run network/ping-pong \
+testground --vv run single network/ping-pong \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg bypass_cache=true \
@@ -148,7 +152,7 @@ testground --vv run network/ping-pong \
 or
 
 ```
-testground --vv run dht/find-peers \
+testground --vv run single dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \

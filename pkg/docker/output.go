@@ -1,4 +1,4 @@
-package util
+package docker
 
 import (
 	"encoding/json"
@@ -7,10 +7,10 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 )
 
-// PipeDockerOutput pipes a reader that spits out jsonmessage structs into a
-// writer, usually stdout. It returns normally when the reader is exhausted, or
-// in error if one occurs.
-func PipeDockerOutput(r io.ReadCloser, w io.Writer) error {
+// PipeOutput pipes a reader that spits out jsonmessage structs into a writer,
+// usually stdout. It returns normally when the reader is exhausted, or in error
+// if one occurs.
+func PipeOutput(r io.ReadCloser, w io.Writer) error {
 	var msg jsonmessage.JSONMessage
 Loop:
 	for dec := json.NewDecoder(r); ; {

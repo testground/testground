@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
 )
 

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"os"
 
-	"github.com/ipfs/testground/pkg/util"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -73,7 +71,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 			return nil, false, err
 		}
 
-		if err := util.PipeDockerOutput(out, os.Stdout); err != nil {
+		if err := PipeOutput(out, os.Stdout); err != nil {
 			return nil, false, err
 		}
 	} else {

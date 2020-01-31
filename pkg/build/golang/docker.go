@@ -12,16 +12,15 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	gobuild "go/build"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -39,7 +38,9 @@ var (
 )
 
 // DockerGoBuilder builds the test plan as a go-based container.
-type DockerGoBuilder struct{}
+type DockerGoBuilder struct {
+	proxyLk sync.Mutex
+}
 
 type DockerGoBuilderConfig struct {
 	Enabled       bool
@@ -79,18 +80,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
 	}
 
-	// TODO support specifying a docker endpoint + TLS parameters from env.
-	// raulk: I don't see a need for this now, as we certainly want to do builds
-	// locally, and push the image to a registry.
-
 	cliopts := []client.Opt{
 		client.WithHost(client.DefaultDockerHost),
 		client.WithAPIVersionNegotiation(),
 	}
 
 	var (
-		log      = logging.S().With("buildId", in.BuildID)
-		id       = build.CanonicalBuildID(in)
+		id       = in.BuildID
+		log      = logging.S().With("build_id", id)
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
@@ -100,6 +97,23 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	if err != nil {
 		return nil, err
 	}
+
+	// The testground-build network is used to connect build services (like the
+	// GOPROXY) to the build container.
+	b.proxyLk.Lock()
+	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
+	if err != nil {
+		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+		cfg.GoProxyMode = "direct"
+	}
+
+	// Set up the go proxy wiring. This will start a goproxy container if
+	// necessary, attaching it to the testground-build network.
+	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
+	if warn != nil {
+		log.Warnf("warning while setting up the go proxy: %s", warn)
+	}
+	b.proxyLk.Unlock()
 
 	// Create a temp dir, and copy the source into it.
 	tmp, err := ioutil.TempDir("", in.TestPlan.Name)
@@ -183,21 +197,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
 
-	// The testground-build network is used to connect build services (like the
-	// GOPROXY) to the build container.
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
-	if err != nil {
-		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
-		cfg.GoProxyMode = "direct"
-	}
-
-	// Set up the go proxy wiring. This will start a goproxy container if
-	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
-	if warn != nil {
-		log.Warnf("warning while setting up the go proxy: %s", warn)
-	}
-
 	opts := types.ImageBuildOptions{
 		Tags:        []string{id, in.BuildID},
 		NetworkMode: "testground-build",
@@ -222,7 +221,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	defer resp.Body.Close()
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(resp.Body, output); err != nil {
+	if err := docker.PipeOutput(resp.Body, output); err != nil {
 		return nil, err
 	}
 
@@ -295,7 +294,7 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	}
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
 		return err
 	}
 
@@ -334,7 +333,7 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
 		return err
 	}
 

@@ -1,57 +1,53 @@
-package server
+package daemon
 
 import (
 	"context"
 	"fmt"
 	"net"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/pborman/uuid"
-	"go.uber.org/zap"
 )
 
-// _engine is the default engine shared by all commands.
-var (
-	_engine     *engine.Engine
-	_engineErr  error
-	_engineOnce sync.Once
-)
-
-func GetEngine() (*engine.Engine, error) {
-	_engineOnce.Do(func() {
-		_engine, _engineErr = engine.NewDefaultEngine()
-	})
-	return _engine, _engineErr
-}
-
-type Server struct {
+type Daemon struct {
 	server *http.Server
 	l      net.Listener
 	doneCh chan struct{}
 }
 
-// New creates a new Server and attaches the following handlers:
+// New creates a new Daemon and attaches the following handlers:
+//
 // * GET /list: sends a `list` request to the daemon. list all test plans and test cases.
 // * GET /describe: sends a `describe` request to the daemon. describes a test plan or test case.
 // * POST /build: sends a `build` request to the daemon. builds a test plan.
 // * POST /run: sends a `run` request to the daemon. (builds and) runs test case with name `<testplan>/<testcase>`.
-// A type-safe client for this server can be found in the `pkg/daemon/client` package.
-func New(listenAddr string) (*Server, error) {
-	var (
-		err error
-		srv = &Server{}
-	)
+// A type-safe client for this server can be found in the `pkg/client` package.
+func New(listenAddr string) (srv *Daemon, err error) {
+	srv = new(Daemon)
+
+	engine, err := engine.NewDefaultEngine()
+	if err != nil {
+		return nil, err
+	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/list", loggingHandler(srv.listHandler)).Methods("GET")
-	r.HandleFunc("/describe", loggingHandler(srv.describeHandler)).Methods("GET")
-	r.HandleFunc("/build", loggingHandler(srv.buildHandler)).Methods("POST")
-	r.HandleFunc("/run", loggingHandler(srv.runHandler)).Methods("POST")
+
+	// Set a unique request ID.
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Header.Set("X-Request-ID", uuid.New()[:8])
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	r.HandleFunc("/list", srv.listHandler(engine)).Methods("GET")
+	r.HandleFunc("/describe", srv.describeHandler(engine)).Methods("GET")
+	r.HandleFunc("/build", srv.buildHandler(engine)).Methods("POST")
+	r.HandleFunc("/run", srv.runHandler(engine)).Methods("POST")
 
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{
@@ -71,7 +67,7 @@ func New(listenAddr string) (*Server, error) {
 // Serve starts the server and blocks until the server is closed, either
 // explicitly via Shutdown, or due to a fault condition. It propagates the
 // non-nil err return value from http.Serve.
-func (s *Server) Serve() error {
+func (s *Daemon) Serve() error {
 	select {
 	case <-s.doneCh:
 		return fmt.Errorf("tried to reuse a stopped server")
@@ -82,23 +78,15 @@ func (s *Server) Serve() error {
 	return s.server.Serve(s.l)
 }
 
-func (s *Server) Addr() string {
+func (s *Daemon) Addr() string {
 	return s.l.Addr().String()
 }
 
-func (s *Server) Port() int {
+func (s *Daemon) Port() int {
 	return s.l.Addr().(*net.TCPAddr).Port
 }
 
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *Daemon) Shutdown(ctx context.Context) error {
 	defer close(s.doneCh)
 	return s.server.Shutdown(ctx)
-}
-
-func loggingHandler(f func(w http.ResponseWriter, r *http.Request, log *zap.SugaredLogger)) func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log := logging.S().With("ruid", uuid.New()[:8])
-
-		f(w, r, log)
-	}
 }

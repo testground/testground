@@ -87,7 +87,7 @@ Start the daemon with:
 Now you can run commands, such as:
 
 ```bash
-> ./testground -vv run dht/find-peers \
+> ./testground -vv run single dht/find-peers \
       --builder=docker:go \
       --runner=cluster:swarm \
       --instances=50 \
@@ -129,14 +129,20 @@ Before you run your first test, you need to build a Docker image that provides t
 > make docker-ipfs-testground
 ```
 
-This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
+This next command is your first test! It runs the lookup-peers test from the DHT
+plan, using the builder (which sets up the environment + compilation) named
+docker:go (which compiles go inside docker) and runs it using the runner
+local:docker (which runs on your local machine).
 
 ```
-> testground run dht/find-peers \
+> testground run single dht/find-peers \
     --builder=docker:go \
     --runner=local:docker
 ...
 ```
+
+As of v0.1, you can also use compositions for a declarative method:
+[/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
 
 You should see a bunch of logs that describe the steps of the test, from:
 
@@ -144,6 +150,10 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Compilation of the test case inside the container
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
+
+## Running a composition
+
+
 
 ## Running a test outside of Testground orchestrator
 
@@ -191,7 +201,7 @@ ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaw
 Then, all you need to do is use cluster:swarm runner, example:
 
 ```bash
-./testground -vv run dht/find-peers \
+./testground -vv run single dht/find-peers \
     --builder=docker:go \
     --runner=cluster:swarm \
     --build-cfg push_registry=true \
@@ -268,7 +278,7 @@ func MyTest1(runenv *runtime.RunEnv) error {
 You can pass custom JSON like parameters, for example, if you want to send a map from strings to strings, you could do it like this:
 
 ```
-testground run test-plan/my-test-1 \
+testground run single test-plan/my-test-1 \
    --test-param myparam='{"key1": "value1", "key2": "value2"}'
 ```
 
