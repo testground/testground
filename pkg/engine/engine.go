@@ -391,14 +391,14 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		in.Groups = append(in.Groups, g)
 	}
 
-	_, err = run.Run(ctx, &in, output)
+	out, err := run.Run(ctx, &in, output)
 	if err == nil {
 		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
 		logging.S().Infow("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
-	return &api.RunOutput{RunnerID: runner}, nil
+	return out, err
 }
 
 // EnvConfig returns the EnvConfig for this Engine.
