@@ -39,7 +39,7 @@ func newPool(workers int, config KubernetesConfig) (*pool, error) {
 	return pool, nil
 }
 
-func (p *pool) Get(ctx context.Context) (*kubernetes.Clientset, error) {
+func (p *pool) Acquire(ctx context.Context) (*kubernetes.Clientset, error) {
 	select {
 	case cs := <-p.availableC:
 		return cs, nil
@@ -48,7 +48,7 @@ func (p *pool) Get(ctx context.Context) (*kubernetes.Clientset, error) {
 	}
 }
 
-func (p *pool) Put(cs *kubernetes.Clientset) {
+func (p *pool) Release(cs *kubernetes.Clientset) {
 	p.Lock()
 	defer p.Unlock()
 

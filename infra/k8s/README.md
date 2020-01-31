@@ -29,19 +29,16 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
 2. [AWS CLI](https://aws.amazon.com/cli)
 3. [helm](https://github.com/helm/helm)
-4. [op](https://support.1password.com/command-line-getting-started/).
 
 ## Set up infrastructure with kops
 
 1a. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
-1b. Get secrets for the S3 assets bucket from 1Password. You might want to persist those in your `rc` file.
+1b. Get secrets for the S3 assets bucket. You might want to persist those in your `rc` file.
 ```
-eval $(op signin protocollabs)
-
-export ASSETS_BUCKET_NAME=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="bucket-name").v' | tr -d '"')
-export ASSETS_ACCESS_KEY=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="access-key").v' | tr -d '"')
-export ASSETS_SECRET_KEY=$(op get item "AWS Assets S3 bucket secrets" | jq '.details | .sections[1].fields[] | select(.t=="secret-key").v' | tr -d '"')
+export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
+export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
+export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
 ```
 
 2. Create a bucket for `kops` state. This is similar to Terraform state bucket.

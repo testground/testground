@@ -176,11 +176,11 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			if cfg.KeepService {
 				return
 			}
-			client, err := pool.Get(ctx)
+			client, err := pool.Acquire(ctx)
 			if err != nil {
 				log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
 			}
-			defer pool.Put(client)
+			defer pool.Release(client)
 			err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
 			if err != nil {
 				log.Errorw("couldn't remove pod", "pod", podName, "err", err)
@@ -208,11 +208,11 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		gg.Go(func() error {
 			defer func() { <-sem }()
 
-			client, err := pool.Get(ctx)
+			client, err := pool.Acquire(ctx)
 			if err != nil {
 				return err
 			}
-			defer pool.Put(client)
+			defer pool.Release(client)
 
 			podName := fmt.Sprintf("%s-%d", jobName, i)
 
@@ -265,11 +265,11 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
 }
 
 func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, runID string, k8sNamespace string, replicas int) error {
-	client, err := pool.Get(ctx)
+	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
 	}
-	defer pool.Put(client)
+	defer pool.Release(client)
 
 	start := time.Now()
 	for {
@@ -321,11 +321,11 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 }
 
 func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv *runtime.RunEnv, env []v1.EnvVar, k8sNamespace string) error {
-	client, err := pool.Get(ctx)
+	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
 	}
-	defer pool.Put(client)
+	defer pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	hostpathtype := v1.HostPathType("DirectoryOrCreate")
