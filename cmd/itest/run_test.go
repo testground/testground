@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestAbortedTestShouldFailLocal(t *testing.T) {
+func XTestAbortedTestShouldFailLocal(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/abort",
@@ -19,7 +19,7 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 	}
 }
 
-func TestAbortedTestShouldFailDocker(t *testing.T) {
+func XTestAbortedTestShouldFailDocker(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/abort",
@@ -34,7 +34,7 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 	}
 }
 
-func TestIncompatibleRun(t *testing.T) {
+func XTestIncompatibleRun(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/ok",
@@ -49,7 +49,7 @@ func TestIncompatibleRun(t *testing.T) {
 	}
 }
 
-func TestCompatibleRunLocal(t *testing.T) {
+func XTestCompatibleRunLocal(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/ok",
@@ -64,7 +64,7 @@ func TestCompatibleRunLocal(t *testing.T) {
 	}
 }
 
-func TestCompatibleRunDocker(t *testing.T) {
+func XTestCompatibleRunDocker(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"placebo/ok",

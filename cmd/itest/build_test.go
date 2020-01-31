@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestBuildExecGo(t *testing.T) {
+func XTestBuildExecGo(t *testing.T) {
 	err := runSingle(t,
 		"build",
 		"placebo",
@@ -17,7 +17,7 @@ func TestBuildExecGo(t *testing.T) {
 	}
 }
 
-func TestBuildDockerGo(t *testing.T) {
+func XTestBuildDockerGo(t *testing.T) {
 	// TODO: this test assumes that docker is running locally, and that we can
 	// pick the .env.toml file this way, in case the user has defined a custom
 	// docker endpoint. I don't think those assumptions stand.

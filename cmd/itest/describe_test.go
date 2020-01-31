@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestDescribeExistingPlan(t *testing.T) {
+func XTestDescribeExistingPlan(t *testing.T) {
 	err := runSingle(t,
 		"describe",
 		"placebo",

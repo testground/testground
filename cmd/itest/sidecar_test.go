@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestSidecar(t *testing.T) {
+func XTestSidecar(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"network/ping-pong",
