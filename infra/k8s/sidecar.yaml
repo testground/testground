@@ -36,8 +36,7 @@ spec:
           ip route || true
       containers:
       - name: testground-sidecar
-        #image: ipfs/testground:edge
-        image: nonsens3/testground:02fa86e
+        image: ipfs/testground:edge
         imagePullPolicy: Always
         command: ["testground"]
         args: ["--vv", "sidecar", "--runner", "k8s"]
