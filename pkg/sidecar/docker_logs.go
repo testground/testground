@@ -7,14 +7,14 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-type dockerLogs struct {
+type dockerLogs struct { //nolint
 	logs           io.ReadCloser
 	stdout, stderr io.Reader
 	done           chan struct{}
 	err            error
 }
 
-func newDockerLogs(logs io.ReadCloser) *dockerLogs {
+func newDockerLogs(logs io.ReadCloser) *dockerLogs { //nolint
 	rstderr, wstderr := io.Pipe()
 	rstdout, wstdout := io.Pipe()
 

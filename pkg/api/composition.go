@@ -138,7 +138,7 @@ func (c *Composition) Validate() error {
 	// Calculate instances per group, and assert that sum total matches the
 	// expected value.
 	total, cum := c.Global.TotalInstances, uint(0)
-	for i, _ := range c.Groups {
+	for i := range c.Groups {
 		g := &(c.Groups[i])
 		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
 			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(total)))

@@ -220,9 +220,10 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 
 	// Trigger a build for each group, and wait until all of them are done.
 	for i, grp := range comp.Groups {
-		ii, grpp := i, grp // captures
+		i, grp := i, grp // captures
+
 		errgrp.Go(func() (err error) {
-			logging.S().Infow("performing build for group", "plan", testplan, "group", grpp.ID, "builder", builder)
+			logging.S().Infow("performing build for group", "plan", testplan, "group", grp.ID, "builder", builder)
 
 			in := &api.BuildInput{
 				BuildID:      uuid.New().String(),
@@ -230,18 +231,18 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
 				TestPlan:     plan,
-				Dependencies: grpp.Build.Dependencies.AsMap(),
+				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 
 			res, err := bm.Build(ctx, in, output)
 			if err != nil {
-				logging.S().Infow("build failed", "plan", testplan, "group", grpp.ID, "builder", builder, "error", err)
+				logging.S().Infow("build failed", "plan", testplan, "group", grp.ID, "builder", builder, "error", err)
 				return err
 			}
 
 			res.BuilderID = bm.ID()
-			ress[ii] = res
-			logging.S().Infow("build succeeded", "plan", testplan, "group", grpp.ID, "builder", builder, "artifact", res.ArtifactPath)
+			ress[i] = res
+			logging.S().Infow("build succeeded", "plan", testplan, "group", grp.ID, "builder", builder, "artifact", res.ArtifactPath)
 			return nil
 		})
 	}

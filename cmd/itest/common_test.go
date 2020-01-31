@@ -13,7 +13,7 @@ import (
 func runSingle(t *testing.T, args ...string) error {
 	t.Helper()
 
-	srv, err := server.New("localhost:0")
+	srv, err := daemon.New("localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}

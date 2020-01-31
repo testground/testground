@@ -120,7 +120,7 @@ func runCompositionCmd(c *cli.Context) (err error) {
 }
 
 func runSingleCmd(c *cli.Context) (err error) {
-	comp := new(api.Composition)
+	var comp *api.Composition
 	if comp, err = createSingletonComposition(c); err != nil {
 		return err
 	}

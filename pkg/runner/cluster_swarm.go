@@ -365,7 +365,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 
-		for service, _ := range services {
+		for service := range services {
 			logging.S().Infow("removing service", "service", service)
 
 			if err := cli.ServiceRemove(ctx, service); err == nil {
