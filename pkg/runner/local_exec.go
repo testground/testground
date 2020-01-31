@@ -109,6 +109,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		_ = console.Wait()
 	}()
 
+	var total int
 	for _, g := range input.Groups {
 		runenv := template
 		runenv.TestGroupID = g.ID
@@ -118,9 +119,10 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
 		for i := 0; i < g.Instances; i++ {
-			logging.S().Infow("starting test case instance", "plan", name, "group", g.ID, "number", i)
+			total++
+			logging.S().Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
 
-			id := fmt.Sprintf("instance %3d", i)
+			id := fmt.Sprintf("instance %3d", total)
 			cmd := exec.CommandContext(ctx, g.ArtifactPath)
 			stdout, _ := cmd.StdoutPipe()
 			stderr, _ := cmd.StderrPipe()
