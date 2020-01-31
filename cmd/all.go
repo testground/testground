@@ -38,7 +38,7 @@ var Flags = []cli.Flag{
 }
 
 func setupClient(c *cli.Context) (*client.Client, error) {
-	endpoint := c.Parent().String("endpoint")
+	endpoint := c.GlobalString("endpoint")
 
 	if endpoint == "" {
 		envcfg, err := config.GetEnvConfig()
@@ -56,8 +56,8 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	var (
 		testcase = c.Args().First()
 
-		builder   = c.Generic("builder").(*EnumValue).String()
-		runner    = c.Generic("runner").(*EnumValue).String()
+		builder   = c.String("builder")
+		runner    = c.String("runner")
 		instances = c.Uint("instances")
 		artifact  = c.String("use-build")
 
@@ -136,9 +136,14 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 		comp.Groups[0].Build.Dependencies = append(comp.Groups[0].Build.Dependencies, dep)
 	}
 
-	if err := comp.Validate(); err != nil {
-		return nil, err
+	switch c := strings.Fields(c.Command.FullName()); c[0] {
+	case "build":
+		err = comp.ValidateForBuild()
+	case "run":
+		err = comp.ValidateForRun()
+	default:
+		err = errors.New("unexpected command")
 	}
 
-	return comp, nil
+	return comp, err
 }

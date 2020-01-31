@@ -128,8 +128,17 @@ type Dependency struct {
 	Version string `toml:"version" json:"version" validate:"required"`
 }
 
-// Validate validates that this Composition is correct.
-func (c *Composition) Validate() error {
+// ValidateForBuild validates that this Composition is correct for a build.
+func (c *Composition) ValidateForBuild() error {
+	return compositionValidator.StructExcept(c,
+		"Global.Case",
+		"Global.TotalInstances",
+		"Global.Runner",
+	)
+}
+
+// ValidateForRun validates that this Composition is correct for a run.
+func (c *Composition) ValidateForRun() error {
 	// Perform structural validation.
 	if err := compositionValidator.Struct(c); err != nil {
 		return err

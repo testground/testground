@@ -148,7 +148,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 }
 
 func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.Writer) ([]*api.BuildOutput, error) {
-	if err := comp.Validate(); err != nil {
+	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
 
@@ -256,7 +256,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 }
 
 func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Writer) (*api.RunOutput, error) {
-	if err := comp.Validate(); err != nil {
+	if err := comp.ValidateForRun(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
 
