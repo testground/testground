@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"io"
-	"io/ioutil"
 	"net"
 	"os/exec"
 	"reflect"
 	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -162,18 +160,5 @@ func (*LocalExecutableRunner) CompatibleBuilders() []string {
 
 func (*LocalExecutableRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
 	// TODO
-
-	_, err := config.GetEnvConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	r, w := io.Pipe()
-
-	go func() {
-		defer w.Close()
-		_, err = w.Write([]byte("hello, world!"))
-	}()
-
-	return ioutil.NopCloser(r), err
+	panic("unimplemented")
 }
