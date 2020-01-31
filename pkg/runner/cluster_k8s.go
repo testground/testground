@@ -320,7 +320,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 
 		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
-		if counters["Running"] == 0 && counters["Succeeded"] > 0 {
+		if counters["Succeeded"] == input.TotalInstances {
 			return nil
 		}
 	}
