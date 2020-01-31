@@ -7,11 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"io"
 	"net/http"
 
-	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
 
@@ -154,14 +152,13 @@ func ParseListResponse(r io.ReadCloser) error {
 }
 
 // ParseBuildResponse parses a response from a `build` call
-func ParseBuildResponse(r io.ReadCloser) (*api.BuildOutput, error) {
-	var resp *BuildResponse
+func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
+	var resp BuildResponse
 	err := parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
-			resp = &BuildResponse{}
-			return mapstructure.Decode(result, resp)
+			return mapstructure.Decode(result, &resp)
 		},
 	)
 

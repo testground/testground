@@ -15,12 +15,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -106,16 +108,14 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
 	}
 
-	// Build a runenv.
-	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           input.TestPlan.TestCases[input.Seq].Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        input.Seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
-		TestArtifacts:      "/artifacts",
+	template := runtime.RunEnv{
+		TestPlan:          input.TestPlan.Name,
+		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
+		TestRun:           input.RunID,
+		TestCaseSeq:       input.Seq,
+		TestInstanceCount: input.TotalInstances,
+		TestSidecar:       true,
+		TestArtifacts:     "/artifacts",
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -124,25 +124,10 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
 	var err error
-	runenv.TestSubnet, err = nextK8sSubnet()
+	template.TestSubnet, err = nextK8sSubnet()
 	if err != nil {
 		return nil, err
 	}
-
-	env := util.ToEnvVar(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, v1.EnvVar{
-			Name:  "LOG_LEVEL",
-			Value: cfg.LogLevel,
-		})
-	}
-	redisCfg := v1.EnvVar{
-		Name:  "REDIS_HOST",
-		Value: "redis-headless",
-	}
-	env = append(env, redisCfg)
 
 	k8sConfig := defaultKubernetesConfig()
 
@@ -154,73 +139,94 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
 
-	log.Infow("deploying testground testplan run on k8s", "job-name", jobName, "image", input.ArtifactPath, "replicas", input.Instances)
+	log.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
-	var g errgroup.Group
+	var eg errgroup.Group
 
-	replicas := input.Instances
-
-	g.Go(func() error {
-		return monitorTestplanRunState(ctx, pool, log, input.RunID, k8sConfig.Namespace, int(input.Instances))
+	eg.Go(func() error {
+		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
 
-	for i := 1; i <= replicas; i++ {
-		i := i
-		sem <- struct{}{}
+	for _, g := range input.Groups {
+		runenv := template
+		runenv.TestGroupID = g.ID
+		runenv.TestGroupInstanceCount = g.Instances
+		runenv.TestInstanceParams = g.Parameters
 
-		podName := fmt.Sprintf("%s-%d", jobName, i)
-
-		defer func() {
-			if cfg.KeepService {
-				return
-			}
-			client, err := pool.Acquire(ctx)
-			if err != nil {
-				log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
-			}
-			defer pool.Release(client)
-			err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
-			if err != nil {
-				log.Errorw("couldn't remove pod", "pod", podName, "err", err)
-			}
-		}()
-
-		g.Go(func() error {
-			defer func() { <-sem }()
-
-			return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace)
+		env := conv.ToEnvVar(runenv.ToEnvVars())
+		env = append(env, v1.EnvVar{
+			Name:  "REDIS_HOST",
+			Value: "redis-headless",
 		})
+
+		// Set the log level if provided in cfg.
+		if cfg.LogLevel != "" {
+			env = append(env, v1.EnvVar{
+				Name:  "LOG_LEVEL",
+				Value: cfg.LogLevel,
+			})
+		}
+		for i := 0; i < g.Instances; i++ {
+			i := i
+			sem <- struct{}{}
+
+			podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
+
+			defer func() {
+				if cfg.KeepService {
+					return
+				}
+				client, err := pool.Acquire(ctx)
+				if err != nil {
+					log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
+				}
+				defer pool.Release(client)
+				err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
+				if err != nil {
+					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
+				}
+			}()
+
+			eg.Go(func() error {
+				defer func() { <-sem }()
+
+				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g)
+			})
+		}
 	}
 
-	err = g.Wait()
+	err = eg.Wait()
 	if err != nil {
 		return nil, err
 	}
 
 	var gg errgroup.Group
 
-	for i := 1; i <= replicas; i++ {
-		i := i
-		sem <- struct{}{}
+	for _, g := range input.Groups {
 
-		gg.Go(func() error {
-			defer func() { <-sem }()
+		for i := 0; i < g.Instances; i++ {
+			i := i
+			sem <- struct{}{}
 
-			client, err := pool.Acquire(ctx)
-			if err != nil {
-				return err
-			}
-			defer pool.Release(client)
+			gg.Go(func() error {
+				defer func() { <-sem }()
 
-			podName := fmt.Sprintf("%s-%d", jobName, i)
+				client, err := pool.Acquire(ctx)
+				if err != nil {
+					return err
+				}
+				defer pool.Release(client)
 
-			logs := getPodLogs(client, podName)
+				podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
 
-			fmt.Print(logs)
-			return nil
-		})
+				logs := getPodLogs(client, podName)
+
+				fmt.Print(logs)
+				return nil
+			})
+		}
 	}
 
 	err = gg.Wait()
@@ -264,7 +270,7 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
 	return str
 }
 
-func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, runID string, k8sNamespace string, replicas int) error {
+func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
 	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
@@ -281,7 +287,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		countPodsByState := func(state string) int {
 			fieldSelector := fmt.Sprintf("status.phase=%s", state)
 			opts := metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("testground.runid=%s", runID),
+				LabelSelector: fmt.Sprintf("testground.runid=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
 			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
@@ -314,13 +320,13 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 
 		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
-		if counters["Succeeded"] == replicas {
+		if counters["Running"] == 0 && counters["Succeeded"] > 0 {
 			return nil
 		}
 	}
 }
 
-func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv *runtime.RunEnv, env []v1.EnvVar, k8sNamespace string) error {
+func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup) error {
 	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
@@ -343,6 +349,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 				"testground.plan":     input.TestPlan.Name,
 				"testground.testcase": runenv.TestCase,
 				"testground.runid":    input.RunID,
+				"testground.groupid":  g.ID,
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
@@ -360,7 +367,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 			Containers: []v1.Container{
 				{
 					Name:  podName,
-					Image: input.ArtifactPath,
+					Image: g.ArtifactPath,
 					Args:  []string{},
 					Env:   env,
 					VolumeMounts: []v1.VolumeMount{

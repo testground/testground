@@ -49,7 +49,7 @@ aws s3api create-bucket \
     --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
 ```
 
-3. Pick up a cluster name, and set zone and kops state store
+3. Pick up a cluster name, and set zone and kops state store. You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 
 ```
 export NAME=my-first-cluster-kops.k8s.local
@@ -57,7 +57,7 @@ export KOPS_STATE_STORE=s3://kops-backend-bucket
 export ZONES=eu-central-1a
 ```
 
-4. Generate the cluster spec
+4. Generate the cluster spec. You could reuse it next time you create a cluster.
 
 ```
 kops create cluster \
@@ -150,8 +150,12 @@ testground --vv daemon
 
 ## Run a Testground testplan
 
+Use compositions: [/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
+
+or
+
 ```
-testground --vv run network/ping-pong \
+testground --vv run single network/ping-pong \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg bypass_cache=true \
@@ -164,7 +168,7 @@ testground --vv run network/ping-pong \
 or
 
 ```
-testground --vv run dht/find-peers \
+testground --vv run single dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
@@ -211,4 +215,5 @@ kubectl logs <pod-id, e.g. tg-dht-c95b5>
 
 - [ ] 3. Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
 
-- [ ] 4. We need to decide where Testground is going to publish built docker images - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
+- [X] 4. We need to decide where Testground is going to publish built docker images - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
+Resolution: For now we are using AWS ECR, as clusters are also on AWS.

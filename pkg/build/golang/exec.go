@@ -11,11 +11,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/hashicorp/go-getter"
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/build"
 )
 
 var (
@@ -41,7 +40,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 	}
 
 	var (
-		id   = build.CanonicalBuildID(input)
+		id   = input.BuildID
 		bin  = fmt.Sprintf("exec-go--%s-%s", input.TestPlan.Name, id)
 		path = filepath.Join(input.Directories.WorkDir(), bin)
 	)

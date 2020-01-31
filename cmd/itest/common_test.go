@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ipfs/testground/cmd"
-	"github.com/ipfs/testground/pkg/server"
+	"github.com/ipfs/testground/pkg/daemon"
 
 	"github.com/urfave/cli"
 )
@@ -13,7 +13,7 @@ import (
 func runSingle(t *testing.T, args ...string) error {
 	t.Helper()
 
-	srv, err := server.New("localhost:0")
+	srv, err := daemon.New("localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}

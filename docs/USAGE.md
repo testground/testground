@@ -87,7 +87,7 @@ Start the daemon with:
 Now you can run commands, such as:
 
 ```bash
-> ./testground -vv run dht/find-peers \
+> ./testground -vv run single dht/find-peers \
       --builder=docker:go \
       --runner=cluster:swarm \
       --instances=50 \
@@ -129,14 +129,20 @@ Before you run your first test, you need to build a Docker image that provides t
 > make docker-ipfs-testground
 ```
 
-This next command is your first test! It runs the lookup-peers test from the DHT plan, using the builder (which sets up the environment + compilation) named docker:go (which compiles go inside docker) and runs it using the runner local:docker (which runs on your local machine).
+This next command is your first test! It runs the lookup-peers test from the DHT
+plan, using the builder (which sets up the environment + compilation) named
+docker:go (which compiles go inside docker) and runs it using the runner
+local:docker (which runs on your local machine).
 
 ```
-> testground run dht/find-peers \
+> testground run single dht/find-peers \
     --builder=docker:go \
     --runner=local:docker
 ...
 ```
+
+As of v0.1, you can also use compositions for a declarative method:
+[/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
 
 You should see a bunch of logs that describe the steps of the test, from:
 
@@ -144,6 +150,10 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Compilation of the test case inside the container
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
+
+## Running a composition
+
+
 
 ## Running a test outside of Testground orchestrator
 
@@ -191,7 +201,7 @@ ssh -nNT -L 4545:/var/run/docker.sock ubuntu@<your.aws.thingy...compute.amazonaw
 Then, all you need to do is use cluster:swarm runner, example:
 
 ```bash
-./testground -vv run dht/find-peers \
+./testground -vv run single dht/find-peers \
     --builder=docker:go \
     --runner=cluster:swarm \
     --build-cfg push_registry=true \
@@ -212,32 +222,41 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv){
+var testCases = []func(*runtime.RunEnv) error {
    test.MyTest1,
    test.MyTest2,
    // add any other tests you have in ./test
 }
 
 func main() {
-	runenv := runtime.CurrentRunEnv()
+	runtime.Invoke(run)
+}
+
+func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
 	}
 
 	// Demux to the right test case.
-	testCases[runenv.TestCaseSeq](runenv)
+	return testCases[runenv.TestCaseSeq](runenv)
 }
 ```
 
 Each test, in this case, will be created under the subdirectory `./test`. For example, for `test.MyTest1`, it must be a function with the following signature:
 
 ```go
-func MyTest1(runenv *runtime.RunEnv) {
+func MyTest1(runenv *runtime.RunEnv) error {
 	// Your test...
 }
 ```
 
-Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), such as `runenv.Ok()` and `runenv.Abort(error)`.
+Returning `nil` from a test case indicates that it completed successfully. If you return an error from a test case,
+the runner will tear down the test, and the test outcome will be `"aborted"`. You can also halt test
+execution by `panic`-ing, which causes the outcome to be recorded as `"crashed"`.
+
+Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), 
+such as [`runenv.Message`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.Message) and 
+[`runenv.EmitMetric`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.EmitMetric).
 
 To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/ipfs/testground/sdk/runtime).
 
@@ -246,7 +265,7 @@ To get custom parameters, passed via the flag `--test-param`, you can use the [p
 To use `myparam`, you should pass it to the test as `--test-param myparam="some value"`.
 
 ```go
-func MyTest1(runenv *runtime.RunEnv) {
+func MyTest1(runenv *runtime.RunEnv) error {
    param, ok := runenv.StringParam("myparam")
    if !ok {
       // Param was not set
@@ -259,7 +278,7 @@ func MyTest1(runenv *runtime.RunEnv) {
 You can pass custom JSON like parameters, for example, if you want to send a map from strings to strings, you could do it like this:
 
 ```
-testground run test-plan/my-test-1 \
+testground run single test-plan/my-test-1 \
    --test-param myparam='{"key1": "value1", "key2": "value2"}'
 ```
 
@@ -282,8 +301,7 @@ with your test.
 
 ```go
 if err := sync.WaitNetworkInitialized(ctx context.Context, runenv, watcher); err != nil {
-    runtime.Abort(err)
-    return
+    return err // either panic, or make sure err propagates to the test case return value to abort test execution.
 }
 ```
 
