@@ -102,7 +102,7 @@ kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSET
                                                --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
 ```
 
-8. Install CNI-Genie, Weave and S3 bucket daemonset
+9. Install CNI-Genie, Weave and S3 bucket daemonset
 
 ```
 kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
@@ -110,7 +110,7 @@ kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
               -f ./infra/k8s/kops-weave/s3bucket.yml
 ```
 
-9. Destroy the cluster when you're done working on it
+10. Destroy the cluster when you're done working on it
 
 ```
 kops delete cluster $NAME --yes

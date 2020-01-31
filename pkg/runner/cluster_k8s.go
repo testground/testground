@@ -1,8 +1,8 @@
 package runner
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -204,6 +204,33 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	var gg errgroup.Group
 
+	// TODO: hack - this is the daemon, and not the user's local machine
+	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
+	if err := os.MkdirAll(workDir, 0777); err != nil {
+		return nil, err
+	}
+
+	// TODO: hack - create the run output directory and write the runenv.
+	runDir := filepath.Join(workDir, input.RunID)
+	if err := os.MkdirAll(runDir, 0777); err != nil {
+		return nil, err
+	}
+	if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
+		encoder := json.NewEncoder(f)
+		encoder.SetIndent("", "  ")
+		encoder.SetEscapeHTML(false)
+		err1 := encoder.Encode(template)
+		err2 := f.Close()
+		if err1 != nil {
+			return nil, err1
+		}
+		if err2 != nil {
+			return nil, err2
+		}
+	} else {
+		return nil, err
+	}
+
 	for _, g := range input.Groups {
 
 		for i := 0; i < g.Instances; i++ {
@@ -221,9 +248,30 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs := getPodLogs(client, podName)
+				// Log monitor.
+				path := filepath.Join(
+					runDir,
+					podName,
+				)
+				err = os.MkdirAll(path, 0777)
+				if err != nil {
+					return err
+				}
 
-				fmt.Print(logs)
+				f, err := os.Create(filepath.Join(path, "stdoutanderr.json"))
+				if err != nil {
+					return err
+				}
+
+				err = getPodLogs(client, podName, f)
+				if err != nil {
+					return err
+				}
+
+				err = f.Close()
+				if err != nil {
+					return err
+				}
 				return nil
 			})
 		}
@@ -249,25 +297,21 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
-	podLogOpts := v1.PodLogOptions{
-		TailLines: int64Ptr(2),
-	}
+func getPodLogs(clientset *kubernetes.Clientset, podName string, f *os.File) error {
+	podLogOpts := v1.PodLogOptions{}
 	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
 	podLogs, err := req.Stream()
 	if err != nil {
-		return "error in opening stream"
+		return fmt.Errorf("error in opening stream: %v", err)
 	}
 	defer podLogs.Close()
 
-	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, podLogs)
+	_, err = io.Copy(f, podLogs)
 	if err != nil {
-		return "error in copy information from podLogs to buf"
+		return fmt.Errorf("error in copy information from podLogs to file: %v", err)
 	}
-	str := buf.String()
 
-	return str
+	return nil
 }
 
 func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
