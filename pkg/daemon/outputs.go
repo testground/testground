@@ -1,4 +1,4 @@
-package server
+package daemon
 
 import (
 	"encoding/json"
