@@ -14,11 +14,12 @@ replace (
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/aws/aws-sdk-go v1.25.32
+	github.com/aws/aws-sdk-go v1.25.48
 	github.com/containernetworking/cni v0.7.1
 	github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
+	github.com/googleapis/gnostic v0.0.0-20190624222214-25d8b0b66985 // indirect
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
@@ -38,5 +39,5 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
-	k8s.io/client-go v0.0.0-20190620085101-78d2af792bab
+	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a
 )

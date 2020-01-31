@@ -32,7 +32,14 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ## Set up infrastructure with kops
 
-1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
+1a. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
+
+1b. Get secrets for the S3 assets bucket. You might want to persist those in your `rc` file.
+```
+export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
+export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
+export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
+```
 
 2. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
@@ -88,10 +95,19 @@ watch 'kubectl get nodes -o wide'
 kubectl -n kube-system get pods -o wide
 ```
 
-8. Install CNI-Genie, Weave and Dummy daemonset - we need a container on every worker node so that interface `cni0` is created, and Weave's initContainer can add a route to the Services CIDR
+8. Add AWS Assets S3 bucket secrets to Kubernetes
+```
+kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSETS_ACCESS_KEY" \
+                                               --from-literal=secret-key="$ASSETS_SECRET_KEY" \
+                                               --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
+```
+
+8. Install CNI-Genie, Weave and S3 bucket daemonset
 
 ```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml -f ./infra/k8s/kops-weave/dummy.yml -f ./infra/k8s/kops-weave/weave.yml
+kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
+              -f ./infra/k8s/kops-weave/weave.yml \
+              -f ./infra/k8s/kops-weave/s3bucket.yml
 ```
 
 9. Destroy the cluster when you're done working on it
@@ -170,13 +186,25 @@ Do not forget to delete the cluster once you are done running test plans.
 
 Testground is still in very early stage of development. It is possible that it crashes, or doesn't properly clean-up after a testplan run. Here are a few commands that could be helpful for you to inspect the state of your Kubernetes cluster and clean up after Testground.
 
-- `kubectl delete pods -l testground.plan=dht --grace-period=0` - delete all pods that have the `testground.plan=dht` label
+1. Delete all pods that have the `testground.plan=dht` label (in case you used the `--run-cfg keep_service=true` setting on Testground.
+```
+kubectl delete pods -l testground.plan=dht --grace-period=0 --force
+```
 
-- `kubectl delete job <job-id, e.g. tg-dht-find-peers-e47e5301-d6f7-4ded-98e8-b2d3dc60a7bb>` - delete a specific job
+2. Restart the `sidecar` daemon which manages networks for all testplans
+```
+kubectl delete pods -l name=testground-sidecar --grace-period=0 --force
+```
 
-- `kubectl get pods -o wide` - get all pods
+3. Review all running pods
+```
+kubectl get pods -o wide
+```
 
-- `kubectl logs -f <pod-id, e.g. tg-dht-c95b5>` - follow logs from a given pod
+4. Get logs from a given pod
+```
+kubectl logs <pod-id, e.g. tg-dht-c95b5>
+```
 
 
 ## Known issues and future improvements

@@ -32,6 +32,7 @@ const (
 	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
+	EnvTestArtifacts          = "TEST_ARTIFACTS"
 )
 
 // RunEnv encapsulates the context for this test run.
@@ -95,6 +96,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
+		EnvTestArtifacts:          re.TestArtifacts,
 	}
 
 	return out
@@ -195,6 +197,7 @@ func CurrentRunEnv() *RunEnv {
 		TestInstanceParams:     unpackParams(os.Getenv(EnvTestInstanceParams)),
 		TestGroupID:            os.Getenv(EnvTestGroupID),
 		TestGroupInstanceCount: toInt(os.Getenv(EnvTestGroupInstanceCount)),
+		TestArtifacts:          os.Getenv(EnvTestArtifacts),
 	}
 
 	re.initLoggers()

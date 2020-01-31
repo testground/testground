@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -10,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,12 +21,11 @@ import (
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
+	"go.uber.org/zap"
 
-	v1batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +33,12 @@ import (
 
 var (
 	_ api.Runner = &ClusterK8sRunner{}
+)
+
+const defaultK8sNetworkAnnotation = "flannel"
+
+var (
+	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
 )
 
 var k8sSubnetIdx uint64 = 0
@@ -91,31 +97,25 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-// TODO runner option to keep containers alive instead of deleting them after
-// the test has run.
 func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
-		seq = input.Seq
 		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 	)
 
 	// Sanity check.
-	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", seq, input.TestPlan.Name)
+	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
+		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
 	}
 
-	// Get the test case.
-	testcase := input.TestPlan.TestCases[seq]
-
-	// Build a runenv.
 	template := runtime.RunEnv{
 		TestPlan:          input.TestPlan.Name,
-		TestCase:          testcase.Name,
+		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       seq,
+		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
+		TestArtifacts:     "/artifacts",
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -129,45 +129,27 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	// Define k8s client configuration
-	config := defaultKubernetesConfig()
-	k8scfg, err := clientcmd.BuildConfigFromFlags("", config.KubeConfigPath)
+	k8sConfig := defaultKubernetesConfig()
+
+	workers := 20
+	pool, err := newPool(workers, k8sConfig)
 	if err != nil {
-		return nil, fmt.Errorf("could not start k8s client from config: %v", err)
+		return nil, err
 	}
 
-	// Create the clientset
-	clientset, err := kubernetes.NewForConfig(k8scfg)
-	if err != nil {
-		return nil, fmt.Errorf("could not create clientset: %v", err)
-	}
+	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
 
-	var (
-		parent = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
-		jobs   []string
-	)
+	log.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
-	defer func() {
-		log.Debugw("configuration for job", "keep_service", cfg.KeepService)
-		if cfg.KeepService {
-			log.Info("skipping removing jobs due to user request")
-			return
-		}
-		for _, j := range jobs {
-			err := clientset.BatchV1().Jobs(config.Namespace).Delete(j, &metav1.DeleteOptions{})
-			if err != nil {
-				log.Errorw("couldn't remove job", "job", j, "err", err)
-			}
-		}
-	}()
+	var eg errgroup.Group
 
-	errgrp, errctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace)
+	})
+
+	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
+
 	for _, g := range input.Groups {
-		jobName := strings.Join([]string{parent, g.ID}, ":")
-		jobs = append(jobs, jobName)
-
-		log.Infow("creating k8s deployment", "job", jobName, "image", g.ArtifactPath, "instances", g.Instances)
-
 		runenv := template
 		runenv.TestGroupID = g.ID
 		runenv.TestGroupInstanceCount = g.Instances
@@ -186,95 +168,73 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				Value: cfg.LogLevel,
 			})
 		}
+		for i := 0; i < g.Instances; i++ {
+			i := i
+			sem <- struct{}{}
 
-		// Create Kubernetes Job
-		jobRequest := &v1batch.Job{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: jobName,
-				Labels: map[string]string{
-					"testground.plan":     input.TestPlan.Name,
-					"testground.testcase": testcase.Name,
-					"testground.runid":    input.RunID,
-					"testground.groupid":  g.ID,
-				},
-			},
-			Spec: v1batch.JobSpec{
-				Parallelism:             int32Ptr(int32(g.Instances)),
-				Completions:             int32Ptr(int32(g.Instances)),
-				TTLSecondsAfterFinished: int32Ptr(600),
-				Template: v1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{
-							"testground.plan":     input.TestPlan.Name,
-							"testground.testcase": testcase.Name,
-							"testground.runid":    input.RunID,
-							"testground.groupid":  g.ID,
-						},
-						Annotations: map[string]string{
-							"cni": "flannel",
-						},
-					},
-					Spec: v1.PodSpec{
-						SecurityContext: &v1.PodSecurityContext{
-							Sysctls: []v1.Sysctl{
-								{
-									Name:  "net.core.somaxconn",
-									Value: "10000",
-								},
-							},
-						},
-						RestartPolicy: v1.RestartPolicyNever,
-						Containers: []v1.Container{
-							{
-								Name:  jobName,
-								Image: g.ArtifactPath,
-								Args:  []string{},
-								Env:   env,
-								Resources: v1.ResourceRequirements{
-									Limits: v1.ResourceList{
-										v1.ResourceMemory: resource.MustParse("100Mi"),
-										v1.ResourceCPU:    resource.MustParse("100m"),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+			podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
 
-		errgrp.Go(func() error {
-			_, err = clientset.BatchV1().Jobs(config.Namespace).Create(jobRequest)
-			if err != nil {
-				return err
-			}
-
-			// Wait for job.
-			for start := time.Now(); time.Since(start) <= 10*time.Minute; {
-				select {
-				case <-errctx.Done():
-					return errctx.Err()
-				default:
+			defer func() {
+				if cfg.KeepService {
+					return
 				}
-
-				job, err := clientset.BatchV1().Jobs(config.Namespace).Get(jobName, metav1.GetOptions{})
+				client, err := pool.Acquire(ctx)
 				if err != nil {
-					log.Warnw("transient job error", "job", jobName, "err", err)
-					time.Sleep(300 * time.Millisecond)
-					continue
+					log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
 				}
+				defer pool.Release(client)
+				err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
+				if err != nil {
+					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
+				}
+			}()
 
-				log.Debugw("job status", "job", jobName, "active", job.Status.Active, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
-				if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
-					return nil
-				}
-				time.Sleep(2000 * time.Millisecond)
-			}
-			return errors.New("timeout")
-		})
+			eg.Go(func() error {
+				defer func() { <-sem }()
+
+				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g)
+			})
+		}
 	}
 
-	return &api.RunOutput{}, errgrp.Wait()
+	err = eg.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	var gg errgroup.Group
+
+	for _, g := range input.Groups {
+
+		for i := 0; i < g.Instances; i++ {
+			i := i
+			sem <- struct{}{}
+
+			gg.Go(func() error {
+				defer func() { <-sem }()
+
+				client, err := pool.Acquire(ctx)
+				if err != nil {
+					return err
+				}
+				defer pool.Release(client)
+
+				podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
+
+				logs := getPodLogs(client, podName)
+
+				fmt.Print(logs)
+				return nil
+			})
+		}
+	}
+
+	err = gg.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.RunOutput{}, nil
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -289,4 +249,147 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func int32Ptr(i int32) *int32 { return &i }
+func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
+	podLogOpts := v1.PodLogOptions{
+		TailLines: int64Ptr(2),
+	}
+	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
+	podLogs, err := req.Stream()
+	if err != nil {
+		return "error in opening stream"
+	}
+	defer podLogs.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, podLogs)
+	if err != nil {
+		return "error in copy information from podLogs to buf"
+	}
+	str := buf.String()
+
+	return str
+}
+
+func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
+	client, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Release(client)
+
+	start := time.Now()
+	for {
+		if time.Since(start) > 10*time.Minute {
+			return errors.New("global timeout")
+		}
+		time.Sleep(2000 * time.Millisecond)
+
+		countPodsByState := func(state string) int {
+			fieldSelector := fmt.Sprintf("status.phase=%s", state)
+			opts := metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("testground.runid=%s", input.RunID),
+				FieldSelector: fieldSelector,
+			}
+			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
+			if err != nil {
+				log.Warnw("k8s client pods list error", "err", err.Error())
+				return -1
+			}
+			return len(res.Items)
+		}
+
+		counters := map[string]int{}
+		var countersMu sync.Mutex
+		states := []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
+
+		var wg sync.WaitGroup
+		wg.Add(len(states))
+		for _, state := range states {
+			state := state
+			go func() {
+				defer wg.Done()
+
+				n := countPodsByState(state)
+
+				countersMu.Lock()
+				counters[state] = n
+				countersMu.Unlock()
+			}()
+		}
+		wg.Wait()
+
+		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+
+		if counters["Succeeded"] == input.TotalInstances {
+			return nil
+		}
+	}
+}
+
+func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup) error {
+	client, err := pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer pool.Release(client)
+
+	mountPropagationMode := v1.MountPropagationHostToContainer
+	hostpathtype := v1.HostPathType("DirectoryOrCreate")
+	sharedVolumeName := "s3-shared"
+
+	mnt := v1.HostPathVolumeSource{
+		Path: fmt.Sprintf("/mnt/%s/%s", input.RunID, podName),
+		Type: &hostpathtype,
+	}
+
+	podRequest := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: podName,
+			Labels: map[string]string{
+				"testground.plan":     input.TestPlan.Name,
+				"testground.testcase": runenv.TestCase,
+				"testground.runid":    input.RunID,
+				"testground.groupid":  g.ID,
+			},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+		},
+		Spec: v1.PodSpec{
+			Volumes: []v1.Volume{
+				{
+					Name:         sharedVolumeName,
+					VolumeSource: v1.VolumeSource{HostPath: &mnt},
+				},
+			},
+			SecurityContext: &v1.PodSecurityContext{
+				Sysctls: testplanSysctls,
+			},
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:  podName,
+					Image: g.ArtifactPath,
+					Args:  []string{},
+					Env:   env,
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:             sharedVolumeName,
+							MountPath:        runenv.TestArtifacts,
+							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: resource.MustParse("100Mi"),
+							v1.ResourceCPU:    resource.MustParse("100m"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err = client.CoreV1().Pods(k8sNamespace).Create(podRequest)
+	return err
+}
+
+func int64Ptr(i int64) *int64 { return &i }
