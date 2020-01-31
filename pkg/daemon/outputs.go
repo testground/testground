@@ -32,9 +32,7 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		_, err = io.Copy(w, rc)
 		if err != nil {
-			// TODO: what to do? We already set request data, we can't just throw the error there.
-			// Trailing headers?
-			// Log?
+			log.Errorw("error while copying archive", "err", err)
 		}
 	}
 }
