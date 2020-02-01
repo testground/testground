@@ -60,10 +60,21 @@ func NewEventManager(logger eventLogger) *EventManager {
 // Wait waits for all running tests to finish and returns an error if any of
 // them failed.
 func (c *EventManager) Wait() error {
-	c.wg.Wait()
-	if c.failed > 0 {
-		return fmt.Errorf("%d nodes failed", c.failed)
+	waitChan := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(waitChan)
+	}()
+
+	select {
+	case <-waitChan:
+		if c.failed > 0 {
+			return fmt.Errorf("%d nodes failed", c.failed)
+		}
+	case <-time.After(10 * time.Minute):
+		return fmt.Errorf("plan timeout")
 	}
+
 	return nil
 }
 

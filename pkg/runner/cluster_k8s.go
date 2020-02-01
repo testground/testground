@@ -25,6 +25,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
@@ -237,28 +239,78 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		}
 	}()
 
+	output := NewEventManager(NewConsoleLogger())
+	_, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var watched = make(map[string]bool)
+
 	// Wait for job
 	start := time.Now()
 	for {
 		job, err := clientset.BatchV1().Jobs(config.Namespace).Get(jobName, metav1.GetOptions{})
 		if err != nil {
-			log.Warnw("transient job error", "job", jobName, "err", err)
+			log.Warnw("transient job error", "job", job.Name, "err", err)
 			time.Sleep(300 * time.Millisecond)
 			continue
 		}
 
-		log.Debugw("job status", "job", jobName, "active", job.Status.Active, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
-		if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
-			break
+		pods, err := getPodsForRunID(input.RunID, "default", clientset)
+		if err != nil {
+			return nil, err
 		}
-		if time.Since(start) > 10*time.Minute {
+		podLogOpts := v1.PodLogOptions{Follow: true}
+		for _,pod:= range pods.Items{
+			// log.Debugw("pod status", "name", pod.Name, "phase", pod.Status.Phase)
+			if (!watched[pod.Name] && pod.Status.Phase == "Running") {
+				req := clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
+				stream, err := req.Stream()
+				if err != nil {
+					return nil, err
+				}
+				defer stream.Close()
+
+				rstdout, wstdout := io.Pipe()
+				rstderr, wstderr := io.Pipe()
+				go func() {
+					_, _ = io.Copy(wstdout, stream)
+					_, _ = io.Copy( wstderr, stream)
+					_ = wstdout.CloseWithError(err)
+					_ = wstderr.CloseWithError(err)
+				}()
+				output.Manage(pod.Name, rstdout, rstderr)
+				watched[pod.Name] = true
+			}
+		}
+
+		log.Debugw("job status", "job", jobName, "nr of pods: ", len(pods.Items), "running pods:", len(watched))
+		// check all pods are being watched by EventManager
+		if (len(watched) == len(pods.Items)) {
+			// log.Debugw("job status", "job", jobName, "status", "all pods log watched, passing control to output.Wait()")
+			return nil, output.Wait()
+		}
+
+		// log.Debugw("job status", "job", jobName, "active", job.Status.Active, "succeeded", job.Status.Succeeded, "failed", job.Status.Failed)
+		// if job.Status.Active == 0 && (job.Status.Succeeded > 0 || job.Status.Failed > 0) {
+		// 	break
+		// }
+		// timeout for pods to come online
+		if time.Since(start) > 1*time.Minute {
 			return nil, errors.New("timeout")
 		}
 		time.Sleep(2000 * time.Millisecond)
 	}
+}
 
-	out := &api.RunOutput{RunnerID: "smth"}
-	return out, nil
+func getPodsForRunID(runID string, namespace string, k8sClient *kubernetes.Clientset) (*v1.PodList, error){
+	labelMap := map[string]string{
+		"testground.runid":    runID,
+	}
+	options := metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labelMap).String(),
+	}
+
+	pods, err:= k8sClient.CoreV1().Pods(namespace).List(options)
+	return pods, err
 }
 
 func (*ClusterK8sRunner) ID() string {
