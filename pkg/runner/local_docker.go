@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
@@ -417,6 +418,12 @@ func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
 func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	dockerSock := "/var/run/docker.sock"
+	if host := cli.DaemonHost(); strings.HasPrefix(host, "unix://") {
+		dockerSock = host[len("unix://"):]
+	} else {
+		log.Warnf("guessing docker socket as %s", dockerSock)
+	}
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
@@ -436,7 +443,7 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 			// needed to talk to docker.
 			Mounts: []mount.Mount{{
 				Type:   mount.TypeBind,
-				Source: "/var/run/docker.sock", // TODO: don't hardcode this.
+				Source: dockerSock,
 				Target: "/var/run/docker.sock",
 			}, {
 				Type:   mount.TypeBind,
