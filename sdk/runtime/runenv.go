@@ -35,24 +35,24 @@ const (
 type RunEnv struct {
 	*logger
 
-	TestPlan    string `json:"test_plan"`
-	TestCase    string `json:"test_case"`
-	TestRun     string `json:"test_run"`
-	TestCaseSeq int    `json:"test_seq"`
+	TestPlan    string `json:"plan"`
+	TestCase    string `json:"case"`
+	TestRun     string `json:"run"`
+	TestCaseSeq int    `json:"seq"`
 
-	TestRepo   string `json:"test_repo,omitempty"`
-	TestCommit string `json:"test_commit,omitempty"`
-	TestBranch string `json:"test_branch,omitempty"`
-	TestTag    string `json:"test_tag,omitempty"`
+	TestRepo   string `json:"repo,omitempty"`
+	TestCommit string `json:"commit,omitempty"`
+	TestBranch string `json:"branch,omitempty"`
+	TestTag    string `json:"tag,omitempty"`
 
-	TestArtifacts string `json:"test_artifacts,omitempty"`
+	TestArtifacts string `json:"artifacts,omitempty"`
 
-	TestInstanceCount  int               `json:"test_instance_count"`
-	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
-	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
+	TestInstanceCount  int               `json:"instances"`
+	TestInstanceRole   string            `json:"role,omitempty"`
+	TestInstanceParams map[string]string `json:"params,omitempty"`
 
-	TestGroupID            string `json:"test_group_id,omitempty"`
-	TestGroupInstanceCount int    `json:"test_group_instance_count,omitempty"`
+	TestGroupID            string `json:"group,omitempty"`
+	TestGroupInstanceCount int    `json:"group_instances,omitempty"`
 
 	// true if the test has access to the sidecar.
 	TestSidecar bool `json:"test_sidecar,omitempty"`
@@ -63,7 +63,7 @@ type RunEnv struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *net.IPNet `json:"test_network,omitempty"`
+	TestSubnet *net.IPNet `json:"network,omitempty"`
 }
 
 func (re *RunEnv) ToEnvVars() map[string]string {
