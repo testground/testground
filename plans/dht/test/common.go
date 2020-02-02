@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"sort"
+	"strconv"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -166,6 +168,10 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
 	}
 
+	if undialable {
+		dhtOptions = append(dhtOptions, dhtopts.Client(true))
+	}
+
 	dht, err := kaddht.New(ctx, node, dhtOptions...)
 	if err != nil {
 		return nil, nil, err
@@ -244,7 +250,22 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return nil, nil, err
 	}
 
-	priv, _, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	// Set a state barrier.
+	seqNumCh := watcher.Barrier(ctx, "seqNum", int64(runenv.TestInstanceCount))
+
+	// Signal we're in the same state.
+	seqSeed, err := writer.SignalEntry("seqNum")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Wait until all others have signalled.
+	if err := <-seqNumCh; err != nil {
+		return nil, nil, err
+	}
+
+	rng := rand.New(rand.NewSource(int64(seqSeed)))
+	priv, _, err := crypto.GenerateEd25519Key(rng)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -267,20 +288,26 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 
 	// TODO: remove this if it becomes too much coordination effort.
 	// Grab list of other peers that are available for this run.
+	allPeerIDs := make([]string, runenv.TestInstanceCount)
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
 		case p := <-peerIDCh:
-			if *p == id {
-				testNode.info.seq = i
-				testNode.info.properties = getNodeProperties(i, runenv.TestInstanceCount, opts)
-				continue
-			}
-			otherNodes[*p] = &NodeInfo{
-				seq:        i,
-				properties: getNodeProperties(i, runenv.TestInstanceCount, opts),
-			}
+			allPeerIDs[i] = string(*p)
 		case <-ctx.Done():
 			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
+		}
+	}
+
+	sort.Strings(allPeerIDs)
+	for i, p := range allPeerIDs {
+		if peer.ID(p) == id {
+			testNode.info.seq = i
+			testNode.info.properties = getNodeProperties(i, runenv.TestInstanceCount, opts)
+			continue
+		}
+		otherNodes[peer.ID(p)] = &NodeInfo{
+			seq:        i,
+			properties: getNodeProperties(i, runenv.TestInstanceCount, opts),
 		}
 	}
 
@@ -365,6 +392,8 @@ func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{
 func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) error {
 	// Are we a bootstrap node?
 	_, isBootstrapper := node.info.properties[Bootstrapper]
+	_, isUndialable := node.info.properties[Undialable]
+
 
 	////////////////
 	// 1: CONNECT //
@@ -556,7 +585,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			// Because of TCP simultaneous connect issues we need to figure out if anyone will be dialing us.
 			// If they are then deterministically only one of us should
 
-			if _, undialble := node.info.properties[Undialable]; !undialble {
+			if !isUndialable {
 				for _, info := range candidateNodes {
 					candidateDialList := getRandomNodes(info)
 					if _, ok := candidateDialList[node.info.seq]; ok && dht.Host().ID() < info.addrs.ID{
@@ -584,9 +613,12 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 	runenv.Message("bootstrap: dialed %d other peers", len(toDial))
 
-	// Wait for these peers to be added to the routing table.
-	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
-		return err
+	dead := isUndialable && len(toDial) == 0
+	if !dead {
+		// Wait for these peers to be added to the routing table.
+		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+			return err
+		}
 	}
 
 	runenv.Message("bootstrap: have peer in routing table")
@@ -602,11 +634,13 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 	runenv.Message("bootstrap: begin routing")
 
-	outputGraph(node.host, runenv, "br")
+	outputGraph(node.dht, runenv, "br")
 
-	// Setup our routing tables.
-	if err := <-dht.RefreshRoutingTable(); err != nil {
-		return err
+	if !dead {
+		// Setup our routing tables.
+		if err := <-dht.RefreshRoutingTable(); err != nil {
+			return err
+		}
 	}
 
 	runenv.Message("bootstrap: table ready")
@@ -625,7 +659,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 	runenv.Message("bootstrap: begin trim")
 
-	outputGraph(node.host, runenv, "bt")
+	outputGraph(node.dht, runenv, "bt")
 
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
@@ -639,11 +673,198 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		return err
 	}
 
-	outputGraph(node.host, runenv, "at")
+	outputGraph(node.dht, runenv, "at")
 
 	///////////////////////////
 	// 4: FORGET & RECONNECT //
 	///////////////////////////
+
+	// Forget all peers we're no longer connected to. We need to do this
+	// _after_ we wait for everyone to trim so we can forget peers that
+	// disconnected from us.
+	forgotten := 0
+	for _, p := range dht.Host().Peerstore().Peers() {
+		if dht.Host().Network().Connectedness(p) != network.Connected {
+			forgotten++
+			dht.Host().Peerstore().ClearAddrs(p)
+		}
+	}
+
+	runenv.Message("bootstrap: forgotten %d peers", forgotten)
+
+	// Make sure we have at least one peer. If not, reconnect to a
+	// bootstrapper and log a warning.
+	if len(dht.Host().Network().Peers()) == 0 && !dead {
+		// TODO: Report this as an error?
+		runenv.Message("bootstrap: fully disconnected, reconnecting.")
+		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
+			return err
+		}
+		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+			return err
+		}
+		runenv.Message("bootstrap: finished reconnecting to %d peers", len(toDial))
+	}
+
+	// Wait for everyone to finish trimming connections.
+	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-ready"); err != nil {
+		return err
+	}
+
+	if !dead {
+		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+			return err
+		}
+	}
+
+	runenv.Message(
+		"bootstrap: finished with %d connections, %d in the routing table",
+		len(dht.Host().Network().Peers()),
+		dht.RoutingTable().Size(),
+	)
+
+	runenv.Message("bootstrap: done")
+	return nil
+}
+
+func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) error {
+	_, isUndialable := node.info.properties[Undialable]
+	_ = isUndialable
+
+
+	stager := &Stager{
+		ctx:     ctx,
+		seq:     node.info.seq,
+		total:   runenv.TestInstanceCount,
+		name:   "bootstrapping",
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	////////////////
+	// 1: CONNECT //
+	////////////////
+
+	runenv.Message("bootstrap: begin connect")
+
+	dht := node.dht
+
+	var toDial []peer.AddrInfo
+
+	/*
+		Connect to log(n) of the network and then bootstrap
+	*/
+	plist := make([]*NodeInfo, len(peers) + 1)
+	for _, info := range peers {
+		plist[info.seq] = info
+	}
+	plist[node.info.seq] = node.info
+	targetSize := int(math.Log2(float64(len(plist)))/2)+1
+
+	nodeLst := make([]*NodeInfo, len(plist))
+	copy(nodeLst, plist)
+	rng := rand.New(rand.NewSource(0))
+	rng = rand.New(rand.NewSource(int64(rng.Int31())+int64(node.info.seq)))
+	rng.Shuffle(len(nodeLst), func(i, j int) {
+		nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
+	})
+
+	for _, info := range nodeLst {
+		if len(toDial) > targetSize {
+			break
+		}
+		if info.seq != node.info.seq {
+			if _, undialable := info.properties[Undialable]; !undialable {
+				toDial = append(toDial, *info.addrs)
+			}
+		}
+	}
+
+	// Wait until it's our turn to bootstrap
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: dialing %v", toDial)
+
+	// Connect to our peers.
+	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: dialed %d other peers", len(toDial))
+
+
+	// Wait for these peers to be added to the routing table.
+	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: have peer in routing table")
+
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	////////////////
+	// 2: ROUTING //
+	////////////////
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: begin routing")
+
+	outputGraph(node.dht, runenv, "br")
+
+	// Setup our routing tables.
+	if err := <-dht.RefreshRoutingTable(); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: table ready")
+
+	// TODO: Repeat this a few times until our tables have stabilized? That
+	// _shouldn't_ be necessary.
+
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	/////////////
+	// 3: TRIM //
+	/////////////
+
+	outputGraph(node.dht, runenv, "bt")
+
+	// Need to wait for connections to exit the grace period.
+	time.Sleep(2 * ConnManagerGracePeriod)
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: begin trim")
+
+	// Force the connection manager to do it's dirty work. DIE CONNECTIONS
+	// DIE!
+	dht.Host().ConnManager().TrimOpenConns(ctx)
+
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	outputGraph(node.dht, runenv, "at")
+
+	///////////////////////////
+	// 4: FORGET & RECONNECT //
+	///////////////////////////
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
 
 	// Forget all peers we're no longer connected to. We need to do this
 	// _after_ we wait for everyone to trim so we can forget peers that
@@ -672,14 +893,15 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		runenv.Message("bootstrap: finished reconnecting to %d peers", len(toDial))
 	}
 
-	// Wait for everyone to finish trimming connections.
-	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-ready"); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 
 	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
 		return err
 	}
+
+	outputGraph(node.dht, runenv, "ab")
 
 	runenv.Message(
 		"bootstrap: finished with %d connections, %d in the routing table",
@@ -690,6 +912,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	runenv.Message("bootstrap: done")
 	return nil
 }
+
 
 // get all bootstrap peers.
 func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, opts *SetupOpts) ([]peer.AddrInfo, error) {
@@ -723,11 +946,11 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 		var err error
 		for i := 1; i <= attempts; i++ {
 			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
-			select {
-			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
-			case <-ctx.Done():
-				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
-			}
+			//select {
+			//case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			//case <-ctx.Done():
+			//	return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
+			//}
 			if err = dht.Host().Connect(ctx, ai); err == nil {
 				return nil
 			} else {
@@ -781,6 +1004,53 @@ func Sync(
 	return <-doneCh
 }
 
+type Stager struct {
+	ctx context.Context
+	seq int
+	total int
+	name string
+	stage int
+	watcher *sync.Watcher
+	writer *sync.Writer
+}
+
+func (s *Stager) Begin() error {
+	// Wait until it's out turn
+	s.stage += 1
+	stage := sync.State(s.name + string(s.stage))
+	return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
+}
+
+func (s *Stager) End() error {
+	// Signal that we're done
+	stage := sync.State(s.name + string(s.stage))
+	_, err := s.writer.SignalEntry(stage)
+	if err != nil {
+		return err
+	}
+
+	return <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+}
+
+
+func WaitMyTurn(
+	ctx context.Context,
+	runenv *runtime.RunEnv,
+	watcher *sync.Watcher,
+	writer *sync.Writer,
+	state sync.State,
+	seq int,
+) (func() error, error) {
+	// Wait until it's out turn
+	err := <-watcher.Barrier(ctx, state, int64(seq))
+
+	return func() error{
+		// Signal that we're done
+		_, err := writer.SignalEntry(state)
+		return err
+	}, err
+}
+
 // WaitRoutingTable waits until the routing table is not empty.
 func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT) error {
 	for {
@@ -805,10 +1075,16 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 	}
 }
 
-func outputGraph(host host.Host, runenv *runtime.RunEnv, graphID string) {
-	for _, c := range host.Network().Conns() {
+func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
+	for _, c := range dht.Host().Network().Conns() {
 		if c.Stat().Direction == network.DirOutbound {
-			runenv.SLogger().Named("Graph").Named(graphID).Infof("{\"From\": \"%s\", \"To\": \"%s\"}", c.LocalPeer(), c.RemotePeer())
+			runenv.SLogger().Named("Graph").Infow(graphID, "From", c.LocalPeer().Pretty(), "To", c.RemotePeer().Pretty())
+		}
+	}
+
+	for i, b := range dht.RoutingTable().Buckets {
+		for _, p := range b.Peers() {
+			runenv.SLogger().Named("RT").Infow(graphID, "Node", dht.PeerID().Pretty(), strconv.Itoa(i), p.Pretty())
 		}
 	}
 }

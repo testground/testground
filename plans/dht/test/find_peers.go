@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/routing"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -36,10 +37,11 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	defer outputGraph(node.dht, runenv, "end")
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
+	if err = StagedBootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
 		return err
 	}
 
@@ -59,7 +61,23 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	// * How many of our connected peers are actually useful to us?
 
 	// Perform FIND_PEER N times.
+
+	stg := Stager{
+		ctx:     ctx,
+		seq:     node.info.seq,
+		total:   runenv.TestInstanceCount,
+		name:    "lookup",
+		stage:   0,
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	if err := stg.Begin(); err != nil {
+		return err
+	}
+
 	found := 0
+	queryLog := runenv.SLogger().Named("query").With("id", node.host.ID())
 	for p, _ := range peers {
 		if found >= opts.NFindPeers {
 			break
@@ -70,9 +88,37 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			continue
 		}
 
+		runenv.Message("start find peer number %d", found + 1)
+
+
+		cctx, cancel := context.WithCancel(ctx)
+		ectx, events := routing.RegisterForQueryEvents(cctx)
+		log := queryLog.With("target", p)
+
+		go func() {
+			for e := range events {
+				var msg string
+				switch e.Type {
+				case routing.SendingQuery:
+					msg = "send"
+				case routing.PeerResponse:
+					msg = "receive"
+				case routing.AddingPeer:
+					msg = "adding"
+				case routing.DialingPeer:
+					msg = "dialing"
+				case routing.QueryError:
+					msg = "error"
+				case routing.Provider, routing.Value:
+					msg = "result"
+				}
+				log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra)
+			}
+		}()
+
 		t := time.Now()
 
-		ectx, cancel := context.WithCancel(ctx)
+		ectx, cancel = context.WithCancel(ctx)
 		ectx = TraceQuery(ctx, runenv, p.Pretty())
 
 		// TODO: Instrument libp2p dht to get:
@@ -81,7 +127,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		_, err := node.dht.FindPeer(ectx, p)
 		cancel()
 		if err != nil {
-			return fmt.Errorf("find peer failed: %s", err)
+			return fmt.Errorf("find peer failed: peer %s : %s", p, err)
 		}
 
 		runenv.EmitMetric(&runtime.MetricDefinition{
@@ -92,5 +138,10 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 		found++
 	}
+
+	if err := stg.End(); err != nil {
+		return err
+	}
+
 	return nil
 }
