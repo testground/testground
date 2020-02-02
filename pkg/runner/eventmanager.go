@@ -75,7 +75,7 @@ func (c *EventManager) FailStart(id string, message interface{}) {
 	c.msg(idx, id, time.Now(), Incomplete, "failed to start:", message)
 }
 
-// Manage should be called on the standard output of all test plans. It will
+// Manage should be called on the standard output of all instances. It will
 // send the events to a logger and record whether or not the test passed.
 func (c *EventManager) Manage(id string, stdout, stderr io.ReadCloser) {
 	idx := c.count

@@ -1,18 +1,14 @@
 package runtime
 
 import (
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/dustin/go-humanize"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type key int
@@ -32,11 +28,13 @@ const (
 	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
-	EnvTestArtifacts          = "TEST_ARTIFACTS"
+	EnvTestOutputsPath        = "TEST_ARTIFACTS"
 )
 
 // RunEnv encapsulates the context for this test run.
 type RunEnv struct {
+	*logger
+
 	TestPlan    string `json:"test_plan"`
 	TestCase    string `json:"test_case"`
 	TestRun     string `json:"test_run"`
@@ -66,10 +64,6 @@ type RunEnv struct {
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
 	TestSubnet *net.IPNet `json:"test_network,omitempty"`
-
-	// TODO: we'll want different kinds of loggers.
-	logger  *zap.Logger
-	slogger *zap.SugaredLogger
 }
 
 func (re *RunEnv) ToEnvVars() map[string]string {
@@ -96,57 +90,10 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
-		EnvTestArtifacts:          re.TestArtifacts,
+		EnvTestOutputsPath:        re.TestArtifacts,
 	}
 
 	return out
-}
-
-func (re *RunEnv) SLogger() *zap.SugaredLogger {
-	if re.slogger == nil {
-		re.initLoggers()
-	}
-	return re.slogger
-}
-
-// Loggers returns the loggers populated from this runenv.
-func (re *RunEnv) Loggers() (*zap.Logger, *zap.SugaredLogger) {
-	if re.logger == nil || re.slogger == nil {
-		re.initLoggers()
-	}
-	return re.logger, re.slogger
-}
-
-// initLoggers populates loggers from this RunEnv.
-func (re *RunEnv) initLoggers() {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	cfg.Encoding = "json"
-
-	if level := os.Getenv("LOG_LEVEL"); level != "" {
-		l := zapcore.Level(0)
-		l.UnmarshalText([]byte(level))
-		cfg.Level = zap.NewAtomicLevelAt(l)
-	}
-
-	logger, err := cfg.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	re.logger = logger.With(
-		zap.String("plan", re.TestPlan),
-		zap.String("case", re.TestCase),
-		zap.String("run", re.TestRun),
-		zap.Int("seq", re.TestCaseSeq),
-		zap.String("repo", re.TestRepo),
-		zap.String("commit", re.TestCommit),
-		zap.String("branch", re.TestBranch),
-		zap.String("tag", re.TestTag),
-		zap.Int("instances", re.TestInstanceCount),
-		zap.String("group", re.TestGroupID),
-	)
-	re.slogger = re.logger.Sugar()
 }
 
 func unpackParams(packed string) map[string]string {
@@ -182,26 +129,7 @@ func toNet(s string) *net.IPNet {
 
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
-	re := &RunEnv{
-		TestSidecar:            toBool(os.Getenv(EnvTestSidecar)),
-		TestPlan:               os.Getenv(EnvTestPlan),
-		TestCase:               os.Getenv(EnvTestCase),
-		TestRun:                os.Getenv(EnvTestRun),
-		TestTag:                os.Getenv(EnvTestTag),
-		TestBranch:             os.Getenv(EnvTestBranch),
-		TestRepo:               os.Getenv(EnvTestRepo),
-		TestSubnet:             toNet(os.Getenv(EnvTestSubnet)),
-		TestCaseSeq:            toInt(os.Getenv(EnvTestCaseSeq)),
-		TestInstanceCount:      toInt(os.Getenv(EnvTestInstanceCount)),
-		TestInstanceRole:       os.Getenv(EnvTestInstanceRole),
-		TestInstanceParams:     unpackParams(os.Getenv(EnvTestInstanceParams)),
-		TestGroupID:            os.Getenv(EnvTestGroupID),
-		TestGroupInstanceCount: toInt(os.Getenv(EnvTestGroupInstanceCount)),
-		TestArtifacts:          os.Getenv(EnvTestArtifacts),
-	}
-
-	re.initLoggers()
-
+	re, _ := ParseRunEnv(os.Environ())
 	return re
 }
 
@@ -213,21 +141,24 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 	}
 
 	re := &RunEnv{
-		TestSidecar:        toBool(m[EnvTestSidecar]),
-		TestPlan:           m[EnvTestPlan],
-		TestCase:           m[EnvTestCase],
-		TestRun:            m[EnvTestRun],
-		TestTag:            m[EnvTestTag],
-		TestBranch:         m[EnvTestBranch],
-		TestRepo:           m[EnvTestRepo],
-		TestSubnet:         toNet(m[EnvTestSubnet]),
-		TestCaseSeq:        toInt(m[EnvTestCaseSeq]),
-		TestInstanceCount:  toInt(m[EnvTestInstanceCount]),
-		TestInstanceRole:   m[EnvTestInstanceRole],
-		TestInstanceParams: unpackParams(m[EnvTestInstanceParams]),
+		TestSidecar:            toBool(m[EnvTestSidecar]),
+		TestPlan:               m[EnvTestPlan],
+		TestCase:               m[EnvTestCase],
+		TestRun:                m[EnvTestRun],
+		TestTag:                m[EnvTestTag],
+		TestBranch:             m[EnvTestBranch],
+		TestRepo:               m[EnvTestRepo],
+		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
+		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
+		TestInstanceRole:       m[EnvTestInstanceRole],
+		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
+		TestGroupID:            m[EnvTestGroupID],
+		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
+		TestArtifacts:          m[EnvTestOutputsPath],
 	}
 
-	re.initLoggers()
+	re.logger = newLogger(re)
 
 	return re, nil
 }
@@ -316,26 +247,6 @@ func (re *RunEnv) JSONParam(name string, v interface{}) {
 
 	if err := json.Unmarshal([]byte(s), v); err != nil {
 		panic(err)
-	}
-}
-
-// RandomRunEnv generates a random RunEnv for testing purposes.
-func RandomRunEnv() *RunEnv {
-	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-
-	return &RunEnv{
-		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
-		TestSidecar:        false,
-		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
-		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
-		TestCaseSeq:        int(rand.Uint32()),
-		TestRepo:           "github.com/ipfs/go-ipfs",
-		TestSubnet:         toNet("127.1.0.1/16"),
-		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
-		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
-		TestInstanceRole:   "",
-		TestInstanceParams: make(map[string]string, 0),
 	}
 }
 
