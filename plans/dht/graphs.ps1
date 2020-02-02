@@ -1,6 +1,6 @@
 param($graphID,$dataDir)
 
-$allGraphs = @("br", "bt", "at")
+$allGraphs = @("br", "bt", "at", "ab", "end")
 $fmt = "png"
 
 if (!$dataDir) {
@@ -13,11 +13,17 @@ if ($graphID) {
 
 $allGraphs | %{
 	$g = $_
-	$links = gci $dataDir -recurse | ?{$_.Name -eq "stderr.json"} | Get-Content |
-	ConvertFrom-Json | ?{$_.N -eq "Graph.$g"} | %{$_.M} | ConvertFrom-Json |
-	%{$_.From+" -> "+$_.To+";"}
+	$data = gci $dataDir -recurse | ?{$_.Name -eq "stderr.json"} | Get-Content |
+	ConvertFrom-Json
 	
-	$file = "digraph D { `n" + $links + "`n }"
-	$file > "$g.dot"
-	$file | sfdp -x -Goverlap=scale "-T$fmt" -o "$g.$fmt"
+	$gdataz = $data | ?{$_.N -eq "Graph" -and $_.M -eq $g}
+    $gdata = $gdataz | %{"Z{0} -> Z{1};`n" -f $_.From, $_.To}
+	$file = "digraph D {`n " + $gdata + "}"
+	$file > "$g-conn.dot"
+	
+	$rtdata = $data | ?{$_.N -eq "RT" -and $_.M -eq "$g"} | %{"Z{0} -> Z{1};`n" -f $_.From, $_.To}
+	$rtfile = "digraph D {`n " + $rtdata + "}"
+	$rtfile > "$g-rt.dot"
+	
+	#$file | circo "-T$fmt" -o "$g.$fmt"
 }
