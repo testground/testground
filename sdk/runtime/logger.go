@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -23,25 +24,31 @@ func newLogger(runenv *RunEnv) *logger {
 
 func (l *logger) init() {
 	level := zap.NewAtomicLevel()
+
 	if l := os.Getenv("LOG_LEVEL"); l != "" {
 		level.UnmarshalText([]byte(l))
 	} else {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 
+	path := filepath.Join(l.runenv.TestArtifacts, "results.out")
+
 	cfg := zap.Config{
 		Development:       false,
 		Level:             level,
 		DisableCaller:     true,
 		DisableStacktrace: true,
-		OutputPaths:       []string{},
-		ErrorOutputPaths:  []string{},
+		OutputPaths:       []string{"stdout", path},
 		Encoding:          "json",
 		InitialFields: map[string]interface{}{
 			"run_id":   l.runenv.TestRun,
 			"group_id": l.runenv.TestGroupID,
 		},
 	}
+
+	enc := zap.NewProductionEncoderConfig()
+	enc.LevelKey, enc.NameKey = "", ""
+	cfg.EncoderConfig = enc
 
 	var err error
 	l.logger, err = cfg.Build()

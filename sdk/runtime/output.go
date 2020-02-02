@@ -1,75 +1,105 @@
 package runtime
 
 import (
-	"encoding/json"
 	"fmt"
-	"time"
+
+	"go.uber.org/zap"
 )
 
-type Outcome string
+var Types = struct{ Start, Message, Metric, Finish zap.Field }{
+	Start:   zap.String("type", "start"),
+	Message: zap.String("type", "message"),
+	Metric:  zap.String("type", "metric"),
+	Finish:  zap.String("type", "finish"),
+}
 
-const (
-	OutcomeOK      = Outcome("ok")
-	OutcomeAborted = Outcome("aborted")
-	OutcomeCrashed = Outcome("crashed")
-)
+var Outcomes = struct{ Success, Failure, Crash zap.Field }{
+	Success: zap.String("outcome", "success"),
+	Failure: zap.String("outcome", "failure"),
+	Crash:   zap.String("outcome", "crash"),
+}
 
 type MetricDefinition struct {
-	Name           string `json:"name"`
-	Unit           string `json:"unit"`
-	ImprovementDir int    `json:"improve_dir"`
+	Name           string
+	Unit           string
+	ImprovementDir int
 }
 
-type Metric struct {
-	*MetricDefinition
-
-	Value float64 `json:"value"`
-}
-
-type Event struct {
-	RunEnv    *RunEnv `json:"runenv"`
-	Timestamp int64   `json:"timestamp"`
-	Metric    *Metric `json:"metric,omitempty"`
-	Result    *Result `json:"result,omitempty"`
-	Message   string  `json:"msg,omitempty"`
-}
-
-type Result struct {
-	Outcome Outcome `json:"outcome"`
-	Reason  string  `json:"reason,omitempty"`
-	Stack   string  `json:"stack,omitempty"`
-}
-
-// Message prints out an informational message.
-func (r *RunEnv) Message(msg string, a ...interface{}) {
+// RecordMessage records an informational message.
+func (l *logger) RecordMessage(msg string, a ...interface{}) {
 	if len(a) > 0 {
 		msg = fmt.Sprintf(msg, a...)
 	}
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Message:   msg,
-	}
+	l.logger.Info(msg, Types.Message)
+}
 
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(bytes))
+func (l *logger) RecordStart() {
+	l.logger.Info("",
+		Types.Start,
+		zap.String("plan", l.runenv.TestPlan),
+		zap.String("case", l.runenv.TestCase),
+		zap.String("run", l.runenv.TestRun),
+		zap.Int("seq", l.runenv.TestCaseSeq),
+		zap.String("repo", l.runenv.TestRepo),
+		zap.String("commit", l.runenv.TestCommit),
+		zap.String("branch", l.runenv.TestBranch),
+		zap.String("tag", l.runenv.TestTag),
+		zap.Int("instances", l.runenv.TestInstanceCount),
+		zap.String("group", l.runenv.TestGroupID),
+	)
+}
+
+// RecordSuccess records that the calling instance succeeded.
+func (l *logger) RecordSuccess() {
+	l.logger.Info("",
+		Types.Finish,
+		Outcomes.Success,
+	)
+}
+
+// RecordFailure records that the calling instance failed with the supplied
+// error.
+func (l *logger) RecordFailure(err error) {
+	l.logger.Error("",
+		Types.Finish,
+		Outcomes.Failure,
+		zap.Error(err),
+	)
+}
+
+// RecordCrash records that the calling instance crashed/panicked with the
+// supplied error.
+func (l *logger) RecordCrash(err interface{}) {
+	l.logger.Error("",
+		Types.Finish,
+		Outcomes.Crash,
+		zap.Any("error", err),
+		zap.Stack("stacktrace"),
+	)
+}
+
+// RecordMetric records a metric event associated with the provided metric
+// definition, giving it value `value`.
+func (l *logger) RecordMetric(metric *MetricDefinition, value float64) {
+	l.logger.Info("",
+		Types.Metric,
+		zap.String("name", metric.Name),
+		zap.String("unit", metric.Unit),
+		zap.Float64("value", value),
+	)
+}
+
+// Message prints out an informational message.
+//
+// Deprecated: use RecordMessage.
+func (r *RunEnv) Message(msg string, a ...interface{}) {
+	r.RecordMessage(msg, a...)
 }
 
 // EmitMetric outputs a metric event associated with the provided metric
 // definition, giving it value `value`.
-func (r *RunEnv) EmitMetric(def *MetricDefinition, value float64) {
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Metric:    &Metric{def, value},
-	}
-
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(bytes))
+//
+// Deprecated: use RecordMetric.
+func (r *RunEnv) EmitMetric(metric *MetricDefinition, value float64) {
+	r.RecordMetric(metric, value)
 }
