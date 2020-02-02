@@ -367,15 +367,21 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		fallthrough
 
 	default:
+		gopkg, err := filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
+		if err != nil {
+			warn = fmt.Errorf("[go_proxy_mode=local] error while resolving go pkg directory: %w; falling back to go_proxy_mode=direct", err)
+			break
+		}
+
 		mnt := mount.Mount{
 			Type:   mount.TypeBind,
-			Source: gobuild.Default.GOPATH,
-			Target: "/go",
+			Source: gopkg,
+			Target: "/go/pkg",
 		}
 
 		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
 
-		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		_, _, err = docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
 			ContainerConfig: &container.Config{
 				Image: "goproxy/goproxy",
