@@ -81,7 +81,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	}
 
 	cliopts := []client.Opt{
-		client.WithHost(client.DefaultDockerHost),
+		client.FromEnv,
 		client.WithAPIVersionNegotiation(),
 	}
 
