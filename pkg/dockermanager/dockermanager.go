@@ -13,6 +13,9 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 )
 
+const workerShutdownTimeout = 1 * time.Minute
+const workerShutdownTick = 5 * time.Second
+
 // Manager is a convenient wrapper around the docker client.
 type Manager struct {
 	logging.Logging
@@ -123,7 +126,24 @@ func (dm *Manager) Manage(
 		if m, ok := managers[container]; ok {
 			m.cancel()
 			delete(managers, container)
-			<-m.done
+
+			timeout := time.NewTimer(workerShutdownTimeout)
+			defer timeout.Stop()
+
+			ticker := time.NewTicker(workerShutdownTick)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-m.done:
+					return
+				case <-timeout.C:
+					dm.S().Panicw("timed out waiting for container worker to stop", "container", container)
+					return
+				case <-ticker.C:
+					dm.S().Errorw("waiting for container worker to stop", "container", container)
+				}
+			}
 		}
 	}
 	start := func(container string) {
