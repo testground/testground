@@ -1,5 +1,6 @@
 'use strict'
 
+const { parseMetrics, groupBy } = require('../common')
 const fs = require('fs')
 
 const [,, basePath] = process.argv
@@ -36,43 +37,4 @@ function writeResults (nodeType, name, statName, points) {
   const filePath = basePath + `.${nodeType}.${name}.${statName}.csv`
   const content = points.map(p => p.join(',')).join('\n') + '\n'
   fs.writeFileSync(filePath, content)
-}
-
-function parseMetrics (data) {
-  const metrics = []
-  for (const line of data.toString().split('\n')) {
-    let log = {}
-    try {
-      log = JSON.parse(line)
-    } catch (e) {
-    }
-
-    if (log.eventType === 'Metric') {
-      const metric = log.metric
-      const parts = metric.name.split(/\//)
-      // [ 'run:1', 'seq:2', 'file-size:10485760', 'Seed', 'msgs_rcvd' ]
-      if (parts.length !== 5) {
-        throw new Error(`Unexpected metric format ${metric}`)
-      }
-
-      const [runDef, seqDef, fileSizeDef, nodeType, metricName] = parts
-      const run = runDef.split(':')[1]
-      const seq = seqDef.split(':')[1]
-      const fileSize = fileSizeDef.split(':')[1]
-
-      metrics.push({ run, seq, fileSize, nodeType, name: metricName, value: metric.value })
-    }
-  }
-
-  return metrics
-}
-
-function groupBy (arr, key) {
-  const res = {}
-  for (const i of arr) {
-    const val = i[key]
-    res[val] = res[val] || []
-    res[val].push(i)
-  }
-  return res
 }

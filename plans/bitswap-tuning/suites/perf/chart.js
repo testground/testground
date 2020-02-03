@@ -1,21 +1,24 @@
 'use strict'
 
-// node ./plans/bitswap-tuning/suites/chart.js \
+// node chart.js \
 //  -d ./results/bw1024MB-3x3 \
 //  -m time_to_fetch \
-//  --b=1024 \
+//  -b 1024 \
+//  -l 5 \
 //  -xlabel 'File size (MB)' \
 //  -ylabel 'Time to fetch (s)' \
 //  -xscale '9.53674316e-7' \
 //  -yscale '1e-9' \
 //  && gnuplot ./results/bw1024MB-3x3/time_to_fetch.plot > ./results/bw1024MB-3x3/bw1024MB-3x3.svg
 
+const { parseArgs, getLineColor } = require('../common')
+
 const fs = require('fs')
 const path = require('path')
 
 const args = parseArgs(['d', 'm'], {
-  'l': 5,
-  'b': 1024,
+  'l': 5, // latency in ms
+  'b': 1024, // bandwidth in MB
   'xscale': 1,
   'yscale': 1
 })
@@ -111,65 +114,6 @@ function outputPlot (metricName, outFiles, latencyMS, bandwidthMB) {
 
   const filePath = path.join(args.d, `${metricName}.plot`)
   fs.writeFileSync(filePath, output)
-}
-
-const lineColors = [
-  ['#bbe1fa', '#3282b8', '#0f4c75', '#1b262c'],
-  ['#f1bc31', '#e25822', '#b22222', '#7c0a02'],
-  ['#64e291', '#a0cc78', '#589167', '#207561'],
-]
-const usedColors = []
-function getLineColor (branch, seeds, leeches) {
-  const branchIndex = getBranchIndex(branch, seeds, leeches)
-  const branchColors = lineColors[branchIndex % lineColors.length]
-  const colorIndex = usedColors[branchIndex].count % branchColors.length
-  usedColors[branchIndex].count++
-  return branchColors[colorIndex]
-}
-
-function getBranchIndex (branch, seeds, leeches) {
-  for (const [i, b] of Object.entries(usedColors)) {
-    if (b.name === branch) {
-      return i
-    }
-  }
-  usedColors.push({ name: branch, count: 0 })
-  return usedColors.length - 1
-}
-
-function parseArgs (required, defaults) {
-  const res = {}
-  const args = process.argv.slice(2)
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
-    if (arg[0] == '-') {
-      let k, v
-      if (arg[1] == '-') {
-        [k, v] = arg.substring(2).split('=')
-      } else {
-        k = arg.substring(1)
-        v = args[i + 1]
-      }
-      if (!k || v == null) {
-        throw new Error(usage())
-      }
-      res[k] = v
-    }
-  }
-
-  for (const [k, v] of Object.entries(defaults)) {
-    if (res[k] == null) {
-      res[k] = v
-    }
-  }
-
-  for (const req of required) {
-    if (res[req] == null) {
-      throw new Error(usage())
-    }
-  }
-
-  return res
 }
 
 function usage () {
