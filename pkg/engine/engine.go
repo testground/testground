@@ -226,7 +226,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 			logging.S().Infow("performing build for group", "plan", testplan, "group", grp.ID, "builder", builder)
 
 			in := &api.BuildInput{
-				BuildID:      uuid.New().String(),
+				BuildID:      uuid.New().String()[24:],
 				BuildConfig:  obj,
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
@@ -313,11 +313,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	// the run ID in the state db.
 	//
 	// This Run ID is shared by all groups in the composition.
-	id, err := uuid.NewRandom()
-	if err != nil {
-		return nil, fmt.Errorf("error while generating test run ID: %w", err)
-	}
-	runid := id.String()[24:]
+	runid := uuid.New().String()[24:]
 
 	// This var compiles all configurations to coalesce.
 	//
