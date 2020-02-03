@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -26,7 +27,7 @@ const (
 //
 // TODO: source redis URL from environment variables. The Redis host and port
 // will be wired in by Nomad/Swarm.
-func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
+func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Client, err error) {
 	var (
 		host = os.Getenv(EnvRedisHost)
 		port = os.Getenv(EnvRedisPort)
@@ -41,7 +42,7 @@ func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
 		// Fall back to attempting to use `host.docker.internal` which
 		// is only available in macOS and Windows.
 		for _, h := range []string{RedisHostname, HostHostname} {
-			if addrs, err := net.LookupHost(h); err == nil && len(addrs) > 0 {
+			if addrs, err := net.DefaultResolver.LookupHost(ctx, h); err == nil && len(addrs) > 0 {
 				host = h
 				break
 			}
@@ -67,12 +68,12 @@ func redisClient(runenv *runtime.RunEnv) (client *redis.Client, err error) {
 	client = redis.NewClient(opts)
 
 	// PING redis to make sure we're alive.
-	return client, client.Ping().Err()
+	return client, client.WithContext(ctx).Ping().Err()
 }
 
 // MustWatcherWriter proxies to WatcherWriter, panicking if an error occurs.
-func MustWatcherWriter(runenv *runtime.RunEnv) (*Watcher, *Writer) {
-	watcher, writer, err := WatcherWriter(runenv)
+func MustWatcherWriter(ctx context.Context, runenv *runtime.RunEnv) (*Watcher, *Writer) {
+	watcher, writer, err := WatcherWriter(ctx, runenv)
 	if err != nil {
 		panic(err)
 	}
@@ -81,13 +82,13 @@ func MustWatcherWriter(runenv *runtime.RunEnv) (*Watcher, *Writer) {
 
 // WatcherWriter creates a Watcher and a Writer object associated with this test
 // run's sync tree.
-func WatcherWriter(runenv *runtime.RunEnv) (*Watcher, *Writer, error) {
-	watcher, err := NewWatcher(runenv)
+func WatcherWriter(ctx context.Context, runenv *runtime.RunEnv) (*Watcher, *Writer, error) {
+	watcher, err := NewWatcher(ctx, runenv)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	writer, err := NewWriter(runenv)
+	writer, err := NewWriter(ctx, runenv)
 	if err != nil {
 		return nil, nil, err
 	}

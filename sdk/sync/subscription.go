@@ -1,9 +1,8 @@
 package sync
 
 import (
-	"fmt"
+	"context"
 	"reflect"
-	"strconv"
 
 	"github.com/go-redis/redis/v7"
 )
@@ -18,30 +17,12 @@ type subscription struct {
 	key     string
 
 	outCh reflect.Value
-
-	// connCh stores the connection ID of the subscription's conn. Consuming
-	// from here should always return a value, either a connection ID or -1 if
-	// no connection was created (e.g. error situation).
-	connCh  chan int64
-	closeCh chan struct{}
-	doneCh  chan struct{}
-	result  error
-}
-
-func (s *subscription) isClosed() bool {
-	select {
-	case <-s.closeCh:
-		return true
-	default:
-		return false
-	}
 }
 
 // process subscribes to a stream from position 0 performing an indefinite
 // blocking XREAD. The XREAD will be cancelled when the subscription is
 // cancelled.
 func (s *subscription) process() {
-	defer close(s.doneCh)
 	defer s.outCh.Close()
 
 	var (
@@ -52,27 +33,42 @@ func (s *subscription) process() {
 
 	startSeq, err := s.client.XLen(key).Result()
 	if err != nil {
-		s.connCh <- -1
-		s.result = fmt.Errorf("failed to fetch current length of stream: %w", err)
+		s.w.re.SLogger().Errorf("failed to fetch current length of stream: %w", err)
 		return
 	}
 
 	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", startSeq)
 
-	// Get a connection and store its connection ID, so that stop() can unblock
-	// it upon closure.
+	// Get a connection and store its connection ID, so we can unblock it when canceling.
 	conn := s.client.Conn()
 	defer conn.Close()
 
-	id, err := conn.ClientID().Result()
+	connID, err := conn.ClientID().Result()
 	if err != nil {
-		s.connCh <- -1
-		s.result = fmt.Errorf("failed to get the current conn id: %w", err)
+		s.w.re.SLogger().Errorf("failed to fetch get client ID: %w", err)
 		return
 	}
+	done := make(chan struct{})
+	closed := make(chan struct{})
+	go func() {
+		defer close(closed)
+		select {
+		case <-s.client.Context().Done():
+			// we need a _non_ canceled client for this to work.
+			client := s.client.WithContext(context.Background())
+			err := client.ClientUnblockWithError(connID).Err()
+			if err != nil {
+				log.Errorw("failed to kill connection", "error", err)
+			}
+		case <-done:
+			// no need to unblock anything.
+		}
+	}()
 
-	// store the conn ID in the channel.
-	s.connCh <- id
+	defer func() {
+		close(done)
+		<-closed
+	}()
 
 	args := &redis.XReadArgs{
 		Streams: []string{key, "0"},
@@ -80,11 +76,11 @@ func (s *subscription) process() {
 	}
 
 	var last redis.XMessage
-	for !s.isClosed() {
+	for {
 		streams, err := conn.XRead(args).Result()
 		if err != nil && err != redis.Nil {
-			if !s.isClosed() {
-				s.result = fmt.Errorf("failed to XREAD from subtree stream: %w", err)
+			if s.client.Context().Err() == nil {
+				log.Errorf("failed to XREAD from subtree stream: %w", err)
 			}
 			return
 		}
@@ -110,29 +106,4 @@ func (s *subscription) process() {
 
 		args.Streams[1] = last.ID
 	}
-}
-
-// stop stops this subcription.
-func (s *subscription) stop() error {
-	if s.isClosed() {
-		<-s.doneCh
-		return s.result
-	}
-
-	close(s.closeCh)
-
-	connID := <-s.connCh
-
-	// We have a connection to close.
-	if connID != -1 {
-		// this subscription has a connection associated with it.
-		if err := s.client.ClientKillByFilter("id", strconv.Itoa(int(connID))).Err(); err != nil {
-			err := fmt.Errorf("failed to kill connection: %w", err)
-			s.w.re.RecordMessage("%s", err)
-			return err
-		}
-	}
-
-	<-s.doneCh
-	return s.result
 }

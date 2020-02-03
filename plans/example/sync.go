@@ -19,7 +19,7 @@ import (
 func ExampleSync(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
@@ -36,7 +36,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 			return val.(string)
 		}}
 
-	seq, err := writer.Write(&st, runenv.TestRun)
+	seq, err := writer.Write(ctx, &st, runenv.TestRun)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("Set...")
 		time.Sleep(5 * time.Second)
 		runenv.RecordMessage("Go!")
-		_, err = writer.SignalEntry(startState)
+		_, err = writer.SignalEntry(ctx, startState)
 		return err
 	} else {
 
@@ -68,7 +68,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		sleepTime := rand.Intn(10)
 		runenv.RecordMessage("I'm a follower. Signaling ready after %d seconds", sleepTime)
 		time.Sleep(time.Duration(sleepTime) * time.Second)
-		_, err = writer.SignalEntry(readyState)
+		_, err = writer.SignalEntry(ctx, readyState)
 		if err != nil {
 			return err
 		}

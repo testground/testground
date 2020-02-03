@@ -31,7 +31,7 @@ func ensureRedis(t *testing.T) (close func()) {
 
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
-	client, err := redisClient(runenv)
+	client, err := redisClient(context.Background(), runenv)
 	if err == nil {
 		client.Close()
 		return func() {}
@@ -45,7 +45,7 @@ func ensureRedis(t *testing.T) (close func()) {
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
-	if client, err = redisClient(runenv); err != nil {
+	if client, err = redisClient(context.Background(), runenv); err != nil {
 		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
 	defer client.Close()
@@ -58,33 +58,31 @@ func ensureRedis(t *testing.T) (close func()) {
 }
 
 func TestWatcherWriter(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	close := ensureRedis(t)
 	defer close()
 
 	runenv := randomRunEnv()
 
-	watcher, err := NewWatcher(runenv)
+	watcher, err := NewWatcher(ctx, runenv)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer watcher.Close()
 
 	peersCh := make(chan *peer.AddrInfo, 16)
-	cancel, err := watcher.Subscribe(PeerSubtree, peersCh)
+	err = watcher.Subscribe(ctx, PeerSubtree, peersCh)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := cancel(); err != nil {
-			t.Error(err)
-		}
-	}()
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	writer, err := NewWriter(runenv)
+	writer, err := NewWriter(ctx, runenv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +97,7 @@ func TestWatcherWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = writer.Write(PeerSubtree, ai)
+	_, err = writer.Write(ctx, PeerSubtree, ai)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,23 +112,23 @@ func TestWatcherWriter(t *testing.T) {
 }
 
 func TestBarrier(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	close := ensureRedis(t)
 	defer close()
 
 	runenv := randomRunEnv()
 
-	watcher, writer := MustWatcherWriter(runenv)
+	watcher, writer := MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 
 	state := State("yoda")
 	ch := watcher.Barrier(ctx, state, 10)
 
 	for i := 1; i <= 10; i++ {
-		if curr, err := writer.SignalEntry(state); err != nil {
+		if curr, err := writer.SignalEntry(ctx, state); err != nil {
 			t.Fatal(err)
 		} else if curr != int64(i) {
 			t.Fatalf("expected current count to be: %d; was: %d", i, curr)
@@ -152,23 +150,21 @@ func TestWatchInexistentKeyThenWrite(t *testing.T) {
 		subtree = randomTestSubtree()
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	closeRedis := ensureRedis(t)
 	defer closeRedis()
 
-	watcher, writer := MustWatcherWriter(runenv)
+	watcher, writer := MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
 	ch := make(chan *string, 128)
-	subCancel, err := watcher.Subscribe(subtree, ch)
+	err := watcher.Subscribe(ctx, subtree, ch)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := subCancel(); err != nil {
-			t.Error(err)
-		}
-	}()
 
 	doneCh := make(chan struct{})
 	go func() {
@@ -193,25 +189,23 @@ func TestWriteAllBeforeWatch(t *testing.T) {
 		subtree = randomTestSubtree()
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	closeRedis := ensureRedis(t)
 	defer closeRedis()
 
-	watcher, writer := MustWatcherWriter(runenv)
+	watcher, writer := MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
 	produce(t, writer, subtree, values)
 
 	ch := make(chan *string, 128)
-	subCancel, err := watcher.Subscribe(subtree, ch)
+	err := watcher.Subscribe(ctx, subtree, ch)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := subCancel(); err != nil {
-			t.Error(err)
-		}
-	}()
 
 	doneCh := make(chan struct{})
 	go func() {
@@ -233,17 +227,20 @@ func TestSequenceOnWrite(t *testing.T) {
 		subtree    = randomTestSubtree()
 	)
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	closeRedis := ensureRedis(t)
 	defer closeRedis()
 
 	s := "a"
 	for i := 1; i <= iterations; i++ {
-		w, err := NewWriter(runenv)
+		w, err := NewWriter(ctx, runenv)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		seq, err := w.Write(subtree, &s)
+		seq, err := w.Write(ctx, subtree, &s)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -265,16 +262,21 @@ func TestCloseSubscription(t *testing.T) {
 		subtree = randomTestSubtree()
 	)
 
-	watcher, writer := MustWatcherWriter(runenv)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	watcher, writer := MustWatcherWriter(ctx, runenv)
+
+	sctx, scancel := context.WithCancel(ctx)
 
 	ch := make(chan *string, 128)
-	cancel, err := watcher.Subscribe(subtree, ch)
+	err := watcher.Subscribe(sctx, subtree, ch)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	s := "foo"
-	if _, err := writer.Write(subtree, &s); err != nil {
+	if _, err := writer.Write(ctx, subtree, &s); err != nil {
 		t.Fatal(err)
 	}
 
@@ -284,9 +286,7 @@ func TestCloseSubscription(t *testing.T) {
 	}
 
 	// cancel the subscription.
-	if err := cancel(); err != nil {
-		t.Fatal(err)
-	}
+	scancel()
 
 	v, ok = <-ch
 	if ok && *v != "" {
@@ -332,7 +332,7 @@ func consumeUnordered(t *testing.T, ctx context.Context, ch chan *string, values
 
 func produce(t *testing.T, writer *Writer, subtree *Subtree, values []string) {
 	for i, s := range values {
-		if seq, err := writer.Write(subtree, &s); err != nil {
+		if seq, err := writer.Write(context.Background(), subtree, &s); err != nil {
 			t.Fatalf("failed while writing key to subtree: %s", err)
 		} else if seq != int64(i)+1 {
 			t.Fatalf("expected seq == i+1; seq: %d; i: %d", seq, i)
