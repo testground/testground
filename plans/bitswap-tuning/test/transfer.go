@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -22,21 +20,6 @@ import (
 // NOTE: To run use:
 // ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master"
 
-type nodeType int
-
-const (
-	// Seeds data
-	Seed nodeType = iota
-	// Fetches data from seeds
-	Leech
-	// Doesn't seed or fetch data
-	Passive
-)
-
-func (nt nodeType) String() string {
-	return [...]string{"Seed", "Leech", "Passive"}[nt]
-}
-
 // Transfer data from S seeds to L leeches
 func Transfer(runenv *runtime.RunEnv) error {
 	// Test Parameters
@@ -49,7 +32,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	requestStagger := time.Duration(runenv.IntParam("request_stagger")) * time.Millisecond
 	bstoreDelay := time.Duration(runenv.IntParam("bstore_delay_ms")) * time.Millisecond
 	runCount := runenv.IntParam("run_count")
-	fileSizes, err := parseFileSizes(runenv)
+	fileSizes, err := utils.ParseIntArray(runenv.StringParam("file_size"))
 	if err != nil {
 		return err
 	}
@@ -149,26 +132,36 @@ func Transfer(runenv *runtime.RunEnv) error {
 	cancelSub()
 
 	/// --- Warm up
-
 	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Note: seq starts at 1 (not 0)
-	var nodetp nodeType
+	var nodetp utils.NodeType
+	var tpindex int
 	switch {
 	case seq <= int64(leechCount):
-		nodetp = Leech
-		runenv.Message("I am a leech")
+		nodetp = utils.Leech
+		tpindex = int(seq) - 1
+		runenv.Message("I am leech %d", tpindex)
 	case seq > int64(leechCount+passiveCount):
-		nodetp = Seed
-		runenv.Message("I am a seed")
+		nodetp = utils.Seed
+		tpindex = int(seq) - 1 - (leechCount + passiveCount)
+		runenv.Message("I am seed %d", tpindex)
 	default:
-		nodetp = Passive
-		runenv.Message("I am a passive node (neither leech nor seed)")
+		nodetp = utils.Passive
+		tpindex = int(seq) - 1 - leechCount
+		runenv.Message("I am passive node %d (neither leech nor seed)", tpindex)
+	}
+
+	// Set up network (with traffic shaping)
+	latencyMS, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, watcher, writer, nodetp, tpindex)
+	if err != nil {
+		runenv.Abort(fmt.Errorf("Failed to set up network: %w", err))
+		return
 	}
 
 	// Use the same blockstore on all runs for the seed node
 	var bstore blockstore.Blockstore
-	if nodetp == Seed {
+	if nodetp == utils.Seed {
 		bstore, err = utils.CreateBlockstore(ctx, bstoreDelay)
 		if err != nil {
 			return err
@@ -205,7 +198,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 			rootCidSubtree := getRootCidSubtree(sizeIndex)
 
 			switch nodetp {
-			case Seed:
+			case utils.Seed:
 				// For seeds, create a new bitswap node from the existing datastore
 				bsnode, err = utils.CreateBitswapNode(ctx, h, bstore)
 				if err != nil {
@@ -255,7 +248,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 						return fmt.Errorf("Failed to get Redis Sync rootCidSubtree %w", err)
 					}
 				}
-			case Leech:
+			case utils.Leech:
 				// For leeches, create a new blockstore on each run
 				bstore, err = utils.CreateBlockstore(ctx, bstoreDelay)
 				if err != nil {
@@ -307,7 +300,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 			/// --- Start test
 
 			var timeToFetch time.Duration
-			if nodetp == Leech {
+			if nodetp == utils.Leech {
 				// Stagger the start of the first request from each leech
 				// Note: seq starts from 1 (not 0)
 				startDelay := time.Duration(seq-1) * requestStagger
@@ -346,7 +339,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 				}
 			}
 
-			if nodetp == Leech {
+			if nodetp == utils.Leech {
 				// Free up memory by clearing the leech blockstore at the end of each run.
 				// Note that although we create a new blockstore for the leech at the
 				// start of the run, explicitly cleaning up the blockstore from the
@@ -357,7 +350,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 				}
 			}
 		}
-		if nodetp == Seed {
+		if nodetp == utils.Seed {
 			// Free up memory by clearing the seed blockstore at the end of each
 			// set of tests over the current file size.
 			if err := utils.ClearBlockstore(ctx, bstore); err != nil {
@@ -370,19 +363,6 @@ func Transfer(runenv *runtime.RunEnv) error {
 	/// --- Ending the test
 
 	return nil
-}
-
-func parseFileSizes(runenv *runtime.RunEnv) ([]int, error) {
-	var fileSizes []int
-	sizeStrs := strings.Split(runenv.StringParam("file_size"), ",")
-	for _, sizeStr := range sizeStrs {
-		size, err := strconv.ParseInt(sizeStr, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("Could not convert file size '%s' to integer(s)", sizeStrs)
-		}
-		fileSizes = append(fileSizes, int(size))
-	}
-	return fileSizes, nil
 }
 
 func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, error) {
@@ -411,8 +391,9 @@ func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int
 		return fmt.Errorf("Error getting stats from Bitswap: %w", err)
 	}
 
-	id := fmt.Sprintf("run:%d/seq:%d/file-size:%d/%s", runNum, seq, fileSize, nodetp)
-	if nodetp == Leech {
+	latencyMS := uint64(latency) / 1e6
+	id := fmt.Sprintf("latencyMS:%d/bandwidthMB:%d/run:%d/seq:%d/file-size:%d/%s:%d", latencyMS, bandwidthMB, runNum, seq, fileSize, nodetp, tpindex)
+	if nodetp == utils.Leech {
 		runenv.EmitMetric(utils.MetricTimeToFetch(id), float64(timeToFetch))
 	}
 	runenv.EmitMetric(utils.MetricMsgsRcvd(id), float64(stats.MessagesReceived))
