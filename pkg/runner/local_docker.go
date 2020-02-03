@@ -160,6 +160,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, fmt.Errorf("error while merging configurations: %w", err)
 	}
 
+	// Create the run output directory and write the runenv.
+	runDir, err := createOutputDirAndEncodeTemplate(input.RunID, input.TestPlan.Name, &template, workDir)
+	if err != nil {
+		return nil, err
+	}
+
 	var containers []string
 	for _, g := range input.Groups {
 		runenv := template
@@ -173,27 +179,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
 			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-		}
-
-		// Create the run output directory and write the runenv.
-		runDir := filepath.Join(workDir, input.TestPlan.Name, input.RunID, g.ID)
-		if err := os.MkdirAll(runDir, 0777); err != nil {
-			return nil, err
-		}
-		if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
-			encoder := json.NewEncoder(f)
-			encoder.SetIndent("", "  ")
-			encoder.SetEscapeHTML(false)
-			err1 := encoder.Encode(runenv)
-			err2 := f.Close()
-			if err1 != nil {
-				return nil, err1
-			}
-			if err2 != nil {
-				return nil, err2
-			}
-		} else {
-			return nil, err
 		}
 
 		// Start as many containers as group instances.
@@ -485,4 +470,29 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
+}
+
+// Create the run output directory and write the runenv.
+func createOutputDirAndEncodeTemplate(runID string, testplan string, runenv *runtime.RunEnv, workDir string) (string, error) {
+	runDir := filepath.Join(workDir, testplan, runID)
+	if err := os.MkdirAll(runDir, 0777); err != nil {
+		return "", err
+	}
+	if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
+		encoder := json.NewEncoder(f)
+		encoder.SetIndent("", "  ")
+		encoder.SetEscapeHTML(false)
+		err1 := encoder.Encode(runenv)
+		err2 := f.Close()
+		if err1 != nil {
+			return "", err1
+		}
+		if err2 != nil {
+			return "", err2
+		}
+	} else {
+		return "", err
+	}
+
+	return runDir, nil
 }

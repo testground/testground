@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -204,30 +203,17 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	var gg errgroup.Group
 
-	// TODO: hack - this is the daemon, and not the user's local machine
+	// TODO: hack - move to client side
+	// Create work directory
 	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
 	if err := os.MkdirAll(workDir, 0777); err != nil {
 		return nil, err
 	}
 
-	// TODO: hack - create the run output directory and write the runenv.
-	runDir := filepath.Join(workDir, input.RunID)
-	if err := os.MkdirAll(runDir, 0777); err != nil {
-		return nil, err
-	}
-	if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
-		encoder := json.NewEncoder(f)
-		encoder.SetIndent("", "  ")
-		encoder.SetEscapeHTML(false)
-		err1 := encoder.Encode(template)
-		err2 := f.Close()
-		if err1 != nil {
-			return nil, err1
-		}
-		if err2 != nil {
-			return nil, err2
-		}
-	} else {
+	// TODO: hack - move to client side
+	// Create the run output directory and write the runenv.
+	runDir, err := createOutputDirAndEncodeTemplate(input.RunID, input.TestPlan.Name, &template, workDir)
+	if err != nil {
 		return nil, err
 	}
 
