@@ -44,7 +44,7 @@ runTest () {
 	  --test-param file_size=$FILESIZE \
 	  --test-param seed_latency_ms=$SEED_LATENCY \
 	  --run-cfg log_file=$OUTFILE_RAW
-	cat $OUTFILE_RAW | node $SCRIPT_DIR/peer-choice-process.js $OUTFILE_CSV_BASE
+	cat $OUTFILE_RAW | node $SCRIPT_DIR/aggregate.js $OUTFILE_CSV_BASE
 }
 
 BW=64 # bandwidth in MB
