@@ -262,17 +262,9 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				if err != nil {
 					return err
 				}
+				defer f.Close()
 
-				err = getPodLogs(client, podName, f)
-				if err != nil {
-					return err
-				}
-
-				err = f.Close()
-				if err != nil {
-					return err
-				}
-				return nil
+				return getPodLogs(client, podName, f)
 			})
 		}
 	}
