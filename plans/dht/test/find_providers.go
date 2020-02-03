@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -23,7 +24,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		BucketSize:     runenv.IntParam("bucket_size"),
 		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
 		FUndialable:    runenv.FloatParam("f_undialable"),
-		NodesProviding: runenv.IntParam("nodes_providing"),
+		NodesProviding: runenv.IntParam("n_providing"),
 		RecordCount:    runenv.IntParam("record_count"),
 	}
 
@@ -42,7 +43,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
+	if err = StagedBootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
 		return err
 	}
 
@@ -61,17 +62,36 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return out
 	}()
 
+	stg := Stager{
+		ctx:     ctx,
+		seq:     node.info.seq,
+		total:   runenv.TestInstanceCount,
+		name:    "lookup",
+		stage:   0,
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	if err := stg.Begin(); err != nil {
+		return err
+	}
+
+	queryLog := runenv.SLogger().Named("query").With("id", node.host.ID())
+
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	switch {
 	case node.info.seq <= opts.NodesProviding:
 		g := errgroup.Group{}
-		for i, cid := range cids {
+		for index, cid := range cids {
+			i := index
 			c := cid
 			g.Go(func() error {
+				p := peer.ID(c.Bytes())
+				ectx, cancel := outputQueryEvents(ctx, p, queryLog)
 				t := time.Now()
-				err := node.dht.Provide(ctx, c, true)
-
+				err := node.dht.Provide(ectx, c, true)
+				cancel()
 				if err == nil {
 					runenv.RecordMessage("Provided CID: %s", c)
 					runenv.RecordMetric(&runtime.MetricDefinition{
@@ -86,12 +106,14 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
+			_ = stg.End()
 			return fmt.Errorf("failed while providing: %s", err)
 		}
 
 	default:
 		g := errgroup.Group{}
-		for i, cid := range cids {
+		for index, cid := range cids {
+			i := index
 			c := cid
 			g.Go(func() error {
 				t := time.Now()
@@ -116,8 +138,10 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
+			_ = stg.End()
 			return fmt.Errorf("failed while finding providerss: %s", err)
 		}
 	}
-	return nil
+
+	return stg.End()
 }
