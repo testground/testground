@@ -7,8 +7,6 @@ import (
 )
 
 // StoreGetValue - DEPRIORITIZED
-func StoreGetValue(runenv *runtime.RunEnv) {
-	fmt.Printf("Not implemented yet")
-
-	runenv.OK()
+func StoreGetValue(runenv *runtime.RunEnv) error {
+	return fmt.Errorf("not implemented")
 }

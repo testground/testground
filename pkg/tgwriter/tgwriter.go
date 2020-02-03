@@ -2,8 +2,13 @@ package tgwriter
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/docker/docker/pkg/ioutils"
 
 	"go.uber.org/zap"
 )
@@ -12,12 +17,14 @@ func New(w http.ResponseWriter, log *zap.SugaredLogger) *TgWriter {
 	w.Header().Set("Content-Type", "application/json")
 
 	return &TgWriter{
-		output: w,
+		output: ioutils.NewWriteFlusher(w),
 		log:    log,
 	}
 }
 
 type TgWriter struct {
+	sync.Mutex
+
 	io.Writer
 	output io.Writer
 	log    *zap.SugaredLogger
@@ -47,6 +54,9 @@ func (tgw *TgWriter) Write(p []byte) (n int, err error) {
 		return 0, err
 	}
 
+	tgw.Lock()
+	defer tgw.Unlock()
+
 	return tgw.output.Write(json)
 }
 
@@ -58,18 +68,30 @@ func (tgw *TgWriter) WriteResult(res interface{}) {
 
 	json, err := json.Marshal(pld)
 	if err != nil {
-		tgw.log.Errorw("could not write error response", "err", err)
+		tgw.log.Errorw("could not write result", "err", err)
 		return
 	}
 
+	tgw.Lock()
+	defer tgw.Unlock()
+
 	_, err = tgw.output.Write(json)
 	if err != nil {
-		tgw.log.Errorw("could not write error response", "err", err)
+		tgw.log.Errorw("could not write result", "err", err)
 	}
 }
 
 func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
 	tgw.log.Warnw(message, keysAndValues...)
+
+	if len(keysAndValues) > 0 {
+		b := &strings.Builder{}
+		for i := 0; i < len(keysAndValues); i = i + 2 {
+			fmt.Fprintf(b, "%s: %s;", keysAndValues[i], keysAndValues[i+1])
+		}
+		kvs := b.String()
+		message = message + "; " + kvs[:len(kvs)-1]
+	}
 
 	pld := Msg{
 		Type: "error",
@@ -83,6 +105,9 @@ func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
 		tgw.log.Errorw("could not write error response", "err", err)
 		return
 	}
+
+	tgw.Lock()
+	defer tgw.Unlock()
 
 	_, err = tgw.output.Write(json)
 	if err != nil {

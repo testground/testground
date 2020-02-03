@@ -4,27 +4,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ipfs/testground/pkg/logging"
-	"go.uber.org/zap/zapcore"
-
 	"github.com/ipfs/testground/cmd"
+	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/urfave/cli"
+	"go.uber.org/zap/zapcore"
 )
 
 func main() {
 	app := cli.NewApp()
 	app.Name = "testground"
 	app.Commands = cmd.Commands
-	app.Flags = []cli.Flag{
-		cli.BoolFlag{
-			Name:  "v",
-			Usage: "verbose output (equivalent to INFO log level)",
-		},
-		cli.BoolFlag{
-			Name:  "vv",
-			Usage: "super verbose output (equivalent to DEBUG log level)",
-		},
-	}
+	app.Flags = cmd.Flags
 	// Disable the built-in -v flag (version), to avoid collisions with the
 	// verbosity flags.
 	// TODO implement a `testground version` command instead.
@@ -57,10 +48,10 @@ func configureLogging(c *cli.Context) {
 	// Apply verbosity flags.
 	switch {
 	case c.Bool("v"):
-		logging.SetLevel(zapcore.InfoLevel)
+		logging.SetLevel(zapcore.DebugLevel)
 	case c.Bool("vv"):
 		logging.SetLevel(zapcore.DebugLevel)
 	default:
-		// Do nothing; level remains at default (WARN).
+		// Do nothing; level remains at default (INFO).
 	}
 }

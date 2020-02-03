@@ -10,6 +10,6 @@ func GetRunners() []string {
 	return nil
 }
 
-func Run(_ string) error {
+func Run(_, _ string) error {
 	return errors.New("the sidecar must be run from within a Linux host")
 }

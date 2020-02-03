@@ -26,8 +26,9 @@ RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
 #::: RUNTIME CONTAINER
 #:::
 
-FROM busybox:1.31.0-glibc
+FROM debian:buster
 
+RUN apt update && apt install -y iptables
 RUN mkdir -p /usr/local/bin
 COPY --from=0 /testground /usr/local/bin/testground
 ENV PATH="/usr/local/bin:${PATH}"

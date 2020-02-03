@@ -21,7 +21,9 @@ var testCases = []utils.TestCase{
 }
 
 func main() {
-	runenv := runtime.CurrentRunEnv()
+	runtime.Invoke(run)
+}
+func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
 	}
@@ -31,8 +33,7 @@ func main() {
 	cfg, err := utils.GetTestConfig(runenv, tc.AcceptFiles(), tc.AcceptDirs())
 	defer cfg.Cleanup()
 	if err != nil {
-		runenv.Abort(fmt.Errorf("could not retrieve test config: %s", err))
-		return
+		return fmt.Errorf("could not retrieve test config: %s", err)
 	}
 
 	ctx := context.Background()
@@ -43,12 +44,12 @@ func main() {
 		TestConfig:   cfg,
 	}
 
-	mode, modeSet := runenv.StringParam("mode")
+	mode := runenv.StringParam("mode")
 
 	testCoreAPI := true
 	testDaemon := true
 
-	if modeSet {
+	if mode != "" {
 		switch mode {
 		case "daemon":
 			testCoreAPI = false
@@ -66,8 +67,7 @@ func main() {
 			AddRepoOptions: addRepoOptions,
 		})
 		if err != nil {
-			runenv.Abort(fmt.Errorf("failed to get temp dir: %s", err))
-			return
+			return fmt.Errorf("failed to get temp dir: %s", err)
 		}
 
 		opts.IpfsInstance = ipfs
@@ -84,5 +84,5 @@ func main() {
 		opts.IpfsDaemon = client
 	}
 
-	tc.Execute(ctx, runenv, opts)
+	return tc.Execute(ctx, runenv, opts)
 }

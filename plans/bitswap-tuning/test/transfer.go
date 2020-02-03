@@ -16,7 +16,7 @@ import (
 )
 
 // NOTE: To run use:
-// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master" --build-cfg bypass_cache=true
+// go build . && TESTGROUND_BASEDIR=`pwd` ./testground run single data-exchange/transfer --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master"
 
 var RootCidSubtree = &sync.Subtree{
 	GroupKey:    "root-cid",
@@ -27,27 +27,17 @@ var RootCidSubtree = &sync.Subtree{
 }
 
 // Transfer data from S seeds to L leeches
-func Transfer(runenv *runtime.RunEnv) {
+func Transfer(runenv *runtime.RunEnv) error {
 	// Test Parameters
-	timeout := time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
-	leechCount := runenv.IntParamD("leech_count", 1)
-	passiveCount := runenv.IntParamD("passive_count", 0)
-	requestStagger := time.Duration(runenv.IntParamD("request_stagger", 0)) * time.Millisecond
-	fileSize := runenv.IntParamD("file_size", 200*1024*1024)
+	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
+	leechCount := runenv.IntParam("leech_count")
+	passiveCount := runenv.IntParam("passive_count")
+	requestStagger := time.Duration(runenv.IntParam("request_stagger")) * time.Millisecond
+	fileSize := runenv.IntParam("file_size")
 
 	/// --- Set up
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-
-	node, err := utils.CreateNode(ctx, runenv)
-	if err != nil {
-		runenv.Abort(err)
-		return
-	}
-	defer node.Close()
-
-	runenv.Message("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
 
 	watcher, writer := sync.MustWatcherWriter(runenv)
 
@@ -55,17 +45,31 @@ func Transfer(runenv *runtime.RunEnv) {
 	defer func() {
 		err := utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "end", watcher, writer)
 		if err != nil {
-			runenv.Abort(err)
+			runenv.SLogger().Error(err)
 		}
 		watcher.Close()
 		writer.Close()
 	}()
 
+	// Set up network (with traffic shaping)
+	if err := utils.SetupNetwork(ctx, runenv, watcher, writer); err != nil {
+		return fmt.Errorf("Failed to set up network %w", err)
+	}
+
+	// Create libp2p node
+	node, err := utils.CreateNode(ctx, runenv)
+	if err != nil {
+		return err
+	}
+	defer node.Close()
+
+	// Get sequence number of this host
 	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(node.Host))
 	if err != nil {
-		runenv.Abort(fmt.Errorf("Failed to get Redis Sync PeerSubtree %w", err))
-		return
+		return err
 	}
+
+	runenv.Message("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
 
 	/// --- Warm up
 
@@ -85,51 +89,48 @@ func Transfer(runenv *runtime.RunEnv) {
 		// Generate a file of the given size and add it to the datastore
 		rootCid, err := setupSeed(ctx, node, fileSize)
 		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed to set up seed: %w", err))
-			return
+			return err
 		}
 
 		// Inform other nodes of the root CID
 		if _, err = writer.Write(RootCidSubtree, &rootCid); err != nil {
-			runenv.Abort(fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err))
-			return
+			return fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err)
 		}
 	} else if isLeech {
 		// Get the root CID from a seed
 		rootCidCh := make(chan *cid.Cid, 1)
 		cancelRootCidSub, err := watcher.Subscribe(RootCidSubtree, rootCidCh)
 		if err != nil {
-			runenv.Abort(fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err))
+			return fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err)
 		}
-		defer cancelRootCidSub()
 
 		// Note: only need to get the root CID from one seed - it should be the
 		// same on all seeds (seed data is generated from repeatable random
 		// sequence)
 		select {
 		case rootCidPtr := <-rootCidCh:
+			cancelRootCidSub()
 			rootCid = *rootCidPtr
 		case <-time.After(timeout):
-			runenv.Abort(fmt.Errorf("no root cid in %d seconds", timeout/time.Second))
-			return
+			cancelRootCidSub()
+			return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
 		}
 	}
 
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
 	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
-	defer cancelSub()
 	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		cancelSub()
+		return err
 	}
+	cancelSub()
 
 	// Dial all peers
 	dialed, err := utils.DialOtherPeers(ctx, node.Host, addrInfos)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 	runenv.Message("Dialed %d other nodes", len(dialed))
 
@@ -145,13 +146,18 @@ func Transfer(runenv *runtime.RunEnv) {
 		startDelay := time.Duration(seq-1) * requestStagger
 		time.Sleep(startDelay)
 
+		runenv.Message("Leech fetching after %s delay", startDelay)
 		node.FetchGraph(ctx, rootCid)
+		runenv.Message("Leech fetch complete")
+	} else {
+		runenv.Message("Seed ready")
 	}
+
+	utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "transfer-complete", watcher, writer)
 
 	stats, err := node.Bitswap.Stat()
 	if err != nil {
-		runenv.Abort(fmt.Errorf("Error getting stats from Bitswap: %w", err))
-		return
+		return fmt.Errorf("Error getting stats from Bitswap: %w", err)
 	}
 
 	if isLeech {
@@ -167,7 +173,7 @@ func Transfer(runenv *runtime.RunEnv) {
 
 	/// --- Ending the test
 
-	runenv.OK()
+	return nil
 }
 
 func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, error) {
@@ -176,5 +182,6 @@ func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, er
 	if err != nil {
 		return cid.Cid{}, err
 	}
+
 	return ipldNode.Cid(), nil
 }

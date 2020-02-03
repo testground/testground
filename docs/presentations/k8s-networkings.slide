@@ -1,0 +1,171 @@
+Kubernetes Networking for Testground
+08 Jan 2020
+Tags: testground, k8s, cni
+
+Anton Evangelatov
+Protocol Labs
+anton@protocol.ai
+
+* Overview of Testground
+
+Testground's goal is to provide a set of tools for testing next generation P2P applications (i.e. Filecoin, IPFS, libp2p & others).
+
+We want to be able to run large-scale test plans on Testground (10k libp2p nodes and beyond).
+
+
+* Testground Networking requirements
+
+All Testground runners except for the local runner have two networks: a *control* and a *data* network.
+
+Test instances communicate with each other over the *data* network.
+
+Test instances communicate with the *sync* service, and only the *sync* service, over the *control* network.
+
+
+* Therefore in order to use Kubernetes as our cluster management platform, we need a networking implementation that allows us to run multiple networks and attach multiple network interfaces to pods and containers.
+
+
+* Kubernetes Networking model
+
+Kubernetes imposes the following fundamental requirements on any networking implementation:
+
+1. pods on a node can communicate with all pods on all nodes without NAT
+
+2. agents on a node (e.g. system daemons, kubelet) can communicate with all pods on that node
+
+3. pods in the host network of a node can communicate with all pods on all nodes without NAT
+
+* Kubernetes Networking approaches
+
+.image images/k8s-networking-approaches.png _ 700
+
+
+* The CNI Project
+
+https://github.com/containernetworking/cni
+
+Container Network Interface - networking for Linux containers
+
+A specification and libraries for writing plugins to configure network interfaces in Linux containers, along with a number of supported plugins.
+
+Vendor-neutral
+
+Kubernetes is the main user
+
+
+* Managed k8s offerings vs self-managed k8s clusters
+
+We considered GKE (Google Cloud), DOKS (Digital Ocean), EKS (Amazon)
+
+It is not trivial to install any CNI we want on these managed solutions, because we don't have full access to master nodes.
+
+Running DaemonSets for various CNIs frequently fails because they have certain expectations about the host system, which are not met.
+
+Therefore we are focusing on self-managed k8s clusters, built using well-supported tools like *kops*
+
+
+* CNI plugins for overlay networks we are considering
+
+- Weave Net
+- Flannel
+- Multus (meta)
+- CNI-Genie (meta)
+- whereabouts
+
+
+* Weave Net
+
+Backend: VXLAN
+
+Control plane: built-in
+
+https://www.weave.works/docs/net/latest/overview/
+
+Very well documented and active project, provides functionality that we need for Testground, such as
+
+.link https://www.weave.works/docs/net/latest/tasks/manage/dynamically-attach-containers/ Dynamically Attaching and Detaching Applications
+
+Weave dynamically manages IPAM between hosts in the network, for more information:
+
+.link https://github.com/weaveworks/weave/blob/master/docs/ipam.md click here
+
+
+* CoreOS Flannel
+
+Backend: Several implementations, including VXLAN
+
+Control plane: Uses *etcd* for shared state
+
+https://github.com/coreos/flannel
+
+Very well documented and active project
+
+Every host in the network gets a subnet, after flannel has acquired it and configured backend. Flannel will write out an environment variable file (/run/flannel/subnet.env by default) with subnet address and MTU that it supports.
+
+	cat /var/run/flannel/subnet.env
+	FLANNEL_NETWORK=10.5.0.0/16
+	FLANNEL_SUBNET=10.5.72.1/24
+	FLANNEL_MTU=1450
+	FLANNEL_IPMASQ=false
+
+
+* Multus CNI (meta)
+
+https://github.com/intel/multus-cni
+
+Multus CNI enables attaching multiple network interfaces to pods in Kubernetes.
+
+Works when tested with Flannel and Weave and Macvlan.
+
+
+* CNI Genie (meta)
+
+https://github.com/cni-genie/CNI-Genie
+
+CNI-Genie enables container orchestrators (Kubernetes, Mesos) to seamlessly connect to the choice of CNI plugins installed on a host.
+
+Supports multiple NICs per container & per pod.
+
+Works when tested with Flannel and Weave.
+
+
+* Choosing Weave over Flannel for data plane
+
+- dynamically managed IPAM (Weave), rather than statically (Flannel)
+
+- less overhead in running the network (Flannel needs etcd for the control plane, in Weave it is built-in)
+
+- functionality out of the box for attach/detach to subnets (Flannel might be supporting this as well through the CNI)
+
+
+* Known issues - CNI-Genie and Weave
+
+1. When pods are started without *annotations.cni* they are not always attached to the Flannel network by default - you have to explicitly set an annotation. It is not clear why at this point.
+
+
+* Additional resources
+
+.link https://www.youtube.com/watch?v=TPoRwX6WhcU Introduction to Overlay networks
+
+.link https://www.youtube.com/watch?v=2YoK4bBy3CM TGI Kubernetes 049: Flannel (CNI)
+
+.link https://www.youtube.com/watch?v=y_RMncC1u3c TGI Kubernetes 050: Weave Net (CNI)
+
+.link http://dougbtv.com/nfvpe/2019/11/27/whereabouts-a-cluster-wide-cni-ipam-plugin/ Whereabouts -- A cluster-wide CNI IP Address Management (IPAM) plugin
+
+.link https://blog.calsoftinc.com/2019/12/a-primer-on-multus-cni.html A primer on Multus CNI
+
+.link https://neuvector.com/network-security/advanced-kubernetes-networking/ How Kubernetes Networking Works – Under the Hood
+
+.link https://dzone.com/articles/how-to-understand-and-setup-kubernetes-networking How to Understand and Set Up Kubernetes Networking. Take a look at this tutorial that goes through and explains the inner workings of Kubernetes networking, including working with multiple networks.
+
+.link https://www.youtube.com/watch?v=NUt9VVG_gac Deep dive into Kubernetes networking by Sreenivas Makam
+
+.link https://www.youtube.com/watch?v=VCrTDqfxuJM Deep Dive: CNI - Bryan Boreham, Weaveworks & Dan Williams, Red Hat
+
+
+* Additional resources - cont.
+
+.link https://www.youtube.com/watch?v=Hh4Sxv_iASQ Everyone Gets a Data Plane! Multi-Networking Kubernetes with the NPWG... - Dan Williams & Doug Smith
+
+.link https://www.youtube.com/watch?v=X6rcpy2g5Ew Multi - Networking Kubernetes Containers with CNI

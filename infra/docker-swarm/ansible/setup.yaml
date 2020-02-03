@@ -74,4 +74,19 @@
   gather_facts: true
   roles:
     - swarm-label
+
+- hosts: role_manager
+  name: Run Testground services (Redis and control overlay network)
+  become: true
+  gather_facts: true
+  roles:
     - testground-services
+  tags: [testground-services]
+
+- hosts: role_worker
+  name: Run sidecar container on every worker node
+  become: true
+  gather_facts: true
+  roles:
+    - testground-sidecar
+  tags: [testground-sidecar]

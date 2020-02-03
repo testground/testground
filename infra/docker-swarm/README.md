@@ -12,8 +12,8 @@ In this directory, you will find:
 
 ## Requirements
 
-- 1. [Terraform](https://www.terraform.io/).
-- 2. [Ansible](https://www.ansible.com/).
+- 1. [Terraform](https://www.terraform.io/). >= v0.12.17
+- 2. [Ansible](https://www.ansible.com/). >= v2.8
 - 3. [op](https://support.1password.com/command-line-getting-started/).
 - 4. [terraform-inventory](https://github.com/adammck/terraform-inventory).
 

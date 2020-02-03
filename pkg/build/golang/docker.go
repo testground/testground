@@ -2,6 +2,8 @@ package golang
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,20 +12,18 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 
 	gobuild "go/build"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/build"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
@@ -38,7 +38,9 @@ var (
 )
 
 // DockerGoBuilder builds the test plan as a go-based container.
-type DockerGoBuilder struct{}
+type DockerGoBuilder struct {
+	proxyLk sync.Mutex
+}
 
 type DockerGoBuilderConfig struct {
 	Enabled       bool
@@ -47,7 +49,6 @@ type DockerGoBuilderConfig struct {
 	ModulePath    string `toml:"module_path" overridable:"yes"`
 	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
 	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
-	BypassCache   bool   `toml:"bypass_cache" overridable:"yes"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
@@ -73,15 +74,11 @@ type DockerGoBuilderConfig struct {
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
 	}
-
-	// TODO support specifying a docker endpoint + TLS parameters from env.
-	// raulk: I don't see a need for this now, as we certainly want to do builds
-	// locally, and push the image to a registry.
 
 	cliopts := []client.Opt{
 		client.WithHost(client.DefaultDockerHost),
@@ -89,26 +86,34 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	}
 
 	var (
-		log         = logging.S().With("buildId", in.BuildID)
-		id          = build.CanonicalBuildID(in)
-		cli, err    = client.NewClientWithOpts(cliopts...)
-		ctx, cancel = context.WithTimeout(context.Background(), 5*time.Minute)
+		id       = in.BuildID
+		log      = logging.S().With("build_id", id)
+		cli, err = client.NewClientWithOpts(cliopts...)
 	)
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	if err != nil {
 		return nil, err
 	}
 
-	if !cfg.BypassCache {
-		// Check if an image for this build already exists.
-		if exists, err := imageExists(ctx, cli, id); err != nil {
-			return nil, err
-		} else if exists {
-			fmt.Println("found cached docker image for:", id)
-			return &api.BuildOutput{ArtifactPath: id}, nil
-		}
+	// The testground-build network is used to connect build services (like the
+	// GOPROXY) to the build container.
+	b.proxyLk.Lock()
+	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
+	if err != nil {
+		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+		cfg.GoProxyMode = "direct"
 	}
+
+	// Set up the go proxy wiring. This will start a goproxy container if
+	// necessary, attaching it to the testground-build network.
+	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
+	if warn != nil {
+		log.Warnf("warning while setting up the go proxy: %s", warn)
+	}
+	b.proxyLk.Unlock()
 
 	// Create a temp dir, and copy the source into it.
 	tmp, err := ioutil.TempDir("", in.TestPlan.Name)
@@ -128,7 +133,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	)
 
 	// Copy the plan's source; go-getter will create the dir.
-	if err := getter.Get(plandst, plansrc); err != nil {
+	if err := getter.Get(plandst, plansrc, getter.WithContext(ctx)); err != nil {
 		return nil, err
 	}
 	if err := materializeSymlink(plandst); err != nil {
@@ -145,7 +150,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		return nil, err
 	}
 
-	if err := getter.Get(sdkdst, sdksrc); err != nil {
+	if err := getter.Get(sdkdst, sdksrc, getter.WithContext(ctx)); err != nil {
 		return nil, err
 	}
 	if err := materializeSymlink(sdkdst); err != nil {
@@ -163,7 +168,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		}
 
 		// Initialize a fresh go.mod file.
-		cmd := exec.Command("go", "mod", "init", cfg.ModulePath)
+		cmd := exec.CommandContext(ctx, "go", "mod", "init", cfg.ModulePath)
 		cmd.Dir = plandst
 		out, _ := cmd.CombinedOutput()
 		if !strings.Contains(string(out), "creating new go.mod") {
@@ -185,26 +190,11 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
 
 	// Write replace directives.
-	cmd := exec.Command("go", append([]string{"mod", "edit"}, replaces...)...)
+	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 	cmd.Dir = plandst
 	_, err = cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
-	}
-
-	// The testground-build network is used to connect build services (like the
-	// GOPROXY) to the build container.
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
-	if err != nil {
-		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
-		cfg.GoProxyMode = "direct"
-	}
-
-	// Set up the go proxy wiring. This will start a goproxy container if
-	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
-	if warn != nil {
-		log.Warnf("warning while setting up the go proxy: %s", warn)
 	}
 
 	opts := types.ImageBuildOptions{
@@ -231,7 +221,7 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	defer resp.Body.Close()
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(resp.Body, output); err != nil {
+	if err := docker.PipeOutput(resp.Body, output); err != nil {
 		return nil, err
 	}
 
@@ -246,13 +236,17 @@ func (b *DockerGoBuilder) Build(in *api.BuildInput, output io.Writer) (*api.Buil
 	}
 
 	if cfg.PushRegistry {
-		if cfg.RegistryType != "aws" {
-			// We only support aws at this time.
-			return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+		if cfg.RegistryType == "aws" {
+			err := pushToAWSRegistry(ctx, log, cli, in, out)
+			return out, err
 		}
 
-		err := pushToAWSRegistry(ctx, log, cli, in, out)
-		return out, err
+		if cfg.RegistryType == "dockerhub" {
+			err := pushToDockerHubRegistry(ctx, log, cli, in, out)
+			return out, err
+		}
+
+		return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
 	return out, nil
@@ -300,7 +294,46 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	}
 
 	// Pipe the docker output to stdout.
-	if err := util.PipeDockerOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
+		return err
+	}
+
+	// replace the artifact path by the pushed image.
+	out.ArtifactPath = tag
+	return nil
+}
+
+func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+	uri := in.EnvConfig.DockerHub.Repo + "/testground"
+
+	tag := uri + ":" + in.BuildID
+	log.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
+
+	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
+		return err
+	}
+
+	auth := types.AuthConfig{
+		Username: in.EnvConfig.DockerHub.Username,
+		Password: in.EnvConfig.DockerHub.AccessToken,
+	}
+	authBytes, err := json.Marshal(auth)
+	if err != nil {
+		return err
+	}
+	authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+		RegistryAuth: authBase64,
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
+
+	// Pipe the docker output to stdout.
+	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
 		return err
 	}
 
@@ -318,7 +351,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
-		log.Debugf("[go_proxy_mode=direct] no goproxy container will be started")
+		log.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
 
 	case "remote":
 		if cfg.GoProxyURL == "" {
@@ -334,15 +367,21 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		fallthrough
 
 	default:
-		mnt := mount.Mount{
-			Type:   mount.TypeBind,
-			Source: gobuild.Default.GOPATH,
-			Target: "/go",
+		gopkg, err := filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
+		if err != nil {
+			warn = fmt.Errorf("[go_proxy_mode=local] error while resolving go pkg directory: %w; falling back to go_proxy_mode=direct", err)
+			break
 		}
 
-		log.Debugf("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
+		mnt := mount.Mount{
+			Type:   mount.TypeBind,
+			Source: gopkg,
+			Target: "/go/pkg",
+		}
 
-		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
+
+		_, _, err = docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
 			ContainerConfig: &container.Config{
 				Image: "goproxy/goproxy",
@@ -398,14 +437,4 @@ func materializeSymlink(dir string) error {
 		return err
 	}
 	return copy.Copy(ref, dir)
-}
-
-func imageExists(ctx context.Context, cli *client.Client, id string) (bool, error) {
-	summary, err := cli.ImageList(ctx, types.ImageListOptions{
-		Filters: filters.NewArgs(filters.Arg("reference", id)),
-	})
-	if err != nil {
-		return false, err
-	}
-	return len(summary) > 0, nil
 }

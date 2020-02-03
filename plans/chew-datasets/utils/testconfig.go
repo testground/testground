@@ -25,49 +25,37 @@ func GetTestConfig(runenv *runtime.RunEnv, acceptFiles bool, acceptDirs bool) (c
 	cfg = TestConfig{}
 
 	if acceptFiles {
-		// Usage: --test-param file-sizes='["10GB"]'
-		sizes := runenv.StringArrayParamD("file-sizes", []string{"1MB", "10MB", "100MB" /* "1GB", "10GB" */})
-
+		sizes := runenv.SizeArrayParam("file-sizes")
 		for _, size := range sizes {
-			n, err := humanize.ParseBytes(size)
-			if err != nil {
-				return cfg, err
-			}
-
-			file, err := CreateRandomFile(runenv, os.TempDir(), int64(n))
+			file, err := runenv.CreateRandomFile(os.TempDir(), int64(size))
 			if err != nil {
 				return nil, err
 			}
 
-			runenv.Message("%s: %s file created", file, humanize.Bytes(n))
+			runenv.Message("%s: %s file created", file, humanize.Bytes(size))
 
 			cfg = append(cfg, &TestDir{
 				Path: file,
-				Size: int64(n),
+				Size: int64(size),
 			})
 		}
 	}
 
 	if acceptDirs {
-		// Usage: --test-param dir-cfg='[{"depth": 10, "size": "1MB"}, {"depth": 100, "size": "1MB"}]
 		dirConfigs := []rawDirConfig{}
-		ok := runenv.JSONParam("dir-cfg", &dirConfigs)
-		if !ok {
-			dirConfigs = defaultDirConfigs
-		}
-
+		runenv.JSONParam("dir-cfg", &dirConfigs)
 		for _, dir := range dirConfigs {
 			n, err := humanize.ParseBytes(dir.Size)
 			if err != nil {
 				return nil, err
 			}
 
-			path, err := CreateRandomDirectory(runenv, os.TempDir(), dir.Depth)
+			path, err := runenv.CreateRandomDirectory(os.TempDir(), dir.Depth)
 			if err != nil {
 				return nil, err
 			}
 
-			_, err = CreateRandomFile(runenv, path, int64(n))
+			_, err = runenv.CreateRandomFile(path, int64(n))
 			if err != nil {
 				return nil, err
 			}
@@ -146,15 +134,4 @@ type testConfig struct {
 type rawDirConfig struct {
 	Depth uint   `json:"depth"`
 	Size  string `json:"size"`
-}
-
-var defaultDirConfigs = []rawDirConfig{
-	rawDirConfig{
-		Depth: 10,
-		Size:  "1MB",
-	},
-	rawDirConfig{
-		Depth: 50,
-		Size:  "1MB",
-	},
 }

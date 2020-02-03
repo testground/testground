@@ -9,19 +9,18 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-func FindPeers(runenv *runtime.RunEnv) {
+func FindPeers(runenv *runtime.RunEnv) error {
 	opts := &SetupOpts{
-		Timeout:     time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second,
-		RandomWalk:  runenv.BooleanParamD("random_walk", false),
-		NBootstrap:  runenv.IntParamD("n_bootstrap", 1),
-		NFindPeers:  runenv.IntParamD("n_find_peers", 1),
-		BucketSize:  runenv.IntParamD("bucket_size", 2),
-		AutoRefresh: runenv.BooleanParamD("auto_refresh", true),
+		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
+		RandomWalk:  runenv.BooleanParam("random_walk"),
+		NBootstrap:  runenv.IntParam("n_bootstrap"),
+		NFindPeers:  runenv.IntParam("n_find_peers"),
+		BucketSize:  runenv.IntParam("bucket_size"),
+		AutoRefresh: runenv.BooleanParam("auto_refresh"),
 	}
-	if opts.NFindPeers > runenv.TestInstanceCount {
-		runenv.Abort("NFindPeers greater than the number of test instances")
-		return
 
+	if opts.NFindPeers > runenv.TestInstanceCount {
+		return fmt.Errorf("NFindPeers greater than the number of test instances")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -33,22 +32,19 @@ func FindPeers(runenv *runtime.RunEnv) {
 
 	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
 	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
-		runenv.Abort(err)
-		return
+		return err
 	}
 
 	if opts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, dht); err != nil {
-			runenv.Abort(err)
-			return
+			return err
 		}
 	}
 
@@ -79,8 +75,7 @@ func FindPeers(runenv *runtime.RunEnv) {
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
 		if _, err := dht.FindPeer(ctx, p.ID); err != nil {
-			runenv.Abort(fmt.Errorf("find peer failed: %s", err))
-			return
+			return fmt.Errorf("find peer failed: %s", err)
 		}
 
 		runenv.EmitMetric(&runtime.MetricDefinition{
@@ -88,7 +83,8 @@ func FindPeers(runenv *runtime.RunEnv) {
 			Unit:           "ns",
 			ImprovementDir: -1,
 		}, float64(time.Now().Sub(t).Nanoseconds()))
+
 		found++
 	}
-	runenv.OK()
+	return nil
 }

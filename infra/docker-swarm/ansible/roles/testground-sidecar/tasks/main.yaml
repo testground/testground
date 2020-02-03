@@ -1,0 +1,22 @@
+- name: Start Testground sidecar container
+  docker_container:
+    name: "testground-sidecar"
+    image: "ipfs/testground:edge"
+    state: started
+    restart_policy: always
+    stop_timeout: "10"
+    pid_mode: "host"
+    networks:
+      - name: "control"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    env:
+      REDIS_HOST: "testground-redis"
+    capabilities:
+      - sys_admin
+      - net_admin
+    command: 
+      - "-vv"
+      - "sidecar"
+      - "--runner"
+      - "docker"

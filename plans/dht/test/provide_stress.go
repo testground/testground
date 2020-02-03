@@ -1,12 +1,14 @@
 package test
 
 import (
+	"fmt"
+
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
 // TODO this entire test needs to be revisited.
 // ProvideStress implements the Provide Stress test case
-func ProvideStress(runenv *runtime.RunEnv) {
+func ProvideStress(runenv *runtime.RunEnv) error {
 	// 	// Test Parameters
 	// 	var (
 	// 		timeout     = time.Duration(runenv.IntParamD("timeout_secs", 60)) * time.Second
@@ -67,4 +69,5 @@ func ProvideStress(runenv *runtime.RunEnv) {
 	// 	runenv.Message("Provided all scheduled CIDs")
 
 	// 	runenv.OK()
+	return fmt.Errorf("unimplemented")
 }

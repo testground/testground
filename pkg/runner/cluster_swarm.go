@@ -5,18 +5,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"time"
 
-	"github.com/docker/docker/api/types/network"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -66,16 +68,15 @@ type ClusterSwarmRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
-		image = input.ArtifactPath
-		seq   = input.Seq
-		log   = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
-		cfg   = *input.RunnerConfig.(*ClusterSwarmRunnerConfig)
+		seq = input.Seq
+		log = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+		cfg = *input.RunnerConfig.(*ClusterSwarmRunnerConfig)
 	)
 
 	// global timeout of 1 minute for the scheduling.
-	ctx, cancelFn := context.WithTimeout(context.Background(), 1*time.Minute)
+	ctx, cancelFn := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancelFn()
 
 	// Sanity check.
@@ -84,25 +85,19 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 	}
 
 	// Get the test case.
-	testcase := input.TestPlan.TestCases[seq]
+	var (
+		testcase = input.TestPlan.TestCases[seq]
+		parent   = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
+	)
 
 	// Build a runenv.
-	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
-	}
-
-	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+	template := runtime.RunEnv{
+		TestPlan:          input.TestPlan.Name,
+		TestCase:          testcase.Name,
+		TestRun:           input.RunID,
+		TestCaseSeq:       seq,
+		TestInstanceCount: input.TotalInstances,
+		TestSidecar:       true,
 	}
 
 	// Create a docker client.
@@ -117,11 +112,6 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		return nil, err
 	}
 
-	var (
-		sname    = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
-		replicas = uint64(input.Instances)
-	)
-
 	// first check if redis is running.
 	svcs, err := cli.ServiceList(ctx, types.ServiceListOptions{
 		Filters: filters.NewArgs(filters.Arg("name", "testground-redis")),
@@ -133,8 +123,26 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		return nil, fmt.Errorf("testground-redis service doesn't exist in the swarm cluster; aborting")
 	}
 
+	// We can't create a network for every testplan on the same range,
+	// so we check how many networks we have and decide based on this number
+	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
+		Filters: filters.NewArgs(filters.Arg("label", "testground.name=default")),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	subnet, gateway, err := nextDataNetwork(len(networks))
+	if err != nil {
+		return nil, err
+	}
+	_, template.TestSubnet, err = net.ParseCIDR(subnet)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create the data network.
-	log.Infow("creating data network", "name", sname)
+	log.Infow("creating data network", "parent", parent, "subnet", subnet)
 
 	networkSpec := types.NetworkCreate{
 		Driver:         "overlay",
@@ -146,8 +154,8 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		IPAM: &network.IPAM{
 			Driver: "default",
 			Config: []network.IPAMConfig{{
-				Subnet:  "192.168.0.0/16",
-				Gateway: "192.168.0.1",
+				Subnet:  subnet,
+				Gateway: gateway,
 			}},
 		},
 		Labels: map[string]string{
@@ -158,14 +166,16 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		},
 	}
 
-	networkResp, err := cli.NetworkCreate(ctx, sname+"-default", networkSpec)
+	networkResp, err := cli.NetworkCreate(ctx, parent+"-default", networkSpec)
 	if err != nil {
 		return nil, err
 	}
 
 	networkID := networkResp.ID
+	log.Infow("network created successfully", "id", networkID)
+
 	defer func() {
-		if cfg.KeepService {
+		if cfg.KeepService || cfg.Background {
 			log.Info("skipping removing the data network due to user request")
 			// if we are keeping the service, we must also keep the network.
 			return
@@ -181,52 +191,6 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		}
 	}()
 
-	log.Infow("network created successfully", "id", networkID)
-
-	// Create the service.
-	log.Infow("creating service", "name", sname, "image", image, "replicas", replicas)
-
-	serviceSpec := swarm.ServiceSpec{
-		Networks: []swarm.NetworkAttachmentConfig{
-			{Target: "control"},
-			{Target: networkID},
-		},
-		Mode: swarm.ServiceMode{
-			Replicated: &swarm.ReplicatedService{
-				Replicas: &replicas,
-			},
-		},
-		Annotations: swarm.Annotations{Name: sname},
-		TaskTemplate: swarm.TaskSpec{
-			ContainerSpec: &swarm.ContainerSpec{
-				Image: image,
-				Env:   env,
-				Labels: map[string]string{
-					"testground.plan":     input.TestPlan.Name,
-					"testground.testcase": testcase.Name,
-					"testground.runid":    input.RunID,
-				},
-			},
-			RestartPolicy: &swarm.RestartPolicy{
-				Condition: swarm.RestartPolicyConditionNone,
-			},
-			Resources: &swarm.ResourceRequirements{
-				Reservations: &swarm.Resources{
-					MemoryBytes: 60 * 1024 * 1024,
-				},
-				Limits: &swarm.Resources{
-					MemoryBytes: 30 * 1024 * 1024,
-				},
-			},
-			Placement: &swarm.Placement{
-				MaxReplicas: 10000,
-				Constraints: []string{
-					"node.labels.TGRole==worker",
-				},
-			},
-		},
-	}
-
 	logging.S().Infof("fetching an authorization token from AWS ECR")
 
 	// Get an authorization token from AWS ECR.
@@ -237,42 +201,90 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 
 	logging.S().Infof("fetched an authorization token from AWS ECR")
 
-	scopts := types.ServiceCreateOptions{
-		QueryRegistry: true,
-		// the registry auth will be propagated to all docker swarm nodes so
-		// they can fetch the image properly.
-		EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
+	services := make(map[string]int, len(input.Groups))
+	for _, g := range input.Groups {
+		runenv := template
+		runenv.TestGroupID = g.ID
+		runenv.TestGroupInstanceCount = g.Instances
+		runenv.TestInstanceParams = g.Parameters
+
+		// Serialize the runenv into env variables to pass to docker.
+		env := conv.ToOptionsSlice(runenv.ToEnvVars())
+
+		// Set the log level if provided in cfg.
+		if cfg.LogLevel != "" {
+			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+		}
+
+		// Create the service.
+		log.Infow("creating service", "parent", parent, "group", g.ID, "image", g.ArtifactPath, "replicas", g.Instances)
+
+		cnt := (uint64)(runenv.TestGroupInstanceCount)
+		serviceSpec := swarm.ServiceSpec{
+			Networks: []swarm.NetworkAttachmentConfig{
+				{Target: "control"},
+				{Target: networkID},
+			},
+			Mode: swarm.ServiceMode{
+				Replicated: &swarm.ReplicatedService{
+					Replicas: &cnt,
+				},
+			},
+			Annotations: swarm.Annotations{Name: parent},
+			TaskTemplate: swarm.TaskSpec{
+				ContainerSpec: &swarm.ContainerSpec{
+					Image: g.ArtifactPath,
+					Env:   env,
+					Labels: map[string]string{
+						"testground.plan":     input.TestPlan.Name,
+						"testground.testcase": testcase.Name,
+						"testground.runid":    input.RunID,
+						"testground.groupid":  g.ID,
+					},
+				},
+				RestartPolicy: &swarm.RestartPolicy{
+					Condition: swarm.RestartPolicyConditionNone,
+				},
+				Resources: &swarm.ResourceRequirements{
+					Reservations: &swarm.Resources{
+						MemoryBytes: 60 * 1024 * 1024,
+					},
+					Limits: &swarm.Resources{
+						MemoryBytes: 30 * 1024 * 1024,
+					},
+				},
+				Placement: &swarm.Placement{
+					MaxReplicas: 10000,
+					Constraints: []string{
+						"node.labels.TGRole==worker",
+					},
+				},
+			},
+		}
+
+		scopts := types.ServiceCreateOptions{
+			QueryRegistry: true,
+			// the registry auth will be propagated to all docker swarm nodes so
+			// they can fetch the image properly.
+			EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
+		}
+
+		logging.S().Infow("creating the service on docker swarm", "parent", parent, "group", g.ID, "image", g.ArtifactPath, "replicas", g.Instances)
+
+		// Now create the docker swarm service.
+		serviceResp, err := cli.ServiceCreate(ctx, serviceSpec, scopts)
+		if err != nil {
+			return nil, err
+		}
+
+		logging.S().Infow("service created successfully", "id", serviceResp.ID)
+
+		services[serviceResp.ID] = g.Instances
 	}
-
-	logging.S().Infow("creating the service on docker swarm", "name", sname, "image", image, "replicas", replicas)
-
-	// Now create the docker swarm service.
-	serviceResp, err := cli.ServiceCreate(ctx, serviceSpec, scopts)
-	if err != nil {
-		return nil, err
-	}
-
-	serviceID := serviceResp.ID
-
-	logging.S().Infow("service created successfully", "id", serviceID)
-
-	out := &api.RunOutput{RunnerID: serviceID}
 
 	// If we are running in background mode, return immediately.
 	if cfg.Background {
-		return out, nil
-	}
-
-	// Tail the service until all instances are done, then remove the service if
-	// the flag has been set.
-	rc, err := cli.ServiceLogs(context.Background(), serviceID, types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-		Since:      "2019-01-01T00:00:00",
-		Follow:     true,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed while tailing logs: %w", err)
+		return &api.RunOutput{}, nil
 	}
 
 	// Docker multiplexes STDOUT and STDERR streams inside the single IO stream
@@ -280,52 +292,69 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 	// those strands, and because we don't care about treating STDOUT and STDERR
 	// separately, we consolidate them into the same io.Writer.
 	rpipe, wpipe := io.Pipe()
-	go func() {
-		_, err := stdcopy.StdCopy(wpipe, wpipe, rc)
-		_ = wpipe.CloseWithError(err)
-	}()
 
-	// This goroutine monitors the state of tasks every two seconds. When all
-	// tasks are shutdown, we are done here. We close the logs io.ReadCloser,
-	// which in turns signals that the runner is now finished.
-	go func() {
-		var errCnt int
-
-		tick := time.NewTicker(2 * time.Second)
-		defer tick.Stop()
-
-		for range tick.C {
-			tctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			tasks, err := cli.TaskList(tctx, types.TaskListOptions{
-				Filters: filters.NewArgs(filters.Arg("service", serviceID)),
-			})
-			cancel()
-
-			if err != nil {
-				if errCnt++; errCnt > 3 {
-					rc.Close()
-					return
-				}
-			}
-
-			var finished uint64
-			status := make(map[swarm.TaskState]uint64, replicas)
-			for _, t := range tasks {
-				s := t.Status.State
-				switch status[s]++; s {
-				case swarm.TaskStateShutdown, swarm.TaskStateComplete, swarm.TaskStateFailed, swarm.TaskStateRejected:
-					finished++
-				}
-			}
-
-			logging.S().Infow("task status", "status", status)
-
-			if finished == replicas {
-				rc.Close()
-				return
-			}
+	// Tail all services until all instances are done, then remove the service
+	// if the flag has been set.
+	errgrp, ctx := errgroup.WithContext(ctx)
+	for service, count := range services {
+		rc, err := cli.ServiceLogs(context.Background(), service, types.ContainerLogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Since:      "2019-01-01T00:00:00",
+			Follow:     true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed while tailing logs: %w", err)
 		}
-	}()
+
+		// Pipe logs to the merging pipe.
+		errgrp.Go(func() error {
+			// StdCopy reads until EOF, which is triggered by closing rc when the service has finished (below).
+			_, err := stdcopy.StdCopy(wpipe, wpipe, rc)
+			return err
+		})
+
+		// This goroutine monitors the state of tasks every two seconds. When all
+		// tasks are shutdown, we are done here. We close the logs io.ReadCloser,
+		// which in turns signals that the runner is now finished.
+		errgrp.Go(func(service string, count int) func() error {
+			return func() error {
+				tick := time.NewTicker(2 * time.Second)
+				defer tick.Stop()
+				defer rc.Close()
+
+				for range tick.C {
+					var finished int
+					tasks, err := cli.TaskList(ctx, types.TaskListOptions{
+						Filters: filters.NewArgs(filters.Arg("service", service)),
+					})
+
+					if err != nil {
+						return err
+					}
+
+					status := make(map[swarm.TaskState]uint64, count)
+					for _, t := range tasks {
+						s := t.Status.State
+						switch status[s]++; s {
+						case swarm.TaskStateShutdown, swarm.TaskStateComplete, swarm.TaskStateFailed, swarm.TaskStateRejected:
+							finished++
+						}
+					}
+					logging.S().Infow("task status", "service", service, "status", status)
+					if finished == count {
+						break
+					}
+				}
+				return nil
+			}
+		}(service, count))
+
+		go func() {
+			err := errgrp.Wait()
+			_ = wpipe.CloseWithError(err)
+		}()
+	}
 
 	scanner := bufio.NewScanner(rpipe)
 	for scanner.Scan() {
@@ -336,18 +365,20 @@ func (*ClusterSwarmRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutpu
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 
-		logging.S().Infow("removing service", "service", serviceID)
+		for service := range services {
+			logging.S().Infow("removing service", "service", service)
 
-		if err := cli.ServiceRemove(ctx, serviceID); err == nil {
-			logging.S().Infow("service removed", "service", serviceID)
-		} else {
-			logging.S().Errorf("removing the service failed: %w", err)
+			if err := cli.ServiceRemove(ctx, service); err == nil {
+				logging.S().Infow("service removed", "service", service)
+			} else {
+				logging.S().Errorf("removing the service failed: %w", err)
+			}
 		}
 	} else {
 		log.Info("skipping removing the service due to user request")
 	}
 
-	return out, nil
+	return &api.RunOutput{}, nil
 }
 
 func (*ClusterSwarmRunner) ID() string {

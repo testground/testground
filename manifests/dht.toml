@@ -28,18 +28,21 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
+[run_strategies."cluster:k8s"]
+enabled = true
+
 # seq 0
 [[testcases]]
 name = "find-peers"
 instances = { min = 16, max = 10000, default = 16 }
 
   [testcases.params]
-  auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = "true" }
-  random_walk   = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = "false" }
-  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = "1" }
-  bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = "2" }
-  n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = "1" }
-  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = "30" }
+  auto_refresh  = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
+  random_walk   = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
+  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
+  bucket_size   = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
+  n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
+  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
 
 # seq 1
 [[testcases]]
@@ -47,13 +50,17 @@ name = "find-providers"
 instances = { min = 16, max = 250, default = 16 }
 
   [testcases.params]
-  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
-  auto_refresh = { type = "bool", desc = "", unit = "bool" }
-  random_walk = { type = "bool", desc = "", unit = "bool" }
-  n_bootstrap = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = "1" }
-  p_providing = { type = "int", desc = "", unit = "% of nodes" }
-  p_resolving = { type = "int", desc = "", unit = "% of nodes" }
-  p_failing = { type = "int", desc = "", unit = "% of nodes" }
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers", default = 2 }
+  auto_refresh = { type = "bool", desc = "", unit = "bool", default = true }
+  random_walk = { type = "bool", desc = "", unit = "bool", default = false }
+  timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 60 }
+  n_bootstrap = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
+  n_find_peers = { type = "int", desc = "number of peers to find", unit = "int", default = 1 }
+  n_providing = { type = "int", desc = "nodes providing", unit = "int", default = 10 }
+  record_count = { type = "int", desc = "TODO DESCRIPTION", unit = "int", default = 5 }
+  #p_providing = { type = "int", desc = "", unit = "% of nodes" }
+  #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
+  #p_failing = { type = "int", desc = "", unit = "% of nodes" }
 
 # seq 2
 [[testcases]]
@@ -64,7 +71,7 @@ instances = { min = 16, max = 250, default = 16 }
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
   auto_refresh = { type = "bool", desc = "", unit = "bool" }
   random_walk = { type = "bool", desc = "", unit = "bool" }
-  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = "1" }
+  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
   n_provides = { type = "int", desc = "number of times to provide", unit = "int" }
   i_provides = { type = "int", desc = "interval between each provide", unit = "seconds" }
 

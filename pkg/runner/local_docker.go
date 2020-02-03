@@ -2,21 +2,28 @@ package runner
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"os"
+	"path/filepath"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/util"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
@@ -41,7 +48,7 @@ type LocalDockerRunnerConfig struct {
 	// Unstarted creates the containers without starting them (default: false).
 	Unstarted bool `toml:"no_start"`
 	// Background avoids tailing the output of containers, and displaying it as
-	// log messages (default: true).
+	// log messages (default: false).
 	Background bool `toml:"background"`
 }
 
@@ -63,26 +70,18 @@ var defaultConfig = LocalDockerRunnerConfig{
 // What we do here is slightly similar to what Docker Compose does, but we can't
 // use the latter because it's a python program and it doesn't expose a network
 // API.
-type LocalDockerRunner struct{}
+type LocalDockerRunner struct {
+	setupLk sync.Mutex
+}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
-		image = input.ArtifactPath
-		seq   = input.Seq
-		log   = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		seq = input.Seq
+		log = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		err error
 	)
-
-	var (
-		cfg   = defaultConfig
-		incfg = input.RunnerConfig.(*LocalDockerRunnerConfig)
-	)
-
-	// Merge the incoming configuration with the default configuration.
-	if err := mergo.Merge(&cfg, incfg, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("error while merging configurations: %w", err)
-	}
 
 	// Sanity check.
 	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
@@ -92,38 +91,160 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 	// Get the test case.
 	testcase := input.TestPlan.TestCases[seq]
 
-	// Build a runenv.
-	runenv := &runtime.RunEnv{
-		TestPlan:           input.TestPlan.Name,
-		TestCase:           testcase.Name,
-		TestRun:            input.RunID,
-		TestCaseSeq:        seq,
-		TestInstanceCount:  input.Instances,
-		TestInstanceParams: input.Parameters,
-		TestSidecar:        true,
-	}
-
-	// Serialize the runenv into env variables to pass to docker.
-	env := util.ToOptionsSlice(runenv.ToEnvVars())
-
-	// Set the log level if provided in cfg.
-	if cfg.LogLevel != "" {
-		env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-	}
-
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, err
 	}
 
-	dataNetworkID, err := newDataNetwork(cli, logging.S(), runenv, "default")
+	r.setupLk.Lock()
+
+	// Ensure we have a control network.
+	ctrlnid, err := ensureControlNetwork(ctx, cli, log)
+	if err != nil {
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
+	// Ensure that we have a testground-redis container; if not, create it.
+	_, err = ensureRedisContainer(ctx, cli, log, ctrlnid)
+	if err != nil {
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
+	// Ensure the work dir.
+	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
+	if err := os.MkdirAll(workDir, 0777); err != nil {
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
+	// Ensure that we have a testground-sidecar container; if not, we'll
+	// create it.
+	switch _, err = ensureSidecarContainer(ctx, cli, workDir, log, ctrlnid); err {
+	case nil:
+	case errors.New("image not found"):
+		r.setupLk.Unlock()
+		return nil, errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
+	default:
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
+	r.setupLk.Unlock()
+
+	// Build a template runenv.
+	template := runtime.RunEnv{
+		TestPlan:          input.TestPlan.Name,
+		TestCase:          testcase.Name,
+		TestRun:           input.RunID,
+		TestCaseSeq:       seq,
+		TestInstanceCount: input.TotalInstances,
+		TestSidecar:       true,
+		TestArtifacts:     "/artifacts",
+	}
+
+	// Create a data network.
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, logging.S(), &template, "default")
 	if err != nil {
 		return nil, err
 	}
-	// Unless we're keeping the containers, delete the network when we're done.
+
+	template.TestSubnet = subnet
+
+	// Merge the incoming configuration with the default configuration.
+	cfg := defaultConfig
+	if err := mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
+		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	}
+
+	var containers []string
+	for _, g := range input.Groups {
+		runenv := template
+		runenv.TestGroupInstanceCount = g.Instances
+		runenv.TestGroupID = g.ID
+		runenv.TestInstanceParams = g.Parameters
+
+		// Serialize the runenv into env variables to pass to docker.
+		env := conv.ToOptionsSlice(runenv.ToEnvVars())
+
+		// Set the log level if provided in cfg.
+		if cfg.LogLevel != "" {
+			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
+		}
+
+		// Create the run output directory and write the runenv.
+		runDir := filepath.Join(workDir, input.TestPlan.Name, input.RunID, g.ID)
+		if err := os.MkdirAll(runDir, 0777); err != nil {
+			return nil, err
+		}
+		if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
+			encoder := json.NewEncoder(f)
+			encoder.SetIndent("", "  ")
+			encoder.SetEscapeHTML(false)
+			err1 := encoder.Encode(runenv)
+			err2 := f.Close()
+			if err1 != nil {
+				return nil, err1
+			}
+			if err2 != nil {
+				return nil, err2
+			}
+		} else {
+			return nil, err
+		}
+
+		// Start as many containers as group instances.
+		for i := 0; i < g.Instances; i++ {
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, g.ID, i)
+			log.Infow("creating container", "name", name)
+
+			artifactDir := filepath.Join(runDir, name)
+			err = os.Mkdir(artifactDir, 0777)
+			if err != nil {
+				break
+			}
+
+			ccfg := &container.Config{
+				Image: g.ArtifactPath,
+				Env:   env,
+				Labels: map[string]string{
+					"testground.plan":     input.TestPlan.Name,
+					"testground.testcase": testcase.Name,
+					"testground.runid":    input.RunID,
+					"testground.groupid":  g.ID,
+				},
+			}
+			hcfg := &container.HostConfig{
+				NetworkMode: container.NetworkMode(ctrlnid),
+				Mounts: []mount.Mount{{
+					Type:   mount.TypeBind,
+					Source: artifactDir,
+					Target: runenv.TestArtifacts,
+				}},
+			}
+
+			// Create the container.
+			var res container.ContainerCreateCreatedBody
+			res, err = cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
+			if err != nil {
+				break
+			}
+
+			containers = append(containers, res.ID)
+
+			// TODO: Remove this when we get the sidecar working. It'll do this for us.
+			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
+			if err != nil {
+				break
+			}
+		}
+	}
+
 	if !cfg.KeepContainers {
 		defer func() {
+			_ = deleteContainers(cli, log, containers)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -132,88 +253,18 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 		}()
 	}
 
-	// Ensure we have a control network.
-	controlNetworkID, err := ensureControlNetwork(cli, log)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure that we have a testground-redis container; if not, create it.
-	_, err = ensureRedisContainer(cli, log, controlNetworkID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Ensure that we have a testground-sidecar container; if not, we'll
-	// create it.
-	_, err = ensureSidecarContainer(cli, log, controlNetworkID)
-	if err != nil {
-		if err.Error() == "image not found" {
-			newErr := errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
-			return nil, newErr
-		}
-		return nil, err
-	}
-
-	// Start as many containers as test case instances.
-	var containers []string
-	for i := 0; i < input.Instances; i++ {
-		name := fmt.Sprintf("tg-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, i)
-
-		log.Infow("creating container", "name", name)
-
-		ccfg := &container.Config{
-			Image: image,
-			Env:   env,
-			Labels: map[string]string{
-				"testground.plan":     input.TestPlan.Name,
-				"testground.testcase": testcase.Name,
-				"testground.runid":    input.RunID,
-			},
-		}
-		hcfg := &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
-		}
-
-		// Create the container.
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
-		res, err := cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
-		cancel()
-
-		if err != nil {
-			break
-		}
-
-		containers = append(containers, res.ID)
-
-		// TODO: Remove this when we get the sidecar working. It'll do this for us.
-		err = attachContainerToNetwork(cli, res.ID, dataNetworkID)
-		if err != nil {
-			break
-		}
-	}
-
-	if !cfg.KeepContainers {
-		defer deleteContainers(cli, log, containers) //nolint
-		// ^^ nolint: this method already logs errors; this is a cleanup action,
-		// if an error is returned, there's nothing we can do anyway.
-	}
-
-	// If an error occurred interim, delete all containers, and abort.
+	// If an error occurred interim, abort.
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 
-	// Start the containers, unless the NoStart option is specified.
+	// Start the containers.
 	if !cfg.Unstarted {
 		log.Infow("starting containers", "count", len(containers))
+		g, ctx := errgroup.WithContext(ctx)
 
-		g, ctx := errgroup.WithContext(context.Background())
 		for _, id := range containers {
-			if err != nil {
-				break
-			}
 			g.Go(func(id string) func() error {
 				return func() error {
 					log.Debugw("starting container", "id", id)
@@ -236,8 +287,8 @@ func (*LocalDockerRunner) Run(input *api.RunInput, ow io.Writer) (*api.RunOutput
 	}
 
 	if !cfg.Background {
-		output := NewConsoleOutput()
-		ctx, cancel := context.WithCancel(context.Background())
+		output := NewEventManager(NewConsoleLogger())
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		for _, id := range containers {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
@@ -290,13 +341,43 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 	return merr.ErrorOrNil()
 }
 
-func ensureControlNetwork(cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	return docker.EnsureBridgeNetwork(context.Background(), log, cli, "testground-control", true)
+func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
+	return docker.EnsureBridgeNetwork(
+		ctx,
+		log, cli,
+		"testground-control",
+		true,
+		network.IPAMConfig{
+			Subnet:  controlSubnet,
+			Gateway: controlGateway,
+		},
+	)
 }
 
-func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, err error) {
-	return docker.NewBridgeNetwork(
-		context.Background(),
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, ipnet *net.IPNet, err error) {
+	// Find a free network.
+	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg(
+				"label",
+				"testground.name=default",
+			),
+		),
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	subnet, gateway, err := nextDataNetwork(len(networks))
+	if err != nil {
+		return "", nil, err
+	}
+	_, ipnet, err = net.ParseCIDR(subnet)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid subnet: %w", err)
+	}
+
+	id, err = docker.NewBridgeNetwork(
+		ctx,
 		cli,
 		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
 		true,
@@ -306,17 +387,21 @@ func newDataNetwork(cli *client.Client, log *zap.SugaredLogger, env *runtime.Run
 			"testground.runid":    env.TestRun,
 			"testground.name":     name,
 		},
+		network.IPAMConfig{
+			Subnet:  subnet,
+			Gateway: gateway,
+		},
 	)
+	return id, ipnet, err
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.
-func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-redis",
 		ContainerConfig: &container.Config{
 			Image:      "redis",
 			Entrypoint: []string{"redis-server"},
-			Cmd:        []string{"--notify-keyspace-events", "$szxK"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
@@ -331,13 +416,14 @@ func ensureRedisContainer(cli *client.Client, log *zap.SugaredLogger, controlNet
 }
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
-func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(context.Background(), log, cli, &docker.EnsureContainerOpts{
+func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
-			Cmd:        []string{"sidecar", "--runner", "docker"},
+			Cmd:        []string{"sidecar", "--runner", "docker", "--logs", "/logs"},
+			Env:        []string{"REDIS_HOST=testground-redis"},
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(controlNetworkID),
@@ -352,6 +438,10 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 				Type:   mount.TypeBind,
 				Source: "/var/run/docker.sock", // TODO: don't hardcode this.
 				Target: "/var/run/docker.sock",
+			}, {
+				Type:   mount.TypeBind,
+				Source: workDir,
+				Target: "/logs",
 			}},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
@@ -365,15 +455,15 @@ func ensureSidecarContainer(cli *client.Client, log *zap.SugaredLogger, controlN
 
 // attachContainerToNetwork attaches the provided container to the specified
 // network.
-func attachContainerToNetwork(cli *client.Client, containerID string, networkID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func attachContainerToNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
 //nolint this function is unused, but it may come in handy.
-func detachContainerFromNetwork(cli *client.Client, containerID string, networkID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func detachContainerFromNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return cli.NetworkDisconnect(ctx, networkID, containerID, true)
 }

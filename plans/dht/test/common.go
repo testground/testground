@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
 	"reflect"
 	"sort"
@@ -15,7 +16,7 @@ import (
 	"github.com/ipfs/go-datastore"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-connmgr"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -28,6 +29,7 @@ import (
 
 func init() {
 	os.Setenv("LIBP2P_TCP_REUSEPORT", "false")
+	swarm.BackoffBase = 0
 }
 
 const minTestInstances = 16
@@ -71,6 +73,8 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 		return nil, nil, fmt.Errorf("not enough peers")
 	}
 
+	runenv.Message("connmgr parameters: hi=%d, lo=%d", max, min)
+
 	node, err := libp2p.New(
 		ctx,
 		// Use only the TCP transport without reuseport.
@@ -90,6 +94,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(opts.BucketSize),
+		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
 	}
 
 	if !opts.AutoRefresh {
@@ -109,19 +114,16 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 	if !runenv.TestSidecar {
 		return nil
 	}
-	// TODO: just put the hostname inside the runenv?
-	hostname, err := os.Hostname()
-	if err != nil {
+
+	// Wait for the network to be initialized.
+	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 
-	// Wait for the network to be ready.
-	//
-	// Technically, we don't need to do this as configuring the network will
-	// block on it being ready.
-	err = <-watcher.Barrier(ctx, "network-initialized", int64(runenv.TestInstanceCount))
+	// TODO: just put the unique testplan id inside the runenv?
+	hostname, err := os.Hostname()
 	if err != nil {
-		return fmt.Errorf("failed to initialize network: %w", err)
+		return err
 	}
 
 	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
@@ -226,6 +228,17 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 		if isBootstrapper {
 			runenv.Message("bootstrap: am bootstrapper")
+			go func() {
+				for {
+					select {
+					case <-time.After(1 * time.Second):
+						runenv.Message("bootstrapper peer count: %d", len(dht.Host().Network().Peers()))
+						continue
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
 			// Announce ourself as a bootstrap node.
 			if _, err := writer.Write(BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
 				return err
@@ -234,15 +247,23 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			// bootstrappers.
 		}
 
+		runenv.Message("bootstrap: getting bootstrappers")
 		// List all the bootstrappers.
 		bootstrapPeers, err := getBootstrappers(ctx, runenv, watcher, opts)
 		if err != nil {
 			return err
 		}
 
+		runenv.Message("bootstrap: got %d bootstrappers", len(bootstrapPeers))
+
 		if isBootstrapper {
-			// If we're a bootstrapper, connect to all of them.
-			toDial = bootstrapPeers
+			// If we're a bootstrapper, connect to all of them with IDs lexicographically less than us
+			toDial = make([]peer.AddrInfo, 0, len(bootstrapPeers))
+			for _, b := range bootstrapPeers {
+				if b.ID < dht.Host().ID() {
+					toDial = append(toDial, b)
+				}
+			}
 		} else {
 			// Otherwise, connect to a random one (based on our sequence number).
 			toDial = append(toDial, bootstrapPeers[int(seq)%len(bootstrapPeers)])
@@ -259,7 +280,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	runenv.Message("bootstrap: dialing %v", toDial)
 
 	// Connect to our peers.
-	if err := Connect(ctx, dht, toDial...); err != nil {
+	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 		return err
 	}
 
@@ -338,7 +359,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	if len(dht.Host().Network().Peers()) == 0 {
 		// TODO: Report this as an error?
 		runenv.Message("bootstrap: fully disconnected, reconnecting.")
-		if err := Connect(ctx, dht, toDial...); err != nil {
+		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 			return err
 		}
 		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
@@ -386,23 +407,40 @@ func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 			return nil, fmt.Errorf("timed out waiting for bootstrappers")
 		}
 	}
+	runenv.Message("got all bootstrappers: %d", len(peers))
 	return peers, nil
 }
 
 // Connect connects a host to a set of peers.
 //
 // Automatically skips our own peer.
-func Connect(ctx context.Context, dht *kaddht.IpfsDHT, toDial ...peer.AddrInfo) error {
+func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, toDial ...peer.AddrInfo) error {
+	tryConnect := func(ctx context.Context, ai peer.AddrInfo, attempts int) error {
+		var err error
+		for i := 1; i <= attempts; i++ {
+			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
+			select {
+			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
+			}
+			if err = dht.Host().Connect(ctx, ai); err == nil {
+				return nil
+			} else {
+				runenv.Message("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+			}
+		}
+		return fmt.Errorf("failed while dialing peer %v, attempts: %d: %w", ai.Addrs, attempts, err)
+	}
+
 	// Dial to all the other peers.
-	count := 0
 	for _, ai := range toDial {
 		if ai.ID == dht.Host().ID() {
 			continue
 		}
-		if err := dht.Host().Connect(ctx, ai); err != nil {
-			return fmt.Errorf("error while dialing peer %v: %w", ai.Addrs, err)
+		if err := tryConnect(ctx, ai, 5); err != nil {
+			return err
 		}
-		count++
 	}
 
 	return nil
@@ -459,6 +497,6 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) {
 	err := Sync(ctx, runenv, watcher, writer, "end")
 	if err != nil {
-		runenv.Abort(err)
+		runenv.SLogger().Error("end sync failed", err)
 	}
 }

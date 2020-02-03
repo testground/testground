@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/daemon/client"
-	"github.com/ipfs/testground/pkg/server"
+	"github.com/ipfs/testground/pkg/client"
+	"github.com/ipfs/testground/pkg/daemon"
 	"github.com/urfave/cli"
 )
 
@@ -14,28 +14,30 @@ import (
 var DescribeCommand = cli.Command{
 	Name:      "describe",
 	Usage:     "describes a test plan or test case",
-	ArgsUsage: "[term], where " + server.TermExplanation,
+	ArgsUsage: "[term], where " + daemon.TermExplanation,
 	Action:    describeCommand,
 }
 
 func describeCommand(c *cli.Context) error {
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
 	if c.NArg() == 0 {
 		_ = cli.ShowSubcommandHelp(c)
-		return errors.New("missing term to describe; " + server.TermExplanation)
+		return errors.New("missing term to describe; " + daemon.TermExplanation)
 	}
 
 	term := c.Args().First()
 
-	api, cancel, err := setupClient()
+	api, err := setupClient(c)
 	if err != nil {
 		return err
 	}
-	defer cancel()
 
 	req := &client.DescribeRequest{
 		Term: term,
 	}
-	resp, err := api.Describe(context.Background(), req)
+	resp, err := api.Describe(ctx, req)
 	if err != nil {
 		return fmt.Errorf("fatal error from daemon: %s", err)
 	}

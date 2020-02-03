@@ -11,7 +11,7 @@ var (
 	logger  *zap.Logger
 	sugared *zap.SugaredLogger
 
-	level = zap.NewAtomicLevelAt(zapcore.WarnLevel)
+	level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 
 	terminal = false
 )

@@ -1,6 +1,3 @@
-#- name: Swarm Init
-  #command: docker swarm init --advertise-addr {{ ansible_all_ipv4_addresses | ipaddr('172.16.0.0/16') | first }}
-
 - name: Swarm Init
   docker_swarm:
     state: present
@@ -11,7 +8,7 @@
   register: worker_token
 
 - name: Get Manager node id 
-  shell: docker node ls | tail -1 | awk '{print $1}'
+  shell: docker node ls | grep Leader | tail -1 | awk '{print $1}'
   register: manager_id
 
 - name: Get Manager node private ip
