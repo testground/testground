@@ -172,7 +172,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			i := i
 			sem <- struct{}{}
 
-			podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
+			podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
 			defer func() {
 				if cfg.KeepService {
@@ -219,7 +219,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				}
 				defer pool.Release(client)
 
-				podName := fmt.Sprintf("%s-%s-%d", jobName, g.ID, i)
+				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
 				logs := getPodLogs(client, podName)
 

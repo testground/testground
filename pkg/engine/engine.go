@@ -317,6 +317,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	if err != nil {
 		return nil, fmt.Errorf("error while generating test run ID: %w", err)
 	}
+	runid := id.String()[24:]
 
 	// This var compiles all configurations to coalesce.
 	//
@@ -361,7 +362,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	}
 
 	in := api.RunInput{
-		RunID:          id.String(),
+		RunID:          runid,
 		EnvConfig:      *e.envcfg,
 		RunnerConfig:   obj,
 		Directories:    e.envcfg,
