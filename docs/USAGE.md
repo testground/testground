@@ -115,7 +115,7 @@ test plan, using the builder (which sets up the environment + compilation) named
 ```
 
 As of v0.1, you can also use compositions for a declarative method:
-[/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
+[docs/COMPOSITIONS.md](./COMPOSITIONS.md).
 
 You should see a bunch of logs that describe the steps of the test, from:
 
