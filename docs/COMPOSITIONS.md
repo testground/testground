@@ -1,4 +1,4 @@
-# Testground compositions
+# Testground compositions
 
 A testground composition is a TOML file that specifies, in a declarative manner,
 all the information needed to run a testground job.
