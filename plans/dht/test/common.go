@@ -3,6 +3,8 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/libp2p/go-libp2p-core/routing"
+	"go.uber.org/zap"
 	"math"
 	"math/rand"
 	"net"
@@ -18,6 +20,8 @@ import (
 	"github.com/ipfs/go-datastore"
 
 	"github.com/libp2p/go-libp2p"
+	autonat "github.com/libp2p/go-libp2p-autonat"
+	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -82,6 +86,10 @@ var BootstrapSubtree = &sync.Subtree{
 }
 
 var ConnManagerGracePeriod = 1 * time.Second
+
+type ModeSwitcher interface {
+	SetMode(int) error
+}
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
 func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, params *NodeParams) (host.Host, *kaddht.IpfsDHT, error) {
@@ -158,6 +166,10 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, err
 	}
 
+	if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
+		return nil, nil, err
+	}
+
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(opts.BucketSize),
@@ -168,9 +180,9 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
 	}
 
-	if undialable {
-		dhtOptions = append(dhtOptions, dhtopts.Client(true))
-	}
+	//if undialable {
+	//dhtOptions = append(dhtOptions, dhtopts.Client(true))
+	//}
 
 	dht, err := kaddht.New(ctx, node, dhtOptions...)
 	if err != nil {
@@ -362,12 +374,14 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 
 func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{} {
 	properties := make(map[NodeProperty]struct{})
-	if seq <= opts.NBootstrap {
+	nb := opts.NBootstrap
+	nb = 0
+	if seq < nb {
 		properties[Bootstrapper] = struct{}{}
 	} else {
 		numNonBootstrap := total
-		if opts.NBootstrap > 0 {
-			numNonBootstrap -= opts.NBootstrap
+		if nb > 0 {
+			numNonBootstrap -= nb
 		}
 		if opts.FUndialable > 0 {
 			if int(float64(seq)/opts.FUndialable) < numNonBootstrap {
@@ -788,20 +802,32 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 
 	runenv.Message("bootstrap: dialing %v", toDial)
 
+	an := autonat.NewAutoNAT(ctx, node.host, nil)
+	go func() {
+		ticker := time.NewTicker(time.Millisecond * 1000)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				_ = an
+				//switch an.Status() {
+				//case autonat.NATStatusPublic:
+				//	_ = dht.SetMode(kaddht.ModeServer)
+				//case autonat.NATStatusPrivate, autonat.NATStatusUnknown:
+				//	_ = dht.SetMode(kaddht.ModeClient)
+				//}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
 	// Connect to our peers.
 	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 		return err
 	}
 
 	runenv.Message("bootstrap: dialed %d other peers", len(toDial))
-
-
-	// Wait for these peers to be added to the routing table.
-	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
-		return err
-	}
-
-	runenv.Message("bootstrap: have peer in routing table")
 
 	if err := stager.End(); err != nil {
 		return err
@@ -814,6 +840,13 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 	if err := stager.Begin(); err != nil {
 		return err
 	}
+
+	// Wait for these peers to be added to the routing table.
+	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+		return err
+	}
+
+	runenv.Message("bootstrap: have peer in routing table")
 
 	runenv.Message("bootstrap: begin routing")
 
@@ -1073,6 +1106,35 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 	if err != nil {
 		runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
 	}
+}
+
+func outputQueryEvents(ctx context.Context, target peer.ID, queryLog *zap.SugaredLogger) (context.Context, context.CancelFunc){
+	cctx, cancel := context.WithCancel(ctx)
+	ectx, events := routing.RegisterForQueryEvents(cctx)
+	log := queryLog.With("target", target)
+
+	go func() {
+		for e := range events {
+			var msg string
+			switch e.Type {
+			case routing.SendingQuery:
+				msg = "send"
+			case routing.PeerResponse:
+				msg = "receive"
+			case routing.AddingPeer:
+				msg = "adding"
+			case routing.DialingPeer:
+				msg = "dialing"
+			case routing.QueryError:
+				msg = "error"
+			case routing.Provider, routing.Value:
+				msg = "result"
+			}
+			log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra)
+		}
+	}()
+
+	return ectx, cancel
 }
 
 func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
