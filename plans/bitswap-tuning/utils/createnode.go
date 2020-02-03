@@ -30,6 +30,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type NodeType int
+
+const (
+	// Seeds data
+	Seed NodeType = iota
+	// Fetches data from seeds
+	Leech
+	// Doesn't seed or fetch data
+	Passive
+)
+
+func (nt NodeType) String() string {
+	return [...]string{"Seed", "Leech", "Passive"}[nt]
+}
+
 // Adapted from the netflix/p2plab repo under an Apache-2 license.
 // Original source code located at https://github.com/Netflix/p2plab/blob/master/peer/peer.go
 type Node struct {

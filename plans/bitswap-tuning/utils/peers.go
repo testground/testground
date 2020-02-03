@@ -7,6 +7,7 @@ import (
 
 	core "github.com/libp2p/go-libp2p-core"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"golang.org/x/sync/errgroup"
 )
 
 func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int) ([]peer.AddrInfo, error) {
@@ -37,10 +38,18 @@ func DialOtherPeers(ctx context.Context, self core.Host, ais []peer.AddrInfo) ([
 	}
 
 	// Dial to all the other peers
+	g, ctx := errgroup.WithContext(ctx)
 	for _, ai := range toDial {
-		if err := self.Connect(ctx, ai); err != nil {
-			return nil, fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
-		}
+		ai := ai
+		g.Go(func() error {
+			if err := self.Connect(ctx, ai); err != nil {
+				fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	return toDial, nil
