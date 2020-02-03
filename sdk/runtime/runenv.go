@@ -345,10 +345,10 @@ func ParseKeyValues(in []string) (res map[string]string, err error) {
 	res = make(map[string]string, len(in))
 	for _, d := range in {
 		splt := strings.Split(d, "=")
-		if len(splt) != 2 {
+		if len(splt) < 2 {
 			return nil, fmt.Errorf("invalid key-value: %s", d)
 		}
-		res[splt[0]] = splt[1]
+		res[splt[0]] = strings.Join(splt[1:], "=")
 	}
 	return res, nil
 }
