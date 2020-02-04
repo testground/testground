@@ -45,6 +45,8 @@ runTest () {
 	  --test-param seed_latency_ms=$SEED_LATENCY \
 	  --run-cfg log_file=$OUTFILE_RAW
 	cat $OUTFILE_RAW | node $SCRIPT_DIR/aggregate.js $OUTFILE_CSV_BASE
+	node $SCRIPT_DIR/chart.js -d $OUTPUT_DIR -m blks_sent -b 64 -xlabel 'File size (MB)' -ylabel 'Blocks Sent' -xscale '9.53674316e-7' -branch $REF_NAME
+	gnuplot $OUTPUT_DIR/${REF_NAME}.blks_sent.plot > $OUTPUT_DIR/${REF_NAME}.blks_sent.svg
 }
 
 BW=64 # bandwidth in MB
@@ -56,9 +58,9 @@ ITERATIONS=5
 LABEL='1-64MB'
 
 # 4 seed / 1 leech
-runTest 'master' 'master' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
+runTest 'dcfe40e' 'old' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
 
 # 4 seed / 1 leech
-runTest '65321e4' 'poc' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
+# runTest '65321e4' 'new' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
 
 echo "Output: $OUTPUT_DIR"
