@@ -50,6 +50,10 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		}
 	}
 
+	if err := SetupNetwork2(ctx, runenv, watcher, writer); err != nil {
+		return err
+	}
+
 	// Ok, we're _finally_ ready.
 	// TODO: Dump routing table stats. We should dump:
 	//
