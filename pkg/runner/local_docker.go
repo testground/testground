@@ -151,7 +151,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	template.TestSubnet = &runtime.IPNet{*subnet}
+	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	// Merge the incoming configuration with the default configuration.
 	cfg := defaultConfig

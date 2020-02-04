@@ -11,7 +11,7 @@ import (
 func Invoke(tc func(*RunEnv) error) {
 	runenv := CurrentRunEnv()
 
-	errfile, err := runenv.CreateAsset("run.err")
+	errfile, err := runenv.CreateRawAsset("run.err")
 	if err != nil {
 		runenv.RecordCrash(err)
 		return

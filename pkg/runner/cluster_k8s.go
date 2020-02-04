@@ -127,7 +127,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	template.TestSubnet = &runtime.IPNet{*subnet}
+	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	k8sConfig := defaultKubernetesConfig()
 

@@ -150,7 +150,7 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 		ts = time.Unix(0, nanos)
 
 		if err := json.Unmarshal(all["event"], &evt); err != nil {
-			c.print(idx, id, time.Now(), InternalErr, "ignoring event: "+err.Error())
+			c.print(idx, id, time.Now(), Other, string(line))
 			continue
 		}
 
