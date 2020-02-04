@@ -231,13 +231,43 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
-			Latency:   100 * time.Millisecond,
+			Latency:   0 * time.Millisecond,
 			Bandwidth: 1 << 20, // 1Mib
 		},
 		State: "network-configured",
 	})
 
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
+	if err != nil {
+		return fmt.Errorf("failed to configure network: %w", err)
+	}
+	return nil
+}
+
+// SetupNetwork instructs the sidecar (if enabled) to setup the network for this
+// test case.
+func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) error {
+	if !runenv.TestSidecar {
+		return nil
+	}
+
+	// TODO: just put the unique testplan id inside the runenv?
+	hostname, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+
+	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+		Network: "default",
+		Enable:  true,
+		Default: sync.LinkShape{
+			Latency:   100 * time.Millisecond,
+			Bandwidth: 1 << 20, // 1Mib
+		},
+		State: "network-configured2",
+	})
+
+	err = <-watcher.Barrier(ctx, "network-configured2", int64(runenv.TestInstanceCount))
 	if err != nil {
 		return fmt.Errorf("failed to configure network: %w", err)
 	}

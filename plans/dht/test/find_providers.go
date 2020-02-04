@@ -53,6 +53,10 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
+	if err := SetupNetwork2(ctx, runenv, watcher, writer); err != nil {
+		return err
+	}
+
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {
 		for i := 0; i < opts.RecordCount; i++ {
