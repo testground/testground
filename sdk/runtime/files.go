@@ -7,6 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // CreateRandomFile creates a file of the specified size (in bytes) within the
@@ -60,11 +63,40 @@ func (re *RunEnv) CreateRandomDirectory(directoryPath string, depth uint) (strin
 	return base, nil
 }
 
-// CreateAsset creates an output asset.
+// CreateRawAsset creates an output asset.
 //
 // Output assets will be saved when the test terminates and available for
 // further investigation. You can also manually create output assets/directories
 // under re.TestOutputsPath.
-func (re *RunEnv) CreateAsset(name string) (*os.File, error) {
+func (re *RunEnv) CreateRawAsset(name string) (*os.File, error) {
 	return os.Create(filepath.Join(re.TestOutputsPath, name))
+}
+
+// CreateStructuredAsset creates an output asset and wraps it in zap loggers.
+func (re *RunEnv) CreateStructuredAsset(name string, config zap.Config) (*zap.Logger, *zap.SugaredLogger, error) {
+	path := filepath.Join(re.TestOutputsPath, name)
+	config.OutputPaths = []string{path}
+
+	logger, err := config.Build()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return logger, logger.Sugar(), nil
+}
+
+// StandardJSONConfig returns a zap.Config with JSON encoding, debug verbosity,
+// caller and stacktraces disabled, and with timestamps encoded as nanos after
+// epoch.
+func StandardJSONConfig() zap.Config {
+	enc := zap.NewProductionEncoderConfig()
+	enc.EncodeTime = zapcore.EpochNanosTimeEncoder
+
+	return zap.Config{
+		Level:             zap.NewAtomicLevelAt(zap.DebugLevel),
+		Encoding:          "json",
+		EncoderConfig:     enc,
+		DisableCaller:     true,
+		DisableStacktrace: true,
+	}
 }
