@@ -53,6 +53,7 @@ type SetupOpts struct {
 	NodesProviding int
 	RecordCount    int
 	FUndialable    float64
+	ClientMode     bool
 }
 
 type NodeProperty int
@@ -180,9 +181,9 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
 	}
 
-	//if undialable {
-	//dhtOptions = append(dhtOptions, dhtopts.Client(true))
-	//}
+	if undialable && opts.ClientMode {
+		dhtOptions = append(dhtOptions, dhtopts.Client(true))
+	}
 
 	dht, err := kaddht.New(ctx, node, dhtOptions...)
 	if err != nil {

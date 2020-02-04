@@ -18,6 +18,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		BucketSize:  runenv.IntParam("bucket_size"),
 		AutoRefresh: runenv.BooleanParam("auto_refresh"),
 		FUndialable: runenv.FloatParam("f_undialable"),
+		ClientMode: runenv.BooleanParam("client_mode"),
 	}
 
 	if opts.NFindPeers > runenv.TestInstanceCount {
