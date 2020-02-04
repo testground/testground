@@ -19,7 +19,7 @@ We use Weave for the `data` plane on Testground - a secondary overlay network th
 
 `kops` uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the `control` network.
 
-Weave by default uses 10.32.0.0/11 as CIDR, so this is the CIDR for the Testground `data` network. The `sidecar` is responsible for setting up the `data` network for every testplan instance.
+We configure Weave to use 16.0.0.0/4 as CIDR (we want to test `libp2p` nodes with IPs in public ranges), so this is the CIDR for the Testground `data` network. The `sidecar` is responsible for setting up the `data` network for every testplan instance.
 
 In order to have two different networks attached to pods in Kubernetes, we run the [CNI-Genie CNI](https://github.com/cni-genie/CNI-Genie).
 
