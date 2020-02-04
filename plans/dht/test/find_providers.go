@@ -26,6 +26,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		FUndialable:    runenv.FloatParam("f_undialable"),
 		NodesProviding: runenv.IntParam("n_providing"),
 		RecordCount:    runenv.IntParam("record_count"),
+		ClientMode: runenv.BooleanParam("client_mode"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)

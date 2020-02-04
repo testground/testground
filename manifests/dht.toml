@@ -44,6 +44,7 @@ instances = { min = 16, max = 10000, default = 16 }
   n_find_peers  = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
   timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
   f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
+  client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
 
 # seq 1
 [[testcases]]
@@ -59,6 +60,8 @@ instances = { min = 16, max = 250, default = 16 }
   n_find_peers = { type = "int", desc = "number of peers to find", unit = "int", default = 1 }
   n_providing = { type = "int", desc = "nodes providing", unit = "int", default = 10 }
   record_count = { type = "int", desc = "TODO DESCRIPTION", unit = "int", default = 5 }
+  f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
+  client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   #p_providing = { type = "int", desc = "", unit = "% of nodes" }
   #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
   #p_failing = { type = "int", desc = "", unit = "% of nodes" }
