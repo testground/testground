@@ -832,25 +832,7 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 
 	runenv.Message("bootstrap: dialing %v", toDial)
 
-	an := autonat.NewAutoNAT(ctx, node.host, nil)
-	go func() {
-		ticker := time.NewTicker(time.Millisecond * 1000)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				_ = an
-				//switch an.Status() {
-				//case autonat.NATStatusPublic:
-				//	_ = dht.SetMode(kaddht.ModeServer)
-				//case autonat.NATStatusPrivate, autonat.NATStatusUnknown:
-				//	_ = dht.SetMode(kaddht.ModeClient)
-				//}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	_ = autonat.NewAutoNAT(ctx, node.host, nil)
 
 	// Connect to our peers.
 	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
