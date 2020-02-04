@@ -4,6 +4,8 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
+START_TIME=`date +%s`
+
 echo "Creating cluster for Testground..."
 echo
 
@@ -61,3 +63,6 @@ while [ "$RUNNING_SIDECARS" -ne "$WORKER_NODES" ]; do RUNNING_SIDECARS=$(kubectl
 
 echo "Testground cluster is ready"
 echo
+
+END_TIME=`date +%s`
+echo "Execution time was `expr $END_TIME - $START_TIME` seconds"
