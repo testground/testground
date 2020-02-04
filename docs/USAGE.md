@@ -130,7 +130,7 @@ You should see a bunch of logs that describe the steps of the test, from:
 
 ## Running a test plan outside of the Testground orchestrator
 
-You must have a Redis instance running locally. Install it for your runtime follow instructions at https://redis.io/download.
+You must have a Redis instance running locally. Install it for your runtime following instructions at https://redis.io/download.
 
 Then run it locally with
 
