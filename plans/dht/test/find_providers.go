@@ -116,9 +116,11 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			i := index
 			c := cid
 			g.Go(func() error {
+				p := peer.ID(c.Bytes())
+				ectx, cancel := outputQueryEvents(ctx, p, queryLog)
 				t := time.Now()
-				pids, err := node.dht.FindProviders(ctx, c)
-
+				pids, err := node.dht.FindProviders(ectx, c)
+				cancel()
 				if err == nil {
 					runenv.RecordMetric(&runtime.MetricDefinition{
 						Name:           fmt.Sprintf("time-to-find-%d", i),
