@@ -114,7 +114,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	}
 
 	// Ensure the work dir.
-	workDir := filepath.Join(input.EnvConfig.WorkDir(), "results")
+	workDir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "results")
 	if err := os.MkdirAll(workDir, 0777); err != nil {
 		r.setupLk.Unlock()
 		return nil, err
@@ -151,7 +151,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	template.TestSubnet = subnet
+	template.TestSubnet = &runtime.IPNet{*subnet}
 
 	// Merge the incoming configuration with the default configuration.
 	cfg := defaultConfig
@@ -287,9 +287,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	}
 
 	if !cfg.Background {
-		output := NewEventManager(NewConsoleLogger())
+		pretty := NewPrettyPrinter()
+
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
+
 		for _, id := range containers {
 			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
 				ShowStdout: true,
@@ -311,9 +313,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				_ = wstderr.CloseWithError(err)
 			}()
 
-			output.Manage(id[0:12], rstdout, rstderr)
+			pretty.Manage(id[0:12], rstdout, rstderr)
 		}
-		return nil, output.Wait()
+		return nil, pretty.Wait()
 	}
 
 	return nil, nil
@@ -354,7 +356,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 	)
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, ipnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -367,13 +369,10 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 	if err != nil {
 		return "", nil, err
 	}
+
 	subnet, gateway, err := nextDataNetwork(len(networks))
 	if err != nil {
 		return "", nil, err
-	}
-	_, ipnet, err = net.ParseCIDR(subnet)
-	if err != nil {
-		return "", nil, fmt.Errorf("invalid subnet: %w", err)
 	}
 
 	id, err = docker.NewBridgeNetwork(
@@ -388,11 +387,11 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 			"testground.name":     name,
 		},
 		network.IPAMConfig{
-			Subnet:  subnet,
+			Subnet:  subnet.String(),
 			Gateway: gateway,
 		},
 	)
-	return id, ipnet, err
+	return id, subnet, err
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.

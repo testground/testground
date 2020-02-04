@@ -45,7 +45,9 @@ func Transfer(runenv *runtime.RunEnv) error {
 	defer func() {
 		err := utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "end", watcher, writer)
 		if err != nil {
-			runenv.SLogger().Error(err)
+			runenv.RecordFailure(err)
+		} else {
+			runenv.RecordSuccess()
 		}
 		watcher.Close()
 		writer.Close()

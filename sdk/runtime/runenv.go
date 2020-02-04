@@ -31,6 +31,36 @@ const (
 	EnvTestOutputsPath        = "TEST_ARTIFACTS"
 )
 
+type IPNet struct {
+	net.IPNet
+}
+
+func (i IPNet) MarshalJSON() ([]byte, error) {
+	if len(i.IPNet.IP) == 0 {
+		return json.Marshal("")
+	}
+	return json.Marshal(i.String())
+}
+
+func (i *IPNet) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	if s == "" {
+		return nil
+	}
+
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return err
+	}
+
+	i.IPNet = *ipnet
+	return nil
+}
+
 // RunEnv encapsulates the context for this test run.
 type RunEnv struct {
 	*logger
@@ -63,7 +93,7 @@ type RunEnv struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *net.IPNet `json:"network,omitempty"`
+	TestSubnet *IPNet `json:"network,omitempty"`
 }
 
 func (re *RunEnv) ToEnvVars() map[string]string {
@@ -122,9 +152,9 @@ func toBool(s string) bool {
 	return v
 }
 
-func toNet(s string) *net.IPNet {
+func toNet(s string) *IPNet {
 	_, ipnet, _ := net.ParseCIDR(s)
-	return ipnet
+	return &IPNet{IPNet: *ipnet}
 }
 
 // CurrentRunEnv populates a test context from environment vars.
@@ -256,10 +286,10 @@ func ParseKeyValues(in []string) (res map[string]string, err error) {
 	res = make(map[string]string, len(in))
 	for _, d := range in {
 		splt := strings.Split(d, "=")
-		if len(splt) != 2 {
+		if len(splt) < 2 {
 			return nil, fmt.Errorf("invalid key-value: %s", d)
 		}
-		res[splt[0]] = splt[1]
+		res[splt[0]] = strings.Join(splt[1:], "=")
 	}
 	return res, nil
 }

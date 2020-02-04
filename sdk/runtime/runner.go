@@ -4,6 +4,8 @@ package runtime
 func Invoke(tc func(*RunEnv) error) {
 	runenv := CurrentRunEnv()
 
+	runenv.RecordStart()
+
 	// Prepare the event.
 	defer func() {
 		if err := recover(); err != nil {

@@ -54,8 +54,7 @@ func nextK8sSubnet() (*net.IPNet, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, n, err := net.ParseCIDR(subnet)
-	return n, err
+	return subnet, err
 }
 
 func homeDir() string {
@@ -123,11 +122,12 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	// this functionality should be refactored asap, when we understand how weave releases IPs (or why it doesn't release
 	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
-	var err error
-	template.TestSubnet, err = nextK8sSubnet()
+	subnet, err := nextK8sSubnet()
 	if err != nil {
 		return nil, err
 	}
+
+	template.TestSubnet = &runtime.IPNet{*subnet}
 
 	k8sConfig := defaultKubernetesConfig()
 

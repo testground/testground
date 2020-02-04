@@ -31,7 +31,7 @@ func (l *logger) init() {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 
-	path := filepath.Join(l.runenv.TestArtifacts, "results.out")
+	path := filepath.Join(l.runenv.TestArtifacts, "run.out")
 
 	cfg := zap.Config{
 		Development:       false,
@@ -48,6 +48,7 @@ func (l *logger) init() {
 
 	enc := zap.NewProductionEncoderConfig()
 	enc.LevelKey, enc.NameKey = "", ""
+	enc.EncodeTime = zapcore.EpochNanosTimeEncoder
 	cfg.EncoderConfig = enc
 
 	var err error

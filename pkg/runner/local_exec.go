@@ -93,11 +93,11 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		TestCaseSeq:       seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
-		TestSubnet:        localSubnet,
+		TestSubnet:        &runtime.IPNet{*localSubnet},
 	}
 
 	// Spawn as many instances as the input parameters require.
-	console := NewEventManager(NewConsoleLogger())
+	pretty := NewPrettyPrinter()
 	commands := make([]*exec.Cmd, 0, input.TotalInstances)
 	defer func() {
 		for _, cmd := range commands {
@@ -106,7 +106,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		for _, cmd := range commands {
 			_ = cmd.Wait()
 		}
-		_ = console.Wait()
+		_ = pretty.Wait()
 	}()
 
 	var total int
@@ -129,17 +129,17 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			cmd.Env = env
 
 			if err := cmd.Start(); err != nil {
-				console.FailStart(id, err)
+				pretty.FailStart(id, err)
 				continue
 			}
 
 			commands = append(commands, cmd)
 
-			console.Manage(id, stdout, stderr)
+			pretty.Manage(id, stdout, stderr)
 		}
 	}
 
-	if err := console.Wait(); err != nil {
+	if err := pretty.Wait(); err != nil {
 		return nil, err
 	}
 

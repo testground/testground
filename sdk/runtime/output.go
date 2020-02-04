@@ -84,11 +84,11 @@ func (r RunEnv) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	oe.AddString("plan", r.TestPlan)
 	oe.AddString("case", r.TestCase)
 	oe.AddInt("seq", r.TestCaseSeq)
-	oe.AddString("params", r.TestGroupID)
+	oe.AddReflected("params", r.TestInstanceParams)
 	oe.AddInt("instances", r.TestInstanceCount)
 	oe.AddString("artifacts", r.TestGroupID)
 	oe.AddString("network", func() string {
-		if r.TestSubnet == nil {
+		if r.TestSubnet != nil {
 			return ""
 		}
 		return r.TestSubnet.Network()

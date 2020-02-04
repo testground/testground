@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
 	"time"
 
@@ -136,10 +135,8 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	if err != nil {
 		return nil, err
 	}
-	_, template.TestSubnet, err = net.ParseCIDR(subnet)
-	if err != nil {
-		return nil, err
-	}
+
+	template.TestSubnet = &runtime.IPNet{*subnet}
 
 	// Create the data network.
 	log.Infow("creating data network", "parent", parent, "subnet", subnet)
@@ -154,7 +151,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		IPAM: &network.IPAM{
 			Driver: "default",
 			Config: []network.IPAMConfig{{
-				Subnet:  subnet,
+				Subnet:  subnet.String(),
 				Gateway: gateway,
 			}},
 		},
