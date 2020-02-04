@@ -1,10 +1,5 @@
 # Usage
 
-We kindly ask you to read through the [SPEC](./SPEC.md) first and give this
-project a run first in your local machine. It is a fast moving project at the
-moment, and it might require some tinkering and experimentation to compensate
-for the lack of documentation.
-
 ## Setup
 
 Ensure that you are running go 1.13 or later (for gomod support):
@@ -49,24 +44,16 @@ GLOBAL OPTIONS:
    --help, -h  show help
 ```
 
-### How testground guesses the source directory
+### How Testground guesses the source directory
 
 In order to build test plans, Testground needs to know where its source directory is located. Testground can infer the path in the following circumstances:
 
-1. When calling testground from PATH while situated in the source directory, or subdirectory thereof.
+1. When calling `testground` from PATH while situated in the source directory, or subdirectory thereof.
 2. If the testground executable is situated in the source directory (such as when you do `go build .`), or a subdirectory thereof.
 
 For special cases, supply the `TESTGROUND_SRCDIR` environment variable.
 
-## Starting a testground daemon
-
----
-
-⚠️ In the past, if the `[client]` section in the `.env.toml` file was not set
-up, we would start an embedded daemon to service the request. To avoid
-confusion, we no longer do that.
-
----
+## Starting a Testground daemon
 
 Testground has a daemon/client architecture:
 
@@ -81,21 +68,7 @@ Testground has a daemon/client architecture:
 Start the daemon with:
 
 ```bash
-> testground daemon
-```
-
-Now you can run commands, such as:
-
-```bash
-> ./testground -vv run single dht/find-peers \
-      --builder=docker:go \
-      --runner=cluster:swarm \
-      --instances=50 \
-      --test-param n_find_peers=5 \
-      --test-param bucket_size=10 \
-      --test-param timeout_secs=300 \
-      --build-cfg push_registry=true \
-      --build-cfg registry_type=aws
+> testground -vv daemon
 ```
 
 By default, the daemon will listen on endpoint `http://localhost:8042`. To
@@ -106,9 +79,9 @@ The client CLI will also expect to find the daemon at `http://localhost:8042`.
 To configure a custom endpoint address, refer to the `[client]` settings on the
 [env-example.toml](../env-example.toml) file at the root of this repo.
 
-## Running the tests locally with Testground
+## Running test plans locally with Testground
 
-To run a test locally, you can use the `testground run` command. Check what Test Plans are available in the `plans` folder
+To run a test plan locally, you can use the `testground run` command. Check what test plans are available in the `plans` folder
 
 ```bash
 > testground list
@@ -123,16 +96,16 @@ smlbench/simple-add
 smlbench/simple-add-get
 ```
 
-Before you run your first test, you need to build a Docker image that provides the "sidecar"
+Before you run your first test plan, you need to build a Docker image that provides the "sidecar"
 
 ```
 > make docker-ipfs-testground
 ```
 
-This next command is your first test! It runs the lookup-peers test from the DHT
-plan, using the builder (which sets up the environment + compilation) named
-docker:go (which compiles go inside docker) and runs it using the runner
-local:docker (which runs on your local machine).
+This next command is your first test! It runs the `find-peers` test from the `dht`
+test plan, using the builder (which sets up the environment + compilation) named
+`docker:go` (which compiles Go inside Docker) and runs it using the runner
+`local:docker` (which runs on your local machine).
 
 ```
 > testground run single dht/find-peers \
@@ -142,7 +115,7 @@ local:docker (which runs on your local machine).
 ```
 
 As of v0.1, you can also use compositions for a declarative method:
-[/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
+[docs/COMPOSITIONS.md](./COMPOSITIONS.md).
 
 You should see a bunch of logs that describe the steps of the test, from:
 
@@ -155,9 +128,9 @@ You should see a bunch of logs that describe the steps of the test, from:
 
 
 
-## Running a test outside of Testground orchestrator
+## Running a test plan outside of the Testground orchestrator
 
-You must have a redis instance running locally. Install it for your runtime follow instruction at https://redis.io/download.
+You must have a Redis instance running locally. Install it for your runtime following instructions at https://redis.io/download.
 
 Then run it locally with
 
@@ -167,7 +140,7 @@ Then run it locally with
 93801:M 03 Oct 2019 14:42:52.430 * Ready to accept connections
 ```
 
-Then move into the folder that has the plan and test you want to run locally. Execute it by sessting the TEST_CASE & TEST_CASE_SEQ env variables
+Then move into the folder that has the plan and test you want to run locally. Execute it by setting the `TEST_CASE` & `TEST_CASE_SEQ` environment variables:
 
 ```bash
 > cd plans/dht
@@ -179,7 +152,7 @@ Then move into the folder that has the plan and test you want to run locally. Ex
 
 ### Getting your own backend running (create a cluster in AWS)
 
-Follow the tutorial in the [infra folder](../infra)
+Follow the tutorial in the [infra folder](../infra/k8s/)
 
 ### Configure your local Testground environment
 
