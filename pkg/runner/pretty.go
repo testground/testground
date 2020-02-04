@@ -27,17 +27,18 @@ const (
 	Incomplete
 	Message
 	Metric
+	Other
 	InternalErr
 )
 
 func (et eventType) String() string {
-	return [...]string{"Error", "Start", "Ok", "Fail", "Crash", "Incomplete", "Message", "Metric", "InternalErr"}[et]
+	return [...]string{"Error", "Start", "Ok", "Fail", "Crash", "Incomplete", "Message", "Metric", "Other", "InternalErr"}[et]
 }
 
 // PrettyPrinter is a logger that sends output to the console.
 type PrettyPrinter struct {
 	aurora  aurora.Aurora
-	classes [9]aurora.Value
+	classes [10]aurora.Value
 
 	// guarded by atomic.
 	failed uint32
@@ -61,6 +62,7 @@ func NewPrettyPrinter() *PrettyPrinter {
 			aurora.BgBrightRed("INCOMPLETE").White(),
 			aurora.BgWhite("MESSAGE").Black(),
 			aurora.BgBlue("METRIC").White(),
+			aurora.BgMagenta("OTHER").White(),
 			aurora.BgBrightRed("INTERNAL_ERR").White(),
 		},
 		start: time.Now(),
@@ -107,7 +109,6 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 
 	var (
 		failed, ok bool
-		decoder    = json.NewDecoder(stdout)
 		all        = make(map[string]json.RawMessage, 16)
 	)
 
@@ -121,19 +122,21 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 		}
 	}()
 
-	for {
+	for scanner := bufio.NewScanner(stdout); scanner.Scan(); {
 		// clear the map (optimized by the compiler).
 		for k := range all {
 			delete(all, k)
 		}
 
+		line := scanner.Bytes()
+
 		// decode the incoming log line.
-		switch err := decoder.Decode(&all); err {
+		switch err := json.Unmarshal(line, &all); err {
 		case nil:
 		case io.EOF, context.Canceled:
 			return
 		default:
-			c.print(idx, id, time.Now(), InternalErr, "ignoring line; stdout error: "+err.Error())
+			c.print(idx, id, time.Now(), Other, string(line))
 			continue
 		}
 

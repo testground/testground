@@ -410,7 +410,7 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
-			Cmd:        []string{"sidecar", "--runner", "docker", "--logs", "/logs"},
+			Cmd:        []string{"sidecar", "--runner", "docker"},
 			Env:        []string{"REDIS_HOST=testground-redis"},
 		},
 		HostConfig: &container.HostConfig{
