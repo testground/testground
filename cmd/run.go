@@ -7,7 +7,6 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
-	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
@@ -146,7 +145,6 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		// Populate the returned build IDs.
 		for i, groupIdx := range buildIdx {
 			g := &comp.Groups[groupIdx]
-			logging.S().Infow("generated build artifact", "group", g.ID, "artifact", bout[i].ArtifactPath)
 			g.Run.Artifact = bout[i].ArtifactPath
 		}
 	}

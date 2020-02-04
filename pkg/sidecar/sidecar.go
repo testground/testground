@@ -34,7 +34,7 @@ type InstanceManager interface {
 }
 
 // Run runs the sidecar in the given runner environment.
-func Run(runnerName string, resultPath string) error {
+func Run(runnerName string) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
