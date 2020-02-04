@@ -199,10 +199,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				Labels: map[string]string{
 					"testground.plan":     input.TestPlan.Name,
 					"testground.testcase": testcase.Name,
-					"testground.runid":    input.RunID,
-					"testground.groupid":  g.ID,
+					"testground.run_id":   input.RunID,
+					"testground.group_id": g.ID,
 				},
 			}
+			fmt.Println(odir)
 			hcfg := &container.HostConfig{
 				NetworkMode: container.NetworkMode(ctrlnid),
 				Mounts: []mount.Mount{{
@@ -370,7 +371,7 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 		map[string]string{
 			"testground.plan":     env.TestPlan,
 			"testground.testcase": env.TestCase,
-			"testground.runid":    env.TestRun,
+			"testground.run_id":   env.TestRun,
 			"testground.name":     name,
 		},
 		network.IPAMConfig{
@@ -403,6 +404,7 @@ func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
 func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	fmt.Println(workDir)
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
@@ -424,10 +426,6 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 				Type:   mount.TypeBind,
 				Source: "/var/run/docker.sock", // TODO: don't hardcode this.
 				Target: "/var/run/docker.sock",
-			}, {
-				Type:   mount.TypeBind,
-				Source: workDir,
-				Target: "/logs",
 			}},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub

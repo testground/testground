@@ -6,8 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/sync"
@@ -120,40 +118,6 @@ func Run(runnerName string, resultPath string) error {
 			return nil
 		})
 
-		if resultPath != "" {
-			// Log monitor.
-			g.Go(func() error {
-				path := filepath.Join(
-					resultPath,
-					instance.RunEnv.TestPlan,
-					instance.RunEnv.TestRun,
-					instance.Hostname,
-				)
-				err := os.MkdirAll(path, 0777)
-				if err != nil {
-					return err
-				}
-
-				g.Go(func() error {
-					f, err := os.Create(filepath.Join(path, "stderr.json"))
-					if err != nil {
-						return err
-					}
-					_, err = io.Copy(f, instance.Logs.Stderr())
-					return err
-				})
-
-				g.Go(func() error {
-					f, err := os.Create(filepath.Join(path, "stdout.json"))
-					if err != nil {
-						return err
-					}
-					_, err = io.Copy(f, instance.Logs.Stdout())
-					return err
-				})
-				return nil
-			})
-		}
 		return g.Wait()
 	})
 }

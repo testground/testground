@@ -2,6 +2,7 @@ package runner
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -129,7 +130,7 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 		// decode the incoming log line.
 		switch err := decoder.Decode(&all); err {
 		case nil:
-		case io.EOF:
+		case io.EOF, context.Canceled:
 			return
 		default:
 			c.print(idx, id, time.Now(), InternalErr, "ignoring line; stdout error: "+err.Error())

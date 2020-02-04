@@ -152,15 +152,6 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, nil
 	}
 
-	////////////
-	//  LOGS  //
-	////////////
-
-	logs, err := container.Logs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	//////////////////
 	//  NETWORKING  //
 	//////////////////
@@ -275,7 +266,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 			}
 		}
 	}
-	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
+	return NewInstance(runenv, info.Config.Hostname, network)
 }
 
 type dockerLink struct {
