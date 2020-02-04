@@ -50,7 +50,7 @@ func NewInstance(runenv *runtime.RunEnv, hostname string, network Network) (*Ins
 	}
 
 	return &Instance{
-		Logging:  logging.NewLogging(runenv.SLogger().With("sidecar", true).Desugar()),
+		Logging:  logging.NewLogging(logging.S().With("sidecar", true, "run_id", runenv.TestRun).Desugar()),
 		Hostname: hostname,
 		RunEnv:   runenv,
 		Network:  network,

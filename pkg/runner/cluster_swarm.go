@@ -158,7 +158,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		Labels: map[string]string{
 			"testground.plan":     input.TestPlan.Name,
 			"testground.testcase": testcase.Name,
-			"testground.runid":    input.RunID,
+			"testground.run_id":   input.RunID,
 			"testground.name":     "default", // default name. TODO: allow multiple networks.
 		},
 	}
@@ -235,7 +235,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
-						"testground.runid":    input.RunID,
+						"testground.run_id":   input.RunID,
 						"testground.groupid":  g.ID,
 					},
 				},

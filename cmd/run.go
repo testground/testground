@@ -90,17 +90,6 @@ func runCompositionCmd(c *cli.Context) (err error) {
 		return err
 	}
 
-	if c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write composition to file: %w", err)
-		}
-		enc := toml.NewEncoder(f)
-		if err := enc.Encode(comp); err != nil {
-			return fmt.Errorf("failed to encode composition into file: %w", err)
-		}
-	}
-
 	return nil
 }
 
@@ -146,6 +135,17 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		for i, groupIdx := range buildIdx {
 			g := &comp.Groups[groupIdx]
 			g.Run.Artifact = bout[i].ArtifactPath
+		}
+
+		if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
+			f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write composition to file: %w", err)
+			}
+			enc := toml.NewEncoder(f)
+			if err := enc.Encode(comp); err != nil {
+				return fmt.Errorf("failed to encode composition into file: %w", err)
+			}
 		}
 	}
 

@@ -287,7 +287,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		countPodsByState := func(state string) int {
 			fieldSelector := fmt.Sprintf("status.phase=%s", state)
 			opts := metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("testground.runid=%s", input.RunID),
+				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
 			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
@@ -348,7 +348,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 			Labels: map[string]string{
 				"testground.plan":     input.TestPlan.Name,
 				"testground.testcase": runenv.TestCase,
-				"testground.runid":    input.RunID,
+				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},

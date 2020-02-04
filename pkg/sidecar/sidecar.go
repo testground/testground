@@ -53,6 +53,8 @@ func Run(runnerName string) error {
 	defer manager.Close()
 
 	return manager.Manage(ctx, func(ctx context.Context, instance *Instance) error {
+		instance.S().Infow("managing instance", "instance", instance.Hostname)
+
 		defer func() {
 			if err := instance.Close(); err != nil {
 				instance.S().Warnf("failed to close instance: %s", err)
@@ -77,7 +79,9 @@ func Run(runnerName string) error {
 			if _, err = instance.Writer.SignalEntry(netInitState); err != nil {
 				return fmt.Errorf("failed to signal network ready: %w", err)
 			}
+
 			instance.S().Infof("waiting for all networks to be ready")
+
 			if err := <-instance.Watcher.Barrier(
 				ctx,
 				netInitState,
@@ -85,6 +89,7 @@ func Run(runnerName string) error {
 			); err != nil {
 				return fmt.Errorf("failed to wait for network ready: %w", err)
 			}
+
 			instance.S().Infof("all networks ready")
 
 			// Now let the test case tell us how to configure the network.

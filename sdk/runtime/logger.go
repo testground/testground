@@ -31,14 +31,17 @@ func (l *logger) init() {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 
-	path := filepath.Join(l.runenv.TestOutputsPath, "run.out")
+	paths := []string{"stdout"}
+	if l.runenv.TestOutputsPath != "" {
+		paths = append(paths, filepath.Join(l.runenv.TestOutputsPath, "run.out"))
+	}
 
 	cfg := zap.Config{
 		Development:       false,
 		Level:             level,
 		DisableCaller:     true,
 		DisableStacktrace: true,
-		OutputPaths:       []string{"stdout", path},
+		OutputPaths:       paths,
 		Encoding:          "json",
 		InitialFields: map[string]interface{}{
 			"run_id":   l.runenv.TestRun,
