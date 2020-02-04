@@ -60,11 +60,11 @@ func (re *RunEnv) CreateRandomDirectory(directoryPath string, depth uint) (strin
 	return base, nil
 }
 
-// CreateArtifact creates a test artifact.
+// CreateAsset creates an output asset.
 //
-// Test artifacts will be saved when the test terminates and available for
-// further investigation. You can also manually create test
-// artifacts/directories under re.TestArtifacts.
-func (re *RunEnv) CreateArtifact(name string) (*os.File, error) {
-	return os.Create(filepath.Join(re.TestArtifacts, name))
+// Output assets will be saved when the test terminates and available for
+// further investigation. You can also manually create output assets/directories
+// under re.TestOutputsPath.
+func (re *RunEnv) CreateAsset(name string) (*os.File, error) {
+	return os.Create(filepath.Join(re.TestOutputsPath, name))
 }

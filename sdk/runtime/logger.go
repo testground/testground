@@ -31,7 +31,7 @@ func (l *logger) init() {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 
-	path := filepath.Join(l.runenv.TestArtifacts, "run.out")
+	path := filepath.Join(l.runenv.TestOutputsPath, "run.out")
 
 	cfg := zap.Config{
 		Development:       false,

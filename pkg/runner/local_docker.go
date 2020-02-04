@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -113,16 +114,16 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	// Ensure the work dir.
-	workDir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "results")
-	if err := os.MkdirAll(workDir, 0777); err != nil {
+	// Ensure the outputs dir exists.
+	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
+	if err := os.MkdirAll(outputsDir, 0777); err != nil {
 		r.setupLk.Unlock()
 		return nil, err
 	}
 
 	// Ensure that we have a testground-sidecar container; if not, we'll
 	// create it.
-	switch _, err = ensureSidecarContainer(ctx, cli, workDir, log, ctrlnid); err {
+	switch _, err = ensureSidecarContainer(ctx, cli, outputsDir, log, ctrlnid); err {
 	case nil:
 	case errors.New("image not found"):
 		r.setupLk.Unlock()
@@ -142,7 +143,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		TestCaseSeq:       seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
-		TestArtifacts:     "/artifacts",
+		TestOutputsPath:   "/outputs",
 	}
 
 	// Create a data network.
@@ -175,10 +176,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		}
 
 		// Create the run output directory and write the runenv.
-		runDir := filepath.Join(workDir, input.TestPlan.Name, input.RunID, g.ID)
+		runDir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID)
 		if err := os.MkdirAll(runDir, 0777); err != nil {
 			return nil, err
 		}
+
 		if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
 			encoder := json.NewEncoder(f)
 			encoder.SetIndent("", "  ")
@@ -197,14 +199,16 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
-			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, g.ID, i)
-			log.Infow("creating container", "name", name)
-
-			artifactDir := filepath.Join(runDir, name)
-			err = os.Mkdir(artifactDir, 0777)
+			// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
+			odir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			err = os.MkdirAll(odir, 0777)
 			if err != nil {
+				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
 				break
 			}
+
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, g.ID, i)
+			log.Infow("creating container", "name", name)
 
 			ccfg := &container.Config{
 				Image: g.ArtifactPath,
@@ -220,8 +224,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				NetworkMode: container.NetworkMode(ctrlnid),
 				Mounts: []mount.Mount{{
 					Type:   mount.TypeBind,
-					Source: artifactDir,
-					Target: runenv.TestArtifacts,
+					Source: odir,
+					Target: runenv.TestOutputsPath,
 				}},
 			}
 

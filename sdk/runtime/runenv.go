@@ -28,7 +28,7 @@ const (
 	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
-	EnvTestOutputsPath        = "TEST_ARTIFACTS"
+	EnvTestOutputsPath        = "TEST_OUTPUTS_PATH"
 )
 
 type IPNet struct {
@@ -75,7 +75,7 @@ type RunEnv struct {
 	TestBranch string `json:"branch,omitempty"`
 	TestTag    string `json:"tag,omitempty"`
 
-	TestArtifacts string `json:"artifacts,omitempty"`
+	TestOutputsPath string `json:"outputs_path,omitempty"`
 
 	TestInstanceCount  int               `json:"instances"`
 	TestInstanceRole   string            `json:"role,omitempty"`
@@ -120,7 +120,7 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
-		EnvTestOutputsPath:        re.TestArtifacts,
+		EnvTestOutputsPath:        re.TestOutputsPath,
 	}
 
 	return out
@@ -185,7 +185,7 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
-		TestArtifacts:          m[EnvTestOutputsPath],
+		TestOutputsPath:        m[EnvTestOutputsPath],
 	}
 
 	re.logger = newLogger(re)
