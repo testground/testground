@@ -140,7 +140,7 @@ Then run it locally with
 93801:M 03 Oct 2019 14:42:52.430 * Ready to accept connections
 ```
 
-Then move into the folder that has the plan and test you want to run locally. Execute it by setting the TEST_CASE & TEST_CASE_SEQ environment variables:
+Then move into the folder that has the plan and test you want to run locally. Execute it by setting the `TEST_CASE` & `TEST_CASE_SEQ` environment variables:
 
 ```bash
 > cd plans/dht
