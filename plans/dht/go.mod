@@ -16,10 +16,12 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.3.0
 	github.com/libp2p/go-libp2p v0.4.2
 	github.com/libp2p/go-libp2p-autonat v0.1.1
+	//github.com/libp2p/go-libp2p-autonat v0.1.2-0.20200204200147-902af8cb7b6a
 	github.com/libp2p/go-libp2p-autonat-svc v0.1.0
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.3.0
 	github.com/libp2p/go-libp2p-kad-dht v0.4.1
+	//github.com/libp2p/go-libp2p-kad-dht v0.4.2-0.20200204202258-35d3e4a5d43e
 	github.com/libp2p/go-libp2p-swarm v0.2.2
 	github.com/libp2p/go-libp2p-transport-upgrader v0.1.1
 	github.com/libp2p/go-tcp-transport v0.1.1
