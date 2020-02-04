@@ -134,6 +134,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	cancelSub()
 
 	/// --- Warm up
+
 	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Note: seq starts at 1 (not 0)
