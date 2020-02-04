@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -178,22 +177,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		// Create the run output directory and write the runenv.
 		runDir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID)
 		if err := os.MkdirAll(runDir, 0777); err != nil {
-			return nil, err
-		}
-
-		if f, err := os.Create(filepath.Join(runDir, "env.json")); err == nil {
-			encoder := json.NewEncoder(f)
-			encoder.SetIndent("", "  ")
-			encoder.SetEscapeHTML(false)
-			err1 := encoder.Encode(runenv)
-			err2 := f.Close()
-			if err1 != nil {
-				return nil, err1
-			}
-			if err2 != nil {
-				return nil, err2
-			}
-		} else {
 			return nil, err
 		}
 
