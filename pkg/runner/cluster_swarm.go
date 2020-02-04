@@ -409,7 +409,7 @@ func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }
 
-func (*ClusterSwarmRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+func (*ClusterSwarmRunner) CollectOutputs(runID string, w io.Writer) error {
 	// TODO
 	panic("unimplemented")
 }

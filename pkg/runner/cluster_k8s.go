@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -17,6 +18,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
@@ -249,9 +254,46 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func (*ClusterK8sRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
-	// TODO
-	panic("unimplemented")
+func (*ClusterK8sRunner) CollectOutputs(runID string, w io.Writer) error {
+	log := logging.S().With("runner", "cluster:k8s", "run_id", runID)
+
+	log.Info("collecting outputs")
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String("eu-central-1")},
+	)
+
+	// Create S3 service client
+	svc := s3.New(sess)
+
+	bucket := "assets-s3-bucket"
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(runID)})
+	if err != nil {
+		return fmt.Errorf("Unable to list items in bucket %q, %v", bucket, err)
+	}
+
+	zipWriter := zip.NewWriter(w)
+	defer zipWriter.Close()
+
+	for _, item := range resp.Contents {
+		ww, err := zipWriter.Create(bucket + "/" + (*item.Key))
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		downloader := s3manager.NewDownloader(sess)
+
+		_, err = downloader.Download(FakeWriterAt{ww},
+			&s3.GetObjectInput{
+				Bucket: aws.String(bucket),
+				Key:    item.Key,
+			})
+		if err != nil {
+			return fmt.Errorf("Unable to download item %q, %v", item, err)
+		}
+	}
+
+	return nil
 }
 
 func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
@@ -398,3 +440,12 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 }
 
 func int64Ptr(i int64) *int64 { return &i }
+
+type FakeWriterAt struct {
+	w io.Writer
+}
+
+func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
+	// ignore 'offset' because we forced sequential downloads
+	return fw.w.Write(p)
+}

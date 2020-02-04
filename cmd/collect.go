@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/urfave/cli"
@@ -19,13 +18,10 @@ var CollectCommand = cli.Command{
 	Action:    collectCommand,
 	ArgsUsage: "[run-id]",
 	Flags: []cli.Flag{
-		cli.GenericFlag{
+		cli.StringFlag{
 			Name:     "runner, r",
+			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
-			Value: &EnumValue{
-				Allowed: runners,
-			},
-			Usage: fmt.Sprintf("specifies the runner; options: %s", strings.Join(runners, ", ")),
 		},
 		cli.StringFlag{
 			Name:  "output, o",
@@ -44,9 +40,9 @@ func collectCommand(c *cli.Context) error {
 	}
 
 	var (
-		runID    = c.Args().First()
-		runnerID = c.Generic("runner").(*EnumValue).String()
-		output   = runID + ".zip"
+		runID  = c.Args().First()
+		runner = c.String("runner")
+		output = runID + ".zip"
 	)
 
 	if o := c.String("output"); o != "" {
@@ -59,8 +55,8 @@ func collectCommand(c *cli.Context) error {
 	}
 
 	req := &client.OutputsRequest{
-		Runner: runnerID,
-		Run:    runID,
+		Runner: runner,
+		RunID:  runID,
 	}
 
 	resp, err := api.CollectOutputs(ctx, req)

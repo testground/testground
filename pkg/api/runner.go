@@ -30,7 +30,7 @@ type Runner interface {
 
 	// CollectOutputs gathers the outputs from a run identified by runID and
 	// produces a zip file with the contents.
-	CollectOutputs(runID string) (io.ReadCloser, error)
+	CollectOutputs(runID string, w io.Writer) error
 }
 
 // RunInput encapsulates the input options for running a test plan.

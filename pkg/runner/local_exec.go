@@ -158,7 +158,7 @@ func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	return []string{"exec:go"}
 }
 
-func (*LocalExecutableRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+func (*LocalExecutableRunner) CollectOutputs(runID string, w io.Writer) error {
 	// TODO
 	panic("unimplemented")
 }

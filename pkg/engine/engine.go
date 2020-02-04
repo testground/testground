@@ -398,14 +398,14 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	return out, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string) (io.ReadCloser, error) {
+func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error {
 	// Get the runner.
 	run, ok := e.runners[runner]
 	if !ok {
-		return nil, fmt.Errorf("unknown runner: %s", runner)
+		return fmt.Errorf("unknown runner: %s", runner)
 	}
 
-	return run.CollectOutputs(runID)
+	return run.CollectOutputs(runID, w)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

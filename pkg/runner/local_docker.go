@@ -487,7 +487,7 @@ func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func (*LocalDockerRunner) CollectOutputs(runID string) (io.ReadCloser, error) {
+func (*LocalDockerRunner) CollectOutputs(runID string, w io.Writer) error {
 	// TODO
 	panic("unimplemented")
 }

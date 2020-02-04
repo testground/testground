@@ -2,7 +2,6 @@ package daemon
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -24,15 +23,10 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			return
 		}
 
-		rc, err := engine.DoCollectOutputs(r.Context(), req.Runner, req.Run)
+		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, w)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
-		}
-
-		_, err = io.Copy(w, rc)
-		if err != nil {
-			log.Errorw("error while copying archive", "err", err)
 		}
 	}
 }

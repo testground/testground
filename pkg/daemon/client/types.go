@@ -33,5 +33,5 @@ type RunRequest struct {
 // OutputsRequest is the request struct for the `collectOutputs` function
 type OutputsRequest struct {
 	Runner string `json:"runner"`
-	Run    string `json:"run"`
+	RunID  string `json:"run_id"`
 }
