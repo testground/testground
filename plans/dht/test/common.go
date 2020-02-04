@@ -91,6 +91,24 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (h
 		return nil, nil, err
 	}
 
+	// Start logging network events.
+	netLogger := runenv.SLogger().With("id", node.ID()).Named("network")
+	node.Network().Notify(&network.NotifyBundle{
+		ConnectedF: func(n network.Network, c network.Conn) {
+			netLogger.Infow(
+				"connect",
+				"peer", c.RemotePeer(),
+				"dir", c.Stat().Direction,
+			)
+		},
+		DisconnectedF: func(n network.Network, c network.Conn) {
+			netLogger.Infow(
+				"disconnect",
+				"peer", c.RemotePeer(),
+			)
+		},
+	})
+
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(opts.BucketSize),

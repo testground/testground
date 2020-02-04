@@ -7,6 +7,8 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+
+	routing "github.com/libp2p/go-libp2p-core/routing"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {
@@ -57,6 +59,8 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	// * How many peers we're actually connected to?
 	// * How many of our connected peers are actually useful to us?
 
+	queryLog := runenv.SLogger().Named("query").With("id", dht.Host().ID())
+
 	// Perform FIND_PEER N times.
 	found := 0
 	for _, p := range peers {
@@ -71,10 +75,36 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 		t := time.Now()
 
+		ectx, cancel := context.WithCancel(ctx)
+		ectx, events := routing.RegisterForQueryEvents(ctx)
+		log := queryLog.With("target", p.ID)
+		go func() {
+			for e := range events {
+				var msg string
+				switch e.Type {
+				case routing.SendingQuery:
+					msg = "send"
+				case routing.PeerResponse:
+					msg = "receive"
+				case routing.AddingPeer:
+					msg = "adding"
+				case routing.DialingPeer:
+					msg = "dialing"
+				case routing.QueryError:
+					msg = "error"
+				case routing.Provider, routing.Value:
+					msg = "result"
+				}
+				log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra, "closer", e.Responses)
+			}
+		}()
+
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		if _, err := dht.FindPeer(ctx, p.ID); err != nil {
+		_, err := dht.FindPeer(ectx, p.ID)
+		cancel()
+		if err != nil {
 			return fmt.Errorf("find peer failed: %s", err)
 		}
 
