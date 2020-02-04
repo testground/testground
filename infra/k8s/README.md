@@ -30,7 +30,7 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 2. [AWS CLI](https://aws.amazon.com/cli)
 3. [helm](https://github.com/helm/helm)
 
-## Set up infrastructure with kops
+## Set up cloud credentials, cluster specification and repositories for dependencies
 
 1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
@@ -92,7 +92,8 @@ helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 helm repo update
 ```
 
-7. Apply cluster setup and install Testground dependencies
+## Apply the cluster configuration and create cloud resources and install Testground dependencies
+
 ```
 ./install.sh $NAME $CLUSTER_SPEC $PUBKEY $WORKER_NODES
 ```
