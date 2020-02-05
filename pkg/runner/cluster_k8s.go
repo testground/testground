@@ -272,30 +272,40 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	svc := s3.New(sess)
 
-	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
-	if err != nil {
-		return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
-	}
-
+	startAfter := ""
 	downloader := s3manager.NewDownloader(sess)
 
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
-	for _, item := range resp.Contents {
-		ww, err := zipWriter.Create(*item.Key)
+	for {
+		log.Debugw("start after", "cursor", startAfter)
+		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
 		if err != nil {
-			return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
+			return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
 		}
 
-		_, err = downloader.Download(FakeWriterAt{ww},
-			&s3.GetObjectInput{
-				Bucket: aws.String(outputsBucket),
-				Key:    item.Key,
-			})
-		if err != nil {
-			return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
+		if len(resp.Contents) == 0 {
+			break
 		}
+
+		log.Debugw("got contents", "len", len(resp.Contents))
+		for _, item := range resp.Contents {
+			ww, err := zipWriter.Create(*item.Key)
+			if err != nil {
+				return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
+			}
+
+			_, err = downloader.Download(FakeWriterAt{ww},
+				&s3.GetObjectInput{
+					Bucket: aws.String(outputsBucket),
+					Key:    item.Key,
+				})
+			if err != nil {
+				return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
+			}
+		}
+		startAfter = *(resp.Contents[len(resp.Contents)-1].Key)
 	}
 
 	return nil
