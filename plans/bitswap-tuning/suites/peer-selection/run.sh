@@ -25,12 +25,13 @@ runTest () {
 	SEED_LATENCY=${10}
 	TIMEOUT_SECS=${11}
 
-	BRANCH_DIR="${OUTPUT_DIR}/${REF_NAME}"
+	BRANCHES_DIR="${OUTPUT_DIR}/branches"
+	BRANCH_DIR="${BRANCHES_DIR}/${REF_NAME}"
 	mkdir -p $BRANCH_DIR
 	OUTFILE_BASE="${BRANCH_DIR}/${SEEDS}sx${LEECHES}l-${LATENCY_MS}ms-bw${BANDWIDTH_MB}.${LABEL}"
 	OUTFILE_RAW="${OUTFILE_BASE}.raw"
 	OUTFILE_CSV_BASE="${BRANCH_DIR}/${SEEDS}sx${LEECHES}l"
-	./testground run bitswap-tuning/transfer \
+	./testground run single bitswap-tuning/transfer \
 	  --builder=docker:go \
 	  --runner=local:docker \
 	  --build-cfg bypass_cache=true \
@@ -44,9 +45,13 @@ runTest () {
 	  --test-param file_size=$FILESIZE \
 	  --test-param seed_latency_ms=$SEED_LATENCY \
 	  --run-cfg log_file=$OUTFILE_RAW
-	cat $OUTFILE_RAW | node $SCRIPT_DIR/aggregate.js $OUTFILE_CSV_BASE
-	node $SCRIPT_DIR/chart.js -d $OUTPUT_DIR -m blks_sent -b 64 -xlabel 'File size (MB)' -ylabel 'Blocks Sent' -xscale '9.53674316e-7' -branch $REF_NAME
-	gnuplot $OUTPUT_DIR/${REF_NAME}.blks_sent.plot > $OUTPUT_DIR/${REF_NAME}.blks_sent.svg
+	RUN_ID=`ls -lt ~/.testground/local_docker/outputs/bitswap-tuning | head -2 | tail -1 | awk '{print $NF}'`
+	OUTZIP="${OUTPUT_DIR}/${RUN_ID}.zip"
+	./testground collect --runner=local:docker --output=$OUTZIP $RUN_ID
+	unzip $OUTZIP -d $OUTPUT_DIR
+	cat ${OUTPUT_DIR}/${RUN_ID}/single/*/run.out | node $SCRIPT_DIR/aggregate.js $OUTFILE_CSV_BASE
+	node $SCRIPT_DIR/chart.js -d $BRANCHES_DIR -m blks_sent -b 64 -xlabel 'File size (MB)' -ylabel 'Blocks Sent' -xscale '9.53674316e-7' -branch $REF_NAME
+	gnuplot $BRANCHES_DIR/${REF_NAME}.blks_sent.plot > $BRANCHES_DIR/${REF_NAME}.blks_sent.svg
 }
 
 BW=64 # bandwidth in MB
@@ -61,6 +66,6 @@ LABEL='1-64MB'
 runTest 'dcfe40e' 'old' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
 
 # 4 seed / 1 leech
-# runTest '65321e4' 'new' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
+runTest '65321e4' 'new' $LABEL $ITERATIONS 4 1 $LTCY $BW $SIZES $SEED_LTCY $TIMEOUT
 
 echo "Output: $OUTPUT_DIR"

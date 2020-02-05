@@ -47,15 +47,15 @@ function getPlotfile () {
 }
 
 function run (metricName, latencyMS, bandwidthMB) {
-  let outFiles = parseOutputFiles(metricName)
-  outFiles = outFiles.filter((file) => file.latencyMS == latencyMS && file.bandwidthMB == bandwidthMB)
+  let outFiles = parseOutputFiles()
+  outFiles = outFiles.filter((file) => file.name === metricName)
   outputPlot (metricName, outFiles, latencyMS, bandwidthMB)
 }
 
 // Files are in a directory with subdirs for each branch, eg
 // results/master/...
 // results/mybranch/...
-function parseOutputFiles (metricName) {
+function parseOutputFiles () {
   const res = []
   const dir = args.d
   const subdirs = fs.readdirSync(dir)
@@ -64,14 +64,14 @@ function parseOutputFiles (metricName) {
     if (fs.lstatSync(subdirPath).isDirectory()) {
       const files = fs.readdirSync(subdirPath)
       for (const file of files) {
-        const matches = file.match(/(([0-9])+sx([0-9])+l)-([0-9]+)ms-bw([0-9]+)\.(.+)\.raw/)
+        const matches = file.match(/(([0-9])+sx([0-9])+l)\.Leech\.(.+)\.average\.csv/)
         if (matches) {
-          const [, label, seeds, leeches, latencyMS, bandwidthMB, name] = matches
-          const filePath = path.join(subdirPath, `${label}.Leech.${metricName}.average.csv`)
+          const [, label, seeds, leeches, name] = matches
+          const filePath = path.join(subdirPath, file)
 
           try {
             fs.accessSync(filePath)
-            res.push({ branch: subdir, seeds, leeches, latencyMS, bandwidthMB, filePath })
+            res.push({ branch: subdir, name, seeds, leeches, filePath })
           } catch (e) {
           }
         }
