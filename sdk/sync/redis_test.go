@@ -2,8 +2,10 @@ package sync
 
 import (
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"math/rand"
+	"net"
 	"os/exec"
 	"reflect"
 	"testing"
@@ -25,7 +27,7 @@ func init() {
 func ensureRedis(t *testing.T) (close func()) {
 	t.Helper()
 
-	runenv := runtime.RandomRunEnv()
+	runenv := randomRunEnv()
 
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
@@ -58,7 +60,7 @@ func TestWatcherWriter(t *testing.T) {
 	close := ensureRedis(t)
 	defer close()
 
-	runenv := runtime.RandomRunEnv()
+	runenv := randomRunEnv()
 
 	watcher, err := NewWatcher(runenv)
 	if err != nil {
@@ -110,7 +112,7 @@ func TestBarrier(t *testing.T) {
 	close := ensureRedis(t)
 	defer close()
 
-	runenv := runtime.RandomRunEnv()
+	runenv := randomRunEnv()
 
 	watcher, writer := MustWatcherWriter(runenv)
 	defer watcher.Close()
@@ -141,7 +143,7 @@ func TestWatchInexistentKeyThenWrite(t *testing.T) {
 	var (
 		length  = 1000
 		values  = generateValues(length)
-		runenv  = runtime.RandomRunEnv()
+		runenv  = randomRunEnv()
 		subtree = randomTestSubtree()
 	)
 
@@ -178,7 +180,7 @@ func TestWriteAllBeforeWatch(t *testing.T) {
 	var (
 		length  = 1000
 		values  = generateValues(length)
-		runenv  = runtime.RandomRunEnv()
+		runenv  = randomRunEnv()
 		subtree = randomTestSubtree()
 	)
 
@@ -214,7 +216,7 @@ func TestWriteAllBeforeWatch(t *testing.T) {
 func TestSequenceOnWrite(t *testing.T) {
 	var (
 		iterations = 1000
-		runenv     = runtime.RandomRunEnv()
+		runenv     = randomRunEnv()
 		subtree    = randomTestSubtree()
 	)
 
@@ -246,7 +248,7 @@ func TestCloseSubscription(t *testing.T) {
 	defer close()
 
 	var (
-		runenv  = runtime.RandomRunEnv()
+		runenv  = randomRunEnv()
 		subtree = randomTestSubtree()
 	)
 
@@ -338,5 +340,27 @@ func randomTestSubtree() *Subtree {
 		GroupKey:    fmt.Sprintf("test-%d", rand.Int()),
 		PayloadType: reflect.TypeOf((*string)(nil)),
 		KeyFunc:     func(payload interface{}) string { return *payload.(*string) },
+	}
+}
+
+// randomRunEnv generates a random RunEnv for testing purposes.
+func randomRunEnv() *runtime.RunEnv {
+	b := make([]byte, 32)
+	_, _ = rand.Read(b)
+
+	_, subnet, _ := net.ParseCIDR("127.1.0.1/16")
+
+	return &runtime.RunEnv{
+		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
+		TestSidecar:        false,
+		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
+		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
+		TestCaseSeq:        int(rand.Uint32()),
+		TestRepo:           "github.com/ipfs/go-ipfs",
+		TestSubnet:         subnet,
+		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
+		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
+		TestInstanceRole:   "",
+		TestInstanceParams: make(map[string]string, 0),
 	}
 }

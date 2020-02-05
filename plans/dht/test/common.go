@@ -497,6 +497,6 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) {
 	err := Sync(ctx, runenv, watcher, writer, "end")
 	if err != nil {
-		runenv.SLogger().Error("end sync failed", err)
+		runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
 	}
 }

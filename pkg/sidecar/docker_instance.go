@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 
+	"github.com/ipfs/testground/pkg/conv"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
@@ -123,7 +125,7 @@ func (d *DockerInstanceManager) Manage(
 			return fmt.Errorf("container worker failed: %w", err)
 		}
 		return nil
-	}, "testground.runid")
+	}, "testground.run_id")
 }
 
 func (d *DockerInstanceManager) Close() error {
@@ -141,6 +143,14 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, fmt.Errorf("not running")
 	}
 
+	// Remove TEST_OUTPUTS_PATH env var.
+	m, err := conv.ParseKeyValues(info.Config.Env)
+	if err != nil {
+		return nil, err
+	}
+	delete(m, runtime.EnvTestOutputsPath)
+	info.Config.Env = conv.ToOptionsSlice(m)
+
 	// Construct the runtime environment
 	runenv, err := runtime.ParseRunEnv(info.Config.Env)
 	if err != nil {
@@ -152,15 +162,6 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, nil
 	}
 
-	////////////
-	//  LOGS  //
-	////////////
-
-	logs, err := container.Logs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	//////////////////
 	//  NETWORKING  //
 	//////////////////
@@ -170,7 +171,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		Filters: filters.NewArgs(
 			filters.Arg(
 				"label",
-				"testground.runid="+info.Config.Labels["testground.runid"],
+				"testground.run_id="+info.Config.Labels["testground.run_id"],
 			),
 		),
 	})
@@ -275,7 +276,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 			}
 		}
 	}
-	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
+	return NewInstance(runenv, info.Config.Hostname, network)
 }
 
 type dockerLink struct {

@@ -18,6 +18,7 @@ type Engine interface {
 
 	DoBuild(context.Context, *Composition, io.Writer) ([]*BuildOutput, error)
 	DoRun(context.Context, *Composition, io.Writer) (*RunOutput, error)
+	DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error
 
 	EnvConfig() config.EnvConfig
 	Context() context.Context

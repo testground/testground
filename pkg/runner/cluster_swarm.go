@@ -3,9 +3,9 @@ package runner
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
-	"net"
 	"reflect"
 	"time"
 
@@ -136,10 +136,8 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	if err != nil {
 		return nil, err
 	}
-	_, template.TestSubnet, err = net.ParseCIDR(subnet)
-	if err != nil {
-		return nil, err
-	}
+
+	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	// Create the data network.
 	log.Infow("creating data network", "parent", parent, "subnet", subnet)
@@ -154,14 +152,14 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		IPAM: &network.IPAM{
 			Driver: "default",
 			Config: []network.IPAMConfig{{
-				Subnet:  subnet,
+				Subnet:  subnet.String(),
 				Gateway: gateway,
 			}},
 		},
 		Labels: map[string]string{
 			"testground.plan":     input.TestPlan.Name,
 			"testground.testcase": testcase.Name,
-			"testground.runid":    input.RunID,
+			"testground.run_id":   input.RunID,
 			"testground.name":     "default", // default name. TODO: allow multiple networks.
 		},
 	}
@@ -238,7 +236,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 					Labels: map[string]string{
 						"testground.plan":     input.TestPlan.Name,
 						"testground.testcase": testcase.Name,
-						"testground.runid":    input.RunID,
+						"testground.run_id":   input.RunID,
 						"testground.groupid":  g.ID,
 					},
 				},
@@ -284,7 +282,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	// If we are running in background mode, return immediately.
 	if cfg.Background {
-		return &api.RunOutput{}, nil
+		return &api.RunOutput{RunID: input.RunID}, nil
 	}
 
 	// Docker multiplexes STDOUT and STDERR streams inside the single IO stream
@@ -378,7 +376,11 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		log.Info("skipping removing the service due to user request")
 	}
 
-	return &api.RunOutput{}, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
+}
+
+func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	return errors.New("unimplemented")
 }
 
 func (*ClusterSwarmRunner) ID() string {

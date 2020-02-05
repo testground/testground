@@ -1,0 +1,8 @@
+**/.dockerignore
+**/.DS_Store
+**/.git/
+**/.gitattributes
+**/.gitignore
+**/.gitkeep
+**/.gitmodules
+**/Dockerfile

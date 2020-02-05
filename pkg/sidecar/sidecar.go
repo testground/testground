@@ -6,8 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/sync"
@@ -36,7 +34,7 @@ type InstanceManager interface {
 }
 
 // Run runs the sidecar in the given runner environment.
-func Run(runnerName string, resultPath string) error {
+func Run(runnerName string) error {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
@@ -56,6 +54,8 @@ func Run(runnerName string, resultPath string) error {
 	defer manager.Close()
 
 	return manager.Manage(ctx, func(ctx context.Context, instance *Instance) error {
+		instance.S().Infow("managing instance", "instance", instance.Hostname)
+
 		defer func() {
 			if err := instance.Close(); err != nil {
 				instance.S().Warnf("failed to close instance: %s", err)
@@ -80,7 +80,9 @@ func Run(runnerName string, resultPath string) error {
 			if _, err = instance.Writer.SignalEntry(netInitState); err != nil {
 				return fmt.Errorf("failed to signal network ready: %w", err)
 			}
+
 			instance.S().Infof("waiting for all networks to be ready")
+
 			if err := <-instance.Watcher.Barrier(
 				ctx,
 				netInitState,
@@ -88,6 +90,7 @@ func Run(runnerName string, resultPath string) error {
 			); err != nil {
 				return fmt.Errorf("failed to wait for network ready: %w", err)
 			}
+
 			instance.S().Infof("all networks ready")
 
 			// Now let the test case tell us how to configure the network.
@@ -121,40 +124,6 @@ func Run(runnerName string, resultPath string) error {
 			return nil
 		})
 
-		if resultPath != "" {
-			// Log monitor.
-			g.Go(func() error {
-				path := filepath.Join(
-					resultPath,
-					instance.RunEnv.TestPlan,
-					instance.RunEnv.TestRun,
-					instance.Hostname,
-				)
-				err := os.MkdirAll(path, 0777)
-				if err != nil {
-					return err
-				}
-
-				g.Go(func() error {
-					f, err := os.Create(filepath.Join(path, "stderr.json"))
-					if err != nil {
-						return err
-					}
-					_, err = io.Copy(f, instance.Logs.Stderr())
-					return err
-				})
-
-				g.Go(func() error {
-					f, err := os.Create(filepath.Join(path, "stdout.json"))
-					if err != nil {
-						return err
-					}
-					_, err = io.Copy(f, instance.Logs.Stdout())
-					return err
-				})
-				return nil
-			})
-		}
 		return g.Wait()
 	})
 }

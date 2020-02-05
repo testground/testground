@@ -112,7 +112,7 @@ func run(runenv *runtime.RunEnv) error {
 	ipC := byte((seq >> 8) + 1)
 	ipD := byte(seq)
 
-	config.IPv4 = &*runenv.TestSubnet
+	config.IPv4 = &runenv.TestSubnet.IPNet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
 	config.State = "ip-changed"
 

@@ -71,10 +71,15 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 		t := time.Now()
 
+		ectx, cancel := context.WithCancel(ctx)
+		ectx = TraceQuery(ctx, runenv, p.ID.Pretty())
+
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		if _, err := dht.FindPeer(ctx, p.ID); err != nil {
+		_, err := dht.FindPeer(ectx, p.ID)
+		cancel()
+		if err != nil {
 			return fmt.Errorf("find peer failed: %s", err)
 		}
 

@@ -1,18 +1,16 @@
 package runtime
 
 import (
-	"crypto/sha1"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/dustin/go-humanize"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+
+	"github.com/dustin/go-humanize"
 )
 
 type key int
@@ -32,29 +30,61 @@ const (
 	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
-	EnvTestArtifacts          = "TEST_ARTIFACTS"
+	EnvTestOutputsPath        = "TEST_OUTPUTS_PATH"
 )
+
+type IPNet struct {
+	net.IPNet
+}
+
+func (i IPNet) MarshalJSON() ([]byte, error) {
+	if len(i.IPNet.IP) == 0 {
+		return json.Marshal("")
+	}
+	return json.Marshal(i.String())
+}
+
+func (i *IPNet) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+
+	if s == "" {
+		return nil
+	}
+
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return err
+	}
+
+	i.IPNet = *ipnet
+	return nil
+}
 
 // RunEnv encapsulates the context for this test run.
 type RunEnv struct {
-	TestPlan    string `json:"test_plan"`
-	TestCase    string `json:"test_case"`
-	TestRun     string `json:"test_run"`
-	TestCaseSeq int    `json:"test_seq"`
+	*logger
 
-	TestRepo   string `json:"test_repo,omitempty"`
-	TestCommit string `json:"test_commit,omitempty"`
-	TestBranch string `json:"test_branch,omitempty"`
-	TestTag    string `json:"test_tag,omitempty"`
+	TestPlan    string `json:"plan"`
+	TestCase    string `json:"case"`
+	TestRun     string `json:"run"`
+	TestCaseSeq int    `json:"seq"`
 
-	TestArtifacts string `json:"test_artifacts,omitempty"`
+	TestRepo   string `json:"repo,omitempty"`
+	TestCommit string `json:"commit,omitempty"`
+	TestBranch string `json:"branch,omitempty"`
+	TestTag    string `json:"tag,omitempty"`
 
-	TestInstanceCount  int               `json:"test_instance_count"`
-	TestInstanceRole   string            `json:"test_instance_role,omitempty"`
-	TestInstanceParams map[string]string `json:"test_instance_params,omitempty"`
+	TestOutputsPath string `json:"outputs_path,omitempty"`
 
-	TestGroupID            string `json:"test_group_id,omitempty"`
-	TestGroupInstanceCount int    `json:"test_group_instance_count,omitempty"`
+	TestInstanceCount  int               `json:"instances"`
+	TestInstanceRole   string            `json:"role,omitempty"`
+	TestInstanceParams map[string]string `json:"params,omitempty"`
+
+	TestGroupID            string `json:"group,omitempty"`
+	TestGroupInstanceCount int    `json:"group_instances,omitempty"`
 
 	// true if the test has access to the sidecar.
 	TestSidecar bool `json:"test_sidecar,omitempty"`
@@ -65,11 +95,24 @@ type RunEnv struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *net.IPNet `json:"test_network,omitempty"`
+	TestSubnet *IPNet `json:"network,omitempty"`
 
-	// TODO: we'll want different kinds of loggers.
-	logger  *zap.Logger
-	slogger *zap.SugaredLogger
+	unstructured chan *os.File
+	structured   chan *zap.Logger
+}
+
+func (re *RunEnv) Close() error {
+	close(re.structured)
+	close(re.unstructured)
+
+	for l := range re.structured {
+		_ = l.Sync() // ignore errors.
+	}
+
+	for f := range re.unstructured {
+		_ = f.Close() // ignore errors.
+	}
+	return nil
 }
 
 func (re *RunEnv) ToEnvVars() map[string]string {
@@ -96,57 +139,10 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
-		EnvTestArtifacts:          re.TestArtifacts,
+		EnvTestOutputsPath:        re.TestOutputsPath,
 	}
 
 	return out
-}
-
-func (re *RunEnv) SLogger() *zap.SugaredLogger {
-	if re.slogger == nil {
-		re.initLoggers()
-	}
-	return re.slogger
-}
-
-// Loggers returns the loggers populated from this runenv.
-func (re *RunEnv) Loggers() (*zap.Logger, *zap.SugaredLogger) {
-	if re.logger == nil || re.slogger == nil {
-		re.initLoggers()
-	}
-	return re.logger, re.slogger
-}
-
-// initLoggers populates loggers from this RunEnv.
-func (re *RunEnv) initLoggers() {
-	cfg := zap.NewDevelopmentConfig()
-	cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
-	cfg.Encoding = "json"
-
-	if level := os.Getenv("LOG_LEVEL"); level != "" {
-		l := zapcore.Level(0)
-		l.UnmarshalText([]byte(level))
-		cfg.Level = zap.NewAtomicLevelAt(l)
-	}
-
-	logger, err := cfg.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	re.logger = logger.With(
-		zap.String("plan", re.TestPlan),
-		zap.String("case", re.TestCase),
-		zap.String("run", re.TestRun),
-		zap.Int("seq", re.TestCaseSeq),
-		zap.String("repo", re.TestRepo),
-		zap.String("commit", re.TestCommit),
-		zap.String("branch", re.TestBranch),
-		zap.String("tag", re.TestTag),
-		zap.Int("instances", re.TestInstanceCount),
-		zap.String("group", re.TestGroupID),
-	)
-	re.slogger = re.logger.Sugar()
 }
 
 func unpackParams(packed string) map[string]string {
@@ -175,33 +171,14 @@ func toBool(s string) bool {
 	return v
 }
 
-func toNet(s string) *net.IPNet {
+func toNet(s string) *IPNet {
 	_, ipnet, _ := net.ParseCIDR(s)
-	return ipnet
+	return &IPNet{IPNet: *ipnet}
 }
 
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
-	re := &RunEnv{
-		TestSidecar:            toBool(os.Getenv(EnvTestSidecar)),
-		TestPlan:               os.Getenv(EnvTestPlan),
-		TestCase:               os.Getenv(EnvTestCase),
-		TestRun:                os.Getenv(EnvTestRun),
-		TestTag:                os.Getenv(EnvTestTag),
-		TestBranch:             os.Getenv(EnvTestBranch),
-		TestRepo:               os.Getenv(EnvTestRepo),
-		TestSubnet:             toNet(os.Getenv(EnvTestSubnet)),
-		TestCaseSeq:            toInt(os.Getenv(EnvTestCaseSeq)),
-		TestInstanceCount:      toInt(os.Getenv(EnvTestInstanceCount)),
-		TestInstanceRole:       os.Getenv(EnvTestInstanceRole),
-		TestInstanceParams:     unpackParams(os.Getenv(EnvTestInstanceParams)),
-		TestGroupID:            os.Getenv(EnvTestGroupID),
-		TestGroupInstanceCount: toInt(os.Getenv(EnvTestGroupInstanceCount)),
-		TestArtifacts:          os.Getenv(EnvTestArtifacts),
-	}
-
-	re.initLoggers()
-
+	re, _ := ParseRunEnv(os.Environ())
 	return re
 }
 
@@ -213,21 +190,27 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 	}
 
 	re := &RunEnv{
-		TestSidecar:        toBool(m[EnvTestSidecar]),
-		TestPlan:           m[EnvTestPlan],
-		TestCase:           m[EnvTestCase],
-		TestRun:            m[EnvTestRun],
-		TestTag:            m[EnvTestTag],
-		TestBranch:         m[EnvTestBranch],
-		TestRepo:           m[EnvTestRepo],
-		TestSubnet:         toNet(m[EnvTestSubnet]),
-		TestCaseSeq:        toInt(m[EnvTestCaseSeq]),
-		TestInstanceCount:  toInt(m[EnvTestInstanceCount]),
-		TestInstanceRole:   m[EnvTestInstanceRole],
-		TestInstanceParams: unpackParams(m[EnvTestInstanceParams]),
+		TestSidecar:            toBool(m[EnvTestSidecar]),
+		TestPlan:               m[EnvTestPlan],
+		TestCase:               m[EnvTestCase],
+		TestRun:                m[EnvTestRun],
+		TestTag:                m[EnvTestTag],
+		TestBranch:             m[EnvTestBranch],
+		TestRepo:               m[EnvTestRepo],
+		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
+		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
+		TestInstanceRole:       m[EnvTestInstanceRole],
+		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
+		TestGroupID:            m[EnvTestGroupID],
+		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
+		TestOutputsPath:        m[EnvTestOutputsPath],
+
+		structured:   make(chan *zap.Logger, 32),
+		unstructured: make(chan *os.File, 32),
 	}
 
-	re.initLoggers()
+	re.logger = newLogger(re)
 
 	return re, nil
 }
@@ -316,26 +299,6 @@ func (re *RunEnv) JSONParam(name string, v interface{}) {
 
 	if err := json.Unmarshal([]byte(s), v); err != nil {
 		panic(err)
-	}
-}
-
-// RandomRunEnv generates a random RunEnv for testing purposes.
-func RandomRunEnv() *RunEnv {
-	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-
-	return &RunEnv{
-		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
-		TestSidecar:        false,
-		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
-		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
-		TestCaseSeq:        int(rand.Uint32()),
-		TestRepo:           "github.com/ipfs/go-ipfs",
-		TestSubnet:         toNet("127.1.0.1/16"),
-		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
-		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
-		TestInstanceRole:   "",
-		TestInstanceParams: make(map[string]string, 0),
 	}
 }
 
