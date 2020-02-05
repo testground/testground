@@ -27,6 +27,10 @@ type Runner interface {
 	// CompatibleBuilders returns the IDs of the builders whose artifacts this
 	// runner can work with.
 	CompatibleBuilders() []string
+
+	// CollectOutputs gathers the outputs from a run, and produces a zip file
+	// with the contents, writing it to the specified io.Writer.
+	CollectOutputs(context.Context, *CollectionInput, io.Writer) error
 }
 
 // RunInput encapsulates the input options for running a test plan.
@@ -75,7 +79,14 @@ type RunGroup struct {
 }
 
 type RunOutput struct {
-	// TODO.
 	// RunnerID is the ID of the runner used.
-	RunnerID string `json:"runnerId"`
+	RunID string
+}
+
+type CollectionInput struct {
+	// EnvConfig is the env configuration of the engine. Not a pointer to force
+	// a copy.
+	EnvConfig config.EnvConfig
+	RunID     string
+	RunnerID  string
 }

@@ -19,3 +19,10 @@ type BuildResponse = []api.BuildOutput
 type RunRequest struct {
 	Composition api.Composition `json:"composition"`
 }
+
+type RunResponse = api.RunOutput
+
+type OutputsRequest struct {
+	Runner string `json:"runner"`
+	RunID  string `json:"run_id"`
+}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 
@@ -165,5 +167,11 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	defer resp.Close()
 
-	return client.ParseRunResponse(resp)
+	rout, err := client.ParseRunResponse(resp)
+	if err != nil {
+		return err
+	}
+
+	logging.S().Infof("finished run with ID: %s", rout.RunID)
+	return nil
 }

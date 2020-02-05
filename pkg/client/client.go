@@ -91,6 +91,20 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
 }
 
+// CollectOutputs sends a `collectOutputs` request to the daemon.
+//
+// The Body in the response implement an io.ReadCloser and it's up to the caller
+// to close it.
+func (c *Client) CollectOutputs(ctx context.Context, r *OutputsRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/outputs", bytes.NewReader(body.Bytes()))
+}
+
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 
@@ -130,14 +144,16 @@ func printProgress(progress interface{}) error {
 }
 
 // ParseRunResponse parses a response from a `run` call
-func ParseRunResponse(r io.ReadCloser) error {
-	return parseGeneric(
+func ParseRunResponse(r io.ReadCloser) (RunResponse, error) {
+	var resp RunResponse
+	err := parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
-			return nil
+			return mapstructure.Decode(result, &resp)
 		},
 	)
+	return resp, err
 }
 
 // ParseListResponse parses a response from a `list` call
@@ -161,7 +177,6 @@ func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
 			return mapstructure.Decode(result, &resp)
 		},
 	)
-
 	return resp, err
 }
 

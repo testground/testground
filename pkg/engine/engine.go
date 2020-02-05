@@ -398,6 +398,21 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	return out, err
 }
 
+func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error {
+	run, ok := e.runners[runner]
+	if !ok {
+		return fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	input := &api.CollectionInput{
+		RunnerID:  runner,
+		RunID:     runID,
+		EnvConfig: *e.envcfg,
+	}
+
+	return run.CollectOutputs(ctx, input, w)
+}
+
 // EnvConfig returns the EnvConfig for this Engine.
 func (e *Engine) EnvConfig() config.EnvConfig {
 	return *e.envcfg

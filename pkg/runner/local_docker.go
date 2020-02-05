@@ -304,10 +304,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 			pretty.Manage(id[0:12], rstdout, rstderr)
 		}
-		return nil, pretty.Wait()
+		return &api.RunOutput{RunID: input.RunID}, pretty.Wait()
 	}
 
-	return nil, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
 func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
@@ -441,6 +441,11 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 	}
 
 	return container.ID, err
+}
+
+func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
+	return zipRunOutputs(ctx, basedir, input, w)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified

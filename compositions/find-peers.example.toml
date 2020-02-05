@@ -13,14 +13,14 @@ author  = "raulk"
 [global]
 plan    = "dht"
 case    = "find-peers"
-builder = "docker:go"
-runner  = "local:docker"
+builder = "exec:go"
+runner  = "local:exec"
 
-total_instances = 100
+total_instances = 50
 
 [[groups]]
 id = "bootstrappers"
-instances = { count = 50 }
+instances = { count = 1 }
 
   [groups.build]
   dependencies = [
@@ -29,11 +29,11 @@ instances = { count = 50 }
   ]
 
   [groups.run]
-  test_params = { random_walk = "true", n_bootstrap = "10" }
+  test_params = { random_walk = "true", n_bootstrap = "1" }
 
 [[groups]]
 id = "peers"
-instances = { count = 50 }
+instances = { count = 49 }
 
   [groups.run]
-  test_params = { random_walk = "true", n_bootstrap = "10" }
+  test_params = { random_walk = "true", n_bootstrap = "1" }

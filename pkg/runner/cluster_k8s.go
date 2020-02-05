@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -17,6 +18,10 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
@@ -35,7 +40,11 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
-const defaultK8sNetworkAnnotation = "flannel"
+const (
+	defaultK8sNetworkAnnotation = "flannel"
+	outputsBucket               = "assets-s3-bucket"
+	outputsBucketRegion         = "eu-central-1"
+)
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
@@ -114,7 +123,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
-		TestOutputsPath:   "/artifacts",
+		TestOutputsPath:   "/outputs",
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -234,7 +243,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	return &api.RunOutput{}, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -247,6 +256,49 @@ func (*ClusterK8sRunner) ConfigType() reflect.Type {
 
 func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
+}
+
+func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+
+	log.Info("collecting outputs")
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(outputsBucketRegion)},
+	)
+	if err != nil {
+		return fmt.Errorf("Couldn't establish an AWS session to list items in bucket: %v", err)
+	}
+
+	svc := s3.New(sess)
+
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
+	if err != nil {
+		return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
+	}
+
+	downloader := s3manager.NewDownloader(sess)
+
+	zipWriter := zip.NewWriter(w)
+	defer zipWriter.Close()
+
+	for _, item := range resp.Contents {
+		ww, err := zipWriter.Create(*item.Key)
+		if err != nil {
+			return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
+		}
+
+		_, err = downloader.Download(FakeWriterAt{ww},
+			&s3.GetObjectInput{
+				Bucket: aws.String(outputsBucket),
+				Key:    item.Key,
+			})
+		if err != nil {
+			return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
+		}
+	}
+
+	return nil
 }
 
 func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
@@ -338,7 +390,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 	sharedVolumeName := "s3-shared"
 
 	mnt := v1.HostPathVolumeSource{
-		Path: fmt.Sprintf("/mnt/%s/%s", input.RunID, podName),
+		Path: fmt.Sprintf("/mnt/%s/%s/%s", input.RunID, g.ID, podName),
 		Type: &hostpathtype,
 	}
 
@@ -393,3 +445,12 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 }
 
 func int64Ptr(i int64) *int64 { return &i }
+
+type FakeWriterAt struct {
+	w io.Writer
+}
+
+func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
+	// ignore 'offset' because we forced sequential downloads
+	return fw.w.Write(p)
+}

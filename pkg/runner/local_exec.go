@@ -163,7 +163,12 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		return nil, err
 	}
 
-	return &api.RunOutput{}, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
+}
+
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
+	return zipRunOutputs(ctx, basedir, input, w)
 }
 
 func (*LocalExecutableRunner) ID() string {
