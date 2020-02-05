@@ -172,7 +172,10 @@ func toBool(s string) bool {
 }
 
 func toNet(s string) *IPNet {
-	_, ipnet, _ := net.ParseCIDR(s)
+	_, ipnet, err := net.ParseCIDR(s)
+	if err != nil {
+		return nil
+	}
 	return &IPNet{IPNet: *ipnet}
 }
 
