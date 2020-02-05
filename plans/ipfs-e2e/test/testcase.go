@@ -37,7 +37,7 @@ type TestCase struct {
 // leeching.
 // You might be wondering... why not just start leeching as soon as one seeder is available? I want to
 // prevent a race condition where one seeder starts, and the other fails to start because there are
-// not enough leechers still in the "not seeding" state".
+// not enough leechers still in the "not leeching" state".
 // 5. After the leechers have successfully downloaded the file, they transition to "done leeching",
 // then terminate
 // 6. Seeders wait until all leachers have reached the "done leeching" state, emit a metric, and
