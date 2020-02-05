@@ -9,8 +9,8 @@ function parseMetrics (data) {
     } catch (e) {
     }
 
-    if (log.eventType === 'Metric') {
-      const metric = log.metric
+    if ((log.event || {}).type === 'metric') {
+      const metric = log.event.metric
       const parts = metric.name.split(/\//)
       // [ 'latencyMS:100', 'bandwidthMB:1024', 'run:1', 'seq:2', 'file-size:10485760', 'Seed:1', 'msgs_rcvd' ]
       if (parts.length !== 7) {
