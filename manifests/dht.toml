@@ -49,7 +49,7 @@ instances = { min = 16, max = 10000, default = 16 }
 # seq 1
 [[testcases]]
 name = "find-providers"
-instances = { min = 16, max = 250, default = 16 }
+instances = { min = 16, max = 10000, default = 16 }
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers", default = 2 }
