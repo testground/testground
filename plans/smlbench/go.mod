@@ -7,7 +7,7 @@ require (
 	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/ipfs/testground/sdk/iptb v0.0.0-00010101000000-000000000000
-	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
+	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/libp2p/go-libp2p-core v0.2.2 // indirect
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
