@@ -276,7 +276,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	defer zipWriter.Close()
 
 	for _, item := range resp.Contents {
-		ww, err := zipWriter.Create(bucket + "/" + (*item.Key))
+		ww, err := zipWriter.Create(*item.Key)
 		if err != nil {
 			fmt.Println(err)
 		}
