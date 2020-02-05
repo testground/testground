@@ -22,7 +22,13 @@ func TestNextDataNetwork(t *testing.T) {
 
 	for _, tt := range tests {
 		subnet, gateway, err := nextDataNetwork(tt.lenNetworks)
-		if subnet != tt.subnet || gateway != tt.gateway || (err != nil && !tt.hasError) {
+		if err != nil {
+			if !tt.hasError {
+				t.Errorf("got error but didn't expect one: %s", err)
+			}
+			continue
+		}
+		if subnet.String() != tt.subnet || gateway != tt.gateway {
 			t.Errorf("got subnet %s gateway %s, want %s and %s", subnet, gateway, tt.subnet, tt.gateway)
 		}
 	}

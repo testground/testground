@@ -107,15 +107,6 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		return nil, nil
 	}
 
-	////////////
-	//  LOGS  //
-	////////////
-
-	logs, err := container.Logs(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	//////////////////
 	//  NETWORKING  //
 	//////////////////
@@ -245,7 +236,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		}
 	}
 
-	return NewInstance(runenv, info.Config.Hostname, network, newDockerLogs(logs))
+	return NewInstance(runenv, info.Config.Hostname, network)
 }
 
 type k8sLink struct {

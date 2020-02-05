@@ -1,75 +1,194 @@
 package runtime
 
 import (
-	"encoding/json"
 	"fmt"
-	"time"
+	"runtime/debug"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
-type Outcome string
+type (
+	EventType    string
+	EventOutcome string
+)
 
 const (
-	OutcomeOK      = Outcome("ok")
-	OutcomeAborted = Outcome("aborted")
-	OutcomeCrashed = Outcome("crashed")
+	EventTypeStart   = EventType("start")
+	EventTypeMessage = EventType("message")
+	EventTypeMetric  = EventType("metric")
+	EventTypeFinish  = EventType("finish")
+
+	EventOutcomeOK      = EventOutcome("ok")
+	EventOutcomeFailed  = EventOutcome("failed")
+	EventOutcomeCrashed = EventOutcome("crashed")
 )
+
+type Event struct {
+	Type       EventType    `json:"type"`
+	Outcome    EventOutcome `json:"outcome,omitempty"`
+	Error      string       `json:"error,omitempty"`
+	Stacktrace string       `json:"stacktrace,omitempty"`
+	Message    string       `json:"message,omitempty"`
+	Metric     *MetricValue `json:"metric,omitempty"`
+	Runenv     *RunEnv      `json:"runenv,omitempty"`
+}
 
 type MetricDefinition struct {
 	Name           string `json:"name"`
 	Unit           string `json:"unit"`
-	ImprovementDir int    `json:"improve_dir"`
+	ImprovementDir int    `json:"dir"`
 }
 
-type Metric struct {
-	*MetricDefinition
-
+type MetricValue struct {
+	MetricDefinition
 	Value float64 `json:"value"`
 }
 
-type Event struct {
-	RunEnv    *RunEnv `json:"runenv"`
-	Timestamp int64   `json:"timestamp"`
-	Metric    *Metric `json:"metric,omitempty"`
-	Result    *Result `json:"result,omitempty"`
-	Message   string  `json:"msg,omitempty"`
+func (e Event) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddString("type", string(e.Type))
+
+	if e.Outcome != "" {
+		oe.AddString("outcome", string(e.Outcome))
+	}
+	if e.Error != "" {
+		oe.AddString("error", e.Error)
+	}
+	if e.Stacktrace != "" {
+		oe.AddString("stacktrace", e.Stacktrace)
+	}
+	if e.Message != "" {
+		oe.AddString("message", e.Message)
+	}
+	if e.Metric != nil {
+		oe.AddObject("metric", e.Metric)
+	}
+	if e.Runenv != nil {
+		oe.AddObject("runenv", e.Runenv)
+	}
+
+	return nil
 }
 
-type Result struct {
-	Outcome Outcome `json:"outcome"`
-	Reason  string  `json:"reason,omitempty"`
-	Stack   string  `json:"stack,omitempty"`
+func (m MetricValue) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	if m.Name == "" {
+		return nil
+	}
+	oe.AddString("name", m.Name)
+	oe.AddString("unit", m.Unit)
+	oe.AddInt("dir", m.ImprovementDir)
+	return nil
 }
 
-// Message prints out an informational message.
-func (r *RunEnv) Message(msg string, a ...interface{}) {
+func (r RunEnv) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+	oe.AddString("plan", r.TestPlan)
+	oe.AddString("case", r.TestCase)
+	oe.AddInt("seq", r.TestCaseSeq)
+	oe.AddReflected("params", r.TestInstanceParams)
+	oe.AddInt("instances", r.TestInstanceCount)
+	oe.AddString("outputs_path", r.TestOutputsPath)
+	oe.AddString("network", func() string {
+		if r.TestSubnet != nil {
+			return ""
+		}
+		return r.TestSubnet.Network()
+	}())
+
+	oe.AddString("group", r.TestGroupID)
+	oe.AddInt("group_instances", r.TestGroupInstanceCount)
+
+	if r.TestRepo != "" {
+		oe.AddString("repo", r.TestRepo)
+	}
+	if r.TestCommit != "" {
+		oe.AddString("commit", r.TestCommit)
+	}
+	if r.TestBranch != "" {
+		oe.AddString("branch", r.TestBranch)
+	}
+	if r.TestTag != "" {
+		oe.AddString("tag", r.TestTag)
+	}
+	return nil
+}
+
+// RecordMessage records an informational message.
+func (l *logger) RecordMessage(msg string, a ...interface{}) {
 	if len(a) > 0 {
 		msg = fmt.Sprintf(msg, a...)
 	}
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Message:   msg,
+	evt := Event{
+		Type:    EventTypeMessage,
+		Message: msg,
+	}
+	l.logger.Info("", zap.Object("event", evt))
+}
+
+func (l *logger) RecordStart() {
+	evt := Event{
+		Type:   EventTypeStart,
+		Runenv: l.runenv,
 	}
 
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
+	l.logger.Info("", zap.Object("event", evt))
+}
+
+// RecordSuccess records that the calling instance succeeded.
+func (l *logger) RecordSuccess() {
+	evt := Event{
+		Type:    EventTypeFinish,
+		Outcome: EventOutcomeOK,
 	}
-	fmt.Println(string(bytes))
+	l.logger.Info("", zap.Object("event", evt))
+}
+
+// RecordFailure records that the calling instance failed with the supplied
+// error.
+func (l *logger) RecordFailure(err error) {
+	evt := Event{
+		Type:    EventTypeFinish,
+		Outcome: EventOutcomeFailed,
+		Error:   err.Error(),
+	}
+	l.logger.Info("", zap.Object("event", evt))
+}
+
+// RecordCrash records that the calling instance crashed/panicked with the
+// supplied error.
+func (l *logger) RecordCrash(err interface{}) {
+	evt := Event{
+		Type:       EventTypeFinish,
+		Outcome:    EventOutcomeFailed,
+		Error:      fmt.Sprintf("%s", err),
+		Stacktrace: string(debug.Stack()),
+	}
+	l.logger.Error("", zap.Object("event", evt))
+}
+
+// RecordMetric records a metric event associated with the provided metric
+// definition, giving it value `value`.
+func (l *logger) RecordMetric(metric *MetricDefinition, value float64) {
+	evt := Event{
+		Type: EventTypeMetric,
+		Metric: &MetricValue{
+			MetricDefinition: *metric,
+			Value:            value,
+		},
+	}
+	l.logger.Info("", zap.Object("event", evt))
+}
+
+// Message prints out an informational message.
+//
+// Deprecated: use RecordMessage.
+func (r *RunEnv) Message(msg string, a ...interface{}) {
+	r.RecordMessage(msg, a...)
 }
 
 // EmitMetric outputs a metric event associated with the provided metric
 // definition, giving it value `value`.
-func (r *RunEnv) EmitMetric(def *MetricDefinition, value float64) {
-	evt := &Event{
-		RunEnv:    r,
-		Timestamp: time.Now().UnixNano(),
-		Metric:    &Metric{def, value},
-	}
-
-	bytes, err := json.Marshal(evt)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(string(bytes))
+//
+// Deprecated: use RecordMetric.
+func (r *RunEnv) EmitMetric(metric *MetricDefinition, value float64) {
+	r.RecordMetric(metric, value)
 }

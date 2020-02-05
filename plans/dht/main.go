@@ -15,6 +15,7 @@ var testCases = []func(*runtime.RunEnv) error{
 func main() {
 	runtime.Invoke(run)
 }
+
 func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")

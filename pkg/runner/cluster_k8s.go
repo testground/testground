@@ -59,8 +59,7 @@ func nextK8sSubnet() (*net.IPNet, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, n, err := net.ParseCIDR(subnet)
-	return n, err
+	return subnet, err
 }
 
 func homeDir() string {
@@ -120,7 +119,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
-		TestArtifacts:     "/artifacts",
+		TestOutputsPath:   "/artifacts",
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -128,11 +127,12 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	// this functionality should be refactored asap, when we understand how weave releases IPs (or why it doesn't release
 	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
-	var err error
-	template.TestSubnet, err = nextK8sSubnet()
+	subnet, err := nextK8sSubnet()
 	if err != nil {
 		return nil, err
 	}
+
+	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	k8sConfig := defaultKubernetesConfig()
 
@@ -334,7 +334,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		countPodsByState := func(state string) int {
 			fieldSelector := fmt.Sprintf("status.phase=%s", state)
 			opts := metav1.ListOptions{
-				LabelSelector: fmt.Sprintf("testground.runid=%s", input.RunID),
+				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
 			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
@@ -395,7 +395,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 			Labels: map[string]string{
 				"testground.plan":     input.TestPlan.Name,
 				"testground.testcase": runenv.TestCase,
-				"testground.runid":    input.RunID,
+				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
@@ -420,7 +420,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
-							MountPath:        runenv.TestArtifacts,
+							MountPath:        runenv.TestOutputsPath,
 							MountPropagation: &mountPropagationMode,
 						},
 					},
