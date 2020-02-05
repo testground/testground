@@ -26,6 +26,7 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
+	github.com/ipfs/testground/sdk/iptb v0.0.0-00010101000000-000000000000 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
 	github.com/ipfs/testground/sdk/sync v0.0.0-20190921111954-a84ff142a5a3
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434

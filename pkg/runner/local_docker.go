@@ -304,7 +304,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 			pretty.Manage(id[0:12], rstdout, rstderr)
 		}
-		return nil, pretty.Wait()
+		return &api.RunOutput{RunID: input.RunID}, pretty.Wait()
 	}
 
 	return &api.RunOutput{RunID: input.RunID}, nil
