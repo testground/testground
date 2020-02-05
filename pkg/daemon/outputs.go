@@ -19,13 +19,14 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 		var req client.OutputsRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
+			log.Errorw("collect outputs json decode", "err", err.Error())
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, w)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			log.Errorw("collect outputs error", "err", err.Error())
 			return
 		}
 	}

@@ -277,6 +277,8 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 		return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
 	}
 
+	downloader := s3manager.NewDownloader(sess)
+
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
@@ -285,8 +287,6 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 		if err != nil {
 			return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
 		}
-
-		downloader := s3manager.NewDownloader(sess)
 
 		_, err = downloader.Download(FakeWriterAt{ww},
 			&s3.GetObjectInput{
