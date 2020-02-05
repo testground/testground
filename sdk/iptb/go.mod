@@ -7,7 +7,7 @@ require (
 	github.com/ipfs/go-ipfs-config v0.0.11
 	github.com/ipfs/iptb v1.4.0
 	github.com/ipfs/iptb-plugins v0.2.0
-	github.com/ipfs/testground/sdk/runtime v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/multiformats/go-multiaddr v0.0.4
 )
 
