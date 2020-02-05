@@ -77,6 +77,7 @@ func (m MetricValue) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	oe.AddString("name", m.Name)
 	oe.AddString("unit", m.Unit)
 	oe.AddInt("dir", m.ImprovementDir)
+	oe.AddFloat64("value", m.Value)
 	return nil
 }
 
