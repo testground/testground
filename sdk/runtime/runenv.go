@@ -171,6 +171,7 @@ func toBool(s string) bool {
 	return v
 }
 
+// toNet might parse any input, so it is possible to get an error and nil return value
 func toNet(s string) *IPNet {
 	_, ipnet, err := net.ParseCIDR(s)
 	if err != nil {
