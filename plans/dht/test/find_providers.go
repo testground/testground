@@ -26,7 +26,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		FUndialable:    runenv.FloatParam("f_undialable"),
 		NodesProviding: runenv.IntParam("n_providing"),
 		RecordCount:    runenv.IntParam("record_count"),
-		ClientMode: runenv.BooleanParam("client_mode"),
+		ClientMode:     runenv.BooleanParam("client_mode"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -81,8 +81,6 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	queryLog := runenv.SLogger().Named("query").With("id", node.host.ID())
-
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	switch {
@@ -93,7 +91,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			c := cid
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
-				ectx, cancel := outputQueryEvents(ctx, p, queryLog)
+				ectx, cancel := context.WithCancel(ctx)
+				ectx = TraceQuery(ctx, runenv, p.Pretty())
 				t := time.Now()
 				err := node.dht.Provide(ectx, c, true)
 				cancel()
@@ -122,7 +121,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			c := cid
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
-				ectx, cancel := outputQueryEvents(ctx, p, queryLog)
+				ectx, cancel := context.WithCancel(ctx)
+				ectx = TraceQuery(ctx, runenv, p.Pretty())
 				t := time.Now()
 				pids, err := node.dht.FindProviders(ectx, c)
 				cancel()

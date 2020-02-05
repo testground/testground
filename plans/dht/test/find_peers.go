@@ -18,7 +18,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		BucketSize:  runenv.IntParam("bucket_size"),
 		AutoRefresh: runenv.BooleanParam("auto_refresh"),
 		FUndialable: runenv.FloatParam("f_undialable"),
-		ClientMode: runenv.BooleanParam("client_mode"),
+		ClientMode:  runenv.BooleanParam("client_mode"),
 	}
 
 	if opts.NFindPeers > runenv.TestInstanceCount {
@@ -81,7 +81,6 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	}
 
 	found := 0
-	queryLog := runenv.SLogger().Named("query").With("id", node.host.ID())
 	for p, info := range peers {
 		if found >= opts.NFindPeers {
 			break
@@ -96,14 +95,12 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			continue
 		}
 
-		runenv.Message("start find peer number %d", found + 1)
+		runenv.Message("start find peer number %d", found+1)
 
-		ectx, cancel := outputQueryEvents(ctx, p, queryLog)
+		ectx, cancel := context.WithCancel(ctx)
+		ectx = TraceQuery(ctx, runenv, p.Pretty())
 
 		t := time.Now()
-
-		ectx, cancel = context.WithCancel(ctx)
-		ectx = TraceQuery(ctx, runenv, p.Pretty())
 
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed

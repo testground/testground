@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/routing"
 	"go.uber.org/zap"
 	"math"
 	"math/rand"
@@ -12,6 +11,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	gosync "sync"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -439,7 +439,6 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	_, isBootstrapper := node.info.properties[Bootstrapper]
 	_, isUndialable := node.info.properties[Undialable]
 
-
 	////////////////
 	// 1: CONNECT //
 	////////////////
@@ -592,25 +591,25 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			/*
 				Connect to log(n) of the network and then bootstrap
 			*/
-			plist := make([]*NodeInfo, len(peers) + 1)
+			plist := make([]*NodeInfo, len(peers)+1)
 			for _, info := range peers {
 				plist[info.seq] = info
 			}
 			plist[node.info.seq] = node.info
 			targetSize := int(math.Log2(float64(len(plist))))
 
-			getRandomNodes := func (info *NodeInfo) map[int]*NodeInfo {
+			getRandomNodes := func(info *NodeInfo) map[int]*NodeInfo {
 				nodeLst := make([]*NodeInfo, len(plist))
 				copy(nodeLst, plist)
 				rng := rand.New(rand.NewSource(0))
-				rng = rand.New(rand.NewSource(int64(rng.Int31())+int64(node.info.seq)))
+				rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.seq)))
 				rng.Shuffle(len(nodeLst), func(i, j int) {
 					nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
 				})
 
 				foundSelf := false
 				nodes := make(map[int]*NodeInfo)
-				for _ , n := range nodeLst[:targetSize] {
+				for _, n := range nodeLst[:targetSize] {
 					if n.seq == info.seq {
 						foundSelf = true
 						continue
@@ -633,7 +632,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 			if !isUndialable {
 				for _, info := range candidateNodes {
 					candidateDialList := getRandomNodes(info)
-					if _, ok := candidateDialList[node.info.seq]; ok && dht.Host().ID() < info.addrs.ID{
+					if _, ok := candidateDialList[node.info.seq]; ok && dht.Host().ID() < info.addrs.ID {
 						delete(candidateNodes, info.seq)
 					}
 				}
@@ -776,12 +775,11 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 	_, isUndialable := node.info.properties[Undialable]
 	_ = isUndialable
 
-
 	stager := &Stager{
 		ctx:     ctx,
 		seq:     node.info.seq,
 		total:   runenv.TestInstanceCount,
-		name:   "bootstrapping",
+		name:    "bootstrapping",
 		watcher: watcher,
 		writer:  writer,
 	}
@@ -799,17 +797,17 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 	/*
 		Connect to log(n) of the network and then bootstrap
 	*/
-	plist := make([]*NodeInfo, len(peers) + 1)
+	plist := make([]*NodeInfo, len(peers)+1)
 	for _, info := range peers {
 		plist[info.seq] = info
 	}
 	plist[node.info.seq] = node.info
-	targetSize := int(math.Log2(float64(len(plist)))/2)+1
+	targetSize := int(math.Log2(float64(len(plist)))/2) + 1
 
 	nodeLst := make([]*NodeInfo, len(plist))
 	copy(nodeLst, plist)
 	rng := rand.New(rand.NewSource(0))
-	rng = rand.New(rand.NewSource(int64(rng.Int31())+int64(node.info.seq)))
+	rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.seq)))
 	rng.Shuffle(len(nodeLst), func(i, j int) {
 		nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
 	})
@@ -959,7 +957,6 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 	return nil
 }
 
-
 // get all bootstrap peers.
 func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, opts *SetupOpts) ([]peer.AddrInfo, error) {
 	peerCh := make(chan *peer.AddrInfo, opts.NBootstrap)
@@ -1051,13 +1048,13 @@ func Sync(
 }
 
 type Stager struct {
-	ctx context.Context
-	seq int
-	total int
-	name string
-	stage int
+	ctx     context.Context
+	seq     int
+	total   int
+	name    string
+	stage   int
 	watcher *sync.Watcher
-	writer *sync.Writer
+	writer  *sync.Writer
 }
 
 func (s *Stager) Begin() error {
@@ -1078,7 +1075,6 @@ func (s *Stager) End() error {
 	return <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
 }
 
-
 func WaitMyTurn(
 	ctx context.Context,
 	runenv *runtime.RunEnv,
@@ -1090,7 +1086,7 @@ func WaitMyTurn(
 	// Wait until it's out turn
 	err := <-watcher.Barrier(ctx, state, int64(seq))
 
-	return func() error{
+	return func() error {
 		// Signal that we're done
 		_, err := writer.SignalEntry(state)
 		return err
@@ -1121,45 +1117,34 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 	}
 }
 
-func outputQueryEvents(ctx context.Context, target peer.ID, queryLog *zap.SugaredLogger) (context.Context, context.CancelFunc){
-	cctx, cancel := context.WithCancel(ctx)
-	ectx, events := routing.RegisterForQueryEvents(cctx)
-	log := queryLog.With("target", target)
-
-	go func() {
-		for e := range events {
-			var msg string
-			switch e.Type {
-			case routing.SendingQuery:
-				msg = "send"
-			case routing.PeerResponse:
-				msg = "receive"
-			case routing.AddingPeer:
-				msg = "adding"
-			case routing.DialingPeer:
-				msg = "dialing"
-			case routing.QueryError:
-				msg = "error"
-			case routing.Provider, routing.Value:
-				msg = "result"
-			}
-			log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra)
-		}
-	}()
-
-	return ectx, cancel
-}
+var graphLogSetup gosync.Once
+var graphLogger, rtLogger *zap.SugaredLogger
 
 func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
+	graphLogSetup.Do(func() {
+		var err error
+		_, graphLogger, err = runenv.CreateStructuredAsset("dht_graphs.out", runtime.StandardJSONConfig())
+		if err != nil {
+			runenv.Message("failed to initialize dht_graphs.out asset; nooping logger: %s", err)
+			graphLogger = zap.NewNop().Sugar()
+		}
+
+		_, rtLogger, err = runenv.CreateStructuredAsset("dht_rt.out", runtime.StandardJSONConfig())
+		if err != nil {
+			runenv.Message("failed to initialize dht_rt.out asset; nooping logger: %s", err)
+			rtLogger = zap.NewNop().Sugar()
+		}
+	})
+
 	for _, c := range dht.Host().Network().Conns() {
 		if c.Stat().Direction == network.DirOutbound {
-			runenv.SLogger().Named("Graph").Infow(graphID, "From", c.LocalPeer().Pretty(), "To", c.RemotePeer().Pretty())
+			graphLogger.Infow(graphID, "From", c.LocalPeer().Pretty(), "To", c.RemotePeer().Pretty())
 		}
 	}
 
 	for i, b := range dht.RoutingTable().Buckets {
 		for _, p := range b.Peers() {
-			runenv.SLogger().Named("RT").Infow(graphID, "Node", dht.PeerID().Pretty(), strconv.Itoa(i), p.Pretty())
+			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), strconv.Itoa(i), p.Pretty())
 		}
 	}
 }
