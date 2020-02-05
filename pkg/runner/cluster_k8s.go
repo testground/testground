@@ -201,7 +201,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g)
+				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
 			})
 		}
 	}
@@ -388,7 +388,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 	}
 }
 
-func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup) error {
+func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
 	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
@@ -400,7 +400,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 	sharedVolumeName := "s3-shared"
 
 	mnt := v1.HostPathVolumeSource{
-		Path: fmt.Sprintf("/mnt/%s/%s/%s", input.RunID, g.ID, podName),
+		Path: fmt.Sprintf("/mnt/%s/%s/%d", input.RunID, g.ID, i),
 		Type: &hostpathtype,
 	}
 

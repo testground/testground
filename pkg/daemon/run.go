@@ -29,7 +29,7 @@ func (srv *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *
 
 		out, err := engine.DoRun(r.Context(), &req.Composition, tgw)
 		if err != nil {
-			tgw.WriteError(fmt.Sprintf("engine build error: %s", err))
+			tgw.WriteError(fmt.Sprintf("engine run error: %s", err))
 			return
 		}
 
