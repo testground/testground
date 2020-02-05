@@ -15,6 +15,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
+	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/dockermanager"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -96,6 +97,14 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	if !info.State.Running {
 		return nil, fmt.Errorf("not running")
 	}
+
+	// Remove TEST_OUTPUTS_PATH env var.
+	m, err := conv.ParseKeyValues(info.Config.Env)
+	if err != nil {
+		return nil, err
+	}
+	delete(m, runtime.EnvTestOutputsPath)
+	info.Config.Env = conv.ToOptionsSlice(m)
 
 	// Construct the runtime environment
 	runenv, err := runtime.ParseRunEnv(info.Config.Env)
