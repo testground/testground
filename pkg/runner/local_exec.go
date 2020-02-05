@@ -166,6 +166,11 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{}, nil
 }
 
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
+	return zipRunOutputs(ctx, basedir, input, w)
+}
+
 func (*LocalExecutableRunner) ID() string {
 	return "local:exec"
 }
@@ -176,9 +181,4 @@ func (*LocalExecutableRunner) ConfigType() reflect.Type {
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	return []string{"exec:go"}
-}
-
-func (*LocalExecutableRunner) CollectOutputs(runID string, w io.Writer) error {
-	// TODO
-	panic("unimplemented")
 }

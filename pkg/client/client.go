@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/ipfs/testground/pkg/daemon/client"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
 
@@ -94,9 +93,9 @@ func (c *Client) Run(ctx context.Context, r *RunRequest) (io.ReadCloser, error) 
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
 //
-// The Body in the response implement an io.ReadCloser and it's up to the caller to
-// close it.
-func (c *Client) CollectOutputs(ctx context.Context, r *client.OutputsRequest) (io.ReadCloser, error) {
+// The Body in the response implement an io.ReadCloser and it's up to the caller
+// to close it.
+func (c *Client) CollectOutputs(ctx context.Context, r *OutputsRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
 	if err != nil {

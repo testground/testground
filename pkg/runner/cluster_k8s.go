@@ -254,12 +254,12 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func (*ClusterK8sRunner) CollectOutputs(runID string, w io.Writer) error {
-	log := logging.S().With("runner", "cluster:k8s", "run_id", runID)
+func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 
 	log.Info("collecting outputs")
 
-	sess, err := session.NewSession(&aws.Config{
+	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String("eu-central-1")},
 	)
 
@@ -267,7 +267,7 @@ func (*ClusterK8sRunner) CollectOutputs(runID string, w io.Writer) error {
 	svc := s3.New(sess)
 
 	bucket := "assets-s3-bucket"
-	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(runID)})
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(input.RunID)})
 	if err != nil {
 		return fmt.Errorf("Unable to list items in bucket %q, %v", bucket, err)
 	}

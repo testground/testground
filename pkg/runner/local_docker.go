@@ -443,6 +443,11 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 	return container.ID, err
 }
 
+func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
+	return zipRunOutputs(ctx, basedir, input, w)
+}
+
 // attachContainerToNetwork attaches the provided container to the specified
 // network.
 func attachContainerToNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
@@ -468,9 +473,4 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
-}
-
-func (*LocalDockerRunner) CollectOutputs(runID string, w io.Writer) error {
-	// TODO
-	panic("unimplemented")
 }

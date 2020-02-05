@@ -3,6 +3,7 @@ package runner
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -378,6 +379,10 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	return &api.RunOutput{}, nil
 }
 
+func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	return errors.New("unimplemented")
+}
+
 func (*ClusterSwarmRunner) ID() string {
 	return "cluster:swarm"
 }
@@ -404,9 +409,4 @@ func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 		time.Sleep(sleep)
 	}
 	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
-}
-
-func (*ClusterSwarmRunner) CollectOutputs(runID string, w io.Writer) error {
-	// TODO
-	panic("unimplemented")
 }

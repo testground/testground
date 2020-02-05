@@ -7,7 +7,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/ipfs/testground/pkg/daemon/client"
+	"github.com/ipfs/testground/pkg/client"
+	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/urfave/cli"
 )
 
@@ -16,7 +18,7 @@ var CollectCommand = cli.Command{
 	Name:      "collect",
 	Usage:     "Produces a zip file with the output from a certain run",
 	Action:    collectCommand,
-	ArgsUsage: "[run-id]",
+	ArgsUsage: "[run_id]",
 	Flags: []cli.Flag{
 		cli.StringFlag{
 			Name:     "runner, r",
@@ -40,9 +42,9 @@ func collectCommand(c *cli.Context) error {
 	}
 
 	var (
-		runID  = c.Args().First()
+		id     = c.Args().First()
 		runner = c.String("runner")
-		output = runID + ".zip"
+		output = id + ".zip"
 	)
 
 	if o := c.String("output"); o != "" {
@@ -56,7 +58,7 @@ func collectCommand(c *cli.Context) error {
 
 	req := &client.OutputsRequest{
 		Runner: runner,
-		RunID:  runID,
+		RunID:  id,
 	}
 
 	resp, err := api.CollectOutputs(ctx, req)
@@ -78,5 +80,11 @@ func collectCommand(c *cli.Context) error {
 	defer file.Close()
 
 	_, err = io.Copy(file, resp)
-	return err
+	if err != nil {
+		return err
+	}
+
+	logging.S().Infof("created file: %s", output)
+
+	return nil
 }
