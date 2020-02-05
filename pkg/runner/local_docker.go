@@ -307,7 +307,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, pretty.Wait()
 	}
 
-	return nil, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
 func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {

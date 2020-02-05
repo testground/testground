@@ -144,14 +144,16 @@ func printProgress(progress interface{}) error {
 }
 
 // ParseRunResponse parses a response from a `run` call
-func ParseRunResponse(r io.ReadCloser) error {
-	return parseGeneric(
+func ParseRunResponse(r io.ReadCloser) (RunResponse, error) {
+	var resp RunResponse
+	err := parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
-			return nil
+			return mapstructure.Decode(result, &resp)
 		},
 	)
+	return resp, err
 }
 
 // ParseListResponse parses a response from a `list` call
@@ -175,7 +177,6 @@ func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
 			return mapstructure.Decode(result, &resp)
 		},
 	)
-
 	return resp, err
 }
 

@@ -79,9 +79,8 @@ type RunGroup struct {
 }
 
 type RunOutput struct {
-	// TODO.
 	// RunnerID is the ID of the runner used.
-	RunnerID string `json:"runnerId"`
+	RunID string
 }
 
 type CollectionInput struct {

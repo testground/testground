@@ -282,7 +282,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	// If we are running in background mode, return immediately.
 	if cfg.Background {
-		return &api.RunOutput{}, nil
+		return &api.RunOutput{RunID: input.RunID}, nil
 	}
 
 	// Docker multiplexes STDOUT and STDERR streams inside the single IO stream
@@ -376,7 +376,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		log.Info("skipping removing the service due to user request")
 	}
 
-	return &api.RunOutput{}, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
 func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {

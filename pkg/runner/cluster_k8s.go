@@ -239,7 +239,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	return &api.RunOutput{}, nil
+	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
 func (*ClusterK8sRunner) ID() string {
