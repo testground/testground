@@ -40,7 +40,11 @@ var (
 	_ api.Runner = &ClusterK8sRunner{}
 )
 
-const defaultK8sNetworkAnnotation = "flannel"
+const (
+	defaultK8sNetworkAnnotation = "flannel"
+	outputsBucket               = "assets-s3-bucket"
+	outputsBucketRegion         = "eu-central-1"
+)
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
@@ -259,17 +263,18 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	log.Info("collecting outputs")
 
-	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String("eu-central-1")},
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(outputsBucketRegion)},
 	)
+	if err != nil {
+		return fmt.Errorf("Couldn't establish an AWS session to list items in bucket: %v", err)
+	}
 
-	// Create S3 service client
 	svc := s3.New(sess)
 
-	bucket := "assets-s3-bucket"
-	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(bucket), Prefix: aws.String(input.RunID)})
+	resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
 	if err != nil {
-		return fmt.Errorf("Unable to list items in bucket %q, %v", bucket, err)
+		return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
 	}
 
 	zipWriter := zip.NewWriter(w)
@@ -278,18 +283,18 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	for _, item := range resp.Contents {
 		ww, err := zipWriter.Create(*item.Key)
 		if err != nil {
-			fmt.Println(err)
+			return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
 		}
 
 		downloader := s3manager.NewDownloader(sess)
 
 		_, err = downloader.Download(FakeWriterAt{ww},
 			&s3.GetObjectInput{
-				Bucket: aws.String(bucket),
+				Bucket: aws.String(outputsBucket),
 				Key:    item.Key,
 			})
 		if err != nil {
-			return fmt.Errorf("Unable to download item %q, %v", item, err)
+			return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
 		}
 	}
 
@@ -385,7 +390,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 	sharedVolumeName := "s3-shared"
 
 	mnt := v1.HostPathVolumeSource{
-		Path: fmt.Sprintf("/mnt/%s/%s", input.RunID, podName),
+		Path: fmt.Sprintf("/mnt/%s/%s/%s", input.RunID, g.ID, podName),
 		Type: &hostpathtype,
 	}
 
