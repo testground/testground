@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/dustin/go-humanize"
 )
 
@@ -94,6 +96,23 @@ type RunEnv struct {
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
 	TestSubnet *IPNet `json:"network,omitempty"`
+
+	unstructured chan *os.File
+	structured   chan *zap.Logger
+}
+
+func (re *RunEnv) Close() error {
+	close(re.structured)
+	close(re.unstructured)
+
+	for l := range re.structured {
+		_ = l.Sync() // ignore errors.
+	}
+
+	for f := range re.unstructured {
+		_ = f.Close() // ignore errors.
+	}
+	return nil
 }
 
 func (re *RunEnv) ToEnvVars() map[string]string {
@@ -186,6 +205,9 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
 		TestOutputsPath:        m[EnvTestOutputsPath],
+
+		structured:   make(chan *zap.Logger, 32),
+		unstructured: make(chan *os.File, 32),
 	}
 
 	re.logger = newLogger(re)

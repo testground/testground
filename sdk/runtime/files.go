@@ -3,6 +3,7 @@ package runtime
 import (
 	"bufio"
 	"crypto/rand"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -69,7 +70,18 @@ func (re *RunEnv) CreateRandomDirectory(directoryPath string, depth uint) (strin
 // further investigation. You can also manually create output assets/directories
 // under re.TestOutputsPath.
 func (re *RunEnv) CreateRawAsset(name string) (*os.File, error) {
-	return os.Create(filepath.Join(re.TestOutputsPath, name))
+	file, err := os.Create(filepath.Join(re.TestOutputsPath, name))
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case re.unstructured <- file:
+	default:
+		return nil, fmt.Errorf("too many unstructured assets; current: %d", len(re.unstructured))
+	}
+
+	return file, nil
 }
 
 // CreateStructuredAsset creates an output asset and wraps it in zap loggers.
@@ -80,6 +92,12 @@ func (re *RunEnv) CreateStructuredAsset(name string, config zap.Config) (*zap.Lo
 	logger, err := config.Build()
 	if err != nil {
 		return nil, nil, err
+	}
+
+	select {
+	case re.structured <- logger:
+	default:
+		return nil, nil, fmt.Errorf("too many structured assets; current: %d", len(re.structured))
 	}
 
 	return logger, logger.Sugar(), nil

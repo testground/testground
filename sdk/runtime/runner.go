@@ -10,6 +10,7 @@ import (
 // Invoke runs the passed test-case and reports the result.
 func Invoke(tc func(*RunEnv) error) {
 	runenv := CurrentRunEnv()
+	defer runenv.Close()
 
 	errfile, err := runenv.CreateRawAsset("run.err")
 	if err != nil {
