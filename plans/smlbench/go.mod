@@ -3,13 +3,20 @@ module github.com/ipfs/testground/plans/smlbench
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.28.10 // indirect
 	github.com/dustin/go-humanize v1.0.0
-	github.com/ipfs/testground v0.0.0-20200204192812-e3f72fb75c57 // indirect
+	github.com/gogo/protobuf v1.2.2-0.20190723190241-65acae22fc9d // indirect
+	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/ipfs/testground/sdk/iptb v0.0.0-00010101000000-000000000000
 	github.com/ipfs/testground/sdk/runtime v0.0.0-20190921111954-a84ff142a5a3
-	k8s.io/api v0.17.2 // indirect
-	k8s.io/client-go v11.0.0+incompatible // indirect
+	github.com/libp2p/go-libp2p-core v0.2.2 // indirect
+	github.com/onsi/ginkgo v1.10.1 // indirect
+	github.com/onsi/gomega v1.7.0 // indirect
+	go.opencensus.io v0.22.0 // indirect
+	go.uber.org/zap v1.12.0 // indirect
+	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d // indirect
+	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9 // indirect
+	golang.org/x/sys v0.0.0-20190826190057-c7b8b68b1456 // indirect
+	gopkg.in/yaml.v2 v2.2.4 // indirect
 )
 
 replace (
