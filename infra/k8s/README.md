@@ -19,7 +19,7 @@ We use Weave for the `data` plane on Testground - a secondary overlay network th
 
 `kops` uses 100.96.0.0/11 for pod CIDR range, so this is what we use for the `control` network.
 
-Weave by default uses 10.32.0.0/11 as CIDR, so this is the CIDR for the Testground `data` network. The `sidecar` is responsible for setting up the `data` network for every testplan instance.
+We configure Weave to use 16.0.0.0/4 as CIDR (we want to test `libp2p` nodes with IPs in public ranges), so this is the CIDR for the Testground `data` network. The `sidecar` is responsible for setting up the `data` network for every testplan instance.
 
 In order to have two different networks attached to pods in Kubernetes, we run the [CNI-Genie CNI](https://github.com/cni-genie/CNI-Genie).
 
@@ -30,16 +30,9 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 2. [AWS CLI](https://aws.amazon.com/cli)
 3. [helm](https://github.com/helm/helm)
 
-## Set up infrastructure with kops
+## Set up cloud credentials, cluster specification and repositories for dependencies
 
-1a. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
-
-1b. Get secrets for the S3 assets bucket. You might want to persist those in your `rc` file.
-```
-export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-```
+1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
 2. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
@@ -49,12 +42,23 @@ aws s3api create-bucket \
     --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
 ```
 
-3. Pick up a cluster name, and set zone and kops state store. You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
+3. Pick up
+- a cluster name,
+- set AWS zone
+- set `kops` state store bucket
+- set number of worker nodes
+- set location for cluster spec to be generated
+- set location of your SSH public key
+
+You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 
 ```
 export NAME=my-first-cluster-kops.k8s.local
-export KOPS_STATE_STORE=s3://kops-backend-bucket
 export ZONES=eu-central-1a
+export KOPS_STATE_STORE=s3://kops-backend-bucket
+export WORKER_NODES=4
+export CLUSTER_SPEC=~/cluster.yaml
+export PUBKEY=~/.ssh/id_rsa.pub
 ```
 
 4. Generate the cluster spec. You could reuse it next time you create a cluster.
@@ -65,11 +69,11 @@ kops create cluster \
   --master-zones $ZONES \
   --master-size c5.2xlarge \
   --node-size c5.2xlarge \
-  --node-count 8 \
+  --node-count $WORKER_NODES \
   --networking flannel \
   --name $NAME \
   --dry-run \
-  -o yaml > cluster.yaml
+  -o yaml > $CLUSTER_SPEC
 ```
 
 5. Update `kubelet` section in spec with:
@@ -81,63 +85,24 @@ kops create cluster \
     - net.core.somaxconn
 ```
 
-6. Create cluster
-```
-kops create -f cluster.yaml
-kops create secret --name $NAME sshpublickey admin -i ~/.ssh/id_rsa.pub
-kops update cluster $NAME --yes
-```
-
-7. Wait for all nodes to appear in `kubectl get nodes` with `Ready` state, and for all pods in `kube-system` namespace to be `Running`.
-```
-watch 'kubectl get nodes -o wide'
-
-kubectl -n kube-system get pods -o wide
-```
-
-8. Add AWS Assets S3 bucket secrets to Kubernetes
-```
-kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSETS_ACCESS_KEY" \
-                                               --from-literal=secret-key="$ASSETS_SECRET_KEY" \
-                                               --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
-```
-
-8. Install CNI-Genie, Weave and S3 bucket daemonset
-
-```
-kubectl apply -f ./infra/k8s/kops-weave/genie-plugin.yaml \
-              -f ./infra/k8s/kops-weave/weave.yml \
-              -f ./infra/k8s/kops-weave/s3bucket.yml
-```
-
-9. Destroy the cluster when you're done working on it
-
-```
-kops delete cluster $NAME --yes
-```
-
-
-## Setup Testground remote dependencies on your cluster
-
-1. Set up Helm
+6. Set up Helm and add the `stable` Helm Charts repository
 
 ```
 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 helm repo update
 ```
 
-2. Create a `Redis` service on your Kubernetes cluster
+## Apply the cluster configuration and create cloud resources and install Testground dependencies
 
 ```
-helm install redis stable/redis --values ./infra/k8s/redis-values.yaml
+./install.sh $NAME $CLUSTER_SPEC $PUBKEY $WORKER_NODES
 ```
 
-3. Wait for `Redis` to be `Ready 1/1`
 
-4. Create a `Sidecar` service on your Kubernetes cluster.
+## Destroy the cluster when you're done working on it
 
 ```
-kubectl apply -f ./infra/k8s/sidecar.yaml
+kops delete cluster $NAME --yes
 ```
 
 
@@ -175,6 +140,24 @@ testground --vv run single dht/find-peers \
     --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
     --instances=16
+```
+
+## Resizing the cluster
+
+1. Edit the cluster state and change number of nodes.
+
+```
+kops edit ig nodes
+```
+
+2. Apply the new configuration
+```
+kops update cluster $NAME --yes
+```
+
+3. Wait for nodes to come up and for DaemonSets to be Running on all new nodes
+```
+watch 'kubectl get pods'
 ```
 
 ## Destroying the cluster

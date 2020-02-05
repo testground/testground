@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: s3fs
-          image: nonsens3/s3fs
+          image: ipfs/testground:s3fs
           imagePullPolicy: Always
           securityContext:
             privileged: true

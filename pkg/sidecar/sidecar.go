@@ -49,6 +49,7 @@ func Run(runnerName string) error {
 	}
 
 	logging.S().Infow("starting sidecar", "runner", runnerName)
+	defer logging.S().Infow("stopping sidecar", "runner", runnerName)
 
 	defer manager.Close()
 

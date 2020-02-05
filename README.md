@@ -4,10 +4,6 @@
 [![](https://travis-ci.com/ipfs/testground.svg?branch=master)](https://travis-ci.com/ipfs/testground)
 [![codecov](https://codecov.io/gh/ipfs/testground/branch/master/graph/badge.svg)](https://codecov.io/gh/ipfs/testground)
 
-> ⚠️ **Heavy WIP.** beware of the Dragons 🐉..
-
-> **This repository is incubating the Testground. 🐣**
-
 
 ## What is Testground
 

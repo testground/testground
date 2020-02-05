@@ -191,7 +191,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 
 				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
 				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
-					logging.S().Warnw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+					logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
 				} else {
 					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
 				}
