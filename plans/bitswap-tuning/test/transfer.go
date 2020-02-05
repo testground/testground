@@ -55,11 +55,6 @@ func Transfer(runenv *runtime.RunEnv) error {
 		writer.Close()
 	}()
 
-	// Set up network (with traffic shaping)
-	if err := utils.SetupNetwork(ctx, runenv, watcher, writer); err != nil {
-		return fmt.Errorf("Failed to set up network %w", err)
-	}
-
 	// Create libp2p node
 	h, err := libp2p.New(ctx)
 	if err != nil {
@@ -71,54 +66,6 @@ func Transfer(runenv *runtime.RunEnv) error {
 	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(h))
 	if err != nil {
 		return err
-	}
-
-	runenv.Message("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
-
-	/// --- Warm up
-
-	// Note: seq starts at 1 (not 0)
-	isLeech := seq <= int64(leechCount)
-	isSeed := seq > int64(leechCount+passiveCount)
-	if isLeech {
-		runenv.Message("I am a leech")
-	} else if isSeed {
-		runenv.Message("I am a seed")
-	} else {
-		runenv.Message("I am a passive node (neither leech nor seed)")
-	}
-
-	var rootCid cid.Cid
-	if isSeed {
-		// Generate a file of the given size and add it to the datastore
-		rootCid, err := setupSeed(ctx, node, fileSize)
-		if err != nil {
-			return err
-		}
-
-		// Inform other nodes of the root CID
-		if _, err = writer.Write(RootCidSubtree, &rootCid); err != nil {
-			return fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err)
-		}
-	} else if isLeech {
-		// Get the root CID from a seed
-		rootCidCh := make(chan *cid.Cid, 1)
-		cancelRootCidSub, err := watcher.Subscribe(RootCidSubtree, rootCidCh)
-		if err != nil {
-			return fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err)
-		}
-
-		// Note: only need to get the root CID from one seed - it should be the
-		// same on all seeds (seed data is generated from repeatable random
-		// sequence)
-		select {
-		case rootCidPtr := <-rootCidCh:
-			cancelRootCidSub()
-			rootCid = *rootCidPtr
-		case <-time.After(timeout):
-			cancelRootCidSub()
-			return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
-		}
 	}
 
 	// Get addresses of all peers
@@ -154,10 +101,9 @@ func Transfer(runenv *runtime.RunEnv) error {
 	}
 
 	// Set up network (with traffic shaping)
-	latencyMS, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, watcher, writer, nodetp, tpindex)
+	latency, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, watcher, writer, nodetp, tpindex)
 	if err != nil {
-		runenv.Abort(fmt.Errorf("Failed to set up network: %w", err))
-		return
+		return fmt.Errorf("Failed to set up network: %w", err)
 	}
 
 	// Use the same blockstore on all runs for the seed node
@@ -321,7 +267,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 			signalAndWaitForAll("transfer-complete-" + runId)
 
 			/// --- Report stats
-			err = emitMetrics(runenv, bsnode, runNum, seq, fileSize, nodetp, timeToFetch)
+			err = emitMetrics(runenv, bsnode, runNum, seq, latency, bandwidthMB, fileSize, nodetp, tpindex, timeToFetch)
 			if err != nil {
 				return err
 			}
@@ -346,8 +292,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 				// start of the run, explicitly cleaning up the blockstore from the
 				// previous run allows it to be GCed.
 				if err := utils.ClearBlockstore(ctx, bstore); err != nil {
-					runenv.Abort(fmt.Errorf("Error clearing blockstore: %w", err))
-					return
+					return fmt.Errorf("Error clearing blockstore: %w", err)
 				}
 			}
 		}
@@ -355,8 +300,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 			// Free up memory by clearing the seed blockstore at the end of each
 			// set of tests over the current file size.
 			if err := utils.ClearBlockstore(ctx, bstore); err != nil {
-				runenv.Abort(fmt.Errorf("Error clearing blockstore: %w", err))
-				return
+				return fmt.Errorf("Error clearing blockstore: %w", err)
 			}
 		}
 	}
@@ -386,13 +330,15 @@ func getRootCidSubtree(id int) *sync.Subtree {
 	}
 }
 
-func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64, fileSize int, nodetp nodeType, timeToFetch time.Duration) error {
+func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64,
+	latency time.Duration, bandwidthMB int, fileSize int, nodetp utils.NodeType, tpindex int, timeToFetch time.Duration) error {
+
 	stats, err := bsnode.Bitswap.Stat()
 	if err != nil {
 		return fmt.Errorf("Error getting stats from Bitswap: %w", err)
 	}
 
-	latencyMS := uint64(latency) / 1e6
+	latencyMS := latency.Milliseconds()
 	id := fmt.Sprintf("latencyMS:%d/bandwidthMB:%d/run:%d/seq:%d/file-size:%d/%s:%d", latencyMS, bandwidthMB, runNum, seq, fileSize, nodetp, tpindex)
 	if nodetp == utils.Leech {
 		runenv.EmitMetric(utils.MetricTimeToFetch(id), float64(timeToFetch))
@@ -404,4 +350,6 @@ func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int
 	runenv.EmitMetric(utils.MetricBlksSent(id), float64(stats.BlocksSent))
 	runenv.EmitMetric(utils.MetricBlksRcvd(id), float64(stats.BlocksReceived))
 	runenv.EmitMetric(utils.MetricDupBlksRcvd(id), float64(stats.DupBlksReceived))
+
+	return nil
 }
