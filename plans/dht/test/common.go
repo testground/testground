@@ -3,8 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/multiformats/go-multiaddr"
-	"go.uber.org/zap"
 	"math"
 	"math/rand"
 	"net"
@@ -35,6 +33,8 @@ import (
 	tcp "github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multiaddr-net"
+
+	"go.uber.org/zap"
 )
 
 func init() {
