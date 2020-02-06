@@ -192,7 +192,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	// Write replace directives.
 	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 	cmd.Dir = plandst
-	_, err = cmd.CombinedOutput()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
