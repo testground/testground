@@ -34,6 +34,11 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
   - Project Maintainer and/or Project Architect - Review issues on Inbox, break them down if necessary, move them into Ready when it is the right time. Also, label issues with priority and difficulty.
   - Contributors move issues between the Ready, In Progress and Review/QA Colums. Use help wanted and blocked labels in case they want to flag that work.
   
+  
+## Pull request merges
+
+Regarding who mergers the pull request, the team defined that, if the pull request has changes that are trivial, the person who approves should be the one who merges it. When the pull request is complex and have a lot of lines of code and has comments and/or have builds on other PR, or that the reviewers that haven't commented yet have things to say, it's better to leave it up to the submitter of the PR and they can coordinate.
+  
 ## Contributing Guildeines 
 
 Read [CONTRIBUTING.md](https://github.com/ipfs/testground/blob/master/CONTRIBUTING.md)
