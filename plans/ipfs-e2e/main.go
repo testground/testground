@@ -31,25 +31,18 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	tc := test.TestCase{}
-	// Odd sequence numbers are "old"
-	// Even sequence numers are "new"
-	// the first two are "seed" nodes.
-	// Also, some of the nodes will be considered "slow"
-	// Depending on the sequence number, assign different options.
-	if seq%2 == 0 {
-		// use old DHT and Bitswap
-	} else {
-		// Use new DHT and Bitswap
-	}
 
-	if seq < 3 {
+	// see compositions toml file.
+	// old and new servers will run different versions of ipfs modules.
+	switch runenv.TestGroupID {
+	case "old_seeders":
 		tc.Role = test.Seeder
-	} else {
+	case "old_leechers":
 		tc.Role = test.Leecher
-	}
-
-	if seq%3 == 0 {
-		// edit the networking to make it slower
+	case "new_seeders":
+		tc.Role = test.Seeder
+	case "new_leechers":
+		tc.Role = test.Leecher
 	}
 
 	nodeOpts := iptb.NodeOpts{
