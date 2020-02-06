@@ -1,0 +1,65 @@
+[metadata]
+name    = "ipfs-e2e-1"
+author  = "Cory Schwartz (cory@protocol.ai)"
+
+[global]
+plan    = "ipfs-e2e"
+case    = "e2e"
+builder = "docker:go"
+runner  = "local:docker"
+
+total_instances = 100
+
+[[groups]]
+id = "new_seeders"
+instances = { count = 1 }
+
+  [groups.build]
+  dependencies = [
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
+      { module = "github.com/libp2p/go-bitswap", version = ""},
+  ]
+
+  [groups.run]
+  test_params = {}
+
+[[groups]]
+id = "new_leechers"
+instances = { count = 9 }
+
+  [groups.build]
+  dependencies = [
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
+      { module = "github.com/libp2p/go-bitswap", version = ""},
+  ]
+
+  [groups.run]
+  test_params = {}
+
+[[groups]]
+id = "old_seeders"
+instances = { count = 1 }
+
+  [groups.build]
+  dependencies = [
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
+      { module = "github.com/libp2p/go-bitswap", version = ""},
+  ]
+
+  [groups.run]
+  test_params = {}
+
+[[groups]]
+id = "old_leechers"
+instances = { count = 9 }
+
+  [groups.build]
+  dependencies = [
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
+      { module = "github.com/libp2p/go-bitswap", version = ""},
+  ]
+
+  [groups.run]
+  test_params = {}
+
+
