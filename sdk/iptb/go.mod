@@ -10,3 +10,5 @@ require (
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/multiformats/go-multiaddr v0.0.4
 )
+
+replace github.com/ipfs/testground/sdk/runtime => ../runtime
