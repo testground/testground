@@ -23,7 +23,7 @@ Testground's goal is to provide a set of tools for testing next generation P2P a
 
 You may have noticed a few test efforts with similar names underway! Testing at scale is a hard problem. We are indeed exploring and experimenting a lot, until we land on an end-to-end solution that works for us.
 
--  Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
+- Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
   - a simple utility to manage local clusters/aggregates of IPFS instances.
 - libp2p testlab: https://github.com/libp2p/testlab
   - a Nomad deployer for libp2p nodes with a DSL for test scenarios.
