@@ -1,7 +1,8 @@
 GOTFLATS ?=
 
 define eachmod
-	@find . -type f -name go.mod -exec bash -c 'dir="$$(dirname {})" && cd "$${dir}" && echo "$${dir}: $(1)" && $(1)' \;
+	@echo '$(1)'
+	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
 pre-commit:
