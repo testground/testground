@@ -79,6 +79,18 @@ The client CLI will also expect to find the daemon at `http://localhost:8042`.
 To configure a custom endpoint address, refer to the `[client]` settings on the
 [env-example.toml](../env-example.toml) file at the root of this repo.
 
+## Pull the latest stable version of the Sidecar service (or build it locally from source)
+
+```bash
+docker pull ipfs/testground:latest
+```
+
+or
+
+```bash
+make docker-ipfs-testground
+```
+
 ## Running test plans locally with Testground
 
 To run a test plan locally, you can use the `testground run` command. Check what test plans are available in the `plans` folder
@@ -110,8 +122,8 @@ test plan, using the builder (which sets up the environment + compilation) named
 ```
 > testground run single dht/find-peers \
     --builder=docker:go \
-    --runner=local:docker
-...
+    --runner=local:docker \
+    --instances=16
 ```
 
 As of v0.1, you can also use compositions for a declarative method:
@@ -252,6 +264,7 @@ You can pass custom JSON like parameters, for example, if you want to send a map
 ```
 testground run single test-plan/my-test-1 \
    --test-param myparam='{"key1": "value1", "key2": "value2"}'
+   ...
 ```
 
 And then you could get it like this:
