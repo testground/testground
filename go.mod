@@ -3,10 +3,9 @@ module github.com/ipfs/testground
 go 1.13
 
 replace (
-	github.com/miekg/dns => github.com/miekg/dns v1.0.14
-
-	// Fix builds on windows.
-	golang.org/x/sys v0.0.0-20190922100055-0a153f010e69 => golang.org/x/sys v0.0.0-20190920190810-ef0ce1748380
+	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb
+	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
+	github.com/ipfs/testground/sdk/sync => ./sdk/sync
 )
 
 require (
@@ -18,7 +17,7 @@ require (
 	github.com/containerd/continuity v0.0.0-20200107194136-26c1120b8d41 // indirect
 	github.com/containernetworking/cni v0.7.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f
+	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
@@ -41,6 +40,8 @@ require (
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
+	golang.org/x/tools v0.0.0-20191216052735-49a3e744a425 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a
