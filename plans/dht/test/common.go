@@ -126,7 +126,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return err
 	}
 
-	_, err = writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -171,30 +171,30 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	id := node.ID()
 	runenv.RecordMessage("I am %s with addrs: %v", id, node.Addrs())
 
-	if seq, err = writer.Write(sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
+	if seq, err = writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(node)); err != nil {
 		return nil, nil, nil, seq, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
 	}
 
 	peerCh := make(chan *peer.AddrInfo, 16)
-	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
-	if err != nil {
+	sctx, cancelSub := context.WithCancel(ctx)
+	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
+		cancelSub()
 		return nil, nil, nil, seq, err
 	}
-	defer cancelSub() //nolint
+	defer cancelSub()
 
 	// TODO: remove this if it becomes too much coordination effort.
 	peers := make([]peer.AddrInfo, 0, runenv.TestInstanceCount)
 	// Grab list of other peers that are available for this run.
 	for i := 0; i < runenv.TestInstanceCount; i++ {
-		select {
-		case ai := <-peerCh:
-			if ai.ID == id {
-				continue
-			}
-			peers = append(peers, *ai)
-		case <-ctx.Done():
+		ai, ok := <-peerCh
+		if !ok {
 			return nil, nil, nil, seq, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
 		}
+		if ai.ID == id {
+			continue
+		}
+		peers = append(peers, *ai)
 	}
 
 	sort.Slice(peers, func(i, j int) bool {
@@ -243,7 +243,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 				}
 			}()
 			// Announce ourself as a bootstrap node.
-			if _, err := writer.Write(BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
+			if _, err := writer.Write(ctx, BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
 				return err
 			}
 			// NOTE: If we start restricting the network, don't restrict
@@ -392,23 +392,24 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 
 // get all bootstrap peers.
 func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, opts *SetupOpts) ([]peer.AddrInfo, error) {
+	// cancel the sub
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	peerCh := make(chan *peer.AddrInfo, opts.NBootstrap)
-	cancelSub, err := watcher.Subscribe(BootstrapSubtree, peerCh)
-	if err != nil {
+	if err := watcher.Subscribe(ctx, BootstrapSubtree, peerCh); err != nil {
 		return nil, err
 	}
-	defer cancelSub() //nolint
 
 	// TODO: remove this if it becomes too much coordination effort.
 	peers := make([]peer.AddrInfo, opts.NBootstrap)
 	// Grab list of other peers that are available for this run.
 	for i := 0; i < opts.NBootstrap; i++ {
-		select {
-		case ai := <-peerCh:
-			peers[i] = *ai
-		case <-ctx.Done():
-			return nil, fmt.Errorf("timed out waiting for bootstrappers")
+		ai, ok := <-peerCh
+		if !ok {
+			return peers, fmt.Errorf("timed out waiting for bootstrappers")
 		}
+		peers[i] = *ai
 	}
 	runenv.RecordMessage("got all bootstrappers: %d", len(peers))
 	return peers, nil
@@ -471,7 +472,7 @@ func Sync(
 	doneCh := watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	_, err := writer.SignalEntry(state)
+	_, err := writer.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}

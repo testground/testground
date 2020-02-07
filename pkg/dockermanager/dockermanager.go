@@ -109,11 +109,9 @@ func (dm *Manager) Manage(
 	managers := make(map[string]workerHandle)
 
 	defer func() {
-		// cancel the remaining managers
-		for _, m := range managers {
-			m.cancel()
-		}
 		// wait for the running managers to exit
+		// They'll get canceled when we close the main context (deferred
+		// below).
 		for _, m := range managers {
 			<-m.done
 		}

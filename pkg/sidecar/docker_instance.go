@@ -276,7 +276,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 			}
 		}
 	}
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(ctx, runenv, info.Config.Hostname, network)
 }
 
 type dockerLink struct {

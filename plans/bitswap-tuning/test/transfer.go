@@ -39,7 +39,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 
 	/// --- Tear down
 	defer func() {
@@ -66,7 +66,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	defer node.Close()
 
 	// Get sequence number of this host
-	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(node.Host))
+	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(node.Host))
 	if err != nil {
 		return err
 	}
@@ -95,42 +95,42 @@ func Transfer(runenv *runtime.RunEnv) error {
 		}
 
 		// Inform other nodes of the root CID
-		if _, err = writer.Write(RootCidSubtree, &rootCid); err != nil {
+		if _, err = writer.Write(ctx, RootCidSubtree, &rootCid); err != nil {
 			return fmt.Errorf("Failed to get Redis Sync RootCidSubtree %w", err)
 		}
 	} else if isLeech {
 		// Get the root CID from a seed
 		rootCidCh := make(chan *cid.Cid, 1)
-		cancelRootCidSub, err := watcher.Subscribe(RootCidSubtree, rootCidCh)
-		if err != nil {
+		sctx, cancelRootCidSub := context.WithCancel(ctx)
+		if err := watcher.Subscribe(sctx, RootCidSubtree, rootCidCh); err != nil {
+			cancelRootCidSub()
 			return fmt.Errorf("Failed to subscribe to RootCidSubtree %w", err)
 		}
 
 		// Note: only need to get the root CID from one seed - it should be the
 		// same on all seeds (seed data is generated from repeatable random
 		// sequence)
-		select {
-		case rootCidPtr := <-rootCidCh:
-			_ = cancelRootCidSub()
-			rootCid = *rootCidPtr
-		case <-time.After(timeout):
-			_ = cancelRootCidSub()
+		rootCidPtr, ok := <-rootCidCh
+		cancelRootCidSub()
+		if !ok {
 			return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
 		}
+		rootCid = *rootCidPtr
 	}
 
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
-	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
-	if err != nil {
+	sctx, cancelSub := context.WithCancel(ctx)
+	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
+		cancelSub()
 		return err
 	}
-	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
+	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount)
 	if err != nil {
-		_ = cancelSub()
-		return err
+		cancelSub()
+		return fmt.Errorf("no addrs in %d seconds", timeout/time.Second)
 	}
-	_ = cancelSub()
+	cancelSub()
 
 	// Dial all peers
 	dialed, err := utils.DialOtherPeers(ctx, node.Host, addrInfos)

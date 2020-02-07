@@ -77,7 +77,7 @@ func Run(runnerName string) error {
 
 			// Wait for all the sidecars to enter the "network-initialized" state.
 			const netInitState = "network-initialized"
-			if _, err = instance.Writer.SignalEntry(netInitState); err != nil {
+			if _, err = instance.Writer.SignalEntry(ctx, netInitState); err != nil {
 				return fmt.Errorf("failed to signal network ready: %w", err)
 			}
 
@@ -96,22 +96,16 @@ func Run(runnerName string) error {
 			// Now let the test case tell us how to configure the network.
 			subtree := sync.NetworkSubtree(instance.Hostname)
 			networkChanges := make(chan *sync.NetworkConfig, 16)
-			closeSub, err := instance.Watcher.Subscribe(subtree, networkChanges)
-			if err != nil {
+			if err := instance.Watcher.Subscribe(ctx, subtree, networkChanges); err != nil {
 				return fmt.Errorf("failed to subscribe to network changes: %s", err)
 			}
-			defer func() {
-				if err := closeSub(); err != nil {
-					instance.S().Warnf("failed to close sub: %s", err)
-				}
-			}()
 			for cfg := range networkChanges {
 				instance.S().Infow("applying network change", "network", cfg)
 				if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
 					return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
 				}
 				if cfg.State != "" {
-					_, err := instance.Writer.SignalEntry(cfg.State)
+					_, err := instance.Writer.SignalEntry(ctx, cfg.State)
 					if err != nil {
 						return fmt.Errorf(
 							"failed to signal network state change %s: %w",

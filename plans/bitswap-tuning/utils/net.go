@@ -30,7 +30,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 
 	latency := time.Duration(runenv.IntParam("latency_ms")) * time.Millisecond
 	bandwidth := runenv.IntParam("bandwidth_mb")
-	_, err = writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{

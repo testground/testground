@@ -4,22 +4,19 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"time"
 
 	core "github.com/libp2p/go-libp2p-core"
 	"github.com/libp2p/go-libp2p-core/peer"
 )
 
-func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Duration) ([]peer.AddrInfo, error) {
+func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int) ([]peer.AddrInfo, error) {
 	var ais []peer.AddrInfo
 	for i := 1; i <= count; i++ {
-		select {
-		case ai := <-peerCh:
-			ais = append(ais, *ai)
-
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("no new peers in %d seconds", timeout/time.Second)
+		ai, ok := <-peerCh
+		if !ok {
+			return ais, fmt.Errorf("subscription closed")
 		}
+		ais = append(ais, *ai)
 	}
 	return ais, nil
 }
