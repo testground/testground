@@ -21,6 +21,9 @@ type Watcher struct {
 }
 
 // NewWatcher begins watching the subtree underneath this path.
+//
+// NOTE: Canceling the context cancels the call to this function, it does not
+// affect the returned watcher.
 func NewWatcher(ctx context.Context, runenv *runtime.RunEnv) (w *Watcher, err error) {
 	client, err := redisClient(ctx, runenv)
 	if err != nil {

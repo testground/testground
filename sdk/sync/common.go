@@ -25,6 +25,9 @@ const (
 // redisClient returns a consul client from this processes environment
 // variables, or panics if unable to create one.
 //
+// NOTE: Canceling the context cancels the call to this function, it does not
+// affect the returned client.
+//
 // TODO: source redis URL from environment variables. The Redis host and port
 // will be wired in by Nomad/Swarm.
 func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Client, err error) {
@@ -72,6 +75,9 @@ func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Cli
 }
 
 // MustWatcherWriter proxies to WatcherWriter, panicking if an error occurs.
+//
+// NOTE: Canceling the context cancels the call to this function, it does not
+// affect the returned watcher and writer.
 func MustWatcherWriter(ctx context.Context, runenv *runtime.RunEnv) (*Watcher, *Writer) {
 	watcher, writer, err := WatcherWriter(ctx, runenv)
 	if err != nil {
@@ -82,6 +88,9 @@ func MustWatcherWriter(ctx context.Context, runenv *runtime.RunEnv) (*Watcher, *
 
 // WatcherWriter creates a Watcher and a Writer object associated with this test
 // run's sync tree.
+//
+// NOTE: Canceling the context cancels the call to this function, it does not
+// affect the returned watcher and writer.
 func WatcherWriter(ctx context.Context, runenv *runtime.RunEnv) (*Watcher, *Writer, error) {
 	watcher, err := NewWatcher(ctx, runenv)
 	if err != nil {
