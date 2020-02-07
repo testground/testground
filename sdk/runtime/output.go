@@ -31,7 +31,7 @@ type Event struct {
 	Stacktrace string       `json:"stacktrace,omitempty"`
 	Message    string       `json:"message,omitempty"`
 	Metric     *MetricValue `json:"metric,omitempty"`
-	Runenv     *RunEnv      `json:"runenv,omitempty"`
+	Runenv     *RunParams   `json:"runenv,omitempty"`
 }
 
 type MetricDefinition struct {
@@ -85,7 +85,7 @@ func (m MetricValue) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (r RunEnv) MarshalLogObject(oe zapcore.ObjectEncoder) error {
+func (r *RunParams) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	oe.AddString("plan", r.TestPlan)
 	oe.AddString("case", r.TestCase)
 	oe.AddInt("seq", r.TestCaseSeq)

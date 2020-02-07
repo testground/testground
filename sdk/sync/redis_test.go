@@ -363,7 +363,7 @@ func randomRunEnv() *runtime.RunEnv {
 
 	_, subnet, _ := net.ParseCIDR("127.1.0.1/16")
 
-	return &runtime.RunEnv{
+	return runtime.NewRunEnv(runtime.RunParams{
 		TestPlan:           fmt.Sprintf("testplan-%d", rand.Uint32()),
 		TestSidecar:        false,
 		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
@@ -375,5 +375,5 @@ func randomRunEnv() *runtime.RunEnv {
 		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
 		TestInstanceRole:   "",
 		TestInstanceParams: make(map[string]string),
-	}
+	})
 }

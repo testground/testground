@@ -61,10 +61,8 @@ func (i *IPNet) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// RunEnv encapsulates the context for this test run.
-type RunEnv struct {
-	*logger
-
+// RunParams encapsulates the runtime parameters for this test.
+type RunParams struct {
 	TestPlan    string `json:"plan"`
 	TestCase    string `json:"case"`
 	TestRun     string `json:"run"`
@@ -94,9 +92,27 @@ type RunEnv struct {
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
 	TestSubnet *IPNet `json:"network,omitempty"`
+}
+
+// RunEnv encapsulates the context for this test run.
+type RunEnv struct {
+	RunParams
+	*logger
 
 	unstructured chan *os.File
 	structured   chan *zap.Logger
+}
+
+// NewRunEnv constructs a runtime environment from the given runtime parameters.
+func NewRunEnv(params RunParams) *RunEnv {
+	re := &RunEnv{
+		RunParams:    params,
+		structured:   make(chan *zap.Logger, 32),
+		unstructured: make(chan *os.File, 32),
+	}
+
+	re.logger = newLogger(&re.RunParams)
+	return re
 }
 
 func (re *RunEnv) Close() error {
@@ -113,7 +129,7 @@ func (re *RunEnv) Close() error {
 	return nil
 }
 
-func (re *RunEnv) ToEnvVars() map[string]string {
+func (re *RunParams) ToEnvVars() map[string]string {
 	packParams := func(in map[string]string) string {
 		arr := make([]string, 0, len(in))
 		for k, v := range in {
@@ -191,7 +207,7 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		return nil, err
 	}
 
-	re := &RunEnv{
+	return NewRunEnv(RunParams{
 		TestSidecar:            toBool(m[EnvTestSidecar]),
 		TestPlan:               m[EnvTestPlan],
 		TestCase:               m[EnvTestCase],
@@ -207,24 +223,17 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
 		TestOutputsPath:        m[EnvTestOutputsPath],
-
-		structured:   make(chan *zap.Logger, 32),
-		unstructured: make(chan *os.File, 32),
-	}
-
-	re.logger = newLogger(re)
-
-	return re, nil
+	}), nil
 }
 
 // IsParamSet checks if a certain parameter is set.
-func (re *RunEnv) IsParamSet(name string) bool {
+func (re *RunParams) IsParamSet(name string) bool {
 	_, ok := re.TestInstanceParams[name]
 	return ok
 }
 
 // StringParam returns a string parameter, or "" if the parameter is not set.
-func (re *RunEnv) StringParam(name string) string {
+func (re *RunParams) StringParam(name string) string {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))
@@ -232,7 +241,7 @@ func (re *RunEnv) StringParam(name string) string {
 	return v
 }
 
-func (re *RunEnv) SizeParam(name string) uint64 {
+func (re *RunParams) SizeParam(name string) uint64 {
 	v := re.TestInstanceParams[name]
 	m, err := humanize.ParseBytes(v)
 	if err != nil {
@@ -243,7 +252,7 @@ func (re *RunEnv) SizeParam(name string) uint64 {
 
 // IntParam returns an int parameter, or -1 if the parameter is not set or
 // the conversion failed. It panics on error.
-func (re *RunEnv) IntParam(name string) int {
+func (re *RunParams) IntParam(name string) int {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))
@@ -257,14 +266,14 @@ func (re *RunEnv) IntParam(name string) int {
 }
 
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
-func (re *RunEnv) BooleanParam(name string) bool {
+func (re *RunParams) BooleanParam(name string) bool {
 	s := re.TestInstanceParams[name]
 	return s == "true"
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array
 // if it does not exist. It panics on error.
-func (re *RunEnv) StringArrayParam(name string) []string {
+func (re *RunParams) StringArrayParam(name string) []string {
 	a := []string{}
 	re.JSONParam(name, &a)
 	return a
@@ -273,7 +282,7 @@ func (re *RunEnv) StringArrayParam(name string) []string {
 // SizeArrayParam returns an array of uint64 elements which represent sizes,
 // in bytes. If the response is nil, then there was an error parsing the input.
 // It panics on error.
-func (re *RunEnv) SizeArrayParam(name string) []uint64 {
+func (re *RunParams) SizeArrayParam(name string) []uint64 {
 	humanSizes := re.StringArrayParam(name)
 	sizes := []uint64{}
 
@@ -290,7 +299,7 @@ func (re *RunEnv) SizeArrayParam(name string) []uint64 {
 
 // JSONParam unmarshals a JSON parameter in an arbitrary interface.
 // It panics on error.
-func (re *RunEnv) JSONParam(name string, v interface{}) {
+func (re *RunParams) JSONParam(name string, v interface{}) {
 	s, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))

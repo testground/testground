@@ -97,7 +97,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	r.setupLk.Unlock()
 
 	// Build a template runenv.
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          input.TestPlan.TestCases[seq].Name,
 		TestRun:           input.RunID,

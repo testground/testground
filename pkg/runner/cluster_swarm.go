@@ -91,7 +91,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	)
 
 	// Build a runenv.
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          testcase.Name,
 		TestRun:           input.RunID,

@@ -116,7 +116,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
 	}
 
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
 		TestRun:           input.RunID,
@@ -388,7 +388,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 	}
 }
 
-func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
+func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
 	client, err := pool.Acquire(ctx)
 	if err != nil {
 		return err
