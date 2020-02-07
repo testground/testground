@@ -3,6 +3,11 @@ notifications:
 
 language: go
 
+env:
+  global:
+    - GOTFLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
+    - GO111MODULE=on
+
 cache:
   directories:
     - $HOME/.cache/go-build
@@ -26,13 +31,10 @@ jobs:
         - make tidy
         - git diff --exit-code
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
-        - GO111MODULE=on pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
-        - golangci-lint run       # run a bunch of code checkers/linters in parallel
-        - go build ./...          # build the project
-        - pushd ./plans/dht && go build ./... && popd         # build dht test plan
-        - docker build -t ipfs/testground .
-        - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./... # Run all the tests with the race detector enabled
-        - go build .
+        - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint && popd
+        - make lint           # run a bunch of code checkers/linters in parallel
+        - make test-build     # build the project
+        - make test           # Run all the tests with the race detector enabled
       after_success:
         - bash <(curl -s https://codecov.io/bash)
         
