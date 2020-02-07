@@ -8,7 +8,7 @@ case    = "e2e"
 builder = "docker:go"
 runner  = "local:docker"
 
-total_instances = 100
+total_instances = 6
 
 [[groups]]
 id = "new_seeders"
@@ -16,8 +16,8 @@ instances = { count = 1 }
 
   [groups.build]
   dependencies = [
-      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
-      { module = "github.com/libp2p/go-bitswap", version = ""},
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = "latest"},
+      # { module = "github.com/libp2p/go-bitswap", version = ""},
   ]
 
   [groups.run]
@@ -25,12 +25,12 @@ instances = { count = 1 }
 
 [[groups]]
 id = "new_leechers"
-instances = { count = 9 }
+instances = { count = 2 }
 
   [groups.build]
   dependencies = [
-      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
-      { module = "github.com/libp2p/go-bitswap", version = ""},
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = "latest"},
+      # { module = "github.com/libp2p/go-bitswap", version = ""},
   ]
 
   [groups.run]
@@ -42,8 +42,8 @@ instances = { count = 1 }
 
   [groups.build]
   dependencies = [
-      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
-      { module = "github.com/libp2p/go-bitswap", version = ""},
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
+      # { module = "github.com/libp2p/go-bitswap", version = ""},
   ]
 
   [groups.run]
@@ -51,12 +51,12 @@ instances = { count = 1 }
 
 [[groups]]
 id = "old_leechers"
-instances = { count = 9 }
+instances = { count = 2 }
 
   [groups.build]
   dependencies = [
-      { module = "github.com/libp2p/go-libp2p-kad-dht", version = ""},
-      { module = "github.com/libp2p/go-bitswap", version = ""},
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
+      # { module = "github.com/libp2p/go-bitswap", version = ""},
   ]
 
   [groups.run]
