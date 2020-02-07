@@ -8,6 +8,6 @@ import (
 
 // ExampleFailure always fails
 func ExampleFailure(runenv *runtime.RunEnv) error {
-	runenv.Message("This is what happens when there is a failure")
+	runenv.RecordMessage("This is what happens when there is a failure")
 	return errors.New("intentional oops")
 }

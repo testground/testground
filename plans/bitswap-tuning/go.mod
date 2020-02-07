@@ -25,7 +25,6 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.1.0
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-core v0.2.3
-	github.com/libp2p/go-libp2p-host v0.1.0
 	github.com/multiformats/go-multihash v0.0.8
 	github.com/pkg/errors v0.8.1
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e

@@ -45,7 +45,7 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, target string) cont
 		var err error
 		_, qlogger, err = runenv.CreateStructuredAsset("dht_queries.out", runtime.StandardJSONConfig())
 		if err != nil {
-			runenv.Message("failed to initialize dht_queries.out asset; nooping logger: %s", err)
+			runenv.RecordMessage("failed to initialize dht_queries.out asset; nooping logger: %s", err)
 			qlogger = zap.NewNop().Sugar()
 		}
 	})

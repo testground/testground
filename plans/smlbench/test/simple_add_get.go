@@ -53,7 +53,7 @@ func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 		return err
 	}
 
-	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.RecordMetric(utils.MetricTimeToAdd, float64(time.Since(tstarted)/time.Millisecond))
 
 	addrs, err := ensemble.GetNode("adder").SwarmAddrs()
 	if err != nil {
@@ -69,13 +69,13 @@ func (tc *SimpleAddGetTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEns
 		return err
 	}
 
-	runenv.EmitMetric(utils.MetricTimeToConnect, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.RecordMetric(utils.MetricTimeToConnect, float64(time.Since(tstarted)/time.Millisecond))
 
 	tstarted = time.Now()
 	err = getter.Get(cid, ensemble.TempDir())
 	if err != nil {
 		return err
 	}
-	runenv.EmitMetric(utils.MetricTimeToGet, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.RecordMetric(utils.MetricTimeToGet, float64(time.Since(tstarted)/time.Millisecond))
 	return nil
 }

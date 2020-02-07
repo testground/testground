@@ -27,7 +27,7 @@ func (t *IpfsAddDefaults) AddRepoOptions() iptb.AddRepoOptions {
 
 func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
-		runenv.Message("Running against the Core API")
+		runenv.RecordMessage("Running against the Core API")
 
 		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
@@ -40,7 +40,7 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 			if err != nil {
 				return "", err
 			}
-			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			runenv.RecordMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Since(tstarted)/time.Millisecond))
 
 			return cidFile.String(), nil
 		})
@@ -51,7 +51,7 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 	}
 
 	if cfg.IpfsDaemon != nil {
-		runenv.Message("Running against the Daemon (IPTB)")
+		runenv.RecordMessage("Running against the Daemon (IPTB)")
 
 		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (cid string, err error) {
 			file, err := os.Open(path)
@@ -61,7 +61,7 @@ func (t *IpfsAddDefaults) Execute(ctx context.Context, runenv *runtime.RunEnv, c
 
 			tstarted := time.Now()
 			cid, err = cfg.IpfsDaemon.Add(file)
-			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			runenv.RecordMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Since(tstarted)/time.Millisecond))
 			return cid, err
 		})
 

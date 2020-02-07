@@ -128,7 +128,7 @@ func (s *subscription) stop() error {
 		// this subscription has a connection associated with it.
 		if err := s.client.ClientKillByFilter("id", strconv.Itoa(int(connID))).Err(); err != nil {
 			err := fmt.Errorf("failed to kill connection: %w", err)
-			s.w.re.Message("%s", err)
+			s.w.re.RecordMessage("%s", err)
 			return err
 		}
 	}

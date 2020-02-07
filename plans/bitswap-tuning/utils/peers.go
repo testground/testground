@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	core "github.com/libp2p/go-libp2p-core"
 	"github.com/libp2p/go-libp2p-core/peer"
-	host "github.com/libp2p/go-libp2p-host"
 )
 
 func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Duration) ([]peer.AddrInfo, error) {
@@ -24,7 +24,7 @@ func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Durat
 	return ais, nil
 }
 
-func DialOtherPeers(ctx context.Context, self host.Host, ais []peer.AddrInfo) ([]peer.AddrInfo, error) {
+func DialOtherPeers(ctx context.Context, self core.Host, ais []peer.AddrInfo) ([]peer.AddrInfo, error) {
 	// Grab list of other peers that are available for this Run
 	var toDial []peer.AddrInfo
 	for _, ai := range ais {

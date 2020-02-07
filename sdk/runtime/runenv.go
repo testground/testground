@@ -13,8 +13,6 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type key int
-
 const (
 	EnvTestPlan               = "TEST_PLAN"
 	EnvTestBranch             = "TEST_BRANCH"
@@ -235,7 +233,7 @@ func (re *RunEnv) StringParam(name string) string {
 }
 
 func (re *RunEnv) SizeParam(name string) uint64 {
-	v, _ := re.TestInstanceParams[name]
+	v := re.TestInstanceParams[name]
 	m, err := humanize.ParseBytes(v)
 	if err != nil {
 		panic(err)
@@ -260,11 +258,8 @@ func (re *RunEnv) IntParam(name string) int {
 
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
 func (re *RunEnv) BooleanParam(name string) bool {
-	s, _ := re.TestInstanceParams[name]
-	if s == "true" {
-		return true
-	}
-	return false
+	s := re.TestInstanceParams[name]
+	return s == "true"
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array

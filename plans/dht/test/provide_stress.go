@@ -54,7 +54,7 @@ func ProvideStress(runenv *runtime.RunEnv) error {
 	// 				runenv.Abort(fmt.Errorf("Failed on .Provide - %w", err))
 	// 				return
 	// 			}
-	// 			runenv.Message("Provided a CID")
+	// 			runenv.RecordMessage("Provided a CID")
 
 	// 			counter++
 	// 			if counter == nProvides {
@@ -66,7 +66,7 @@ func ProvideStress(runenv *runtime.RunEnv) error {
 	// 		}
 	// 	}
 
-	// 	runenv.Message("Provided all scheduled CIDs")
+	// 	runenv.RecordMessage("Provided all scheduled CIDs")
 
 	// 	runenv.OK()
 	return fmt.Errorf("unimplemented")

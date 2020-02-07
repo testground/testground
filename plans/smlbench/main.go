@@ -14,26 +14,26 @@ import (
 // Inventory of Tests
 var testCasesSet = [][]utils.SmallBenchmarksTestCase{
 	{
-		&test.SimpleAddTC{},                 // 0
-		&test.SimpleAddTC{1024},             // 1kb
-		&test.SimpleAddTC{64 * 1024},        // 64kb
-		&test.SimpleAddTC{256 * 1024},       // 256kb
-		&test.SimpleAddTC{512 * 1024},       // 512kb
-		&test.SimpleAddTC{1024 * 1024},      // 1mb
-		&test.SimpleAddTC{2 * 1024 * 1024},  // 2mb
-		&test.SimpleAddTC{5 * 1024 * 1024},  // 5mb
-		&test.SimpleAddTC{10 * 1024 * 1024}, // 10mb
+		&test.SimpleAddTC{SizeBytes: 0},                // 0
+		&test.SimpleAddTC{SizeBytes: 1024},             // 1kb
+		&test.SimpleAddTC{SizeBytes: 64 * 1024},        // 64kb
+		&test.SimpleAddTC{SizeBytes: 256 * 1024},       // 256kb
+		&test.SimpleAddTC{SizeBytes: 512 * 1024},       // 512kb
+		&test.SimpleAddTC{SizeBytes: 1024 * 1024},      // 1mb
+		&test.SimpleAddTC{SizeBytes: 2 * 1024 * 1024},  // 2mb
+		&test.SimpleAddTC{SizeBytes: 5 * 1024 * 1024},  // 5mb
+		&test.SimpleAddTC{SizeBytes: 10 * 1024 * 1024}, // 10mb
 	},
 	{
-		&test.SimpleAddGetTC{},                 // 0
-		&test.SimpleAddGetTC{1024},             // 1kb
-		&test.SimpleAddGetTC{64 * 1024},        // 64kb
-		&test.SimpleAddGetTC{256 * 1024},       // 256kb
-		&test.SimpleAddGetTC{512 * 1024},       // 512kb
-		&test.SimpleAddGetTC{1024 * 1024},      // 1mb
-		&test.SimpleAddGetTC{2 * 1024 * 1024},  // 2mb
-		&test.SimpleAddGetTC{5 * 1024 * 1024},  // 5mb
-		&test.SimpleAddGetTC{10 * 1024 * 1024}, // 10mb
+		&test.SimpleAddGetTC{SizeBytes: 0},                // 0
+		&test.SimpleAddGetTC{SizeBytes: 1024},             // 1kb
+		&test.SimpleAddGetTC{SizeBytes: 64 * 1024},        // 64kb
+		&test.SimpleAddGetTC{SizeBytes: 256 * 1024},       // 256kb
+		&test.SimpleAddGetTC{SizeBytes: 512 * 1024},       // 512kb
+		&test.SimpleAddGetTC{SizeBytes: 1024 * 1024},      // 1mb
+		&test.SimpleAddGetTC{SizeBytes: 2 * 1024 * 1024},  // 2mb
+		&test.SimpleAddGetTC{SizeBytes: 5 * 1024 * 1024},  // 5mb
+		&test.SimpleAddGetTC{SizeBytes: 10 * 1024 * 1024}, // 10mb
 	},
 }
 
@@ -57,10 +57,13 @@ func main() {
 		tc.Configure(runenv, spec)
 
 		ensemble := iptb.NewTestEnsemble(ctx, spec)
-		ensemble.Initialize()
-
-		tc.Execute(runenv, ensemble)
-
 		ensemble.Destroy()
+
+		err := tc.Execute(runenv, ensemble)
+		if err != nil {
+			panic(err)
+		}
+
+		ensemble.Initialize()
 	}
 }

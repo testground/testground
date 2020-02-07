@@ -26,7 +26,7 @@ import (
 	"github.com/ipfs/go-unixfs/importer/trickle"
 	"github.com/ipfs/testground/sdk/runtime"
 	libp2p "github.com/libp2p/go-libp2p"
-	host "github.com/libp2p/go-libp2p-host"
+	"github.com/libp2p/go-libp2p-core"
 	"github.com/multiformats/go-multihash"
 	"github.com/pkg/errors"
 )
@@ -34,7 +34,7 @@ import (
 // Adapted from the netflix/p2plab repo under an Apache-2 license.
 // Original source code located at https://github.com/Netflix/p2plab/blob/master/peer/peer.go
 type Node struct {
-	Host    host.Host
+	Host    core.Host
 	Bitswap *bs.Bitswap
 	Dserv   ipld.DAGService
 }
@@ -55,7 +55,7 @@ func CreateNode(ctx context.Context, runenv *runtime.RunEnv) (*Node, error) {
 		return nil, err
 	}
 
-	routing, err := nilrouting.ConstructNilRouting(nil, nil, nil, nil)
+	routing, err := nilrouting.ConstructNilRouting(context.Background(), nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

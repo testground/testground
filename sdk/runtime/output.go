@@ -61,10 +61,14 @@ func (e Event) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 		oe.AddString("message", e.Message)
 	}
 	if e.Metric != nil {
-		oe.AddObject("metric", e.Metric)
+		if err := oe.AddObject("metric", e.Metric); err != nil {
+			return err
+		}
 	}
 	if e.Runenv != nil {
-		oe.AddObject("runenv", e.Runenv)
+		if err := oe.AddObject("runenv", e.Runenv); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -85,7 +89,9 @@ func (r RunEnv) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	oe.AddString("plan", r.TestPlan)
 	oe.AddString("case", r.TestCase)
 	oe.AddInt("seq", r.TestCaseSeq)
-	oe.AddReflected("params", r.TestInstanceParams)
+	if err := oe.AddReflected("params", r.TestInstanceParams); err != nil {
+		return err
+	}
 	oe.AddInt("instances", r.TestInstanceCount)
 	oe.AddString("outputs_path", r.TestOutputsPath)
 	oe.AddString("network", func() string {
