@@ -173,7 +173,10 @@ func getCurrentConfiguration(node testbedi.Core) (*config.Config, error) {
 	}
 
 	buf := new(bytes.Buffer)
-	buf.ReadFrom(out.Stdout())
+	_, err = buf.ReadFrom(out.Stdout())
+	if err != nil {
+		return nil, err
+	}
 
 	cfg := &config.Config{}
 	return cfg, json.Unmarshal(buf.Bytes(), cfg)

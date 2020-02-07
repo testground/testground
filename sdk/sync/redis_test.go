@@ -33,6 +33,7 @@ func ensureRedis(t *testing.T) (close func()) {
 	// instance.
 	client, err := redisClient(runenv)
 	if err == nil {
+		client.Close()
 		return func() {}
 	}
 
@@ -73,7 +74,11 @@ func TestWatcherWriter(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cancel()
+	defer func() {
+		if err := cancel(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	if err != nil {
 		t.Fatal(err)
@@ -94,7 +99,7 @@ func TestWatcherWriter(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	writer.Write(PeerSubtree, ai)
+	_, err = writer.Write(PeerSubtree, ai)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +164,11 @@ func TestWatchInexistentKeyThenWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer subCancel()
+	defer func() {
+		if err := subCancel(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	doneCh := make(chan struct{})
 	go func() {
@@ -198,7 +207,11 @@ func TestWriteAllBeforeWatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer subCancel()
+	defer func() {
+		if err := subCancel(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	doneCh := make(chan struct{})
 	go func() {
@@ -357,10 +370,10 @@ func randomRunEnv() *runtime.RunEnv {
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
 		TestCaseSeq:        int(rand.Uint32()),
 		TestRepo:           "github.com/ipfs/go-ipfs",
-		TestSubnet:         subnet,
+		TestSubnet:         &runtime.IPNet{IPNet: *subnet},
 		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),
 		TestInstanceCount:  int(1 + (rand.Uint32() % 999)),
 		TestInstanceRole:   "",
-		TestInstanceParams: make(map[string]string, 0),
+		TestInstanceParams: make(map[string]string),
 	}
 }

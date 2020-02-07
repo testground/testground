@@ -71,7 +71,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	runenv.Message("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
+	runenv.RecordMessage("I am %s with addrs: %v", node.Host.ID(), node.Host.Addrs())
 
 	/// --- Warm up
 
@@ -79,11 +79,11 @@ func Transfer(runenv *runtime.RunEnv) error {
 	isLeech := seq <= int64(leechCount)
 	isSeed := seq > int64(leechCount+passiveCount)
 	if isLeech {
-		runenv.Message("I am a leech")
+		runenv.RecordMessage("I am a leech")
 	} else if isSeed {
-		runenv.Message("I am a seed")
+		runenv.RecordMessage("I am a seed")
 	} else {
-		runenv.Message("I am a passive node (neither leech nor seed)")
+		runenv.RecordMessage("I am a passive node (neither leech nor seed)")
 	}
 
 	var rootCid cid.Cid
@@ -111,10 +111,10 @@ func Transfer(runenv *runtime.RunEnv) error {
 		// sequence)
 		select {
 		case rootCidPtr := <-rootCidCh:
-			cancelRootCidSub()
+			_ = cancelRootCidSub()
 			rootCid = *rootCidPtr
 		case <-time.After(timeout):
-			cancelRootCidSub()
+			_ = cancelRootCidSub()
 			return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
 		}
 	}
@@ -122,21 +122,27 @@ func Transfer(runenv *runtime.RunEnv) error {
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
 	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
-	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
 	if err != nil {
-		cancelSub()
 		return err
 	}
-	cancelSub()
+	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
+	if err != nil {
+		_ = cancelSub()
+		return err
+	}
+	_ = cancelSub()
 
 	// Dial all peers
 	dialed, err := utils.DialOtherPeers(ctx, node.Host, addrInfos)
 	if err != nil {
 		return err
 	}
-	runenv.Message("Dialed %d other nodes", len(dialed))
+	runenv.RecordMessage("Dialed %d other nodes", len(dialed))
 
-	utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "ready", watcher, writer)
+	err = utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "ready", watcher, writer)
+	if err != nil {
+		return err
+	}
 
 	/// --- Act I
 
@@ -148,14 +154,20 @@ func Transfer(runenv *runtime.RunEnv) error {
 		startDelay := time.Duration(seq-1) * requestStagger
 		time.Sleep(startDelay)
 
-		runenv.Message("Leech fetching after %s delay", startDelay)
-		node.FetchGraph(ctx, rootCid)
-		runenv.Message("Leech fetch complete")
+		runenv.RecordMessage("Leech fetching after %s delay", startDelay)
+		err = node.FetchGraph(ctx, rootCid)
+		if err != nil {
+			return err
+		}
+		runenv.RecordMessage("Leech fetch complete")
 	} else {
-		runenv.Message("Seed ready")
+		runenv.RecordMessage("Seed ready")
 	}
 
-	utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "transfer-complete", watcher, writer)
+	err = utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "transfer-complete", watcher, writer)
+	if err != nil {
+		return err
+	}
 
 	stats, err := node.Bitswap.Stat()
 	if err != nil {
@@ -163,15 +175,15 @@ func Transfer(runenv *runtime.RunEnv) error {
 	}
 
 	if isLeech {
-		runenv.EmitMetric(utils.MetricTimeToFetch, float64(time.Since(start).Nanoseconds()))
+		runenv.RecordMetric(utils.MetricTimeToFetch, float64(time.Since(start).Nanoseconds()))
 	}
-	runenv.EmitMetric(utils.MetricMsgsRcvd, float64(stats.MessagesReceived))
-	runenv.EmitMetric(utils.MetricDataSent, float64(stats.DataSent))
-	runenv.EmitMetric(utils.MetricDataRcvd, float64(stats.DataReceived))
-	runenv.EmitMetric(utils.MetricDupDataRcvd, float64(stats.DupDataReceived))
-	runenv.EmitMetric(utils.MetricBlksSent, float64(stats.BlocksSent))
-	runenv.EmitMetric(utils.MetricBlksRcvd, float64(stats.BlocksReceived))
-	runenv.EmitMetric(utils.MetricDupBlksRcvd, float64(stats.DupBlksReceived))
+	runenv.RecordMetric(utils.MetricMsgsRcvd, float64(stats.MessagesReceived))
+	runenv.RecordMetric(utils.MetricDataSent, float64(stats.DataSent))
+	runenv.RecordMetric(utils.MetricDataRcvd, float64(stats.DataReceived))
+	runenv.RecordMetric(utils.MetricDupDataRcvd, float64(stats.DupDataReceived))
+	runenv.RecordMetric(utils.MetricBlksSent, float64(stats.BlocksSent))
+	runenv.RecordMetric(utils.MetricBlksRcvd, float64(stats.BlocksReceived))
+	runenv.RecordMetric(utils.MetricDupBlksRcvd, float64(stats.DupBlksReceived))
 
 	/// --- Ending the test
 

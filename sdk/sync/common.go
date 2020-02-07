@@ -6,8 +6,6 @@ import (
 	"net"
 	"os"
 	"reflect"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
@@ -100,17 +98,6 @@ func WatcherWriter(runenv *runtime.RunEnv) (*Watcher, *Writer, error) {
 func basePrefix(runenv *runtime.RunEnv) string {
 	p := fmt.Sprintf("run:%s:plan:%s:case:%s", runenv.TestRun, runenv.TestPlan, runenv.TestCase)
 	return p
-}
-
-// seqFromKey extracts the seq counter from the key. If the last token is not
-// an seq int value, it panics.
-func seqFromKey(key string) int {
-	splt := strings.Split(key, ":")
-	seq, err := strconv.Atoi(splt[len(splt)-1])
-	if err != nil {
-		panic(err)
-	}
-	return seq
 }
 
 // decodePayload extracts a value of the specified type from incoming json.

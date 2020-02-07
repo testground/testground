@@ -17,10 +17,10 @@ import (
 // specified directory path and returns its path.
 func (re *RunEnv) CreateRandomFile(directoryPath string, size int64) (string, error) {
 	file, err := ioutil.TempFile(directoryPath, re.TestPlan)
-	defer file.Close()
 	if err != nil {
 		return "", err
 	}
+	defer file.Close()
 
 	buf := bufio.NewWriter(file)
 	var written int64

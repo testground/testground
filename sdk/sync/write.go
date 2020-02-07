@@ -85,7 +85,7 @@ func (w *Writer) keepAlive() {
 
 	// TODO: do this in a transaction. We risk the loop overlapping with the
 	// refresh period, and all kinds of races. We need to be adaptive here.
-	for k, _ := range w.keepAliveSet {
+	for k := range w.keepAliveSet {
 		if err := w.client.Expire(k, TTL).Err(); err != nil {
 			panic(err)
 		}
