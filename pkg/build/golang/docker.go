@@ -288,7 +288,8 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 
 	// TODO for some reason, this push is way slower than the equivalent via the
 	// docker CLI. Needs investigation.
-	rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+	log.Infow("pushing image", "tag", tag)
+	rc, err := client.ImagePush(ctx, tag, types.ImagePushOptions{
 		RegistryAuth: aws.ECR.EncodeAuthToken(auth),
 	})
 	if err != nil {
