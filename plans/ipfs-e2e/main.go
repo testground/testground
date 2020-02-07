@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"github.com/ipfs/testground/plans/ipfs-e2e/test"
-	"github.com/ipfs/testground/plans/ipfs-e2e/util"
 	"github.com/ipfs/testground/sdk/iptb"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
@@ -15,34 +15,22 @@ import (
 func main() {
 	runtime.Invoke(run)
 }
+
 func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	//ctx, _ := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	watcher, writer, seq, err := util.GetComms(ctx, "main", runenv)
+	watcher, writer, _, err := GetComms(ctx, "main", runenv)
+	// These don't need to be closed because the deferred cancel a few lines up already closes them.
 	defer watcher.Close()
 	defer writer.Close()
 	if err != nil {
 		return err
-	}
-
-	tc := test.TestCase{}
-
-	// see compositions toml file.
-	// old and new servers will run different versions of ipfs modules.
-	switch runenv.TestGroupID {
-	case "old_seeders":
-		tc.Role = test.Seeder
-	case "old_leechers":
-		tc.Role = test.Leecher
-	case "new_seeders":
-		tc.Role = test.Seeder
-	case "new_leechers":
-		tc.Role = test.Leecher
 	}
 
 	nodeOpts := iptb.NodeOpts{
@@ -53,7 +41,21 @@ func run(runenv *runtime.RunEnv) error {
 	spec := iptb.NewTestEnsembleSpec()
 	spec.AddNodesDefaultConfig(nodeOpts)
 	ensemble := iptb.NewTestEnsemble(ctx, spec)
+	ensemble.Initialize()
 	defer ensemble.Destroy()
+
+	testConfig := IptbTestConfig{Ensemble: ensemble}
+	var testCase IptbTestCase
+
+	if strings.Contains(runenv.TestGroupID, "seeders") {
+		testCase = SeedingTestCase{&testConfig}
+		SetupNetwork(ctx, runenv, 100, 100)
+	} else if strings.Contains(runenv.TestGroupID, "leechers") {
+		testCase = SeedingTestCase{&testConfig}
+		SetupNetwork(ctx, runenv, 200, 75)
+	} else {
+		return errors.New("passive nodes are not implemented.")
+	}
 
 	// start test for each file size.
 	MB := 1024 * 1024
@@ -68,8 +70,11 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 		writer.SignalEntry("running")
-		tc.FileSize = size
-		tc.Execute(runenv, ensemble, ctx)
+		runenv.Message("now running")
+		testConfig.FileName = "filename"
+		testConfig.FileSize = size
+		testCase.Execute(runenv)
 	}
+	runenv.Message("all done")
 	return nil
 }
