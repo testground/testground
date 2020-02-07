@@ -42,8 +42,6 @@ var (
 
 const (
 	defaultK8sNetworkAnnotation = "flannel"
-	outputsBucket               = "assets-s3-bucket"
-	outputsBucketRegion         = "eu-central-1"
 )
 
 var (
@@ -77,11 +75,13 @@ type ClusterK8sRunnerConfig struct {
 	// LogLevel sets the log level in the test containers (default: not set).
 	LogLevel string `toml:"log_level"`
 
-	// Background avoids tailing the output of containers, and displaying it as
-	// log messages (default: true).
-	Background bool `toml:"background"`
-
 	KeepService bool `toml:"keep_service"`
+
+	// Name of the S3 bucket used for `outputs` from test plans
+	OutputsBucket string `toml:"outputs_bucket"`
+
+	// Region of the S3 bucket used for `outputs` from test plans
+	OutputsBucketRegion string `toml:"outputs_bucket_region"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -260,11 +260,12 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 
 func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
 	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
 	log.Info("collecting outputs")
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(outputsBucketRegion)},
+		Region: aws.String(cfg.OutputsBucketRegion)},
 	)
 	if err != nil {
 		return fmt.Errorf("Couldn't establish an AWS session to list items in bucket: %v", err)
@@ -280,9 +281,9 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	for {
 		log.Debugw("start after", "cursor", startAfter)
-		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
+		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)})
 		if err != nil {
-			return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
+			return fmt.Errorf("Unable to list items in bucket %q, %v", cfg.OutputsBucket, err)
 		}
 
 		if len(resp.Contents) == 0 {
@@ -298,7 +299,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 			_, err = downloader.Download(FakeWriterAt{ww},
 				&s3.GetObjectInput{
-					Bucket: aws.String(outputsBucket),
+					Bucket: aws.String(cfg.OutputsBucket),
 					Key:    item.Key,
 				})
 			if err != nil {
