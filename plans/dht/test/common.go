@@ -153,6 +153,25 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 			libp2p.AddrsFactory(func(listeningAddrs []multiaddr.Multiaddr) []multiaddr.Multiaddr {
 				return bogusAddrLst
 			}))
+
+		l, err := net.ListenTCP("tcp", tcpAddr)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		go func() {
+			for ctx.Err() == nil {
+				c, err := l.Accept()
+				if err != nil {
+					continue
+				}
+				go func() {
+					time.Sleep(time.Second * 5)
+					_ = c.Close()
+				}()
+			}
+		}()
+
 	} else {
 		addr, err := manet.FromNetAddr(tcpAddr)
 		if err != nil {
