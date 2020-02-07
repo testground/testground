@@ -136,7 +136,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	r.setupLk.Unlock()
 
 	// Build a template runenv.
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          testcase.Name,
 		TestRun:           input.RunID,
@@ -345,7 +345,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 	)
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(

@@ -9,14 +9,14 @@ import (
 )
 
 type logger struct {
-	runenv *RunEnv
+	runenv *RunParams
 
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
 }
 
-func newLogger(runenv *RunEnv) *logger {
+func newLogger(runenv *RunParams) *logger {
 	l := &logger{runenv: runenv}
 	l.init()
 	return l
