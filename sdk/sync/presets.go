@@ -116,8 +116,9 @@ type NetworkConfig struct {
 	State State
 }
 
-// PeerSubtree represents a subtree under the test run's sync tree where peers
-// participating in this distributed test advertise themselves.
+// NetworkSubtree reprenents a subtree through which tests runs can communicate
+// with their sidecar. Use this communication channel to setup the networking.
+// Create this structure using NetworkSubtree(hostname)
 func NetworkSubtree(container string) *Subtree {
 	return &Subtree{
 		GroupKey:    "network:" + container,
