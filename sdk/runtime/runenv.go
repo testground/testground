@@ -200,14 +200,14 @@ func CurrentRunEnv() *RunEnv {
 	return re
 }
 
-// ParseRunEnv parses a list of environment variables into a RunEnv.
-func ParseRunEnv(env []string) (*RunEnv, error) {
+// ParseRunParams parses a list of environment variables into a RunParams.
+func ParseRunParams(env []string) (*RunParams, error) {
 	m, err := ParseKeyValues(env)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewRunEnv(RunParams{
+	return &RunParams{
 		TestSidecar:            toBool(m[EnvTestSidecar]),
 		TestPlan:               m[EnvTestPlan],
 		TestCase:               m[EnvTestCase],
@@ -223,7 +223,17 @@ func ParseRunEnv(env []string) (*RunEnv, error) {
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
 		TestOutputsPath:        m[EnvTestOutputsPath],
-	}), nil
+	}, nil
+}
+
+// ParseRunEnv parses a list of environment variables into a RunEnv.
+func ParseRunEnv(env []string) (*RunEnv, error) {
+	p, err := ParseRunParams(env)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewRunEnv(*p), nil
 }
 
 // IsParamSet checks if a certain parameter is set.
