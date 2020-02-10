@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {
+	defer metrics.GetOrRegisterResettingTimer("find.peers", nil).UpdateSince(time.Now())
+
 	opts := &SetupOpts{
 		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
 		RandomWalk:  runenv.BooleanParam("random_walk"),

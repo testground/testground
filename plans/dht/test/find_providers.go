@@ -3,8 +3,11 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"time"
+
+	"github.com/ethereum/go-ethereum/metrics"
+	m "github.com/ipfs/testground/plans/dht/metrics"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"golang.org/x/sync/errgroup"
 
@@ -16,6 +19,14 @@ import (
 )
 
 func FindProviders(runenv *runtime.RunEnv) error {
+	metrics.GetOrRegisterCounter("find-providers.run", nil).Inc(1)
+	errm := m.EmitMetrics()
+	if errm != nil {
+		fmt.Println("couldn't emit metrics: %v", errm)
+	}
+
+	defer metrics.GetOrRegisterResettingTimer("find-providers.total", nil).UpdateSince(time.Now())
+
 	opts := &SetupOpts{
 		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
 		RandomWalk:     runenv.BooleanParam("random_walk"),

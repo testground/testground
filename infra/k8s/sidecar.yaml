@@ -38,7 +38,7 @@ spec:
           echo "redis-headless resolved."
       containers:
       - name: testground-sidecar
-        image: ipfs/testground:edge
+        image: nonsens3/testground:latest
         imagePullPolicy: Always
         command: ["testground"]
         args: ["--vv", "sidecar", "--runner", "k8s"]

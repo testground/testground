@@ -13,6 +13,7 @@ import (
 	gosync "sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
@@ -108,7 +109,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 	} else {
 		//min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
 		//max = int(float64(min) * 1.1)
-		min = runenv.TestInstanceCount*10
+		min = runenv.TestInstanceCount * 10
 		max = min * 2
 	}
 
@@ -299,6 +300,8 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 
 // Setup sets up the elements necessary for the test cases
 func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
+	defer metrics.GetOrRegisterResettingTimer("find-providers.setup", nil).UpdateSince(time.Now())
+
 	testNode := &NodeParams{info: &NodeInfo{}}
 	otherNodes := make(map[peer.ID]*NodeInfo)
 
@@ -794,6 +797,8 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 }
 
 func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) error {
+	defer metrics.GetOrRegisterResettingTimer("find-providers.staged-bootstrap", nil).UpdateSince(time.Now())
+
 	_, isUndialable := node.info.properties[Undialable]
 	_ = isUndialable
 
@@ -1016,9 +1021,13 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 			//case <-ctx.Done():
 			//	return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			//}
+
+			start := time.Now()
 			if err = dht.Host().Connect(ctx, ai); err == nil {
+				metrics.GetOrRegisterResettingTimer("connect.success", nil).UpdateSince(start)
 				return nil
 			} else {
+				metrics.GetOrRegisterResettingTimer("connect.fail", nil).UpdateSince(start)
 				runenv.Message("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
 			}
 		}
@@ -1040,6 +1049,8 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 
 // RandomWalk performs 5 random walks.
 func RandomWalk(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT) error {
+	defer metrics.GetOrRegisterResettingTimer("find-providers.random-walk", nil).UpdateSince(time.Now())
+
 	for i := 0; i < 5; i++ {
 		if err := dht.Bootstrap(ctx); err != nil {
 			return fmt.Errorf("Could not run a random-walk: %w", err)

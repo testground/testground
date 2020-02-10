@@ -1,0 +1,3 @@
+helm install influxdb -f influxdb-values.yaml stable/influxdb
+
+helm install grafana -f grafana-values.yaml stable/grafana

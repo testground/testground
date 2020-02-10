@@ -9,6 +9,7 @@ replace github.com/ipfs/testground/sdk/iptb => ../../sdk/iptb
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 
 require (
+	github.com/ethereum/go-ethereum v1.9.10
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.3.1
 	github.com/ipfs/go-ipfs-util v0.0.1
@@ -29,7 +30,7 @@ require (
 	github.com/mattn/go-isatty v0.0.9 // indirect
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/multiformats/go-multiaddr-net v0.1.1
-	github.com/opentracing/opentracing-go v1.1.0 // indirect
+	github.com/urfave/cli v1.22.1
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 )
