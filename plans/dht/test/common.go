@@ -106,8 +106,10 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		min = runenv.TestInstanceCount
 		max = runenv.TestInstanceCount
 	} else {
-		min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
-		max = int(float64(min) * 1.1)
+		//min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
+		//max = int(float64(min) * 1.1)
+		min = runenv.TestInstanceCount*10
+		max = min * 2
 	}
 
 	// We need enough connections to be able to trim some and still have a

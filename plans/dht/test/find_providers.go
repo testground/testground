@@ -41,6 +41,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	defer outputGraph(node.dht, runenv, "end")
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
