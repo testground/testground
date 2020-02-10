@@ -187,10 +187,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				if cfg.KeepService {
 					return
 				}
-				client, err := pool.Acquire(ctx)
-				if err != nil {
-					log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
-				}
+				client := pool.Acquire()
 				defer pool.Release(client)
 				err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
@@ -222,10 +219,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			gg.Go(func() error {
 				defer func() { <-sem }()
 
-				client, err := pool.Acquire(ctx)
-				if err != nil {
-					return err
-				}
+				client := pool.Acquire()
 				defer pool.Release(client)
 
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
@@ -333,14 +327,17 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
 }
 
 func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
-	client, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
+	client := pool.Acquire()
 	defer pool.Release(client)
 
 	start := time.Now()
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if time.Since(start) > 10*time.Minute {
 			return errors.New("global timeout")
 		}
@@ -389,10 +386,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 }
 
 func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
-	client, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
+	client := pool.Acquire()
 	defer pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
@@ -450,7 +444,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 		},
 	}
 
-	_, err = client.CoreV1().Pods(k8sNamespace).Create(podRequest)
+	_, err := client.CoreV1().Pods(k8sNamespace).Create(podRequest)
 	return err
 }
 

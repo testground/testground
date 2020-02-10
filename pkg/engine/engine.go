@@ -13,6 +13,8 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
 
+	"errors"
+
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
@@ -391,8 +393,10 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	out, err := run.Run(ctx, &in, output)
 	if err == nil {
 		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+	} else if errors.Is(err, context.Canceled) {
+		logging.S().Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		logging.S().Infow("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		logging.S().Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
