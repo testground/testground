@@ -328,21 +328,21 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	//
 	var cfg config.CoalescedConfig
 
-	// Add the base configuration of the build strategy (point 3 above).
+	// Add the base configuration of the run strategy (point 3 above).
 	if c, ok := plan.RunStrategies[runner]; !ok {
 		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
 	} else {
 		cfg = cfg.Append(c)
 	}
 
-	// 2. Get the env config for the builder.
+	// 2. Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
 
 	// 1. Get overrides from the CLI.
 	cfg = cfg.Append(comp.Global.RunConfig)
 
 	// Coalesce all configurations and deserialise into the config type
-	// mandated by the builder.
+	// mandated by the runner.
 	obj, err := cfg.CoalesceIntoType(run.ConfigType())
 	if err != nil {
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
@@ -408,10 +408,23 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 		return fmt.Errorf("unknown runner: %s", runner)
 	}
 
+	var cfg config.CoalescedConfig
+
+	// Get the env config for the runner.
+	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+
+	// Coalesce all configurations and deserialise into the config type
+	// mandated by the builder.
+	obj, err := cfg.CoalesceIntoType(run.ConfigType())
+	if err != nil {
+		return fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
 	input := &api.CollectionInput{
-		RunnerID:  runner,
-		RunID:     runID,
-		EnvConfig: *e.envcfg,
+		RunnerID:     runner,
+		RunID:        runID,
+		EnvConfig:    *e.envcfg,
+		RunnerConfig: obj,
 	}
 
 	return run.CollectOutputs(ctx, input, w)

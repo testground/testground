@@ -2,7 +2,6 @@
 
 set -o errexit
 set -o pipefail
-set -o nounset
 
 START_TIME=`date +%s`
 
@@ -20,9 +19,20 @@ echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
-ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
+if [[ -z ${ASSETS_ACCESS_KEY} ]]; then
+  echo "ASSETS_ACCESS_KEY is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+if [[ -z ${ASSETS_SECRET_KEY} ]]; then
+  echo "ASSETS_SECRET_KEY is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+if [[ -z ${ASSETS_BUCKET_NAME} ]]; then
+  echo "ASSETS_BUCKET_NAME is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
 
 kops create -f $CLUSTER_SPEC
 kops create secret --name $NAME sshpublickey admin -i $PUBKEY
