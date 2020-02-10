@@ -78,14 +78,16 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		writer:  writer,
 	}
 
+
+	isProvider := node.info.seq <= opts.NodesProviding
+
 	if err := stg.Begin(); err != nil {
 		return err
 	}
 
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
-	switch {
-	case node.info.seq <= opts.NodesProviding:
+	if isProvider {
 		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index
@@ -114,9 +116,19 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			_ = stg.End()
 			return fmt.Errorf("failed while providing: %s", err)
 		}
+	}
 
-	default:
-		g := errgroup.Group{}
+
+	if err := stg.End(); err != nil {
+		return err
+	}
+
+	if err := stg.Begin(); err != nil {
+		return err
+	}
+
+	if !isProvider {
+	g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index
 			c := cid
