@@ -74,7 +74,7 @@ instances = { percentage = 0.45 }
   test_params = { server = "true", random_walk = "true", n_bootstrap = "1" }
 ```
 
-## Building a composition
+## Building a composition
 
 To build a composition, execute the following command:
 
@@ -97,6 +97,10 @@ run the same composition mulitple times (such as when gathering multiple
 observations). While builder-native caching alleviates this problem, e.g. Docker
 layer caching, entirely bypassing the build step in these situations awards an
 extra efficiency gain.
+
+Note that docker image pushing is part of the `build` step currently, so you
+cannot reuse a build artifact between different runners unless you make sure
+the resulting build artifact is available to the runner.
 
 ## Running a composition
 
