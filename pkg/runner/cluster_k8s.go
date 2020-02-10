@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -151,7 +152,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		return nil, err
 	}
 
-	maxAllowedPods, err := maxPods(pool)
+	maxAllowedPods, err := maxPods(pool, resource.MustParse(cfg.PodResourceCPU))
 	if err != nil {
 		return nil, err
 	}
@@ -478,10 +479,13 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 
 // maxPods returns the max allowed pods for the current cluster size
 // at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
-func maxPods(pool *pool) (int, error) {
+func maxPods(pool *pool, podResourceCPU resource.Quantity) (int, error) {
 	redisCPUs := 2.0   // set in redis-values.yaml
 	sidecarCPUs := 0.2 // set in sidecar.yaml
-	podCPU := 0.1      // set in createPod at 100m
+	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+	if err != nil {
+		return 0, err
+	}
 
 	client := pool.Acquire()
 	defer pool.Release(client)
