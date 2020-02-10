@@ -140,6 +140,35 @@ func TestBarrier(t *testing.T) {
 	}
 }
 
+func TestBarrierCancel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	close := ensureRedis(t)
+	defer close()
+
+	runenv := randomRunEnv()
+
+	watcher, err := NewWatcher(ctx, runenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer watcher.Close()
+
+	state := State("yoda")
+	ch := watcher.Barrier(ctx, state, 10)
+	cancel()
+	select {
+	case err := <-ch:
+		if err == nil {
+			t.Errorf("expected an error")
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("expected a cancel")
+		return
+	}
+}
+
 // TestWatchInexistentKeyThenWrite starts watching a subtree that doesn't exist
 // yet.
 func TestWatchInexistentKeyThenWrite(t *testing.T) {
