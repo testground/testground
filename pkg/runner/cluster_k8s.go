@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -148,6 +149,15 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	pool, err := newPool(workers, k8sConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	maxAllowedPods, err := maxPods(pool)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxAllowedPods < input.TotalInstances {
+		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", maxAllowedPods)
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -464,4 +474,35 @@ type FakeWriterAt struct {
 func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 	// ignore 'offset' because we forced sequential downloads
 	return fw.w.Write(p)
+}
+
+// maxPods returns the max allowed pods for the current cluster size
+// at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
+func maxPods(pool *pool) (int, error) {
+	redisCPUs := 2.0   // set in redis-values.yaml
+	sidecarCPUs := 0.2 // set in sidecar.yaml
+	podCPU := 0.1      // set in createPod at 100m
+
+	client := pool.Acquire()
+	defer pool.Release(client)
+
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "kubernetes.io/role=node",
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	nodes := len(res.Items)
+
+	// all worker nodes are the same, so just take allocatable CPU from the first
+	item := res.Items[0].Status.Allocatable["cpu"]
+	nodeCPUs, _ := item.AsInt64()
+
+	totalCPUs := nodes * int(nodeCPUs)
+	availableCPUs := float64(totalCPUs) - redisCPUs - float64(nodes)*sidecarCPUs
+	podsCPUs := availableCPUs * 8 / 10 // we use only 80% of CPU of nodes for Testground pods
+	pods := int(math.Round(podsCPUs/podCPU - 0.5))
+
+	return pods, nil
 }
