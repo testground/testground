@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"os"
 	"time"
 
@@ -14,17 +13,15 @@ var (
 	database  = "metrics"
 	username  = ""
 	password  = ""
-	namespace = "testplan"
-	tags      = map[string]string{
-		"testplan": "dht",
-	}
+	namespace = ""
+	tags      = map[string]string{}
 )
 
 func Setup() {
-	fmt.Println("setting up metrics")
+	metrics.Enabled = true
 	hostname, _ := os.Hostname()
 	tags["host"] = hostname
-	go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 5*time.Second, endpoint, database, username, password, namespace, tags)
+	go influxdb.InfluxDBWithTags(metrics.DefaultRegistry, 10*time.Second, endpoint, database, username, password, namespace, tags)
 }
 
 func EmitMetrics() error {

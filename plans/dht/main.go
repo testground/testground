@@ -22,5 +22,6 @@ func run(runenv *runtime.RunEnv) error {
 		panic("test case sequence number not set")
 	}
 	metrics.Setup()
+	defer metrics.EmitMetrics()
 	return testCases[runenv.TestCaseSeq](runenv)
 }
