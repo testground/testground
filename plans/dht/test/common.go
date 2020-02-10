@@ -1086,8 +1086,9 @@ type Stager struct {
 func (s *Stager) Begin() error {
 	// Wait until it's out turn
 	s.stage += 1
-	stage := sync.State(s.name + string(s.stage))
-	return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
+	return nil
+	//stage := sync.State(s.name + string(s.stage))
+	//return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
 }
 
 func (s *Stager) End() error {
