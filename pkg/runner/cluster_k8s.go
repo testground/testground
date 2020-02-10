@@ -408,6 +408,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
+				"app":                 "testground",
 				"testground.plan":     input.TestPlan.Name,
 				"testground.testcase": runenv.TestCase,
 				"testground.run_id":   input.RunID,
