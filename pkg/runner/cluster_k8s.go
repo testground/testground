@@ -82,6 +82,10 @@ type ClusterK8sRunnerConfig struct {
 
 	// Region of the S3 bucket used for `outputs` from test plans
 	OutputsBucketRegion string `toml:"outputs_bucket_region"`
+
+	// Resources requested for each pod from the Kubernetes cluster
+	PodResourceMemory string `toml:"pod_resource_memory"`
+	PodResourceCPU    string `toml:"pod_resource_cpu"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -387,6 +391,8 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 }
 
 func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
 	client := pool.Acquire()
 	defer pool.Release(client)
 
@@ -436,8 +442,8 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("100Mi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: resource.MustParse(cfg.PodResourceMemory),
+							v1.ResourceCPU:    resource.MustParse(cfg.PodResourceCPU),
 						},
 					},
 				},
