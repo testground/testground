@@ -101,7 +101,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 	log.Debugw("setting barrier for state", "state", state, "required", required)
 
-	resCh := make(chan error)
+	resCh := make(chan error, 1)
 	go func() {
 		defer close(resCh)
 
