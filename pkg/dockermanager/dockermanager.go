@@ -6,6 +6,8 @@ import (
 	"io"
 	"time"
 
+	"errors"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -144,23 +146,27 @@ func (dm *Manager) Manage(
 			}
 		}
 	}
-	start := func(container string) {
-		if _, ok := managers[container]; ok {
+	start := func(containerID string) {
+		if _, ok := managers[containerID]; ok {
 			return
 		}
 
 		cctx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})
-		managers[container] = workerHandle{
+		managers[containerID] = workerHandle{
 			done:   done,
 			cancel: cancel,
 		}
 		go func() {
 			defer close(done)
-			handle := dm.NewHandle(container)
+			handle := dm.NewHandle(containerID)
 			err := worker(cctx, handle)
 			if err != nil {
-				handle.S().Errorf("sidecar worker failed: %s", err)
+				if errors.Is(err, context.Canceled) {
+					handle.S().Warnf("sidecar worker failed: %s", err)
+				} else {
+					handle.S().Errorf("sidecar worker failed: %s", err)
+				}
 			}
 		}()
 	}
