@@ -294,6 +294,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	startAfter := ""
 	downloader := s3manager.NewDownloader(sess)
+	downloader.Concurrency = 1 // force sequential downloads.
 
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
