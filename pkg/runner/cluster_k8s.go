@@ -49,6 +49,11 @@ const (
 	redisCPUs = 2.0
 	// number of CPUs allocated to each Sidecar. should be same as what is set in sidecar.yaml
 	sidecarCPUs = 0.2
+
+	// utilisation is how many CPUs from the remainder shall we allocate to Testground
+	// note that there are other services running on the Kubernetes cluster such as
+	// api proxy, kubedns, s3bucket, etc.
+	utilisation = 0.8
 )
 
 var (
@@ -508,7 +513,7 @@ func maxPods(pool *pool, podResourceCPU resource.Quantity) (int, error) {
 
 	totalCPUs := nodes * int(nodeCPUs)
 	availableCPUs := float64(totalCPUs) - redisCPUs - float64(nodes)*sidecarCPUs
-	podsCPUs := availableCPUs * 8 / 10 // we use only 80% of CPU of nodes for Testground pods
+	podsCPUs := availableCPUs * utilisation
 	pods := int(math.Round(podsCPUs/podCPU - 0.5))
 
 	return pods, nil
