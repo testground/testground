@@ -8,6 +8,7 @@ Ensure that you are running go 1.13 or later (for gomod support):
 > go version
 go version go1.13.1 darwin/amd64
 ```
+Ensure you install Docker on your machine.
 
 Then, onto getting the actual Testground code. Download the repo and build it:
 
@@ -86,6 +87,7 @@ docker pull ipfs/testground:latest
 ```
 
 or
+
 
 ```bash
 make docker-ipfs-testground
