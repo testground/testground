@@ -44,6 +44,11 @@ var (
 
 const (
 	defaultK8sNetworkAnnotation = "flannel"
+
+	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
+	redisCPUs = 2.0
+	// number of CPUs allocated to each Sidecar. should be same as what is set in sidecar.yaml
+	sidecarCPUs = 0.2
 )
 
 var (
@@ -480,8 +485,6 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 // maxPods returns the max allowed pods for the current cluster size
 // at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
 func maxPods(pool *pool, podResourceCPU resource.Quantity) (int, error) {
-	redisCPUs := 2.0   // set in redis-values.yaml
-	sidecarCPUs := 0.2 // set in sidecar.yaml
 	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
 	if err != nil {
 		return 0, err
