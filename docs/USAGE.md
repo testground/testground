@@ -1,15 +1,13 @@
 # Usage
 
+## Requirements
+
+1. [Go](https://golang.org/). >= 1.13
+2. [Docker](https://www.docker.com/).
+
 ## Setup
 
-Ensure that you are running go 1.13 or later (for gomod support):
-
-```bash
-> go version
-go version go1.13.1 darwin/amd64
-```
-
-Then, onto getting the actual Testground code. Download the repo and build it:
+Download the Testground repo and build it:
 
 ```bash
 > git clone https://github.com/ipfs/testground.git
