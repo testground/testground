@@ -87,6 +87,8 @@ docker pull ipfs/testground:latest
 
 or
 
+Please, ensure before running the command bellow, make sure you install Docker on your machine 
+
 ```bash
 make docker-ipfs-testground
 ```
