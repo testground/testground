@@ -119,6 +119,10 @@ func (re *RunEnv) Close() error {
 	close(re.structured)
 	close(re.unstructured)
 
+	if l := re.logger; l != nil {
+		_ = l.SLogger().Sync()
+	}
+
 	for l := range re.structured {
 		_ = l.Sync() // ignore errors.
 	}
