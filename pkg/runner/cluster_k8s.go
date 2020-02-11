@@ -301,7 +301,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	for {
 		log.Debugw("start after", "cursor", startAfter)
-		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)})
+		resp, err := svc.ListObjectsV2WithContext(ctx, &s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)})
 		if err != nil {
 			return fmt.Errorf("Unable to list items in bucket %q, %v", cfg.OutputsBucket, err)
 		}
@@ -317,7 +317,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 				return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
 			}
 
-			_, err = downloader.Download(FakeWriterAt{ww},
+			_, err = downloader.DownloadWithContext(ctx, FakeWriterAt{ww},
 				&s3.GetObjectInput{
 					Bucket: aws.String(cfg.OutputsBucket),
 					Key:    item.Key,
