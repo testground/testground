@@ -34,6 +34,11 @@ if [[ -z ${ASSETS_BUCKET_NAME} ]]; then
   exit 1
 fi
 
+if [[ -z ${ASSETS_S3_ENDPOINT} ]]; then
+  echo "ASSETS_S3_ENDPOINT is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
 kops create -f $CLUSTER_SPEC
 kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
@@ -51,6 +56,7 @@ echo "Add secret for S3 bucket"
 echo
 kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSETS_ACCESS_KEY" \
                                                --from-literal=secret-key="$ASSETS_SECRET_KEY" \
+                                               --from-literal=s3-endpoint="$ASSETS_S3_ENDPOINT" \
                                                --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
 
 
