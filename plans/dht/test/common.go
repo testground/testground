@@ -417,15 +417,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		}
 	}
 
-	if testNode.info.seq == 0 {
-		m := make(map[peer.ID]bool)
-		for _, info := range otherNodes {
-			_, undialable := info.properties[Undialable]
-			m[info.addrs.ID] = undialable
-		}
-
-		runenv.Message("%v", m)
-	}
+	outputStart(runenv, testNode)
 
 	return testNode, otherNodes, nil
 }
@@ -912,6 +904,8 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		runenv.RecordMessage("boostrap: start refresh - %d", i+1)
 
 		if err := <-dht.RefreshRoutingTable(); err != nil {
+			runenv.RecordMessage("bootstrap: refresh failure - rt size %d", dht.RoutingTable().Size())
+			outputGraph(dht, runenv, "failedrefresh")
 			_ = stager.End()
 			return err
 		}
@@ -1202,4 +1196,27 @@ func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
 			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
 		}
 	}
+}
+
+var nodeLogSetup gosync.Once
+var nodeLogger *zap.SugaredLogger
+
+func outputStart(runenv *runtime.RunEnv, node *NodeParams) {
+	nodeLogSetup.Do(func() {
+		var err error
+		_, nodeLogger, err = runenv.CreateStructuredAsset("node.out", runtime.StandardJSONConfig())
+		if err != nil {
+			runenv.Message("failed to initialize node.out asset; nooping logger: %s", err)
+			nodeLogger = zap.NewNop().Sugar()
+		}
+	})
+
+	_, undialable := node.info.properties[Undialable]
+
+	nodeLogger.Infow("nodeparams",
+		"seq", node.info.seq,
+		"dialable", !undialable,
+		"peerID", node.info.addrs.ID.Pretty(),
+		"addrs", node.info.addrs.Addrs,
+	)
 }
