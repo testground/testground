@@ -41,7 +41,6 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	defer outputGraph(node.dht, runenv, "end")
 	defer Teardown(ctx, runenv, watcher, writer)
 
 	// Bring the network into a nice, stable, bootstrapped state.
@@ -85,6 +84,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	runenv.RecordMessage("start provide loop")
+
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	if isProvider {
@@ -95,7 +96,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, p.Pretty())
+				ectx = TraceQuery(ctx, runenv, node, p.Pretty())
 				t := time.Now()
 				err := node.dht.Provide(ectx, c, true)
 				cancel()
@@ -135,7 +136,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, p.Pretty())
+				ectx = TraceQuery(ctx, runenv, node, p.Pretty())
 				t := time.Now()
 				pids, err := node.dht.FindProviders(ectx, c)
 				cancel()
@@ -163,5 +164,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
+	if err := stg.End(); err != nil {
+		return err
+	}
+
+	if err := stg.Begin(); err != nil {
+		return err
+	}
+	outputGraph(node.dht, runenv, "end")
 	return stg.End()
 }
