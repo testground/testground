@@ -45,6 +45,7 @@ instances = { min = 16, max = 10000, default = 16 }
   timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
   f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
+  n_paths       = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
 
 # seq 1
 [[testcases]]
@@ -62,6 +63,7 @@ instances = { min = 16, max = 10000, default = 16 }
   record_count = { type = "int", desc = "TODO DESCRIPTION", unit = "int", default = 5 }
   f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
+  n_paths = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
   #p_providing = { type = "int", desc = "", unit = "% of nodes" }
   #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
   #p_failing = { type = "int", desc = "", unit = "% of nodes" }

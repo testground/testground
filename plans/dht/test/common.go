@@ -55,6 +55,7 @@ type SetupOpts struct {
 	RecordCount    int
 	FUndialable    float64
 	ClientMode     bool
+	NDisjointPaths int
 }
 
 type NodeProperty int
@@ -197,6 +198,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		dhtopts.Datastore(datastore.NewMapDatastore()),
 		dhtopts.BucketSize(opts.BucketSize),
 		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
+		DisjointPathsOpt(opts.NDisjointPaths),
 	}
 
 	if !opts.AutoRefresh {
