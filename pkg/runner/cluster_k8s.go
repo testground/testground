@@ -292,21 +292,17 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	svc := s3.New(sess)
 
-	startAfter := ""
 	downloader := s3manager.NewDownloader(sess)
+	downloader.Concurrency = 1 // force sequential downloads.
 
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
+	query := s3.ListObjectsV2Input{Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)}
 	for {
-		log.Debugw("start after", "cursor", startAfter)
-		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)})
+		resp, err := svc.ListObjectsV2WithContext(ctx, &query)
 		if err != nil {
 			return fmt.Errorf("Unable to list items in bucket %q, %v", cfg.OutputsBucket, err)
-		}
-
-		if len(resp.Contents) == 0 {
-			break
 		}
 
 		log.Debugw("got contents", "len", len(resp.Contents))
@@ -316,7 +312,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 				return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
 			}
 
-			_, err = downloader.Download(FakeWriterAt{ww},
+			_, err = downloader.DownloadWithContext(ctx, FakeWriterAt{ww},
 				&s3.GetObjectInput{
 					Bucket: aws.String(cfg.OutputsBucket),
 					Key:    item.Key,
@@ -325,7 +321,10 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 				return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
 			}
 		}
-		startAfter = *(resp.Contents[len(resp.Contents)-1].Key)
+		if !*resp.IsTruncated {
+			break
+		}
+		query.SetContinuationToken(*resp.NextContinuationToken)
 	}
 
 	return nil
