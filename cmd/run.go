@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/ipfs/testground/pkg/logging"
@@ -36,6 +37,14 @@ var RunCommand = cli.Command{
 				cli.BoolFlag{
 					Name:  "ignore-artifacts, i",
 					Usage: "Ignores any build artifacts present in the composition file.",
+				},
+				cli.BoolFlag{
+					Name:  "collect",
+					Usage: "Collect assets at the end of the run phase.",
+				},
+				cli.StringFlag{
+					Name:  "collect-file, o",
+					Usage: "Destination for the assets if --collect is set",
 				},
 			},
 		},
@@ -173,5 +182,39 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	logging.S().Infof("finished run with ID: %s", rout.RunID)
+
+	// if the `collect` flag is not set, we are done, just return
+	collect := c.Bool("collect")
+	if !collect {
+		return nil
+	}
+
+	collectFile := c.String("collect-file")
+	if collectFile == "" {
+		collectFile = fmt.Sprintf("%s.zip", rout.RunID)
+	}
+
+	or := &client.OutputsRequest{
+		Runner: comp.Global.Runner,
+		RunID:  rout.RunID,
+	}
+
+	rc, err := cl.CollectOutputs(ctx, or)
+
+	file, err := os.Create(collectFile)
+	if err != nil {
+		if err == context.Canceled {
+			return fmt.Errorf("interrupted")
+		}
+		return fmt.Errorf("fatal error from daemon: %s", err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, rc)
+	if err != nil {
+		return err
+	}
+
+	logging.S().Infof("created file: %s", collectFile)
 	return nil
 }
