@@ -9,7 +9,8 @@ spec:
   - manifest: prometheus-operator
   - manifest: kubernetes-dashboard
   api:
-    dns: {}
+    loadBalancer:
+      type: Public
   authorization:
     rbac: {}
   channel: stable
