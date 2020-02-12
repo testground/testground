@@ -2,7 +2,7 @@ apiVersion: kops.k8s.io/v1alpha2
 kind: Cluster
 metadata:
   creationTimestamp: null
-  name: my-first-cluster-kops.k8s.local
+  name: ${NAME}
 spec:
   addons:
   - manifest: metrics-server
@@ -14,7 +14,7 @@ spec:
     rbac: {}
   channel: stable
   cloudProvider: aws
-  configBase: s3://kops-backend-bucket/my-first-cluster-kops.k8s.local
+  configBase: s3://${ASSETS_BUCKET_NAME}/${NAME}
   etcdClusters:
   - cpuRequest: 200m
     etcdMembers:
@@ -47,8 +47,8 @@ spec:
   kubernetesApiAccess:
   - 0.0.0.0/0
   kubernetesVersion: 1.15.7
-  masterInternalName: api.internal.my-first-cluster-kops.k8s.local
-  masterPublicName: api.my-first-cluster-kops.k8s.local
+  masterInternalName: api.internal.${NAME}
+  masterPublicName: api.${NAME}
   networkCIDR: 172.20.0.0/16
   networking:
     flannel:
@@ -74,7 +74,7 @@ kind: InstanceGroup
 metadata:
   creationTimestamp: null
   labels:
-    kops.k8s.io/cluster: my-first-cluster-kops.k8s.local
+    kops.k8s.io/cluster: ${NAME}
   name: master-eu-central-1a
 spec:
   image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2019-09-26
@@ -94,13 +94,13 @@ kind: InstanceGroup
 metadata:
   creationTimestamp: null
   labels:
-    kops.k8s.io/cluster: my-first-cluster-kops-k8s.local
+    kops.k8s.io/cluster: ${NAME}
   name: nodes
 spec:
   image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2019-09-26
   machineType: t2.medium
-  maxSize: 8
-  minSize: 1
+  maxSize: ${WORKER_NODES}
+  minSize: ${WORKER_NODES}
   nodeLabels:
     kops.k8s.io/instancegroup: nodes
   role: Node
