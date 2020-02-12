@@ -139,9 +139,46 @@ Testground Weekly (45 mins)
         - No. We know they're not relay addresses
         - There are a lot of old nodes in the network. There is an old bug where we would never forget addresses.
 
+
 ## Presentations
 
 - (@raulk) testground v0.2 milestone planning: task assignment for testground v0.2.
+
+- Testplans to emit their ip routes after network is initialised:
+
+    Description:
+    Rejig this issue into more general visibility into how Testground os building, planning, scheduling, etc. 
+    a run, so that users know where testgrounfs responsibility ends and the test plan’s begins.
+    
+  -(@nonsense) 
+    When we trigger the sidecar , side car doesn’t change the networking on idi test plans and they never get to the stage of network initialized.
+    I think that nice solution basically telling all the logs of Testground daemon and measure how long it takes to that stage to been pitched
+
+  -(@raulk)
+    How the Testground is doing, intermixing when things break. Diff to understand if it is the Testground slow or if is the test plan that is wrong -> better insight If we can make evident when this  happens. 
+
+  -(@aschmahmann)
+    Where the responsibility lies and determine the speed. 
+    Understanding like what are the properties of k8s network vs local network to make your Testground differently.
+    Side car can figure it out the properties.
+  
+  -(@raulk)
+    In the healthcheck if we can schedule workloads on to the environment to exercise the network to print out stats in order to know where is the backbone of the situation of the network-> let you know if the things are healthy in appearance or not
+
+  -(@cory)
+    How different is that from just the placebo test? You can have those like metrics and verify the environment.
+
+  -(@aschmahmann)
+    Those tests run in 2 nodes and note on 2000 nodes.
+  
+  -(@cory)
+    You could do the test for the 100 nodes to exercise the size of the cluster as well. 
+    
+  -(@aschmahmann)
+    Understanding the resource usage, if we are maxing out the machine, we should have the sdk printout metrics.
+    
+  -(@cory)
+   Easier alternative to sdk: Ship with Prometheus that report on the k8s nodes that would tell you your cpu usage.
 
 ## :dart: Next
 
