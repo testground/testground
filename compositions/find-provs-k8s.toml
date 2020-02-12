@@ -1,0 +1,53 @@
+[metadata]
+  name = "find-provs"
+  author = "adin"
+
+[global]
+  plan = "dht"
+  case = "find-providers"
+  total_instances = 100
+  builder = "docker:go"
+  runner = "cluster:k8s"
+  [global.build_config]
+    push_registry = true
+    registry_type = "aws"
+
+[[groups]]
+  id = "balsa"
+  [groups.instances]
+    count = 100
+    percentage = 0.0
+  [groups.build]
+  [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:07736f7b34c3"
+    [groups.run.test_params]
+      bucket_size = "4"
+      client_mode = "false"
+      f_undialable = "0.9"
+      n_providing = "1"
+      record_count = "5"
+      timeout_secs = "2000"
+
+[[groups]]
+  id = "cypress"
+  [groups.instances]
+    count = 0
+    percentage = 0.0
+  [groups.build]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "v0.4.2-0.20200204202258-35d3e4a5d43e"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat"
+      version = "v0.1.2-0.20200204200147-902af8cb7b6a"
+  [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:d4709f2f74cd"
+    [groups.run.test_params]
+      bucket_size = "4"
+      client_mode = "false"
+      f_undialable = "0.9"
+      n_providing = "1"
+      record_count = "5"
+      timeout_secs = "2000"
