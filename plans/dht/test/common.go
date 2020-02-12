@@ -283,7 +283,7 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 		return err
 	}
 
-	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -292,6 +292,8 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 		},
 		State: "network-configured2",
 	})
+
+	runenv.RecordMessage("finished resetting network latency")
 
 	err = <-watcher.Barrier(ctx, "network-configured2", int64(runenv.TestInstanceCount))
 	if err != nil {
@@ -902,6 +904,27 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		return err
 	}
 
+	for i := 0; i < 2; i++ {
+		if err := stager.Begin(); err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("boostrap: start refresh - %d", i+1)
+
+		if err := <-dht.RefreshRoutingTable(); err != nil {
+			_ = stager.End()
+			return err
+		}
+
+		runenv.RecordMessage("boostrap: done refresh - %d", i+1)
+
+		if err := stager.End(); err != nil {
+			return err
+		}
+	}
+
+	outputGraph(node.dht, runenv, "ar")
+
 	/////////////
 	// 3: TRIM //
 	/////////////
@@ -946,27 +969,32 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		}
 	}
 
-	runenv.Message("bootstrap: forgotten %d peers", forgotten)
+	runenv.RecordMessage("bootstrap: forgotten %d peers", forgotten)
 
 	// Make sure we have at least one peer. If not, reconnect to a
 	// bootstrapper and log a warning.
 	if len(dht.Host().Network().Peers()) == 0 {
 		// TODO: Report this as an error?
-		runenv.Message("bootstrap: fully disconnected, reconnecting.")
+		runenv.RecordMessage("bootstrap: fully disconnected, reconnecting.")
 		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 			return err
 		}
 		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
 			return err
 		}
-		runenv.Message("bootstrap: finished reconnecting to %d peers", len(toDial))
+		runenv.RecordMessage("bootstrap: finished reconnecting to %d peers", len(toDial))
 	}
 
-	if err := stager.End(); err != nil {
+	tmpCtx, tmpc := context.WithTimeout(ctx, time.Second*10)
+	if err := WaitRoutingTable(tmpCtx, runenv, dht); err != nil {
 		return err
 	}
+	if tmpCtx.Err() != nil {
+		runenv.RecordMessage("peer %s failed with rt of size %d", node.host.ID().Pretty(), node.dht.RoutingTable().Size())
+	}
+	tmpc()
 
-	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 
@@ -1093,7 +1121,7 @@ func (s *Stager) Begin() error {
 
 func (s *Stager) End() error {
 	// Signal that we're done
-	stage := sync.State(s.name + string(s.stage))
+	stage := sync.State(s.name + strconv.Itoa(s.stage))
 	_, err := s.writer.SignalEntry(s.ctx, stage)
 	if err != nil {
 		return err
@@ -1171,7 +1199,7 @@ func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
 
 	for i, b := range dht.RoutingTable().Buckets {
 		for _, p := range b.Peers() {
-			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), strconv.Itoa(i), p.Pretty())
+			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
 		}
 	}
 }

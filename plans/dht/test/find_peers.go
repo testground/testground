@@ -98,7 +98,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		runenv.Message("start find peer number %d", found+1)
 
 		ectx, cancel := context.WithCancel(ctx)
-		ectx = TraceQuery(ectx, runenv, p.Pretty())
+		ectx = TraceQuery(ectx, runenv, node, p.Pretty())
 
 		t := time.Now()
 
