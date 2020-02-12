@@ -27,6 +27,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		NodesProviding: runenv.IntParam("n_providing"),
 		RecordCount:    runenv.IntParam("record_count"),
 		ClientMode:     runenv.BooleanParam("client_mode"),
+		NDisjointPaths: runenv.IntParam("n_paths"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
