@@ -129,7 +129,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 			case <-ctx.Done():
 				// Context fired before we got enough elements.
-				err := fmt.Errorf("context deadline exceeded waiting on %s; not enough elements, required: %d, got: %d", state, required, last)
+				err := fmt.Errorf("%s waiting on %s; not enough elements, required %d, got %d", err, state, required, last)
 				resCh <- err
 				return
 			}
