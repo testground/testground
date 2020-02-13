@@ -5,8 +5,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -29,16 +29,16 @@ func (re *RunEnv) MustExportPrometheus() string {
 // HTTPPeriodicSnapshots periodically fetches the snapshots from the given address
 // and outputs them to the out file. The out filename may contain a $TIME placeholder.
 // Otherwise, the time will just be appended to it.
-func (re *RunEnv) HTTPPeriodicSnapshots(addr string, dur time.Duration, out string) {
-	includesPlaceholder := strings.Index(out, "$TIME") != -1
+func (re *RunEnv) HTTPPeriodicSnapshots(addr string, dur time.Duration, directory string) {
+	err := os.MkdirAll(path.Join(re.TestOutputsPath, directory), 0777)
+	if err != nil {
+		re.RecordMessage("cannot create metrics directory: %v", err)
+		return
+	}
+
 	nextFile := func() (*os.File, error) {
 		timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-		filename := out + "-" + timestamp
-		if includesPlaceholder {
-			filename = strings.Replace(out, "$TIME", timestamp, 1)
-		}
-
-		return re.CreateRawAsset(filename)
+		return os.Create(path.Join(re.TestOutputsPath, directory, timestamp+".out"))
 	}
 
 	for ; ; time.Sleep(dur) {
