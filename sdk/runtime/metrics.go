@@ -41,6 +41,7 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 
 	go func() {
 		ticker := time.NewTicker(dur)
+		defer ticker.Stop()
 
 		for {
 			select {
