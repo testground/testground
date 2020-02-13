@@ -34,7 +34,7 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-		time.Sleep(time.Minute)
+		time.Sleep(time.Second * 10)
 		return nil
 	default:
 		return fmt.Errorf("aborting")
