@@ -46,7 +46,13 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 				return
 			default:
 				func() {
-					resp, err := http.Get(addr)
+					req, err := http.NewRequestWithContext(ctx, "GET", addr, nil)
+					if err != nil {
+						re.RecordMessage("error while creating http request: %v", err)
+						return
+					}
+
+					resp, err := http.DefaultClient.Do(req)
 					if err != nil {
 						re.RecordMessage("error while scraping http endpoint: %v", err)
 						return
