@@ -38,7 +38,8 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ```
 aws s3 cp s3://kops-shared-key-bucket/testground_rsa ~/.ssh/
-aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/                                                                                                                                                                  <<<
+aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/
+chmod 700 ~/.ssh/testground_rsa
 ```
 
 3. Create a bucket for `kops` state. This is similar to Terraform state bucket.
