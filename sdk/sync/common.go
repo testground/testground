@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
@@ -32,33 +33,32 @@ const (
 // will be wired in by Nomad/Swarm.
 func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Client, err error) {
 	var (
+		port = 6379
 		host = os.Getenv(EnvRedisHost)
-		port = os.Getenv(EnvRedisPort)
 	)
+	if portStr := os.Getenv(EnvRedisPort); portStr != "" {
+		port, err = strconv.Atoi(portStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse port '%q': %w", portStr, err)
+		}
+	}
 
+	var tryHosts []string
 	if host == "" {
-		// fallback on localhost (useful for local:exec runners).
-		host = "localhost"
-
 		// Try to resolve the "testground-redis" host from Docker's DNS.
 		//
 		// Fall back to attempting to use `host.docker.internal` which
 		// is only available in macOS and Windows.
-		for _, h := range []string{RedisHostname, HostHostname} {
-			if addrs, err := net.DefaultResolver.LookupHost(ctx, h); err == nil && len(addrs) > 0 {
-				host = h
-				break
-			}
-		}
-	}
-
-	if port == "" {
-		port = "6379"
+		// Finally, falling back on localhost (for local:exec)
+		//
+		// TODO: Pick these fallbacks based on the runner.
+		tryHosts = []string{RedisHostname, HostHostname, "localhost"}
+	} else {
+		tryHosts = []string{host}
 	}
 
 	// TODO: will need to populate opts from an env variable.
-	opts := &redis.Options{
-		Addr:            fmt.Sprintf("%s:%s", host, port),
+	opts := redis.Options{
 		MaxRetries:      5,
 		MinRetryBackoff: 1 * time.Second,
 		MaxRetryBackoff: 3 * time.Second,
@@ -66,12 +66,34 @@ func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Cli
 		ReadTimeout:     10 * time.Second,
 	}
 
-	logging.S().Debugw("redis options", "addr", opts.Addr)
+	for _, h := range tryHosts {
+		logging.S().Debugw("resolving redis host", "host", h)
 
-	client = redis.NewClient(opts)
+		addrs, err := net.DefaultResolver.LookupIPAddr(ctx, h)
+		if err != nil {
+			logging.S().Debugw("failed to resolve redis host", "host", h, "error", err)
+			continue
+		}
+		for _, addr := range addrs {
+			logging.S().Debugw("trying redis host", "host", h, "address", addr, "error", err)
+			opts := opts // copy to be safe.
+			// Use TCPAddr to properly handle IPv6 addresses.
+			opts.Addr = (&net.TCPAddr{IP: addr.IP, Zone: addr.Zone, Port: port}).String()
+			client = redis.NewClient(&opts)
 
-	// PING redis to make sure we're alive.
-	return client, client.WithContext(ctx).Ping().Err()
+			// PING redis to make sure we're alive.
+			if err := client.WithContext(ctx).Ping().Err(); err != nil {
+				client.Close()
+				logging.S().Debugw("failed to ping redis host", "host", h, "address", addr, "error", err)
+				continue
+			}
+
+			logging.S().Debugw("redis options", "addr", opts.Addr)
+
+			return client, nil
+		}
+	}
+	return nil, fmt.Errorf("no viable redis host found")
 }
 
 // MustWatcherWriter proxies to WatcherWriter, panicking if an error occurs.
