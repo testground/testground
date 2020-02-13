@@ -60,9 +60,14 @@ export KOPS_STATE_STORE=s3://kops-backend-bucket
 export WORKER_NODES=4
 export CLUSTER_SPEC=~/cluster.yaml
 export PUBKEY=~/.ssh/id_rsa.pub
+
+# details for S3 bucket to be used for assets
 export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
 export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
 export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
+
+# depends on region, for example "https://s3.eu-central-1.amazonaws.com:443"
+export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
 4. Generate the cluster spec. You could reuse it next time you create a cluster.

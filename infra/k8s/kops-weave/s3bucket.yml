@@ -41,7 +41,10 @@ spec:
             - name: MNT_POINT
               value: "/s3fs-mount"
             - name: S3_ENDPOINT
-              value: "https://s3.eu-central-1.amazonaws.com:443"
+              valueFrom:
+                secretKeyRef:
+                  name: assets-s3-bucket
+                  key: s3-endpoint
             - name: S3_EXTRAVARS
               value: ",use_path_request_style"
           volumeMounts:
