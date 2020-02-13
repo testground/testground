@@ -249,7 +249,10 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs := getPodLogs(client, podName)
+				logs, err := getPodLogs(client, podName)
+				if err != nil {
+					return err
+				}
 
 				fmt.Print(logs)
 				return nil
@@ -330,25 +333,24 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	return nil
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
+func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error) {
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
 	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
 	podLogs, err := req.Stream()
 	if err != nil {
-		return "error in opening stream"
+		return "", fmt.Errorf("error in opening stream: %v", err)
 	}
 	defer podLogs.Close()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "error in copy information from podLogs to buf"
+		return "", fmt.Errorf("error in copy information from podLogs to buf: %v", err)
 	}
-	str := buf.String()
 
-	return str
+	return buf.String(), nil
 }
 
 func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
@@ -453,6 +455,12 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					Image: g.ArtifactPath,
 					Args:  []string{},
 					Env:   env,
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "pprof",
+							ContainerPort: 6060,
+						},
+					},
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
