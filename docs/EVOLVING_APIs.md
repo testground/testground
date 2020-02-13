@@ -90,7 +90,7 @@ Ownership:
   codebase that's actually _needs_ these components, multiplexes over them, and
   the one that'll spot breakage immediately.
 
-### Build tags
+### Build tags
 
 The builder can inject build tags representing upstream dependency versions,
 such that test plans can then adequately select which shims to activate at build
@@ -174,7 +174,7 @@ that drawbacks (2) and (3) actually make assumptions about available types.
 However, this approach _could_ be combined with shims to layer on conditional
 activation/selection based on upstream dependency versions.
 
-### Reflection.
+### Reflection
 
 Reflection in go is great, but insufficient by itselef in the advent of type
 creation and removal. Go cannot load types dynamically (like Java can via the
