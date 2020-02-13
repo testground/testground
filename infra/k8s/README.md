@@ -55,7 +55,6 @@ aws s3api create-bucket \
 - set `kops` state store bucket
 - set number of worker nodes
 - set location for cluster spec to be generated
-- set location of your SSH public key
 - set credentials and locations for `outputs` S3 bucket
 
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
@@ -66,7 +65,6 @@ export ZONES=eu-central-1a
 export KOPS_STATE_STORE=s3://kops-backend-bucket
 export WORKER_NODES=4
 export CLUSTER_SPEC=~/cluster.yaml
-export PUBKEY=~/.ssh/testground_rsa.pub
 
 # details for S3 bucket to be used for assets
 export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
@@ -111,7 +109,7 @@ helm repo update
 ## Apply the cluster configuration and create cloud resources and install Testground dependencies
 
 ```
-./install.sh $NAME $CLUSTER_SPEC $PUBKEY $WORKER_NODES
+./install.sh $NAME $CLUSTER_SPEC $WORKER_NODES
 ```
 
 
