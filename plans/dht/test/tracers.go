@@ -51,7 +51,7 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, t
 	})
 
 	ectx, events := routing.RegisterForQueryEvents(ctx)
-	log := qlogger.With("node", node.host.ID().Pretty(),"target", target)
+	log := qlogger.With("node", node.host.ID().Pretty(), "target", target)
 
 	go func() {
 		for e := range events {

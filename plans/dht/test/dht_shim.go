@@ -31,7 +31,7 @@ func DisjointPathsOpt(d int) kadopts.Option {
 }
 
 func (s *DHTShim) PutValue(ctx context.Context, key string, val []byte, opts ...routing.Option) error {
-	return s.dht.PutValue(ctx,key, val, opts...)
+	return s.dht.PutValue(ctx, key, val, opts...)
 }
 
 func (s *DHTShim) GetValue(ctx context.Context, key string, opts ...routing.Option) ([]byte, error) {
