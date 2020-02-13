@@ -40,11 +40,13 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 	}
 
 	go func() {
+		ticker := time.NewTicker(dur)
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			default:
+			case <-ticker.C:
 				func() {
 					req, err := http.NewRequestWithContext(ctx, "GET", addr, nil)
 					if err != nil {
@@ -69,8 +71,6 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 					io.Copy(file, resp.Body)
 				}()
 			}
-
-			time.Sleep(dur)
 		}
 	}()
 
