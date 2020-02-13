@@ -22,7 +22,12 @@ func (re *RunEnv) MustExportPrometheus() net.Listener {
 		panic(err)
 	}
 
-	go http.Serve(listener, promhttp.Handler())
+	go func() {
+		// avoid triggering golangci-lint for not checking
+		// the error.
+		_ = http.Serve(listener, promhttp.Handler())
+	}()
+
 	return listener
 }
 
