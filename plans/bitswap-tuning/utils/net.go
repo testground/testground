@@ -47,7 +47,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		State: "network-configured",
 	})
 	if err != nil {
-		return fmt.Errorf("failed to configure network: %w", err)
+		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
 	}
 
 	runenv.Message("%s %d has %s latency and %dMB bandwidth", nodetp, tpindex, latency, bandwidth)

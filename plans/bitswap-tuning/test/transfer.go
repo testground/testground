@@ -13,7 +13,8 @@ import (
 
 	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 	"github.com/libp2p/go-libp2p"
-	core "github.com/libp2p/go-libp2p-core"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 )
 
 // NOTE: To run use:
@@ -62,13 +63,13 @@ func Transfer(runenv *runtime.RunEnv) error {
 	defer h.Close()
 
 	// Get sequence number of this host
-	seq, err := writer.Write(ctx, sync.PeerSubtree, core.InfoFromHost(h))
+	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
 	if err != nil {
 		return err
 	}
 
 	// Get addresses of all peers
-	peerCh := make(chan *core.AddrInfo)
+	peerCh := make(chan *peer.AddrInfo)
 	sctx, cancelSub := context.WithCancel(ctx)
 	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
 		cancelSub()
@@ -187,14 +188,14 @@ func Transfer(runenv *runtime.RunEnv) error {
 						runenv.Message("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 						// Signal we've completed generating the seed data
-						_, err = writer.SignalEntry(seedGenerated)
+						_, err = writer.SignalEntry(ctx, seedGenerated)
 						if err != nil {
 							return fmt.Errorf("Failed to signal seed generated: %w", err)
 						}
 					}
 
 					// Inform other nodes of the root CID
-					if _, err = writer.Write(rootCidSubtree, &rootCid); err != nil {
+					if _, err = writer.Write(ctx, rootCidSubtree, &rootCid); err != nil {
 						return fmt.Errorf("Failed to get Redis Sync rootCidSubtree %w", err)
 					}
 				}
@@ -215,22 +216,21 @@ func Transfer(runenv *runtime.RunEnv) error {
 				if isFirstRun {
 					// Get the root CID from a seed
 					rootCidCh := make(chan *cid.Cid, 1)
-					cancelRootCidSub, err := watcher.Subscribe(rootCidSubtree, rootCidCh)
-					if err != nil {
+					sctx, cancelRootCidSub := context.WithCancel(ctx)
+					if err := watcher.Subscribe(sctx, rootCidSubtree, rootCidCh); err != nil {
+						cancelRootCidSub()
 						return fmt.Errorf("Failed to subscribe to rootCidSubtree %w", err)
 					}
 
 					// Note: only need to get the root CID from one seed - it should be the
 					// same on all seeds (seed data is generated from repeatable random
 					// sequence)
-					select {
-					case rootCidPtr := <-rootCidCh:
-						cancelRootCidSub()
-						rootCid = *rootCidPtr
-					case <-time.After(timeout):
-						cancelRootCidSub()
+					rootCidPtr, ok := <-rootCidCh
+					cancelRootCidSub()
+					if !ok {
 						return fmt.Errorf("no root cid in %d seconds", timeout/time.Second)
 					}
+					rootCid = *rootCidPtr
 				}
 			}
 
