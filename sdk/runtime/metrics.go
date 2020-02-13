@@ -30,10 +30,6 @@ func (re *RunEnv) MustExportPrometheus() net.Listener {
 // HTTPPeriodicSnapshots periodically fetches the snapshots from the given address
 // and outputs them to the out directory. Every file will be in the format timestamp.out.
 func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur time.Duration, outDir string) error {
-	if !strings.HasPrefix(addr, "http") {
-		addr = "http://" + addr
-	}
-
 	err := os.MkdirAll(path.Join(re.TestOutputsPath, outDir), 0777)
 	if err != nil {
 		return err

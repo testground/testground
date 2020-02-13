@@ -29,7 +29,7 @@ func run(runenv *runtime.RunEnv) error {
 		defer cancel()
 
 		// snapshot metrics every second and save them into "metrics" directory
-		err := runenv.HTTPPeriodicSnapshots(ctx, listener.Addr().String(), time.Second, "metrics")
+		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+listener.Addr().String(), time.Second, "metrics")
 		if err != nil {
 			return err
 		}
