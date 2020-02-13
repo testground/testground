@@ -34,7 +34,14 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 1. [Configure your AWS credentials](https://docs.aws.amazon.com/cli/)
 
-2. Create a bucket for `kops` state. This is similar to Terraform state bucket.
+2. Download shared key for `kops`. We use a shared key, so that everyone on the team can log into any cluster and have full access.
+
+```
+aws s3 cp s3://kops-shared-key-bucket/testground_rsa ~/.ssh/
+aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/                                                                                                                                                                  <<<
+```
+
+3. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
 ```
 aws s3api create-bucket \
@@ -42,7 +49,7 @@ aws s3api create-bucket \
     --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
 ```
 
-3. Pick up
+4. Pick up
 - a cluster name,
 - set AWS zone
 - set `kops` state store bucket
@@ -59,7 +66,7 @@ export ZONES=eu-central-1a
 export KOPS_STATE_STORE=s3://kops-backend-bucket
 export WORKER_NODES=4
 export CLUSTER_SPEC=~/cluster.yaml
-export PUBKEY=~/.ssh/id_rsa.pub
+export PUBKEY=~/.ssh/testground_rsa.pub
 
 # details for S3 bucket to be used for assets
 export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
@@ -70,7 +77,7 @@ export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_se
 export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
-4. Generate the cluster spec. You could reuse it next time you create a cluster.
+5. Generate the cluster spec. You could reuse it next time you create a cluster.
 
 ```
 kops create cluster \
@@ -85,7 +92,7 @@ kops create cluster \
   -o yaml > $CLUSTER_SPEC
 ```
 
-5. Update `kubelet` section in spec with:
+6. Update `kubelet` section in spec with:
 ```
   kubelet:
     anonymousAuth: false
@@ -94,7 +101,7 @@ kops create cluster \
     - net.core.somaxconn
 ```
 
-6. Set up Helm and add the `stable` Helm Charts repository
+7. Set up Helm and add the `stable` Helm Charts repository
 
 ```
 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
@@ -198,6 +205,16 @@ kubectl get pods -o wide
 kubectl logs <pod-id, e.g. tg-dht-c95b5>
 ```
 
+
+## Use a Kubernetes context for another cluster
+
+`kops` lets you download the entire Kubernetes context config.
+
+If you want to let other people on your team connect to your Kubernetes cluster, you need to give them the information.
+
+```
+kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
+```
 
 ## Known issues and future improvements
 
