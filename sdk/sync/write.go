@@ -199,10 +199,10 @@ func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err e
 // Close closes this Writer, and drops all owned keys immediately, erroring if
 // those deletions fail.
 func (w *Writer) Close() error {
-	w.cancel()
-
 	w.lk.Lock()
 	defer w.lk.Unlock()
+
+	w.cancel()
 
 	w.keepAliveSet = nil
 
