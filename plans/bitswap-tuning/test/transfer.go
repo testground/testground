@@ -84,7 +84,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 
 	/// --- Warm up
 
-	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
+	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Note: seq starts at 1 (not 0)
 	var nodetp utils.NodeType
@@ -93,15 +93,15 @@ func Transfer(runenv *runtime.RunEnv) error {
 	case seq <= int64(leechCount):
 		nodetp = utils.Leech
 		tpindex = int(seq) - 1
-		runenv.Message("I am leech %d", tpindex)
+		runenv.RecordMessage("I am leech %d", tpindex)
 	case seq > int64(leechCount+passiveCount):
 		nodetp = utils.Seed
 		tpindex = int(seq) - 1 - (leechCount + passiveCount)
-		runenv.Message("I am seed %d", tpindex)
+		runenv.RecordMessage("I am seed %d", tpindex)
 	default:
 		nodetp = utils.Passive
 		tpindex = int(seq) - 1 - leechCount
-		runenv.Message("I am passive node %d (neither leech nor seed)", tpindex)
+		runenv.RecordMessage("I am passive node %d (neither leech nor seed)", tpindex)
 	}
 
 	// Set up network (with traffic shaping)
@@ -121,8 +121,8 @@ func Transfer(runenv *runtime.RunEnv) error {
 
 	// Signal that this node is in the given state, and wait for all peers to
 	// send the same signal
-	signalAndWaitForAll := func(state string) {
-		utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
+	signalAndWaitForAll := func(state string) error {
+		return utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
 	}
 
 	// For each file size
@@ -142,9 +142,12 @@ func Transfer(runenv *runtime.RunEnv) error {
 			runId := fmt.Sprintf("%d-%d", sizeIndex, runNum)
 
 			// Wait for all nodes to be ready to start the run
-			signalAndWaitForAll("start-run-" + runId)
+			err = signalAndWaitForAll("start-run-" + runId)
+			if err != nil {
+				return err
+			}
 
-			runenv.Message("Starting run %d / %d (%d bytes)", runNum, runCount, fileSize)
+			runenv.RecordMessage("Starting run %d / %d (%d bytes)", runNum, runCount, fileSize)
 			var bsnode *utils.Node
 			rootCidSubtree := getRootCidSubtree(sizeIndex)
 
@@ -175,7 +178,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 						}
 
 						// Generate a file of the given size and add it to the datastore
-						runenv.Message("Generating seed data of %d bytes", fileSize)
+						runenv.RecordMessage("Generating seed data of %d bytes", fileSize)
 						start = time.Now()
 					}
 
@@ -185,7 +188,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 					}
 
 					if genSeedSerial {
-						runenv.Message("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
+						runenv.RecordMessage("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 						// Signal we've completed generating the seed data
 						_, err = writer.SignalEntry(ctx, seedGenerated)
@@ -235,17 +238,23 @@ func Transfer(runenv *runtime.RunEnv) error {
 			}
 
 			// Wait for all nodes to be ready to dial
-			signalAndWaitForAll("ready-to-connect-" + runId)
+			err = signalAndWaitForAll("ready-to-connect-" + runId)
+			if err != nil {
+				return err
+			}
 
 			// Dial all peers
 			dialed, err := utils.DialOtherPeers(ctx, h, addrInfos)
 			if err != nil {
 				return err
 			}
-			runenv.Message("Dialed %d other nodes", len(dialed))
+			runenv.RecordMessage("Dialed %d other nodes", len(dialed))
 
 			// Wait for all nodes to be connected
-			signalAndWaitForAll("connect-complete-" + runId)
+			err = signalAndWaitForAll("connect-complete-" + runId)
+			if err != nil {
+				return err
+			}
 
 			/// --- Start test
 
@@ -256,18 +265,21 @@ func Transfer(runenv *runtime.RunEnv) error {
 				startDelay := time.Duration(seq-1) * requestStagger
 				time.Sleep(startDelay)
 
-				runenv.Message("Leech fetching data after %s delay", startDelay)
+				runenv.RecordMessage("Leech fetching data after %s delay", startDelay)
 				start := time.Now()
 				err := bsnode.FetchGraph(ctx, rootCid)
 				timeToFetch = time.Since(start)
 				if err != nil {
 					return fmt.Errorf("Error fetching data through Bitswap: %w", err)
 				}
-				runenv.Message("Leech fetch complete (%s)", timeToFetch)
+				runenv.RecordMessage("Leech fetch complete (%s)", timeToFetch)
 			}
 
 			// Wait for all leeches to have downloaded the data from seeds
-			signalAndWaitForAll("transfer-complete-" + runId)
+			err = signalAndWaitForAll("transfer-complete-" + runId)
+			if err != nil {
+				return err
+			}
 
 			/// --- Report stats
 			err = emitMetrics(runenv, bsnode, runNum, seq, latency, bandwidthMB, fileSize, nodetp, tpindex, timeToFetch)
@@ -344,15 +356,15 @@ func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int
 	latencyMS := latency.Milliseconds()
 	id := fmt.Sprintf("latencyMS:%d/bandwidthMB:%d/run:%d/seq:%d/file-size:%d/%s:%d", latencyMS, bandwidthMB, runNum, seq, fileSize, nodetp, tpindex)
 	if nodetp == utils.Leech {
-		runenv.EmitMetric(utils.MetricTimeToFetch(id), float64(timeToFetch))
+		runenv.RecordMetric(utils.MetricTimeToFetch(id), float64(timeToFetch))
 	}
-	runenv.EmitMetric(utils.MetricMsgsRcvd(id), float64(stats.MessagesReceived))
-	runenv.EmitMetric(utils.MetricDataSent(id), float64(stats.DataSent))
-	runenv.EmitMetric(utils.MetricDataRcvd(id), float64(stats.DataReceived))
-	runenv.EmitMetric(utils.MetricDupDataRcvd(id), float64(stats.DupDataReceived))
-	runenv.EmitMetric(utils.MetricBlksSent(id), float64(stats.BlocksSent))
-	runenv.EmitMetric(utils.MetricBlksRcvd(id), float64(stats.BlocksReceived))
-	runenv.EmitMetric(utils.MetricDupBlksRcvd(id), float64(stats.DupBlksReceived))
+	runenv.RecordMetric(utils.MetricMsgsRcvd(id), float64(stats.MessagesReceived))
+	runenv.RecordMetric(utils.MetricDataSent(id), float64(stats.DataSent))
+	runenv.RecordMetric(utils.MetricDataRcvd(id), float64(stats.DataReceived))
+	runenv.RecordMetric(utils.MetricDupDataRcvd(id), float64(stats.DupDataReceived))
+	runenv.RecordMetric(utils.MetricBlksSent(id), float64(stats.BlocksSent))
+	runenv.RecordMetric(utils.MetricBlksRcvd(id), float64(stats.BlocksReceived))
+	runenv.RecordMetric(utils.MetricDupBlksRcvd(id), float64(stats.DupBlksReceived))
 
 	return nil
 }

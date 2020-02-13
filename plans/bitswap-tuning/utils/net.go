@@ -50,7 +50,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
 	}
 
-	runenv.Message("%s %d has %s latency and %dMB bandwidth", nodetp, tpindex, latency, bandwidth)
+	runenv.RecordMessage("%s %d has %s latency and %dMB bandwidth", nodetp, tpindex, latency, bandwidth)
 
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
 	if err != nil {

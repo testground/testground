@@ -43,7 +43,7 @@ func DialOtherPeers(ctx context.Context, self core.Host, ais []peer.AddrInfo) ([
 		ai := ai
 		g.Go(func() error {
 			if err := self.Connect(ctx, ai); err != nil {
-				fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
+				return fmt.Errorf("Error while dialing peer %v: %w", ai.Addrs, err)
 			}
 			return nil
 		})

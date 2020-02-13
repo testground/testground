@@ -80,7 +80,7 @@ func ClearBlockstore(ctx context.Context, bstore blockstore.Blockstore) error {
 }
 
 func CreateBitswapNode(ctx context.Context, h core.Host, bstore blockstore.Blockstore) (*Node, error) {
-	routing, err := nilrouting.ConstructNilRouting(nil, nil, nil, nil)
+	routing, err := nilrouting.ConstructNilRouting(ctx, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}
