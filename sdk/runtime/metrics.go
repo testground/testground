@@ -42,20 +42,23 @@ func (re *RunEnv) HTTPPeriodicSnapshots(addr string, dur time.Duration, out stri
 	}
 
 	for ; ; time.Sleep(dur) {
-		resp, err := http.Get(addr)
-		if err != nil {
-			re.RecordMessage("error while getting prometheus stats: %v", err)
-			continue
-		}
+		func() {
+			resp, err := http.Get(addr)
+			if err != nil {
+				re.RecordMessage("error while getting prometheus stats: %v", err)
+				return
+			}
+			defer resp.Body.Close()
 
-		file, err := nextFile()
-		if err != nil {
-			re.RecordMessage("error while getting metrics output file: %v", err)
-			continue
-		}
-		defer file.Close()
+			file, err := nextFile()
+			if err != nil {
+				re.RecordMessage("error while getting metrics output file: %v", err)
+				return
+			}
+			defer file.Close()
 
-		io.Copy(file, resp.Body)
-		time.Sleep(dur)
+			io.Copy(file, resp.Body)
+			time.Sleep(dur)
+		}()
 	}
 }
