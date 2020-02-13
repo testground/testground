@@ -43,8 +43,6 @@ jobs:
         - make lint           # run a bunch of code checkers/linters in parallel
         - make test-build     # build the project
         - make test           # Run all the tests with the race detector enabled
-      after_success:
-        - bash <(curl -s https://codecov.io/bash)
         
     - stage: lint_build_check_test_run
       os: windows
@@ -54,8 +52,6 @@ jobs:
         # Redis is missing on Windows so we skip the tests here
         # - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...  # Run all the tests with the race detector enabled
         - go build .
-      after_success:
-        - bash <(curl -s https://codecov.io/bash)
 
 # Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
 # We also currently don't have any tests that would catch any bugs.
