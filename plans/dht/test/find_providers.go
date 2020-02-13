@@ -28,6 +28,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		RecordCount:    runenv.IntParam("record_count"),
 		ClientMode:     runenv.BooleanParam("client_mode"),
 		NDisjointPaths: runenv.IntParam("n_paths"),
+		Datastore:      runenv.IntParam("datastore"),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
@@ -78,7 +79,6 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		writer:  writer,
 	}
 
-
 	isProvider := node.info.seq <= opts.NodesProviding
 
 	if err := stg.Begin(); err != nil {
@@ -120,7 +120,6 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-
 	if err := stg.End(); err != nil {
 		return err
 	}
@@ -130,7 +129,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	}
 
 	if !isProvider {
-	g := errgroup.Group{}
+		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index
 			c := cid

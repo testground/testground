@@ -46,6 +46,7 @@ instances = { min = 16, max = 10000, default = 16 }
   f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   n_paths       = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
+  datastore     = { type = "int", desc = "datastore type", unit = "int", default = 0 }
 
 # seq 1
 [[testcases]]
@@ -64,6 +65,7 @@ instances = { min = 16, max = 10000, default = 16 }
   f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   n_paths = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
+  datastore = { type = "int", desc = "datastore type", unit = "int", default = 0 }
   #p_providing = { type = "int", desc = "", unit = "% of nodes" }
   #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
   #p_failing = { type = "int", desc = "", unit = "% of nodes" }

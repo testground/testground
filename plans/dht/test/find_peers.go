@@ -20,6 +20,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		FUndialable:    runenv.FloatParam("f_undialable"),
 		ClientMode:     runenv.BooleanParam("client_mode"),
 		NDisjointPaths: runenv.IntParam("n_paths"),
+		Datastore:      runenv.IntParam("datastore"),
 	}
 
 	if opts.NFindPeers > runenv.TestInstanceCount {

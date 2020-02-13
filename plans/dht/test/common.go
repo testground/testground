@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-datastore"
 	"math"
 	"math/rand"
 	"net"
@@ -16,7 +17,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	"github.com/ipfs/go-datastore"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 
 	"github.com/libp2p/go-libp2p"
 	autonat "github.com/libp2p/go-libp2p-autonat"
@@ -56,6 +57,7 @@ type SetupOpts struct {
 	FUndialable    float64
 	ClientMode     bool
 	NDisjointPaths int
+	Datastore      int
 }
 
 type NodeProperty int
@@ -109,7 +111,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 	} else {
 		//min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
 		//max = int(float64(min) * 1.1)
-		min = runenv.TestInstanceCount*10
+		min = runenv.TestInstanceCount * 10
 		max = min * 2
 	}
 
@@ -194,8 +196,21 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, err
 	}
 
+	var ds datastore.Batching
+	switch opts.Datastore {
+	case 0:
+		ds = datastore.NewMapDatastore()
+	case 1:
+		ds, err = leveldb.NewDatastore("", nil)
+		if err != nil {
+			return nil, nil, err
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid datastore type")
+	}
+
 	dhtOptions := []dhtopts.Option{
-		dhtopts.Datastore(datastore.NewMapDatastore()),
+		dhtopts.Datastore(ds),
 		dhtopts.BucketSize(opts.BucketSize),
 		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
 		DisjointPathsOpt(opts.NDisjointPaths),
@@ -326,7 +341,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	seqNumCh := watcher.Barrier(ctx, "seqNum", int64(runenv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	seqSeed, err := writer.SignalEntry(ctx,"seqNum")
+	seqSeed, err := writer.SignalEntry(ctx, "seqNum")
 	if err != nil {
 		return nil, nil, err
 	}
