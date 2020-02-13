@@ -115,7 +115,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 		defer ticker.Stop()
 
-		for last != required {
+		for last < required {
 			select {
 			case <-ticker.C:
 				last, err = client.Get(k).Int64()
@@ -134,7 +134,11 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 				return
 			}
 		}
-		resCh <- nil
+		if last > required {
+			resCh <- fmt.Errorf("when waiting on %s; too many elements, required %d, got %d", state, required, last)
+		} else {
+			resCh <- nil
+		}
 	}()
 
 	return resCh
