@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -14,8 +15,15 @@ func run(runenv *runtime.RunEnv) error {
 		panic("test case sequence number not set")
 	}
 
-	if runenv.TestCaseSeq != 0 {
+	switch runenv.TestCaseSeq {
+	case 0:
+		return nil
+	case 2:
+		addr := runenv.MustExportPrometheus()
+		go runenv.HTTPPeriodicSnapshots(addr, time.Second, "metrics-$TIME.out")
+		time.Sleep(time.Second * 15)
+		return nil
+	default:
 		return fmt.Errorf("aborting")
 	}
-	return nil
 }
