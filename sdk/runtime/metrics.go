@@ -48,7 +48,7 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 				func() {
 					resp, err := http.Get(addr)
 					if err != nil {
-						re.RecordMessage("error while getting prometheus stats: %v", err)
+						re.RecordMessage("error while scraping http endpoint: %v", err)
 						return
 					}
 					defer resp.Body.Close()
