@@ -5,7 +5,7 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 16
+  total_instances = 150
   builder = "docker:go"
   runner = "local:docker"
 
@@ -16,15 +16,15 @@
     percentage = 0.0
   [groups.build]
   [groups.run]
-    artifact = "f73d962c0686"
+    artifact = "d0b0506b5d41"
     [groups.run.test_params]
       bucket_size = "4"
       client_mode = "false"
       f_undialable = "0.0"
+      n_paths = "10"
       n_providing = "1"
       record_count = "5"
       timeout_secs = "200"
-      n_paths = "10"
 
 [[groups]]
   id = "cypress"
@@ -41,12 +41,12 @@
       module = "github.com/libp2p/go-libp2p-autonat"
       version = "v0.1.2-0.20200204200147-902af8cb7b6a"
   [groups.run]
-    artifact = "456c71a3f472"
+    artifact = "ec4c0ec62a02"
     [groups.run.test_params]
       bucket_size = "4"
       client_mode = "false"
-      f_undialable = "0.0"
+      f_undialable = "0.9"
+      n_paths = "0"
       n_providing = "1"
       record_count = "5"
       timeout_secs = "200"
-      n_paths = "1"
