@@ -69,7 +69,11 @@ func (re *RunEnv) HTTPPeriodicSnapshots(ctx context.Context, addr string, dur ti
 					}
 					defer file.Close()
 
-					io.Copy(file, resp.Body)
+					_, err = io.Copy(file, resp.Body)
+					if err != nil {
+						re.RecordMessage("error while copying data to file: %v", err)
+						return
+					}
 				}()
 			}
 		}
