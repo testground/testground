@@ -151,7 +151,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		workers := 20
 		c.pool, err = newPool(workers, c.config)
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 
 		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
@@ -159,7 +159,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 		c.maxAllowedPods, err = c.maxPods()
 		if err != nil {
-			panic(err)
+			log.Fatal(err)
 		}
 	})
 
@@ -263,7 +263,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	var gg errgroup.Group
 
 	for _, g := range input.Groups {
-
 		for i := 0; i < g.Instances; i++ {
 			i := i
 			sem <- struct{}{}
@@ -402,7 +401,6 @@ func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.
 	var eg errgroup.Group
 
 	for _, pod := range res.Items {
-
 		podName := pod.Name
 
 		eg.Go(func() error {
