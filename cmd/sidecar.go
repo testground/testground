@@ -49,7 +49,9 @@ func sidecarCommand(c *cli.Context) error {
 
 	if c.Bool("pprof") {
 		logging.S().Info("starting pprof")
-		go http.ListenAndServe(":6060", nil)
+		go func() {
+			_ = http.ListenAndServe(":6060", nil)
+		}()
 	}
 
 	return sidecar.Run(c.String("runner"))
