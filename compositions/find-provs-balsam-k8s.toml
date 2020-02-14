@@ -5,7 +5,7 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 400
+  total_instances = 1000
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
@@ -19,11 +19,13 @@
     percentage = 1.0
   [groups.build]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:07736f7b34c3"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:83c660b3ab63"
     [groups.run.test_params]
       bucket_size = "4"
       client_mode = "false"
+      datastore = "0"
       f_undialable = "0.9"
+      n_paths = "0"
       n_providing = "1"
       record_count = "5"
       timeout_secs = "2000"
