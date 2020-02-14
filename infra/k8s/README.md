@@ -42,6 +42,12 @@ aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/
 chmod 700 ~/.ssh/testground_rsa
 ```
 
+Or generate your own key, for example
+
+```
+ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```
+
 3. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
 ```
@@ -56,7 +62,7 @@ aws s3api create-bucket \
 - set `kops` state store bucket
 - set number of worker nodes
 - set location for cluster spec to be generated
-- set location of your SSH public key
+- set location of your cluster SSH public key
 - set credentials and locations for `outputs` S3 bucket
 
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
