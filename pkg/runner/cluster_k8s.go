@@ -226,7 +226,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				}
 				client := pool.Acquire()
 				defer pool.Release(client)
-				err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
+				err = client.CoreV1().Pods(k8sConfig.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -261,7 +261,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs, err := getPodLogs(client, log, podName)
+				logs, err := getPodLogs(client, log, k8sConfig.Namespace, podName)
 				if err != nil {
 					return err
 				}
@@ -345,15 +345,15 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	return nil
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, podName string) (string, error) {
+func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, k8sNamespace string, podName string) (string, error) {
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
 
 	var podLogs io.ReadCloser
 	var err error
-	err = retry(20, 5*time.Second, func() error {
-		req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
+	err = retry(5, 5*time.Second, func() error {
+		req := clientset.CoreV1().Pods(k8sNamespace).GetLogs(podName, &podLogOpts)
 		podLogs, err = req.Stream()
 		if err != nil {
 			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
@@ -374,9 +374,9 @@ func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, podName
 	return buf.String(), nil
 }
 
-func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
+func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, k8sNamespace string, runID string, initialisedNetworks *uint64) error {
 	client := pool.Acquire()
-	res, err := client.CoreV1().Pods("default").List(metav1.ListOptions{
+	res, err := client.CoreV1().Pods(k8sNamespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
 	})
 	pool.Release(client)
@@ -505,7 +505,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 			log.Infow("all testplan instances in `Running` state", "took", time.Now().Sub(start))
 
 			go func() {
-				_ = areNetworksInitialised(ctx, pool, log, input.RunID, initialisedNetworks)
+				_ = areNetworksInitialised(ctx, pool, log, input.RunID, k8sNamespace, initialisedNetworks)
 			}()
 		}
 
