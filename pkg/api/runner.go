@@ -94,3 +94,9 @@ type CollectionInput struct {
 	// plan manifest, coalesced with any user-provided overrides.
 	RunnerConfig interface{}
 }
+
+// Terminatable is the interface to be implemented by a runner that can be
+// terminated.
+type Terminatable interface {
+	TerminateAll() error
+}
