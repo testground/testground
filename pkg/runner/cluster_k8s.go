@@ -388,7 +388,7 @@ func (c *ClusterK8sRunner) getPodLogs(log *zap.SugaredLogger, podName string) (s
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
+func (c *ClusterK8sRunner) waitNetworksInitialised(ctx context.Context, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
 	client := c.pool.Acquire()
 	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
@@ -404,7 +404,7 @@ func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.
 		podName := pod.Name
 
 		eg.Go(func() error {
-			err := c.isNetworkInitialised(ctx, log, podName)
+			err := c.waitNetworkInitialised(ctx, log, podName)
 			if err != nil {
 				return err
 			}
@@ -418,7 +418,7 @@ func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.
 	return eg.Wait()
 }
 
-func (c *ClusterK8sRunner) isNetworkInitialised(ctx context.Context, log *zap.SugaredLogger, podName string) error {
+func (c *ClusterK8sRunner) waitNetworkInitialised(ctx context.Context, log *zap.SugaredLogger, podName string) error {
 	podLogOpts := v1.PodLogOptions{
 		SinceSeconds: int64Ptr(1000),
 		Follow:       true,
@@ -518,7 +518,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap
 			log.Infow("all testplan instances in `Running` state", "took", time.Since(start))
 
 			go func() {
-				_ = c.areNetworksInitialised(ctx, log, input.RunID, initialisedNetworks)
+				_ = c.waitNetworksInitialised(ctx, log, input.RunID, initialisedNetworks)
 			}()
 		}
 
