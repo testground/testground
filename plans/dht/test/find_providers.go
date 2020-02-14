@@ -4,6 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/peer"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -37,6 +40,10 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
+
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
 
 	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {
@@ -79,7 +86,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		writer:  writer,
 	}
 
-	isProvider := node.info.seq <= opts.NodesProviding
+	isProvider := node.info.seq < opts.NodesProviding
 
 	if err := stg.Begin(); err != nil {
 		return err
@@ -168,9 +175,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	if err := stg.Begin(); err != nil {
-		return err
-	}
-	outputGraph(node.dht, runenv, "end")
-	return stg.End()
+	outputGraph(node.dht, "end")
+
+	return nil
 }
