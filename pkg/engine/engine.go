@@ -299,6 +299,13 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
 
+	// Check runner health.
+	if health, ok := run.(api.Healthcheckable); ok {
+		if err := health.Healthcheck(true); err != nil {
+			return nil, fmt.Errorf("error while checking runner health: %v", err)
+		}
+	}
+
 	// Check if builder and runner are compatible
 	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
@@ -452,6 +459,31 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) er
 	}
 
 	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
+	return err
+}
+
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, repair bool, w io.Writer) error {
+	run, ok := e.runners[runner]
+	if !ok {
+		return fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	healthcheckable, ok := run.(api.Healthcheckable)
+	if !ok {
+		return fmt.Errorf("runner %s is not healthcheckable", runner)
+	}
+
+	_, err := w.Write([]byte("healthchecking runner " + runner + "\n"))
+	if err != nil {
+		return err
+	}
+
+	err = healthcheckable.Healthcheck(repair)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte("runner " + runner + " healthchecked\n"))
 	return err
 }
 

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hashicorp/go-multierror"
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/pborman/uuid"
@@ -34,6 +36,12 @@ func New(listenAddr string) (srv *Daemon, err error) {
 		return nil, err
 	}
 
+	// Check all runners' health.
+	err = healthcheckAll(engine)
+	if err != nil {
+		return nil, err
+	}
+
 	r := mux.NewRouter()
 
 	// Set a unique request ID.
@@ -50,6 +58,7 @@ func New(listenAddr string) (srv *Daemon, err error) {
 	r.HandleFunc("/run", srv.runHandler(engine)).Methods("POST")
 	r.HandleFunc("/outputs", srv.outputsHandler(engine)).Methods("POST")
 	r.HandleFunc("/terminate", srv.terminateHandler(engine)).Methods("POST")
+	r.HandleFunc("/healthcheck", srv.healthcheckHandler(engine)).Methods("POST")
 
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{
@@ -91,4 +100,17 @@ func (s *Daemon) Port() int {
 func (s *Daemon) Shutdown(ctx context.Context) error {
 	defer close(s.doneCh)
 	return s.server.Shutdown(ctx)
+}
+
+func healthcheckAll(engine *engine.Engine) error {
+	runners := engine.ListRunners()
+	var err *multierror.Error
+
+	for _, runner := range runners {
+		if health, ok := runner.(api.Healthcheckable); ok {
+			err = multierror.Append(err, health.Healthcheck(true))
+		}
+	}
+
+	return err.ErrorOrNil()
 }

@@ -30,3 +30,8 @@ type OutputsRequest struct {
 type TerminateRequest struct {
 	Runner string `json:"runner"`
 }
+
+type HealthcheckRequest struct {
+	Runner string `json:"runner"`
+	Repair bool   `json:"repair"`
+}

@@ -100,3 +100,9 @@ type CollectionInput struct {
 type Terminatable interface {
 	TerminateAll() error
 }
+
+// Healthcheckable is the interface to be implemented by a runner that can be
+// healthcheckable.
+type Healthcheckable interface {
+	Healthcheck(repair bool) error
+}
