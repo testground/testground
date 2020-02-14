@@ -35,3 +35,5 @@ type HealthcheckRequest struct {
 	Runner string `json:"runner"`
 	Repair bool   `json:"repair"`
 }
+
+type HealthcheckResponse = api.HealthcheckReport

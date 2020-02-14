@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
@@ -47,5 +48,30 @@ func healthcheckCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	return client.ParseHealthcheckResponse(r)
+	resp, err := client.ParseHealthcheckResponse(r)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Finished healthchecking runner %s\n", runner)
+
+	if len(resp.Checks) > 0 {
+		fmt.Printf("Checks:\n")
+		for _, check := range resp.Checks {
+			fmt.Printf("- %s\n", check)
+		}
+	} else {
+		fmt.Println("No checks made.")
+	}
+
+	if len(resp.Fixes) > 0 {
+		fmt.Printf("Fixes:\n")
+		for _, check := range resp.Fixes {
+			fmt.Printf("- %s\n", check)
+		}
+	} else {
+		fmt.Println("No fixes applied.")
+	}
+
+	return nil
 }

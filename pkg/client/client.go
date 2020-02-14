@@ -225,14 +225,18 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 }
 
 // ParseHealthcheckResponse parses a response from a 'healthcheck' call
-func ParseHealthcheckResponse(r io.ReadCloser) error {
-	return parseGeneric(
+func ParseHealthcheckResponse(r io.ReadCloser) (HealthcheckResponse, error) {
+	var resp HealthcheckResponse
+
+	err := parseGeneric(
 		r,
 		printProgress,
 		func(result interface{}) error {
-			return nil
+			return mapstructure.Decode(result, &resp)
 		},
 	)
+
+	return resp, err
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {

@@ -20,7 +20,7 @@ type Engine interface {
 	DoRun(context.Context, *Composition, io.Writer) (*RunOutput, error)
 	DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error
 	DoTerminate(ctx context.Context, runner string, w io.Writer) error
-	DoHealthcheck(ctx context.Context, runner string, repair bool, w io.Writer) error
+	DoHealthcheck(ctx context.Context, runner string, repair bool, w io.Writer) (*HealthcheckReport, error)
 
 	EnvConfig() config.EnvConfig
 	Context() context.Context
