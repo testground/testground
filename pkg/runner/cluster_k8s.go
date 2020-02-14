@@ -2,6 +2,7 @@ package runner
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -177,8 +179,12 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	var eg errgroup.Group
 
+	// atomic counter which records how many networks have been initialised.
+	// it should equal the number of all testplan instances for the given run eventually.
+	var initialisedNetworks uint64
+
 	eg.Go(func() error {
-		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace)
+		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace, &initialisedNetworks)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -223,7 +229,16 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
+				err := createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
+
+				go func() {
+					err := isNetworkInitialised(ctx, pool, podName)
+					if err == nil {
+						atomic.AddUint64(&initialisedNetworks, 1)
+					}
+				}()
+
+				return err
 			})
 		}
 	}
@@ -337,8 +352,14 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error)
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
-	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
-	podLogs, err := req.Stream()
+
+	var podLogs io.ReadCloser
+	var err error
+	err = retry(20, 5*time.Second, func() error {
+		req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
+		podLogs, err = req.Stream()
+		return err
+	})
 	if err != nil {
 		return "", fmt.Errorf("error in opening stream: %v", err)
 	}
@@ -353,11 +374,49 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error)
 	return buf.String(), nil
 }
 
-func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
+func isNetworkInitialised(ctx context.Context, pool *pool, podName string) error {
+	podLogOpts := v1.PodLogOptions{
+		SinceSeconds: int64Ptr(1000),
+		Follow:       true,
+	}
+
+	var podLogs io.ReadCloser
+	var err error
+	err = retry(20, 5*time.Second, func() error {
+		client := pool.Acquire()
+		req := client.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
+		pool.Release(client)
+		podLogs, err = req.Stream()
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("error in opening stream: %v", err)
+	}
+	defer podLogs.Close()
+
+	scanner := bufio.NewScanner(podLogs)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			line := scanner.Text()
+			if strings.Contains(line, "network initialisation successful") {
+				return nil
+			}
+		}
+	}
+
+	return errors.New("network initialisation successful log line not detected")
+}
+
+func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string, initialisedNetworks *uint64) error {
 	client := pool.Acquire()
 	defer pool.Release(client)
 
 	start := time.Now()
+	allRunningStage := false
+	allNetworksStage := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -404,11 +463,24 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		}
 		wg.Wait()
 
-		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		initNets := int(atomic.LoadUint64(initialisedNetworks))
+		log.Debugw("testplan state", "networks", initNets, "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+
+		if initNets == input.TotalInstances && !allNetworksStage {
+			allNetworksStage = true
+			log.Infow("all testplan instances networks initialised", "took", time.Now().Sub(start))
+		}
+
+		if counters["Running"] == input.TotalInstances && !allRunningStage {
+			allRunningStage = true
+			log.Infow("all testplan instances in `Running` state", "took", time.Now().Sub(start))
+		}
 
 		if counters["Succeeded"] == input.TotalInstances {
+			log.Infow("all testplan instances in `Succeeded` state", "took", time.Now().Sub(start))
 			return nil
 		}
+
 	}
 }
 

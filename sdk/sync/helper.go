@@ -12,8 +12,10 @@ func WaitNetworkInitialized(ctx context.Context, runenv *runtime.RunEnv, watcher
 	if runenv.TestSidecar {
 		err := <-watcher.Barrier(ctx, "network-initialized", int64(runenv.TestInstanceCount))
 		if err != nil {
+			runenv.RecordMessage("network initialisation failed")
 			return fmt.Errorf("failed to initialize network: %w", err)
 		}
 	}
+	runenv.RecordMessage("network initialisation successful")
 	return nil
 }
