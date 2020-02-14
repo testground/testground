@@ -502,7 +502,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
-			log.Infow("all testplan instances in `Running` state", "took", time.Now().Sub(start))
+			log.Infow("all testplan instances in `Running` state", "took", time.Since(start))
 
 			go func() {
 				_ = areNetworksInitialised(ctx, pool, log, input.RunID, k8sNamespace, initialisedNetworks)
@@ -511,11 +511,11 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 
 		if initNets == input.TotalInstances && !allNetworksStage {
 			allNetworksStage = true
-			log.Infow("all testplan instances networks initialised", "took", time.Now().Sub(start))
+			log.Infow("all testplan instances networks initialised", "took", time.Since(start))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
-			log.Infow("all testplan instances in `Succeeded` state", "took", time.Now().Sub(start))
+			log.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
 			return nil
 		}
 
