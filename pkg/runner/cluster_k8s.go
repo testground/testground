@@ -156,11 +156,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
 		c.podResourceMemory = resource.MustParse(cfg.PodResourceMemory)
-
-		c.maxAllowedPods, err = c.maxPods()
-		if err != nil {
-			log.Fatal(err)
-		}
 	})
 
 	// Sanity check.
@@ -189,6 +184,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	}
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
+
+	c.maxAllowedPods, err = c.maxPods() // TODO: maybe move to the `init` / runner constructor at some point
+	if err != nil {
+		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
+	}
 
 	if c.maxAllowedPods < input.TotalInstances {
 		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", c.maxAllowedPods)
