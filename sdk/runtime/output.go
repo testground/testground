@@ -129,6 +129,7 @@ func (l *logger) RecordMessage(msg string, a ...interface{}) {
 		Message: msg,
 	}
 	l.logger.Info("", zap.Object("event", evt))
+	_ = l.logger.Sync()
 }
 
 func (l *logger) RecordStart() {

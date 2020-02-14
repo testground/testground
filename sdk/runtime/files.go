@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/rand"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"io/ioutil"
 	"os"
@@ -70,7 +71,13 @@ func (re *RunEnv) CreateRandomDirectory(directoryPath string, depth uint) (strin
 // further investigation. You can also manually create output assets/directories
 // under re.TestOutputsPath.
 func (re *RunEnv) CreateRawAsset(name string) (*os.File, error) {
-	file, err := os.Create(filepath.Join(re.TestOutputsPath, name))
+	var file *os.File
+	err := retry(5, re.retryDumpDirectoryStat(re.TestOutputsPath, func() error {
+		var err error
+		file, err = os.Create(filepath.Join(re.TestOutputsPath, name))
+		return err
+	}))
+
 	if err != nil {
 		return nil, err
 	}
@@ -84,12 +91,44 @@ func (re *RunEnv) CreateRawAsset(name string) (*os.File, error) {
 	return file, nil
 }
 
+func (re *RunEnv) retryDumpDirectoryStat(path string, fn func() error) func() error {
+	return func() error {
+		err := fn()
+		if err == nil {
+			return nil
+		}
+
+		f, staterr := os.Stat(path)
+		spew.Dump(err, f, staterr)
+
+		re.RecordMessage("failed finding dir: err %v, stat %v with staterr %v", err, f, staterr)
+		return err
+	}
+}
+
+func retry(tries int, fn func() error) error {
+	var err error
+	for i := 0; i < tries; i++ {
+		err = fn()
+		if err == nil {
+			break
+		}
+	}
+	return err
+}
+
 // CreateStructuredAsset creates an output asset and wraps it in zap loggers.
 func (re *RunEnv) CreateStructuredAsset(name string, config zap.Config) (*zap.Logger, *zap.SugaredLogger, error) {
 	path := filepath.Join(re.TestOutputsPath, name)
 	config.OutputPaths = []string{path}
 
-	logger, err := config.Build()
+	var logger *zap.Logger
+	err := retry(5, re.retryDumpDirectoryStat(re.TestOutputsPath, func() error {
+		var err error
+		logger, err = config.Build()
+		return err
+	}))
+
 	if err != nil {
 		return nil, nil, err
 	}

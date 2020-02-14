@@ -96,11 +96,30 @@ func (w *Writer) keepAlive(ctx context.Context) error {
 	// TODO: do this in a transaction. We risk the loop overlapping with the
 	// refresh period, and all kinds of races. We need to be adaptive here.
 	for k := range w.keepAliveSet {
-		if err := w.client.WithContext(ctx).Expire(k, TTL).Err(); err != nil {
+		err := retry(5, w.re, func() error {
+			return w.client.WithContext(ctx).Expire(k, TTL).Err()
+		})
+		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func retry(tries int, runenv *runtime.RunEnv, fn func() error) error {
+	var err error
+	for i := 0; i < tries; i++ {
+		err = fn()
+		if err == nil {
+			if i > 0 {
+				runenv.RecordMessage("keep alive success on attempt", i+1)
+			}
+			break
+		}
+		runenv.RecordMessage("keep alive err: attempt: %d, err: %v", i+1, err)
+		time.Sleep(time.Second)
+	}
+	return err
 }
 
 // Write writes a payload in the sync tree for the test, which is backed by a
@@ -178,7 +197,14 @@ func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err e
 
 	// Increment a counter on the state key.
 	key := strings.Join([]string{w.root, "states", string(s)}, ":")
-	seq, err := w.client.WithContext(ctx).Incr(key).Result()
+
+	var seq int64
+	err = retry(5, w.re, func() error {
+		var err error
+		seq, err = w.client.WithContext(ctx).Incr(key).Result()
+		return err
+	})
+
 	if err != nil {
 		return -1, err
 	}

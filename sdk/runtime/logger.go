@@ -3,6 +3,7 @@ package runtime
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -62,7 +63,14 @@ func (l *logger) init() {
 	cfg.EncoderConfig = enc
 
 	var err error
-	l.logger, err = cfg.Build()
+	maxAttempts := 5
+	for i := 0; i < maxAttempts; i++ {
+		l.logger, err = cfg.Build()
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	if err != nil {
 		panic(err)
 	}
