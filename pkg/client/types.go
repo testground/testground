@@ -26,3 +26,7 @@ type OutputsRequest struct {
 	Runner string `json:"runner"`
 	RunID  string `json:"run_id"`
 }
+
+type TerminateRequest struct {
+	Runner string `json:"runner"`
+}

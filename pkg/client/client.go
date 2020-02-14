@@ -105,6 +105,17 @@ func (c *Client) CollectOutputs(ctx context.Context, r *OutputsRequest) (io.Read
 	return c.request(ctx, "POST", "/outputs", bytes.NewReader(body.Bytes()))
 }
 
+// Terminate sned a `terminate` request to the daemon.
+func (c *Client) Terminate(ctx context.Context, r *TerminateRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/terminate", bytes.NewReader(body.Bytes()))
+}
+
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
 
@@ -182,6 +193,17 @@ func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
 
 // ParseDescribeResponse parses a response from a `describe` call
 func ParseDescribeResponse(r io.ReadCloser) error {
+	return parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+}
+
+// ParseTerminateRequest parses a response from a 'terminate' call
+func ParseTerminateRequest(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
