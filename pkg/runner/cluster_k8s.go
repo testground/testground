@@ -111,8 +111,8 @@ type ClusterK8sRunnerConfig struct {
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
 type ClusterK8sRunner struct {
-	k8sConfig KubernetesConfig
-	pool      *pool
+	config KubernetesConfig
+	pool   *pool
 
 	podResourceCPU    resource.Quantity
 	podResourceMemory resource.Quantity
@@ -145,11 +145,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	// init Kubernetes runner
 	once.Do(func() {
-		c.k8sConfig = defaultKubernetesConfig()
+		c.config = defaultKubernetesConfig()
 
 		var err error
 		workers := 20
-		c.pool, err = newPool(workers, c.k8sConfig)
+		c.pool, err = newPool(workers, c.config)
 		if err != nil {
 			panic(err)
 		}
@@ -241,7 +241,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 				}
 				client := c.pool.Acquire()
 				defer c.pool.Release(client)
-				err = client.CoreV1().Pods(c.k8sConfig.Namespace).Delete(podName, &metav1.DeleteOptions{})
+				err = client.CoreV1().Pods(c.config.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -368,7 +368,7 @@ func (c *ClusterK8sRunner) getPodLogs(log *zap.SugaredLogger, podName string) (s
 	var podLogs io.ReadCloser
 	var err error
 	err = retry(5, 5*time.Second, func() error {
-		req := client.CoreV1().Pods(c.k8sConfig.Namespace).GetLogs(podName, &podLogOpts)
+		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
 		podLogs, err = req.Stream()
 		if err != nil {
 			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
@@ -391,7 +391,7 @@ func (c *ClusterK8sRunner) getPodLogs(log *zap.SugaredLogger, podName string) (s
 
 func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
 	client := c.pool.Acquire()
-	res, err := client.CoreV1().Pods(c.k8sConfig.Namespace).List(metav1.ListOptions{
+	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
 	})
 	c.pool.Release(client)
@@ -430,7 +430,7 @@ func (c *ClusterK8sRunner) isNetworkInitialised(ctx context.Context, log *zap.Su
 	var err error
 	err = retry(5, 5*time.Second, func() error {
 		client := c.pool.Acquire()
-		req := client.CoreV1().Pods(c.k8sConfig.Namespace).GetLogs(podName, &podLogOpts)
+		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
 		c.pool.Release(client)
 		podLogs, err = req.Stream()
 		if err != nil {
@@ -484,7 +484,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap
 				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
-			res, err := client.CoreV1().Pods(c.k8sConfig.Namespace).List(opts)
+			res, err := client.CoreV1().Pods(c.config.Namespace).List(opts)
 			if err != nil {
 				log.Warnw("k8s client pods list error", "err", err.Error())
 				return -1
@@ -602,7 +602,7 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 		},
 	}
 
-	_, err := client.CoreV1().Pods(c.k8sConfig.Namespace).Create(podRequest)
+	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
 }
 
