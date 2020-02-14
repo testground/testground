@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"strings"
 
+	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/sidecar"
 	"github.com/urfave/cli"
 )
@@ -32,6 +35,10 @@ var SidecarCommand = cli.Command{
 				Allowed: sidecar.GetRunners(),
 			},
 		},
+		cli.BoolFlag{
+			Name:  "pprof",
+			Usage: "Enable pprof service on port 6060",
+		},
 	},
 }
 
@@ -39,5 +46,11 @@ func sidecarCommand(c *cli.Context) error {
 	if runtime.GOOS != "linux" {
 		return ErrNotLinux
 	}
+
+	if c.Bool("pprof") {
+		logging.S().Info("starting pprof")
+		go http.ListenAndServe(":6060", nil)
+	}
+
 	return sidecar.Run(c.String("runner"))
 }
