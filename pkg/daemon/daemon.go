@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/hashicorp/go-multierror"
-	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/pborman/uuid"
@@ -32,12 +30,6 @@ func New(listenAddr string) (srv *Daemon, err error) {
 	srv = new(Daemon)
 
 	engine, err := engine.NewDefaultEngine()
-	if err != nil {
-		return nil, err
-	}
-
-	// Check all runners' health.
-	err = healthcheckAll(engine)
 	if err != nil {
 		return nil, err
 	}
@@ -100,17 +92,4 @@ func (s *Daemon) Port() int {
 func (s *Daemon) Shutdown(ctx context.Context) error {
 	defer close(s.doneCh)
 	return s.server.Shutdown(ctx)
-}
-
-func healthcheckAll(engine *engine.Engine) error {
-	runners := engine.ListRunners()
-	var err *multierror.Error
-
-	for _, runner := range runners {
-		if health, ok := runner.(api.Healthchecker); ok {
-			err = multierror.Append(err, health.Healthcheck(true))
-		}
-	}
-
-	return err.ErrorOrNil()
 }
