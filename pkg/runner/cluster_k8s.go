@@ -33,7 +33,6 @@ import (
 	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -41,7 +40,8 @@ import (
 )
 
 var (
-	_ api.Runner = &ClusterK8sRunner{}
+	_    api.Runner = &ClusterK8sRunner{}
+	once            = sync.Once{}
 )
 
 const (
@@ -110,7 +110,15 @@ type ClusterK8sRunnerConfig struct {
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
-type ClusterK8sRunner struct{}
+type ClusterK8sRunner struct {
+	k8sConfig KubernetesConfig
+	pool      *pool
+
+	podResourceCPU    resource.Quantity
+	podResourceMemory resource.Quantity
+
+	maxAllowedPods int
+}
 
 type KubernetesConfig struct {
 	// KubeConfigPath is the path to your kubernetes configuration path
@@ -129,11 +137,31 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 	)
+
+	// init Kubernetes runner
+	once.Do(func() {
+		c.k8sConfig = defaultKubernetesConfig()
+
+		var err error
+		workers := 20
+		c.pool, err = newPool(workers, c.k8sConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
+		c.podResourceMemory = resource.MustParse(cfg.PodResourceMemory)
+
+		c.maxAllowedPods, err = c.maxPods()
+		if err != nil {
+			panic(err)
+		}
+	})
 
 	// Sanity check.
 	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
@@ -162,21 +190,8 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	k8sConfig := defaultKubernetesConfig()
-
-	workers := 20
-	pool, err := newPool(workers, k8sConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	maxAllowedPods, err := maxPods(pool, resource.MustParse(cfg.PodResourceCPU))
-	if err != nil {
-		return nil, err
-	}
-
-	if maxAllowedPods < input.TotalInstances {
-		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", maxAllowedPods)
+	if c.maxAllowedPods < input.TotalInstances {
+		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", c.maxAllowedPods)
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -190,7 +205,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	var initialisedNetworks uint64
 
 	eg.Go(func() error {
-		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace, &initialisedNetworks)
+		return c.monitorTestplanRunState(ctx, log, input, &initialisedNetworks)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -224,9 +239,9 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				if cfg.KeepService {
 					return
 				}
-				client := pool.Acquire()
-				defer pool.Release(client)
-				err = client.CoreV1().Pods(k8sConfig.Namespace).Delete(podName, &metav1.DeleteOptions{})
+				client := c.pool.Acquire()
+				defer c.pool.Release(client)
+				err = client.CoreV1().Pods(c.k8sConfig.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -235,7 +250,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
+				return c.createPod(ctx, podName, input, runenv, env, g, i)
 			})
 		}
 	}
@@ -256,12 +271,9 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			gg.Go(func() error {
 				defer func() { <-sem }()
 
-				client := pool.Acquire()
-				defer pool.Release(client)
-
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs, err := getPodLogs(client, log, k8sConfig.Namespace, podName)
+				logs, err := c.getPodLogs(log, podName)
 				if err != nil {
 					return err
 				}
@@ -345,7 +357,10 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	return nil
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, k8sNamespace string, podName string) (string, error) {
+func (c *ClusterK8sRunner) getPodLogs(log *zap.SugaredLogger, podName string) (string, error) {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
@@ -353,7 +368,7 @@ func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, k8sName
 	var podLogs io.ReadCloser
 	var err error
 	err = retry(5, 5*time.Second, func() error {
-		req := clientset.CoreV1().Pods(k8sNamespace).GetLogs(podName, &podLogOpts)
+		req := client.CoreV1().Pods(c.k8sConfig.Namespace).GetLogs(podName, &podLogOpts)
 		podLogs, err = req.Stream()
 		if err != nil {
 			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
@@ -374,12 +389,12 @@ func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, k8sName
 	return buf.String(), nil
 }
 
-func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, k8sNamespace string, runID string, initialisedNetworks *uint64) error {
-	client := pool.Acquire()
-	res, err := client.CoreV1().Pods(k8sNamespace).List(metav1.ListOptions{
+func (c *ClusterK8sRunner) areNetworksInitialised(ctx context.Context, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
+	client := c.pool.Acquire()
+	res, err := client.CoreV1().Pods(c.k8sConfig.Namespace).List(metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
 	})
-	pool.Release(client)
+	c.pool.Release(client)
 	if err != nil {
 		return err
 	}
@@ -391,7 +406,7 @@ func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLog
 		podName := pod.Name
 
 		eg.Go(func() error {
-			err := isNetworkInitialised(ctx, pool, log, podName)
+			err := c.isNetworkInitialised(ctx, log, podName)
 			if err != nil {
 				return err
 			}
@@ -405,7 +420,7 @@ func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLog
 	return eg.Wait()
 }
 
-func isNetworkInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, podName string) error {
+func (c *ClusterK8sRunner) isNetworkInitialised(ctx context.Context, log *zap.SugaredLogger, podName string) error {
 	podLogOpts := v1.PodLogOptions{
 		SinceSeconds: int64Ptr(1000),
 		Follow:       true,
@@ -414,9 +429,9 @@ func isNetworkInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogge
 	var podLogs io.ReadCloser
 	var err error
 	err = retry(5, 5*time.Second, func() error {
-		client := pool.Acquire()
-		req := client.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
-		pool.Release(client)
+		client := c.pool.Acquire()
+		req := client.CoreV1().Pods(c.k8sConfig.Namespace).GetLogs(podName, &podLogOpts)
+		c.pool.Release(client)
 		podLogs, err = req.Stream()
 		if err != nil {
 			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
@@ -444,9 +459,9 @@ func isNetworkInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogge
 	return errors.New("network initialisation successful log line not detected")
 }
 
-func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string, initialisedNetworks *uint64) error {
-	client := pool.Acquire()
-	defer pool.Release(client)
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap.SugaredLogger, input *api.RunInput, initialisedNetworks *uint64) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	start := time.Now()
 	allRunningStage := false
@@ -469,7 +484,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
-			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
+			res, err := client.CoreV1().Pods(c.k8sConfig.Namespace).List(opts)
 			if err != nil {
 				log.Warnw("k8s client pods list error", "err", err.Error())
 				return -1
@@ -505,7 +520,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 			log.Infow("all testplan instances in `Running` state", "took", time.Since(start))
 
 			go func() {
-				_ = areNetworksInitialised(ctx, pool, log, input.RunID, k8sNamespace, initialisedNetworks)
+				_ = c.areNetworksInitialised(ctx, log, input.RunID, initialisedNetworks)
 			}()
 		}
 
@@ -522,11 +537,9 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 	}
 }
 
-func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
-	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-
-	client := pool.Acquire()
-	defer pool.Release(client)
+func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	hostpathtype := v1.HostPathType("DirectoryOrCreate")
@@ -580,8 +593,8 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse(cfg.PodResourceMemory),
-							v1.ResourceCPU:    resource.MustParse(cfg.PodResourceCPU),
+							v1.ResourceMemory: c.podResourceMemory,
+							v1.ResourceCPU:    c.podResourceCPU,
 						},
 					},
 				},
@@ -589,7 +602,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 		},
 	}
 
-	_, err := client.CoreV1().Pods(k8sNamespace).Create(podRequest)
+	_, err := client.CoreV1().Pods(c.k8sConfig.Namespace).Create(podRequest)
 	return err
 }
 
@@ -606,14 +619,14 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 
 // maxPods returns the max allowed pods for the current cluster size
 // at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
-func maxPods(pool *pool, podResourceCPU resource.Quantity) (int, error) {
-	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+func (c *ClusterK8sRunner) maxPods() (int, error) {
+	podCPU, err := strconv.ParseFloat(c.podResourceCPU.AsDec().String(), 64)
 	if err != nil {
 		return 0, err
 	}
 
-	client := pool.Acquire()
-	defer pool.Release(client)
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: "kubernetes.io/role=node",
