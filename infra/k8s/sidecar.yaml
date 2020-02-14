@@ -49,6 +49,9 @@ spec:
         env:
         - name: REDIS_HOST
           value: "redis-headless"
+        ports:
+        - name: pprof
+          containerPort: 6060
         resources:
           limits:
             memory: 1024Mi
