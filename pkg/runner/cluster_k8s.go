@@ -235,16 +235,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				err := createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
-
-				go func() {
-					err := isNetworkInitialised(ctx, pool, podName)
-					if err == nil {
-						atomic.AddUint64(&initialisedNetworks, 1)
-					}
-				}()
-
-				return err
+				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
 			})
 		}
 	}
@@ -270,7 +261,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs, err := getPodLogs(client, podName)
+				logs, err := getPodLogs(client, log, podName)
 				if err != nil {
 					return err
 				}
@@ -354,7 +345,7 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 	return nil
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error) {
+func getPodLogs(clientset *kubernetes.Clientset, log *zap.SugaredLogger, podName string) (string, error) {
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
@@ -364,6 +355,9 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error)
 	err = retry(20, 5*time.Second, func() error {
 		req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
 		podLogs, err = req.Stream()
+		if err != nil {
+			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
+		}
 		return err
 	})
 	if err != nil {
@@ -380,7 +374,38 @@ func getPodLogs(clientset *kubernetes.Clientset, podName string) (string, error)
 	return buf.String(), nil
 }
 
-func isNetworkInitialised(ctx context.Context, pool *pool, podName string) error {
+func areNetworksInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
+	client := pool.Acquire()
+	res, err := client.CoreV1().Pods("default").List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
+	})
+	pool.Release(client)
+	if err != nil {
+		return err
+	}
+
+	var eg errgroup.Group
+
+	for _, pod := range res.Items {
+
+		podName := pod.Name
+
+		eg.Go(func() error {
+			err := isNetworkInitialised(ctx, pool, log, podName)
+			if err != nil {
+				return err
+			}
+
+			atomic.AddUint64(initialisedNetworks, 1)
+
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+func isNetworkInitialised(ctx context.Context, pool *pool, log *zap.SugaredLogger, podName string) error {
 	podLogOpts := v1.PodLogOptions{
 		SinceSeconds: int64Ptr(1000),
 		Follow:       true,
@@ -388,11 +413,14 @@ func isNetworkInitialised(ctx context.Context, pool *pool, podName string) error
 
 	var podLogs io.ReadCloser
 	var err error
-	err = retry(20, 5*time.Second, func() error {
+	err = retry(5, 5*time.Second, func() error {
 		client := pool.Acquire()
 		req := client.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
 		pool.Release(client)
 		podLogs, err = req.Stream()
+		if err != nil {
+			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
+		}
 		return err
 	})
 	if err != nil {
@@ -470,16 +498,20 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		wg.Wait()
 
 		initNets := int(atomic.LoadUint64(initialisedNetworks))
-		log.Debugw("testplan state", "networks", initNets, "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
-
-		if initNets == input.TotalInstances && !allNetworksStage {
-			allNetworksStage = true
-			log.Infow("all testplan instances networks initialised", "took", time.Now().Sub(start))
-		}
+		log.Debugw("testplan pods state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
 			log.Infow("all testplan instances in `Running` state", "took", time.Now().Sub(start))
+
+			go func() {
+				_ = areNetworksInitialised(ctx, pool, log, input.RunID, initialisedNetworks)
+			}()
+		}
+
+		if initNets == input.TotalInstances && !allNetworksStage {
+			allNetworksStage = true
+			log.Infow("all testplan instances networks initialised", "took", time.Now().Sub(start))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
