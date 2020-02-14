@@ -10,10 +10,12 @@ echo
 
 NAME=$1
 CLUSTER_SPEC=$2
-WORKER_NODES=$3
+PUBKEY=$3
+WORKER_NODES=$4
 
 echo "Name: $NAME"
 echo "Cluster spec: $CLUSTER_SPEC"
+echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
@@ -38,7 +40,7 @@ if [[ -z ${ASSETS_S3_ENDPOINT} ]]; then
 fi
 
 kops create -f $CLUSTER_SPEC
-kops create secret --name $NAME sshpublickey admin -i ~/.ssh/testground_rsa.pub
+kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
 
 ## wait for worker nodes and master to be ready
