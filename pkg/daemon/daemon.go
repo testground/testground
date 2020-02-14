@@ -107,7 +107,7 @@ func healthcheckAll(engine *engine.Engine) error {
 	var err *multierror.Error
 
 	for _, runner := range runners {
-		if health, ok := runner.(api.Healthcheckable); ok {
+		if health, ok := runner.(api.Healthchecker); ok {
 			err = multierror.Append(err, health.Healthcheck(true))
 		}
 	}

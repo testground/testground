@@ -101,8 +101,8 @@ type Terminatable interface {
 	TerminateAll() error
 }
 
-// Healthcheckable is the interface to be implemented by a runner that can be
+// Healthchecker is the interface to be implemented by a runner that can be
 // healthcheckable.
-type Healthcheckable interface {
+type Healthchecker interface {
 	Healthcheck(repair bool) error
 }

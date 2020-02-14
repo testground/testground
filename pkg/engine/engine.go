@@ -300,7 +300,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	}
 
 	// Check runner health.
-	if health, ok := run.(api.Healthcheckable); ok {
+	if health, ok := run.(api.Healthchecker); ok {
 		if err := health.Healthcheck(true); err != nil {
 			return nil, fmt.Errorf("error while checking runner health: %v", err)
 		}
@@ -468,7 +468,7 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, repair bool, 
 		return fmt.Errorf("unknown runner: %s", runner)
 	}
 
-	healthcheckable, ok := run.(api.Healthcheckable)
+	healthcheckable, ok := run.(api.Healthchecker)
 	if !ok {
 		return fmt.Errorf("runner %s is not healthcheckable", runner)
 	}
