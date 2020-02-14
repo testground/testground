@@ -511,7 +511,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap
 		wg.Wait()
 
 		initNets := int(atomic.LoadUint64(initialisedNetworks))
-		log.Debugw("testplan pods state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		log.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
