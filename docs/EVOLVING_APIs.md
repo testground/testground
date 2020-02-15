@@ -186,4 +186,113 @@ layer on conditional activation/selection based on upstream dependency versions.
 
 ## Proposed solution
 
-WIP.
+The proposed solution for solving this problem in Go test plans revolves around
+_conditional shim activation_. Testground itself will facilitate the contextual
+activation of shims by injecting the appropriate go build tags into the build,
+attending to a set of manifest-defined rules.
+
+### Shimming example
+
+Test plan developers dealing with evolving upstream APIs will need to
+encapsulate changing behaviour behind shim objects.
+
+To illustrate how this would work in practice, let's assume that upstream
+`go-libp2p-kad-dht@v0.3.2` introduces a brand new
+`opts.ReplacementQueueSize(uint)` option. This option was not present in
+`go-libp2p-kad-dht@v0.3.1`, therefore the compilation would fail when targeting
+that upstream version (and earlier).
+
+The `dht` test plan imports this dependency, and adds a test plan option such
+that the tester can inject a value for this API option.
+
+Compiling the new test plan against `go-libp2p-kad-dht@v0.3.1` would fail, as
+the `opts.ReplacementQueueSize(uint)` function hadn't been introduced yet.
+
+Bridging this discrepancy via a shim could take the following form factor. Note
+that the filenames are irrelevant and only illustrative (but they could be
+reckoned a sensible pattern):
+
+```go
+// filename: opts_post_kaddht_v0.3.2.go
+//
+// +build shim-a
+import kaddht "github.com/libp2p/go-libp2p-kad-dht"
+
+func (so *SetupOpts) ToDHTOptions(_ *RunEnv) (res []kaddht.Option) {
+  // ... parse other options ...
+  if rqsize := so.ReplacementQueueSize; rqsize != nil {
+    res = append(res, kaddht.ReplacementQueueSize(*reqsize))
+  }
+  return res
+}
+```
+
+```go
+// filename: opts_pre_kaddht_v0.3.2.go
+//
+// +build shim-b
+import kaddht "github.com/libp2p/go-libp2p-kad-dht"
+
+func (so *SetupOpts) ToDHTOptions(runenv *RunEnv) (res []kaddht.Option) {
+  // ... parse other options ...
+  if rqsize := so.ReplacementQueueSize; rqsize != nil {
+    runenv.RecordMessage("ignoring replacement queue size option (value: %d); this version of go-libp2p-kad-dht does not support it", *rqsize)
+  }
+  return res
+}
+```
+
+### Version-based shim activation (P1)
+
+Version-based shim activation rules could be defined in the test plan manifest
+TOML, under a `[[rules.selector]]` section. We are choosing to generify the term
+"build tag" (Go specific), to the language-neutral term "selector", since it
+accurately describes the intention within this context: to select source files
+for the build.
+
+> TODO: consider industry-standard version range specification formats, such as
+> Maven or npm. Do not reinvent the wheel here. The below version ranges are
+> placeholders merely for illustrative purposes.
+
+```toml
+[[rules.selectors]]
+module = "github.com/libp2p/go-libp2p-kad-dht"
+when = [
+  { version = "[0,0.3.2)",  select = "shim-a" },
+  { version = "[0.3.2,)",   select = "shim-b" },
+]
+
+[[rules.selectors]]
+module = "github.com/libp2p/go-libp2p"
+when = [
+  { version = "[0,1)",  select = "shim-foo" },
+  { version = "[1,)",   select = "shim-bar" },
+]
+```
+
+### Manual shim activation (P0)
+
+When the developer is testing against unreleased upstream commits or branches,
+it is unfeasible to apply automatic version selection.
+
+Instead, the developer could specify a list of build tags or selectors they want
+enabled, under the `group.build` section of each group of their composition
+TOML.
+
+```toml
+[[groups]]
+id = "bootstrappers"
+
+  [groups.build]
+  selectors = ["shim-a"]
+
+[[groups]]
+id = "clients"
+
+  [groups.build]
+  selectors = ["shim-b"]s
+  dependencies = [
+    { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
+    { module = "github.com/libp2p/go-libp2p", version = "76944c4fc848530530f6be36fb22b70431ca506c"},
+  ]
+```
