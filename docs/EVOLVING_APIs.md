@@ -242,6 +242,35 @@ func (so *SetupOpts) ToDHTOptions(runenv *RunEnv) (res []kaddht.Option) {
 }
 ```
 
+
+
+### Manual shim activation (P0)
+
+When the developer is testing against unreleased upstream commits or branches,
+it is unfeasible to apply automatic version selection.
+
+Instead, the developer could specify a list of build tags or selectors they want
+enabled, under the `group.build` section of each group of their composition
+TOML.
+
+```toml
+[[groups]]
+id = "bootstrappers"
+
+  [groups.build]
+  selectors = ["shim-a"]
+
+[[groups]]
+id = "clients"
+
+  [groups.build]
+  selectors = ["shim-b"]
+  dependencies = [
+    { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
+    { module = "github.com/libp2p/go-libp2p", version = "76944c4fc848530530f6be36fb22b70431ca506c"},
+  ]
+```
+
 ### Version-based shim activation (P1)
 
 Version-based shim activation rules could be defined in the test plan manifest
@@ -270,29 +299,19 @@ when = [
 ]
 ```
 
-### Manual shim activation (P0)
+#### Implementation notes
 
-When the developer is testing against unreleased upstream commits or branches,
-it is unfeasible to apply automatic version selection.
+Testground builders are expected to calculate and return the effective
+dependency graph of a build, under the `api.BuildOutput.Dependencies` field.
 
-Instead, the developer could specify a list of build tags or selectors they want
-enabled, under the `group.build` section of each group of their composition
-TOML.
+We'd need to calculate the dependency graph _prior_ to calling `go build .` and
+intersect it with the selector rules, in order to compute which build tags to
+apply when calling `go build .`.
 
-```toml
-[[groups]]
-id = "bootstrappers"
+The Go code to do so is seemingly straightforward, and could be called directly
+from the `exec:go` builder. However, the `docker:go` builder performs the build
+in a Docker build, and we want to avoid duplicating this logic.
 
-  [groups.build]
-  selectors = ["shim-a"]
-
-[[groups]]
-id = "clients"
-
-  [groups.build]
-  selectors = ["shim-b"]s
-  dependencies = [
-    { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
-    { module = "github.com/libp2p/go-libp2p", version = "76944c4fc848530530f6be36fb22b70431ca506c"},
-  ]
-```
+A fair solution consists of wrapping this code in a main function, and
+harnessing `go generate` to call it from within a Docker build. It would output
+the build tags on stdout, which we'd then 
