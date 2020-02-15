@@ -233,6 +233,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
 				TestPlan:     plan,
+				Selectors:    grp.Build.Selectors,
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 

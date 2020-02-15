@@ -199,15 +199,24 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
 
+	// initial go build args.
+	var args = map[string]*string{
+		"GO_VERSION":        &cfg.GoVersion,
+		"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
+		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
+		"GO_PROXY":          &proxyURL,
+	}
+
+	// set BUILD_TAGS arg if the user has provided selectors.
+	if len(in.Selectors) > 0 {
+		s := "-tags " + strings.Join(in.Selectors, ",")
+		args["BUILD_TAGS"] = &s
+	}
+
 	opts := types.ImageBuildOptions{
 		Tags:        []string{id, in.BuildID},
 		NetworkMode: "testground-build",
-		BuildArgs: map[string]*string{
-			"GO_VERSION":        &cfg.GoVersion,
-			"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
-			"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
-			"GO_PROXY":          &proxyURL,
-		},
+		BuildArgs:   args,
 	}
 
 	tar, err := archive.TarWithOptions(tmp, &archive.TarOptions{})
