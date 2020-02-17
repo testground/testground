@@ -142,7 +142,10 @@ func (sm BarrierAllStateMachineNode) Enter() error {
 	watcher, writer := MustWatcherWriter(ctx, sm.runenv)
 
 	s := State(sm.Name)
-	writer.SignalEntry(ctx, s)
+	_, err := writer.SignalEntry(ctx, s)
+	if err != nil {
+		return sm.Fail(err).Enter()
+	}
 
 	// TODO, we should watch for -failed states, and fail when those are encountered
 	// For now, the context timeout will work.
