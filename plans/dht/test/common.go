@@ -430,17 +430,6 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		}
 	}
 
-	m := make(map[peer.ID]bool)
-	for _, info := range otherNodes {
-		_, undialable := info.properties[Undialable]
-		m[info.addrs.ID] = undialable
-	}
-
-	_, undialable := testNode.info.properties[Undialable]
-	m[testNode.info.addrs.ID] = undialable
-
-	runenv.RecordMessage("%v", m)
-
 	outputStart(testNode)
 
 	return testNode, otherNodes, nil
@@ -1176,12 +1165,14 @@ func outputGraph(dht *kaddht.IpfsDHT, graphID string) {
 			graphLogger.Infow(graphID, "From", c.LocalPeer().Pretty(), "To", c.RemotePeer().Pretty())
 		}
 	}
+	graphLogger.Sync()
 
 	for i, b := range dht.RoutingTable().Buckets {
 		for _, p := range b.Peers() {
 			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
 		}
 	}
+	rtLogger.Sync()
 }
 
 func outputStart(node *NodeParams) {
@@ -1193,4 +1184,5 @@ func outputStart(node *NodeParams) {
 		"peerID", node.info.addrs.ID.Pretty(),
 		"addrs", node.info.addrs.Addrs,
 	)
+	nodeLogger.Sync()
 }

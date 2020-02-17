@@ -154,6 +154,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
+	runenv.RecordMessage("done provide loop")
+
 	if err := stager.End(); err != nil {
 		return err
 	}

@@ -184,6 +184,7 @@ func (l *logger) RecordMetric(metric *MetricDefinition, value float64) {
 		},
 	}
 	l.logger.Info("", zap.Object("event", evt))
+	l.logger.Sync()
 }
 
 // Message prints out an informational message.
