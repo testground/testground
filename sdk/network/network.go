@@ -23,7 +23,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return 0, 0, nil
 	}
 	// Wait for the network to be initialized.
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return 0, 0, err
 	}
 	// TODO: just put the unique testplan id inside the runenv?
@@ -65,4 +65,14 @@ func SetupNetworkWaitAll(ctx context.Context, runenv *runtime.RunEnv, watcher *s
 		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
 	}
 	return latency, bandwidth, nil
+}
+
+func WaitNetworkInitialized(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher) error {
+	if runenv.TestSidecar {
+		err := <-watcher.Barrier(ctx, "network-initialized", int64(runenv.TestInstanceCount))
+		if err != nil {
+			return fmt.Errorf("failed to initialize network: %w", err)
+		}
+	}
+	return nil
 }

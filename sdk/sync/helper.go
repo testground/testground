@@ -7,6 +7,8 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// Depreciated. Use sdk.network.WaitNetworkInitialized
+// TODO: remove this once this plans have migrated
 // WaitNetworkInitialized waits for the sidecar to initialize the network, if the sidecar is enabled.
 func WaitNetworkInitialized(ctx context.Context, runenv *runtime.RunEnv, watcher *Watcher) error {
 	if runenv.TestSidecar {
