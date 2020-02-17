@@ -153,7 +153,7 @@ func (sm BarrierAllStateMachineNode) Enter() error {
 	if err != nil {
 		failmsg := fmt.Sprintf("%s-failed", sm.Name)
 		fstate := State(failmsg)
-		writer.SignalEntry(ctx, fstate)
+		_, _ = writer.SignalEntry(ctx, fstate)
 		sm.runenv.RecordFailure(errors.New(failmsg))
 		return sm.Fail(err).Enter()
 	}
