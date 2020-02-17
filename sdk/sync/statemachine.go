@@ -149,7 +149,7 @@ func (sm BarrierAllStateMachineNode) Enter() error {
 
 	// TODO, we should watch for -failed states, and fail when those are encountered
 	// For now, the context timeout will work.
-	err := <-watcher.Barrier(ctx, s, int64(sm.runenv.TestInstanceCount))
+	err = <-watcher.Barrier(ctx, s, int64(sm.runenv.TestInstanceCount))
 	if err != nil {
 		failmsg := fmt.Sprintf("%s-failed", sm.Name)
 		fstate := State(failmsg)
