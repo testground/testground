@@ -57,7 +57,6 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 func SetupNetworkWaitAll(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, network string) (time.Duration, int, error) {
 	latency, bandwidth, err := SetupNetwork(ctx, runenv, watcher, writer, network)
 	if err != nil {
-		runenv.RecordFailure(err)
 		return latency, bandwidth, err
 	}
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
