@@ -76,6 +76,14 @@ var RunCommand = cli.Command{
 					Name:  "test-param, p",
 					Usage: "provide a test parameter",
 				},
+				cli.BoolFlag{
+					Name:  "collect",
+					Usage: "Collect assets at the end of the run phase.",
+				},
+				cli.StringFlag{
+					Name:  "collect-file, o",
+					Usage: "Destination for the assets if --collect is set",
+				},
 			),
 		},
 	},
