@@ -71,7 +71,7 @@ metadata:
   name: master-eu-central-1a
 spec:
   image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
-  machineType: m3.medium
+  machineType: c5.2xlarge
   maxSize: 1
   minSize: 1
   nodeLabels:
@@ -91,7 +91,7 @@ metadata:
   name: nodes
 spec:
   image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
-  machineType: t2.medium
+  machineType: c5.2xlarge
   maxSize: ${WORKER_NODES}
   minSize: ${WORKER_NODES}
   nodeLabels:
