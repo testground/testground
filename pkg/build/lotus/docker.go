@@ -43,12 +43,11 @@ type DockerLotusBuilder struct {
 }
 
 type DockerLotusBuilderConfig struct {
-	Enabled       bool
-	GoVersion     string `toml:"go_version" overridable:"yes"`
-	GoIPFSVersion string `toml:"go_ipfs_version" overridable:"yes"`
-	ModulePath    string `toml:"module_path" overridable:"yes"`
-	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
+	Enabled    bool
+	GoVersion  string `toml:"go_version" overridable:"yes"`
+	ModulePath string `toml:"module_path" overridable:"yes"`
+	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
+	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
@@ -91,7 +90,7 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	if err != nil {
@@ -124,10 +123,12 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 
 	var (
 		plansrc       = in.TestPlan.SourcePath
+		lotussrc      = filepath.Join(in.Directories.SourceDir(), "../lotus")
 		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
 		dockerfilesrc = filepath.Join(plansrc, "Dockerfile.template")
 
 		plandst       = filepath.Join(tmp, "plan")
+		lotusdst      = filepath.Join(tmp, "lotus")
 		sdkdst        = filepath.Join(tmp, "sdk")
 		dockerfiledst = filepath.Join(tmp, "Dockerfile")
 	)
@@ -137,6 +138,14 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 		return nil, err
 	}
 	if err := materializeSymlink(plandst); err != nil {
+		return nil, err
+	}
+
+	// Copy the lotus source; go-getter will create the dir.
+	if err := getter.Get(lotusdst, lotussrc, getter.WithContext(ctx)); err != nil {
+		return nil, err
+	}
+	if err := materializeSymlink(lotusdst); err != nil {
 		return nil, err
 	}
 
@@ -207,7 +216,6 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 		NetworkMode: "testground-build",
 		BuildArgs: map[string]*string{
 			"GO_VERSION":        &cfg.GoVersion,
-			"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
 			"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
 			"GO_PROXY":          &proxyURL,
 		},

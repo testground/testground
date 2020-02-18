@@ -54,8 +54,8 @@ func New(listenAddr string) (srv *Daemon, err error) {
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{
 		Handler:      r,
-		WriteTimeout: 600 * time.Second,
-		ReadTimeout:  600 * time.Second,
+		WriteTimeout: 30 * time.Minute,
+		ReadTimeout:  30 * time.Minute,
 	}
 
 	srv.l, err = net.Listen("tcp", listenAddr)
