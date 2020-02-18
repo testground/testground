@@ -9,6 +9,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
+	"github.com/ipfs/testground/pkg/build/lotus"
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
@@ -23,6 +24,7 @@ import (
 var AllBuilders = []api.Builder{
 	&golang.DockerGoBuilder{},
 	&golang.ExecGoBuilder{},
+	&lotus.DockerLotusBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.

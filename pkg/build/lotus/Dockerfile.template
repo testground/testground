@@ -1,0 +1,65 @@
+#:::
+#::: BUILD CONTAINER
+#:::
+
+# GO_VERSION is the golang version this image will be built against.
+ARG GO_VERSION=1.13.4
+
+# Dynamically select the golang version.
+# TODO: Not sure how this interplays with image caching.
+FROM golang:${GO_VERSION}-buster
+
+# GO_IPFS_VERSION is the go-ipfs version to include in this image.
+ARG GO_IPFS_VERSION
+# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
+# The image will build that package only.
+ARG TESTPLAN_EXEC_PKG
+# GO_PROXY is the go proxy that will be used, or direct by default.
+ARG GO_PROXY=direct
+
+ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan/
+
+# Optionally install IPFS
+RUN if [ -n "${GO_IPFS_VERSION}" ]; then echo Install IPFS ${GO_IPFS_VERSION} && cd /tmp && wget https://dist.ipfs.io/go-ipfs/v${GO_IPFS_VERSION}/go-ipfs_v${GO_IPFS_VERSION}_linux-amd64.tar.gz && tar xf go-ipfs_v${GO_IPFS_VERSION}_linux-amd64.tar.gz; fi
+RUN touch /tmp/delete_me
+
+# Copy only go.mod files and download deps, in order to leverage Docker caching.
+COPY /plan/go.mod ${PLAN_DIR}
+# Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
+# inside sdk.
+COPY /sdk/sync/go.mod /sdk/sync/go.mod
+COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
+COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
+
+# Download deps.
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && go mod download
+
+# Now copy the rest of the source and run the build.
+COPY . /
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
+
+# Store module dependencies
+RUN cd ${PLAN_DIR} \
+  && go list -m all > /testground_dep_list
+
+#:::
+#::: RUNTIME CONTAINER
+#:::
+
+#FROM busybox:1.31.0-glibc # Doesn't work with prebuilt IPFS binaries
+FROM debian
+
+COPY --from=0 /testground_dep_list /
+COPY --from=0 /plan/testplan /
+RUN mkdir -p /usr/local/bin
+COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
+RUN rm -f /usr/local/bin/delete_me
+ENV PATH="/usr/local/bin:${PATH}"
+
+ENTRYPOINT [ "/testplan", "--vv"]

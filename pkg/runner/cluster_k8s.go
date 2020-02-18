@@ -277,7 +277,10 @@ func (*ClusterK8sRunner) ConfigType() reflect.Type {
 }
 
 func (*ClusterK8sRunner) CompatibleBuilders() []string {
-	return []string{"docker:go"}
+	return []string{
+		"docker:go",
+		"docker:lotus",
+	}
 }
 
 func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
