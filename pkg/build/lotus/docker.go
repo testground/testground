@@ -125,7 +125,7 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 	var (
 		plansrc       = in.TestPlan.SourcePath
 		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
-		dockerfilesrc = filepath.Join(in.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
+		dockerfilesrc = filepath.Join(plansrc, "Dockerfile.template")
 
 		plandst       = filepath.Join(tmp, "plan")
 		sdkdst        = filepath.Join(tmp, "sdk")
@@ -141,7 +141,10 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 	}
 
 	// Copy the dockerfile.
-	if err := copyFile(dockerfiledst, dockerfilesrc); err != nil {
+	if err := getter.GetFile(dockerfiledst, dockerfilesrc, getter.WithContext(ctx)); err != nil {
+		return nil, err
+	}
+	if err := materializeSymlink(dockerfiledst); err != nil {
 		return nil, err
 	}
 
@@ -214,7 +217,6 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 	if err != nil {
 		return nil, err
 	}
-
 	// Build the image.
 	resp, err := cli.ImageBuild(ctx, tar, opts)
 	if err != nil {
