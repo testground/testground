@@ -212,6 +212,24 @@ kubectl get pods -o wide
 kubectl logs <pod-id, e.g. tg-dht-c95b5>
 ```
 
+5. Check on the monitoring infrastructure (it runs in the monitoring namespace)
+```
+kubectl get pods --namespace monitoring
+```
+
+6. Get access to teh redis shell
+```
+kubectl port-forward svc/redis-master 6379:6379 &
+redis-cli -h localhost -p 6379
+```
+
+7. Get access to the kubernetes dashboard 
+```
+kubectl proxy
+```
+and then, direct your browser to `http://localhost:8001/ui`
+
+
 
 ## Use a Kubernetes context for another cluster
 
