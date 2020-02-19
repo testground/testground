@@ -176,7 +176,7 @@ activation/selection based on upstream dependency versions.
 
 ### Reflection
 
-Reflection in go is great, but insufficient by itselef in the advent of type
+Reflection in Go is great, but insufficient by itself in the advent of type
 creation and removal. Go cannot load types dynamically (like Java can via the
 ClassLoader), so in order to use reflection, one actually has to refer to the
 type explicitly, which may disappear/change down the line.
