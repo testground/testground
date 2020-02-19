@@ -201,31 +201,3 @@ func outputGCP(runenv *runtime.RunEnv, me peer.ID, target cid.Cid, peers []peer.
 	)
 	nodeLogger.Sync()
 }
-
-func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, seq int) error {
-	stg0 := Stager{
-		ctx:     ctx,
-		seq:     seq,
-		total:   runenv.TestInstanceCount,
-		name:    "tester",
-		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-		re:      runenv,
-	}
-
-	for i := 0; i < 100; i++ {
-		stg0.Begin()
-		t := time.Now()
-		err := stg0.End()
-		if err != nil {
-			return err
-		}
-		runenv.RecordMetric(&runtime.MetricDefinition{
-			Name:           fmt.Sprintf("stage-time"),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(t).Nanoseconds()))
-	}
-	return nil
-}
