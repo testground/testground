@@ -53,15 +53,12 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	//if err := testBarrier(ctx, runenv, watcher, writer, node.info.seq); err != nil {
-	//	return err
-	//}
-	//return nil
+	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
 
 	t := time.Now()
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = StagedBootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
+	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
 		return err
 	}
 
@@ -79,7 +76,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	t = time.Now()
 
-	if err := SetupNetwork2(ctx, runenv, watcher, writer); err != nil {
+	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -100,20 +97,10 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 		return out
 	}()
 
-	stg := Stager{
-		ctx:     ctx,
-		seq:     node.info.seq,
-		total:   runenv.TestInstanceCount,
-		name:    "lookup",
-		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-		re:      runenv,
-	}
-
 	isFinder := node.info.seq < opts.NFindPeers
 
-	if err := stg.Begin(); err != nil {
+	stager.Reset("lookup")
+	if err := stager.Begin(); err != nil {
 		return err
 	}
 
@@ -160,14 +147,14 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
-			_ = stg.End()
+			_ = stager.End()
 			return fmt.Errorf("failed while finding providerss: %s", err)
 		}
 	}
 
 	runenv.RecordMessage("done provide loop")
 
-	if err := stg.End(); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 

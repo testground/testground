@@ -43,28 +43,19 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	if err := testBarrier(ctx, runenv, watcher, writer, node.info.seq); err != nil {
+	if err := testBarrier(ctx, runenv, watcher, writer, node); err != nil {
 		return err
 	}
 	return nil
 }
 
-func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, seq int) error {
-	stg0 := Stager{
-		ctx:     ctx,
-		seq:     seq,
-		total:   runenv.TestInstanceCount,
-		name:    "tester",
-		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-		re:      runenv,
-	}
+func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, node *NodeParams) error {
+	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "barrier", watcher, writer, runenv)
 
 	for i := 0; i < 100; i++ {
-		stg0.Begin()
+		stager.Begin()
 		t := time.Now()
-		err := stg0.End()
+		err := stager.End()
 		if err != nil {
 			return err
 		}

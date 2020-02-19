@@ -19,7 +19,7 @@
     percentage = 1.0
   [groups.build]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:b1fd5d8d433e"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:6e48990604a4"
     [groups.run.test_params]
       bucket_size = "4"
       client_mode = "false"
