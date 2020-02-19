@@ -42,8 +42,10 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	defer outputGraph(node.dht, "end")
 	defer Teardown(ctx, runenv, watcher, writer)
 
+	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = StagedBootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
+	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
 		return err
 	}
 
@@ -53,7 +55,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork2(ctx, runenv, watcher, writer); err != nil {
+	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -68,17 +70,8 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 	// Perform FIND_PEER N times.
 
-	stg := Stager{
-		ctx:     ctx,
-		seq:     node.info.seq,
-		total:   runenv.TestInstanceCount,
-		name:    "lookup",
-		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-	}
-
-	if err := stg.Begin(); err != nil {
+	stager.Reset("lookup")
+	if err := stager.Begin(); err != nil {
 		return err
 	}
 
@@ -110,7 +103,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		_, err := node.dht.FindPeer(ectx, p)
 		cancel()
 		if err != nil {
-			_ = stg.End()
+			_ = stager.End()
 			return fmt.Errorf("find peer failed: peer %s : %s", p, err)
 		}
 
@@ -123,7 +116,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		found++
 	}
 
-	if err := stg.End(); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 

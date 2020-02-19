@@ -52,8 +52,10 @@ func FindProviders(runenv *runtime.RunEnv) error {
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
+	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = StagedBootstrap(ctx, runenv, watcher, writer, opts, node, peers); err != nil {
+	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
 		return err
 	}
 
@@ -63,7 +65,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork2(ctx, runenv, watcher, writer); err != nil {
+	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -76,20 +78,11 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return out
 	}()
 
-	stg := Stager{
-		ctx:     ctx,
-		seq:     node.info.seq,
-		total:   runenv.TestInstanceCount,
-		name:    "lookup",
-		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-	}
-
 	isProvider := node.info.seq < opts.NodesProviding
 	isFinder := (opts.NodesProviding >= node.info.seq) && (node.info.seq < (opts.NodesProviding + opts.NFindPeers))
 
-	if err := stg.Begin(); err != nil {
+	stager.Reset("lookup")
+	if err := stager.Begin(); err != nil {
 		return err
 	}
 
@@ -123,16 +116,16 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
-			_ = stg.End()
+			_ = stager.End()
 			return fmt.Errorf("failed while providing: %s", err)
 		}
 	}
 
-	if err := stg.End(); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 
-	if err := stg.Begin(); err != nil {
+	if err := stager.Begin(); err != nil {
 		return err
 	}
 
@@ -167,12 +160,12 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
-			_ = stg.End()
+			_ = stager.End()
 			return fmt.Errorf("failed while finding providerss: %s", err)
 		}
 	}
 
-	if err := stg.End(); err != nil {
+	if err := stager.End(); err != nil {
 		return err
 	}
 

@@ -25,6 +25,7 @@
       client_mode = "false"
       datastore = "0"
       f_undialable = "0.9"
+      n_bootstrap = "-4"
       n_paths = "0"
       n_find_peers = "5"
       n_providing = "5"

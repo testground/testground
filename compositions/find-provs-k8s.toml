@@ -13,7 +13,7 @@
     registry_type = "aws"
 
 [[groups]]
-  id = "balsa"
+  id = "balsam"
   [groups.instances]
     count = 100
     percentage = 0.0
@@ -24,6 +24,7 @@
       bucket_size = "4"
       client_mode = "false"
       f_undialable = "0.9"
+      n_bootstrap = "-4"
       n_providing = "1"
       record_count = "5"
       timeout_secs = "2000"
@@ -48,6 +49,7 @@
       bucket_size = "4"
       client_mode = "false"
       f_undialable = "0.9"
+      n_bootstrap = "-4"
       n_providing = "1"
       record_count = "5"
       timeout_secs = "2000"
