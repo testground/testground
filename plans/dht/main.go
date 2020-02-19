@@ -10,6 +10,7 @@ var testCases = []func(*runtime.RunEnv) error{
 	test.FindProviders,
 	test.ProvideStress,
 	test.StoreGetValue,
+	test.GetClosestPeers,
 }
 
 func main() {

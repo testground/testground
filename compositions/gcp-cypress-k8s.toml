@@ -1,11 +1,11 @@
 [metadata]
-  name = "find-provs"
+  name = "gcp"
   author = "adin"
 
 [global]
   plan = "dht"
-  case = "find-providers"
-  total_instances = 1000
+  case = "get-closest-peers"
+  total_instances = 800
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
@@ -27,14 +27,14 @@
       module = "github.com/libp2p/go-libp2p-autonat"
       version = "v0.1.2-0.20200204200147-902af8cb7b6a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:be34902560bd"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:5490f54794b3"
     [groups.run.test_params]
       bucket_size = "10"
       client_mode = "false"
-      datastore = "0"
+      dbg = "0"
       f_undialable = "0.0"
       n_find_peers = "5"
       n_paths = "1"
-      n_providing = "5"
+      n_providing = "1"
       record_count = "5"
-      timeout_secs = "2000"
+      timeout_secs = "600"
