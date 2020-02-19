@@ -7,6 +7,16 @@ import (
 	gort "runtime"
 )
 
+// The purpose of this example is to demonstrate the state machine as a primative for more complex
+// pattern generation.
+// In this example, the test is broken up into three phases, each does something slightly different.
+// Because each phase is a BarrierAllStateMachienNode, the function will begin with a sync barrier
+// which waits for all to enter the current phase before continuing with their work.
+
+// The benefit of this design is that the synchronization logic is entirely separated from the logic
+// of each test phase, even though the runtime (and perhaps other information) is shared between
+// phases.
+
 func PatternFactory(runenv *runtime.RunEnv, funcs ...func(runenv *runtime.RunEnv) error) *sync.BarrierAllStateMachineNode {
 	root := sync.NewBarrierAllStateMachineNode("outer", "setup", runenv)
 	root.OnEnter(func() error {
