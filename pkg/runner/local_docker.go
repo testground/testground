@@ -107,6 +107,18 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
+	_, err = ensurePrometheusContainer(ctx, cli, log, ctrlnid)
+	if err != nil {
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
+	_, err = ensurePushgatewayContainer(ctx, cli, log, ctrlnid)
+	if err != nil {
+		r.setupLk.Unlock()
+		return nil, err
+	}
+
 	// Ensure that we have a testground-redis container; if not, create it.
 	_, err = ensureRedisContainer(ctx, cli, log, ctrlnid)
 	if err != nil {
@@ -381,6 +393,44 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 		},
 	)
 	return id, subnet, err
+}
+
+func ensurePrometheusContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		ContainerName: "prometheus",
+		ContainerConfig: &container.Config{
+			Image: "prom/prometheus",
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(controlNetworkID),
+		},
+		PullImageIfMissing: true,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return container.ID, err
+
+}
+
+func ensurePushgatewayContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		ContainerName: "pushgateway",
+		ContainerConfig: &container.Config{
+			Image: "prom/pushgateway",
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(controlNetworkID),
+		},
+		PullImageIfMissing: true,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return container.ID, err
+
 }
 
 // ensureRedisContainer ensures there's a testground-redis container started.
