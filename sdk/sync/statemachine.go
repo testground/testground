@@ -115,27 +115,27 @@ type BarrierAllStateMachineNode struct {
 	runenv      *runtime.RunEnv
 }
 
-func (sm BarrierAllStateMachineNode) Succeed() StateMachineNode {
+func (sm *BarrierAllStateMachineNode) Succeed() StateMachineNode {
 	return sm.successNode
 }
 
-func (sm BarrierAllStateMachineNode) Fail(err error) StateMachineNode {
+func (sm *BarrierAllStateMachineNode) Fail(err error) StateMachineNode {
 	return sm.failureNode
 }
 
-func (sm BarrierAllStateMachineNode) AttachSuccess(a StateMachineNode) {
+func (sm *BarrierAllStateMachineNode) AttachSuccess(a StateMachineNode) {
 	sm.successNode = a
 }
 
-func (sm BarrierAllStateMachineNode) AttachFailure(a StateMachineNode) {
+func (sm *BarrierAllStateMachineNode) AttachFailure(a StateMachineNode) {
 	sm.failureNode = a
 }
 
-func (sm BarrierAllStateMachineNode) OnEnter(e StateMachineExecutable) {
+func (sm *BarrierAllStateMachineNode) OnEnter(e StateMachineExecutable) {
 	sm.enterfunc = e
 }
 
-func (sm BarrierAllStateMachineNode) Enter() error {
+func (sm *BarrierAllStateMachineNode) Enter() error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(2)*time.Minute)
 	defer cancel()
 
