@@ -51,3 +51,7 @@ instances = { min = 1, max = 200, default = 1 }
 [[testcases]]
 name = "sync"
 instances = { min = 2, max = 200, default = 5 }
+
+[[testcases]]
+name = "statemachine"
+instances = { min = 1, max = 200, default = 5 }
