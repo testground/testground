@@ -57,6 +57,7 @@ type SetupOpts struct {
 	ClientMode     bool
 	NDisjointPaths int
 	Datastore      int
+	Debug          int
 }
 
 type NodeProperty int
@@ -191,8 +192,10 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, err
 	}
 
-	if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
-		return nil, nil, err
+	if !undialable || (opts.Debug == 0) {
+		if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	var ds datastore.Batching
@@ -834,6 +837,7 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		name:    "bootstrapping",
 		watcher: watcher,
 		writer:  writer,
+		re:      runenv,
 	}
 
 	////////////////
@@ -940,7 +944,7 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 
 	runenv.Message("bootstrap: everyone table ready")
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 0; i++ {
 		if err := stager.Begin(); err != nil {
 			return err
 		}
@@ -1146,11 +1150,15 @@ type Stager struct {
 	stage   int
 	watcher *sync.Watcher
 	writer  *sync.Writer
+
+	re *runtime.RunEnv
+	t  time.Time
 }
 
 func (s *Stager) Begin() error {
 	// Wait until it's out turn
 	s.stage += 1
+	s.t = time.Now()
 	return nil
 	//stage := sync.State(s.name + string(s.stage))
 	//return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
@@ -1159,12 +1167,38 @@ func (s *Stager) Begin() error {
 func (s *Stager) End() error {
 	// Signal that we're done
 	stage := sync.State(s.name + strconv.Itoa(s.stage))
+
+	t := time.Now()
 	_, err := s.writer.SignalEntry(s.ctx, stage)
 	if err != nil {
 		return err
 	}
 
-	return <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+	if s.re != nil {
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "signal " + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(t).Nanoseconds()))
+	}
+
+	t = time.Now()
+
+	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+	if s.re != nil {
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "barrier" + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(t).Nanoseconds()))
+
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "full " + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(s.t).Nanoseconds()))
+	}
+	return err
 }
 
 func WaitMyTurn(
