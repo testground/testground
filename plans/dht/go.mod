@@ -11,7 +11,8 @@ replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 require (
 	github.com/ethereum/go-ethereum v1.9.10
 	github.com/ipfs/go-cid v0.0.3
-	github.com/ipfs/go-datastore v0.3.1
+	github.com/ipfs/go-datastore v0.4.1
+	github.com/ipfs/go-ds-leveldb v0.4.1
 	github.com/ipfs/go-ipfs-util v0.0.1
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0

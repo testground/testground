@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/go-datastore"
 	"math"
 	"math/rand"
 	"net"
@@ -10,14 +11,12 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	gosync "sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
-	"github.com/ipfs/go-datastore"
+	leveldb "github.com/ipfs/go-ds-leveldb"
 
 	"github.com/libp2p/go-libp2p"
 	autonat "github.com/libp2p/go-libp2p-autonat"
@@ -56,6 +55,9 @@ type SetupOpts struct {
 	RecordCount    int
 	FUndialable    float64
 	ClientMode     bool
+	NDisjointPaths int
+	Datastore      int
+	Debug          int
 }
 
 type NodeProperty int
@@ -123,7 +125,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, fmt.Errorf("not enough peers")
 	}
 
-	runenv.Message("connmgr parameters: hi=%d, lo=%d", max, min)
+	runenv.RecordMessage("connmgr parameters: hi=%d, lo=%d", max, min)
 
 	// Generate bogus advertising address
 	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
@@ -190,14 +192,30 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, err
 	}
 
-	if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
-		return nil, nil, err
+	if !undialable || (opts.Debug == 0) {
+		if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	var ds datastore.Batching
+	switch opts.Datastore {
+	case 0:
+		ds = datastore.NewMapDatastore()
+	case 1:
+		ds, err = leveldb.NewDatastore("", nil)
+		if err != nil {
+			return nil, nil, err
+		}
+	default:
+		return nil, nil, fmt.Errorf("invalid datastore type")
 	}
 
 	dhtOptions := []dhtopts.Option{
-		dhtopts.Datastore(datastore.NewMapDatastore()),
+		dhtopts.Datastore(ds),
 		dhtopts.BucketSize(opts.BucketSize),
 		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
+		DisjointPathsOpt(opts.NDisjointPaths),
 	}
 
 	if !opts.AutoRefresh {
@@ -251,7 +269,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		return err
 	}
 
-	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -260,6 +278,9 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		},
 		State: "network-configured",
 	})
+	if err != nil {
+		return err
+	}
 
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
 	if err != nil {
@@ -281,7 +302,7 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 		return err
 	}
 
-	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -290,6 +311,8 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 		},
 		State: "network-configured2",
 	})
+
+	runenv.RecordMessage("finished resetting network latency")
 
 	err = <-watcher.Barrier(ctx, "network-configured2", int64(runenv.TestInstanceCount))
 	if err != nil {
@@ -300,7 +323,9 @@ func SetupNetwork2(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wa
 
 // Setup sets up the elements necessary for the test cases
 func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
-	defer metrics.GetOrRegisterResettingTimer("find-providers.setup", nil).UpdateSince(time.Now())
+	if err := initAssets(runenv); err != nil {
+		return nil, nil, err
+	}
 
 	testNode := &NodeParams{info: &NodeInfo{}}
 	otherNodes := make(map[peer.ID]*NodeInfo)
@@ -322,7 +347,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	seqNumCh := watcher.Barrier(ctx, "seqNum", int64(runenv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	seqSeed, err := writer.SignalEntry("seqNum")
+	seqSeed, err := writer.SignalEntry(ctx, "seqNum")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -343,16 +368,16 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return nil, nil, err
 	}
 
-	if _, err = writer.Write(PeerIDSubtree, &id); err != nil {
+	if _, err = writer.Write(ctx, PeerIDSubtree, &id); err != nil {
 		return nil, nil, fmt.Errorf("failed to write peer id subtree in sync service: %w", err)
 	}
 
 	peerIDCh := make(chan *peer.ID, 16)
-	cancelSub, err := watcher.Subscribe(PeerIDSubtree, peerIDCh)
-	if err != nil {
+	sctx, cancelSub := context.WithCancel(ctx)
+	defer cancelSub()
+	if err := watcher.Subscribe(sctx, PeerIDSubtree, peerIDCh); err != nil {
 		return nil, nil, err
 	}
-	defer cancelSub()
 
 	// TODO: remove this if it becomes too much coordination effort.
 	// Grab list of other peers that are available for this run.
@@ -390,16 +415,16 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 
 	runenv.Message("I am %s with addrs: %v", id, testNode.info.addrs)
 
-	if _, err = writer.Write(sync.PeerSubtree, testNode.info.addrs); err != nil {
+	if _, err = writer.Write(ctx, sync.PeerSubtree, testNode.info.addrs); err != nil {
 		return nil, nil, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
 	}
 
 	peerCh := make(chan *peer.AddrInfo, 16)
-	cancelSub, err = watcher.Subscribe(sync.PeerSubtree, peerCh)
-	if err != nil {
+	sctx, cancelSub = context.WithCancel(ctx)
+	defer cancelSub()
+	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
 		return nil, nil, err
 	}
-	defer cancelSub()
 
 	// TODO: remove this if it becomes too much coordination effort.
 	// Grab list of other peers that are available for this run.
@@ -415,15 +440,7 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		}
 	}
 
-	if testNode.info.seq == 0 {
-		m := make(map[peer.ID]bool)
-		for _, info := range otherNodes {
-			_, undialable := info.properties[Undialable]
-			m[info.addrs.ID] = undialable
-		}
-
-		runenv.Message("%v", m)
-	}
+	outputStart(testNode)
 
 	return testNode, otherNodes, nil
 }
@@ -468,7 +485,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	// 1: CONNECT //
 	////////////////
 
-	runenv.Message("bootstrap: begin connect")
+	runenv.RecordMessage("bootstrap: begin connect")
 
 	dht := node.dht
 
@@ -477,12 +494,12 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		// We have bootstrappers.
 
 		if isBootstrapper {
-			runenv.Message("bootstrap: am bootstrapper")
+			runenv.RecordMessage("bootstrap: am bootstrapper")
 			go func() {
 				for {
 					select {
 					case <-time.After(1 * time.Second):
-						runenv.Message("bootstrapper peer count: %d", len(dht.Host().Network().Peers()))
+						runenv.RecordMessage("bootstrapper peer count: %d", len(dht.Host().Network().Peers()))
 						continue
 					case <-ctx.Done():
 						return
@@ -490,21 +507,21 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 				}
 			}()
 			// Announce ourself as a bootstrap node.
-			if _, err := writer.Write(BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
+			if _, err := writer.Write(ctx, BootstrapSubtree, host.InfoFromHost(dht.Host())); err != nil {
 				return err
 			}
 			// NOTE: If we start restricting the network, don't restrict
 			// bootstrappers.
 		}
 
-		runenv.Message("bootstrap: getting bootstrappers")
+		runenv.RecordMessage("bootstrap: getting bootstrappers")
 		// List all the bootstrappers.
 		bootstrapPeers, err := getBootstrappers(ctx, runenv, watcher, opts)
 		if err != nil {
 			return err
 		}
 
-		runenv.Message("bootstrap: got %d bootstrappers", len(bootstrapPeers))
+		runenv.RecordMessage("bootstrap: got %d bootstrappers", len(bootstrapPeers))
 
 		if isBootstrapper {
 			// If we're a bootstrapper, connect to all of them with IDs lexicographically less than us
@@ -673,14 +690,14 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		}
 	}
 
-	runenv.Message("bootstrap: dialing %v", toDial)
+	runenv.RecordMessage("bootstrap: dialing %v", toDial)
 
 	// Connect to our peers.
 	if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 		return err
 	}
 
-	runenv.Message("bootstrap: dialed %d other peers", len(toDial))
+	runenv.RecordMessage("bootstrap: dialed %d other peers", len(toDial))
 
 	dead := isUndialable && len(toDial) == 0
 	if !dead {
@@ -690,7 +707,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		}
 	}
 
-	runenv.Message("bootstrap: have peer in routing table")
+	runenv.RecordMessage("bootstrap: have peer in routing table")
 
 	// Wait till everyone is done bootstrapping.
 	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-connected"); err != nil {
@@ -701,9 +718,9 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	// 2: ROUTING //
 	////////////////
 
-	runenv.Message("bootstrap: begin routing")
+	runenv.RecordMessage("bootstrap: begin routing")
 
-	outputGraph(node.dht, runenv, "br")
+	outputGraph(node.dht, "br")
 
 	if !dead {
 		// Setup our routing tables.
@@ -712,7 +729,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		}
 	}
 
-	runenv.Message("bootstrap: table ready")
+	runenv.RecordMessage("bootstrap: table ready")
 
 	// TODO: Repeat this a few times until our tables have stabilized? That
 	// _shouldn't_ be necessary.
@@ -726,9 +743,9 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 	// 3: TRIM //
 	/////////////
 
-	runenv.Message("bootstrap: begin trim")
+	runenv.RecordMessage("bootstrap: begin trim")
 
-	outputGraph(node.dht, runenv, "bt")
+	outputGraph(node.dht, "bt")
 
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
@@ -742,7 +759,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		return err
 	}
 
-	outputGraph(node.dht, runenv, "at")
+	outputGraph(node.dht, "at")
 
 	///////////////////////////
 	// 4: FORGET & RECONNECT //
@@ -759,20 +776,20 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		}
 	}
 
-	runenv.Message("bootstrap: forgotten %d peers", forgotten)
+	runenv.RecordMessage("bootstrap: forgotten %d peers", forgotten)
 
 	// Make sure we have at least one peer. If not, reconnect to a
 	// bootstrapper and log a warning.
 	if len(dht.Host().Network().Peers()) == 0 && !dead {
 		// TODO: Report this as an error?
-		runenv.Message("bootstrap: fully disconnected, reconnecting.")
+		runenv.RecordMessage("bootstrap: fully disconnected, reconnecting.")
 		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
 			return err
 		}
 		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
 			return err
 		}
-		runenv.Message("bootstrap: finished reconnecting to %d peers", len(toDial))
+		runenv.RecordMessage("bootstrap: finished reconnecting to %d peers", len(toDial))
 	}
 
 	// Wait for everyone to finish trimming connections.
@@ -797,10 +814,10 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 }
 
 func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) error {
-	defer metrics.GetOrRegisterResettingTimer("find-providers.staged-bootstrap", nil).UpdateSince(time.Now())
-
 	_, isUndialable := node.info.properties[Undialable]
 	_ = isUndialable
+
+	defer runenv.RecordMessage("bootstrap phase ended")
 
 	stager := &Stager{
 		ctx:     ctx,
@@ -809,6 +826,7 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		name:    "bootstrapping",
 		watcher: watcher,
 		writer:  writer,
+		re:      runenv,
 	}
 
 	////////////////
@@ -888,10 +906,19 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 
 	runenv.Message("bootstrap: begin routing")
 
-	outputGraph(node.dht, runenv, "br")
+	outputGraph(node.dht, "br")
+
+	rrt := func() error {
+		if err := <-dht.RefreshRoutingTable(); err != nil {
+			runenv.RecordMessage("bootstrap: refresh failure - rt size %d", dht.RoutingTable().Size())
+			outputGraph(dht, "failedrefresh")
+			return err
+		}
+		return nil
+	}
 
 	// Setup our routing tables.
-	if err := <-dht.RefreshRoutingTable(); err != nil {
+	if err := rrt(); err != nil {
 		return err
 	}
 
@@ -904,107 +931,137 @@ func StagedBootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.
 		return err
 	}
 
-	/////////////
-	// 3: TRIM //
-	/////////////
+	runenv.Message("bootstrap: everyone table ready")
 
-	outputGraph(node.dht, runenv, "bt")
-
-	// Need to wait for connections to exit the grace period.
-	time.Sleep(2 * ConnManagerGracePeriod)
-
-	if err := stager.Begin(); err != nil {
-		return err
-	}
-
-	runenv.Message("bootstrap: begin trim")
-
-	// Force the connection manager to do it's dirty work. DIE CONNECTIONS
-	// DIE!
-	dht.Host().ConnManager().TrimOpenConns(ctx)
-
-	if err := stager.End(); err != nil {
-		return err
-	}
-
-	outputGraph(node.dht, runenv, "at")
-
-	///////////////////////////
-	// 4: FORGET & RECONNECT //
-	///////////////////////////
-
-	if err := stager.Begin(); err != nil {
-		return err
-	}
-
-	// Forget all peers we're no longer connected to. We need to do this
-	// _after_ we wait for everyone to trim so we can forget peers that
-	// disconnected from us.
-	forgotten := 0
-	for _, p := range dht.Host().Peerstore().Peers() {
-		if dht.Host().Network().Connectedness(p) != network.Connected {
-			forgotten++
-			dht.Host().Peerstore().ClearAddrs(p)
-		}
-	}
-
-	runenv.Message("bootstrap: forgotten %d peers", forgotten)
-
-	// Make sure we have at least one peer. If not, reconnect to a
-	// bootstrapper and log a warning.
-	if len(dht.Host().Network().Peers()) == 0 {
-		// TODO: Report this as an error?
-		runenv.Message("bootstrap: fully disconnected, reconnecting.")
-		if err := Connect(ctx, runenv, dht, toDial...); err != nil {
+	for i := 0; i < 0; i++ {
+		if err := stager.Begin(); err != nil {
 			return err
 		}
-		if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+
+		runenv.RecordMessage("boostrap: start refresh - %d", i+1)
+
+		if err := rrt(); err != nil {
 			return err
 		}
-		runenv.Message("bootstrap: finished reconnecting to %d peers", len(toDial))
+
+		runenv.RecordMessage("boostrap: done refresh - %d", i+1)
+
+		if err := stager.End(); err != nil {
+			return err
+		}
 	}
 
-	if err := stager.End(); err != nil {
-		return err
-	}
+	/*
 
-	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
-		return err
-	}
+		outputGraph(node.dht, runenv, "ar")
 
-	outputGraph(node.dht, runenv, "ab")
+		/////////////
+		// 3: TRIM //
+		/////////////
 
-	runenv.Message(
+		outputGraph(node.dht, runenv, "bt")
+
+		// Need to wait for connections to exit the grace period.
+		time.Sleep(2 * ConnManagerGracePeriod)
+
+		if err := stager.Begin(); err != nil {
+			return err
+		}
+
+		runenv.Message("bootstrap: begin trim")
+
+		// Force the connection manager to do it's dirty work. DIE CONNECTIONS
+		// DIE!
+		dht.Host().ConnManager().TrimOpenConns(ctx)
+
+		if err := stager.End(); err != nil {
+			return err
+		}
+
+		outputGraph(node.dht, runenv, "at")
+
+		///////////////////////////
+		// 4: FORGET & RECONNECT //
+		///////////////////////////
+
+		if err := stager.Begin(); err != nil {
+			return err
+		}
+
+		// Forget all peers we're no longer connected to. We need to do this
+		// _after_ we wait for everyone to trim so we can forget peers that
+		// disconnected from us.
+		forgotten := 0
+		for _, p := range dht.Host().Peerstore().Peers() {
+			if dht.Host().Network().Connectedness(p) != network.Connected {
+				forgotten++
+				dht.Host().Peerstore().ClearAddrs(p)
+			}
+		}
+
+		runenv.RecordMessage("bootstrap: forgotten %d peers", forgotten)
+
+		// Make sure we have at least one peer. If not, reconnect to a
+		// bootstrapper and log a warning.
+		if len(dht.Host().Network().Peers()) == 0 {
+			// TODO: Report this as an error?
+			runenv.RecordMessage("bootstrap: fully disconnected, reconnecting.")
+			if err := Connect(ctx, runenv, dht, toDial...); err != nil {
+				return err
+			}
+			if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
+				return err
+			}
+			runenv.RecordMessage("bootstrap: finished reconnecting to %d peers", len(toDial))
+		}
+
+		tmpCtx, tmpc := context.WithTimeout(ctx, time.Second*10)
+		if err := WaitRoutingTable(tmpCtx, runenv, dht); err != nil {
+			return err
+		}
+		if tmpCtx.Err() != nil {
+			runenv.RecordMessage("peer %s failed with rt of size %d", node.host.ID().Pretty(), node.dht.RoutingTable().Size())
+		}
+		tmpc()
+
+		if err := stager.End(); err != nil {
+			return err
+		}
+	*/
+	outputGraph(node.dht, "ab")
+
+	runenv.RecordMessage(
 		"bootstrap: finished with %d connections, %d in the routing table",
 		len(dht.Host().Network().Peers()),
 		dht.RoutingTable().Size(),
 	)
 
-	runenv.Message("bootstrap: done")
+	runenv.RecordMessage("bootstrap: done")
 	return nil
 }
 
 // get all bootstrap peers.
 func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, opts *SetupOpts) ([]peer.AddrInfo, error) {
+	// cancel the sub
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	peerCh := make(chan *peer.AddrInfo, opts.NBootstrap)
-	cancelSub, err := watcher.Subscribe(BootstrapSubtree, peerCh)
-	if err != nil {
+	if err := watcher.Subscribe(ctx, BootstrapSubtree, peerCh); err != nil {
 		return nil, err
 	}
-	defer cancelSub()
 
 	// TODO: remove this if it becomes too much coordination effort.
 	peers := make([]peer.AddrInfo, opts.NBootstrap)
 	// Grab list of other peers that are available for this run.
 	for i := 0; i < opts.NBootstrap; i++ {
-		select {
-		case ai := <-peerCh:
-			peers[i] = *ai
-		case <-ctx.Done():
-			return nil, fmt.Errorf("timed out waiting for bootstrappers")
+		ai, ok := <-peerCh
+		if !ok {
+			return peers, fmt.Errorf("timed out waiting for bootstrappers")
 		}
+		peers[i] = *ai
 	}
-	runenv.Message("got all bootstrappers: %d", len(peers))
+	runenv.RecordMessage("got all bootstrappers: %d", len(peers))
 	return peers, nil
 }
 
@@ -1015,20 +1072,16 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 	tryConnect := func(ctx context.Context, ai peer.AddrInfo, attempts int) error {
 		var err error
 		for i := 1; i <= attempts; i++ {
-			runenv.Message("dialling peer %s (attempt %d)", ai.ID, i)
-			//select {
-			//case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
-			//case <-ctx.Done():
-			//	return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
-			//}
-
-			start := time.Now()
+			runenv.RecordMessage("dialling peer %s (attempt %d)", ai.ID, i)
 			if err = dht.Host().Connect(ctx, ai); err == nil {
-				metrics.GetOrRegisterResettingTimer("connect.success", nil).UpdateSince(start)
 				return nil
 			} else {
-				metrics.GetOrRegisterResettingTimer("connect.fail", nil).UpdateSince(start)
-				runenv.Message("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+			}
+			select {
+			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
 		}
 		return fmt.Errorf("failed while dialing peer %v, attempts: %d: %w", ai.Addrs, attempts, err)
@@ -1049,8 +1102,6 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 
 // RandomWalk performs 5 random walks.
 func RandomWalk(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT) error {
-	defer metrics.GetOrRegisterResettingTimer("find-providers.random-walk", nil).UpdateSince(time.Now())
-
 	for i := 0; i < 5; i++ {
 		if err := dht.Bootstrap(ctx); err != nil {
 			return fmt.Errorf("Could not run a random-walk: %w", err)
@@ -1071,7 +1122,7 @@ func Sync(
 	doneCh := watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	_, err := writer.SignalEntry(state)
+	_, err := writer.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}
@@ -1088,24 +1139,55 @@ type Stager struct {
 	stage   int
 	watcher *sync.Watcher
 	writer  *sync.Writer
+
+	re *runtime.RunEnv
+	t  time.Time
 }
 
 func (s *Stager) Begin() error {
 	// Wait until it's out turn
 	s.stage += 1
-	stage := sync.State(s.name + string(s.stage))
-	return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
+	s.t = time.Now()
+	return nil
+	//stage := sync.State(s.name + string(s.stage))
+	//return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
 }
 
 func (s *Stager) End() error {
 	// Signal that we're done
-	stage := sync.State(s.name + string(s.stage))
-	_, err := s.writer.SignalEntry(stage)
+	stage := sync.State(s.name + strconv.Itoa(s.stage))
+
+	t := time.Now()
+	_, err := s.writer.SignalEntry(s.ctx, stage)
 	if err != nil {
 		return err
 	}
 
-	return <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+	if s.re != nil {
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "signal " + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(t).Nanoseconds()))
+	}
+
+	t = time.Now()
+
+	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+	if s.re != nil {
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "barrier" + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(t).Nanoseconds()))
+
+		s.re.RecordMetric(&runtime.MetricDefinition{
+			Name:           "full " + string(stage),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(s.t).Nanoseconds()))
+	}
+	return err
 }
 
 func WaitMyTurn(
@@ -1121,13 +1203,15 @@ func WaitMyTurn(
 
 	return func() error {
 		// Signal that we're done
-		_, err := writer.SignalEntry(state)
+		_, err := writer.SignalEntry(ctx, state)
 		return err
 	}, err
 }
 
 // WaitRoutingTable waits until the routing table is not empty.
 func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT) error {
+	ctxt, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
 	for {
 		if dht.RoutingTable().Size() > 0 {
 			return nil
@@ -1135,8 +1219,12 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 
 		select {
 		case <-time.After(200 * time.Millisecond):
-		case <-ctx.Done():
-			return fmt.Errorf("got no peers in routing table")
+		case <-ctxt.Done():
+			peers := dht.Host().Network().Peers()
+			errStr := fmt.Sprintf("empty rt. %d peer conns. they are %v", len(peers), peers)
+			runenv.RecordMessage(errStr)
+			return fmt.Errorf(errStr)
+			//return fmt.Errorf("got no peers in routing table")
 		}
 	}
 }
@@ -1150,34 +1238,58 @@ func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher
 	}
 }
 
-var graphLogSetup gosync.Once
-var graphLogger, rtLogger *zap.SugaredLogger
+var graphLogger, rtLogger, nodeLogger *zap.SugaredLogger
 
-func outputGraph(dht *kaddht.IpfsDHT, runenv *runtime.RunEnv, graphID string) {
-	graphLogSetup.Do(func() {
-		var err error
-		_, graphLogger, err = runenv.CreateStructuredAsset("dht_graphs.out", runtime.StandardJSONConfig())
-		if err != nil {
-			runenv.Message("failed to initialize dht_graphs.out asset; nooping logger: %s", err)
-			graphLogger = zap.NewNop().Sugar()
-		}
+func initAssets(runenv *runtime.RunEnv) error {
+	var err error
+	_, graphLogger, err = runenv.CreateStructuredAsset("dht_graphs.out", runtime.StandardJSONConfig())
+	if err != nil {
+		runenv.RecordMessage("failed to initialize dht_graphs.out asset; nooping logger: %s", err)
+		graphLogger = zap.NewNop().Sugar()
+		return err
+	}
 
-		_, rtLogger, err = runenv.CreateStructuredAsset("dht_rt.out", runtime.StandardJSONConfig())
-		if err != nil {
-			runenv.Message("failed to initialize dht_rt.out asset; nooping logger: %s", err)
-			rtLogger = zap.NewNop().Sugar()
-		}
-	})
+	_, rtLogger, err = runenv.CreateStructuredAsset("dht_rt.out", runtime.StandardJSONConfig())
+	if err != nil {
+		runenv.RecordMessage("failed to initialize dht_rt.out asset; nooping logger: %s", err)
+		rtLogger = zap.NewNop().Sugar()
+		return err
+	}
 
+	_, nodeLogger, err = runenv.CreateStructuredAsset("node.out", runtime.StandardJSONConfig())
+	if err != nil {
+		runenv.RecordMessage("failed to initialize node.out asset; nooping logger: %s", err)
+		nodeLogger = zap.NewNop().Sugar()
+		return err
+	}
+
+	return nil
+}
+
+func outputGraph(dht *kaddht.IpfsDHT, graphID string) {
 	for _, c := range dht.Host().Network().Conns() {
 		if c.Stat().Direction == network.DirOutbound {
 			graphLogger.Infow(graphID, "From", c.LocalPeer().Pretty(), "To", c.RemotePeer().Pretty())
 		}
 	}
+	graphLogger.Sync()
 
 	for i, b := range dht.RoutingTable().Buckets {
 		for _, p := range b.Peers() {
-			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), strconv.Itoa(i), p.Pretty())
+			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
 		}
 	}
+	rtLogger.Sync()
+}
+
+func outputStart(node *NodeParams) {
+	_, undialable := node.info.properties[Undialable]
+
+	nodeLogger.Infow("nodeparams",
+		"seq", node.info.seq,
+		"dialable", !undialable,
+		"peerID", node.info.addrs.ID.Pretty(),
+		"addrs", node.info.addrs.Addrs,
+	)
+	nodeLogger.Sync()
 }
