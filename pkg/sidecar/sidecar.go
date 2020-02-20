@@ -52,10 +52,10 @@ func Run(runnerName string) error {
 	defer manager.Close()
 
 	return manager.Manage(globalctx, func(ctx context.Context, instance *Instance) error {
-		instance.S().Infow("managing instance", "instance", instance.Hostname)
+		instance.S().Debugw("managing instance", "instance", instance.Hostname)
 
 		defer func() {
-			instance.S().Infow("closing instance", "instance", instance.Hostname)
+			instance.S().Debugw("closing instance", "instance", instance.Hostname)
 			if err := instance.Close(); err != nil {
 				instance.S().Warnf("failed to close instance: %s", err)
 			}
