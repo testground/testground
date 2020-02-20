@@ -17,6 +17,8 @@ func run(runenv *runtime.RunEnv) error {
 		return signalSizeBench(runenv)
 	case "signalconcurrencybench":
 		return signalConcurrencyBench(runenv)
+	case "barrierbench":
+		return signalBarrierBench(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)

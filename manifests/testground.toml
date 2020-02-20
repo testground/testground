@@ -35,3 +35,10 @@ instances = { min = 1, max = 200, default = 1 }
 [[testcases]]
 name = "signalconcurrencybench"
 instances = { min = 1, max = 200, default = 1 }
+
+[[testcases]]
+name = "barrierbench"
+instances = { min = 1, max = 1000, default = 1 }
+  [testcases.params]
+  iterations = { type = "int", desc = "loop iterations", unit = "iterations", default=1000 }
+
