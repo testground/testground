@@ -265,6 +265,7 @@ type K8sNetwork struct {
 }
 
 func (n *K8sNetwork) Close() error {
+	n.nl.Delete()
 	return nil
 }
 

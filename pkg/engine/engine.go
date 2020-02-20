@@ -433,6 +433,31 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	return run.CollectOutputs(ctx, input, w)
 }
 
+func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) error {
+	run, ok := e.runners[runner]
+	if !ok {
+		return fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	terminatable, ok := run.(api.Terminatable)
+	if !ok {
+		return fmt.Errorf("runner %s is not terminatable", runner)
+	}
+
+	_, err := w.Write([]byte("terminating all jobs on runner " + runner + "\n"))
+	if err != nil {
+		return err
+	}
+
+	err = terminatable.TerminateAll()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
+	return err
+}
+
 // EnvConfig returns the EnvConfig for this Engine.
 func (e *Engine) EnvConfig() config.EnvConfig {
 	return *e.envcfg

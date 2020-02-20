@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"os"
 	"os/exec"
 	"reflect"
 	"testing"
@@ -27,11 +28,9 @@ func init() {
 func ensureRedis(t *testing.T) (close func()) {
 	t.Helper()
 
-	runenv := randomRunEnv()
-
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
-	client, err := redisClient(context.Background(), runenv)
+	client, err := redisClient(context.Background())
 	if err == nil {
 		client.Close()
 		return func() {}
@@ -45,7 +44,7 @@ func ensureRedis(t *testing.T) (close func()) {
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
-	if client, err = redisClient(context.Background(), runenv); err != nil {
+	if client, err = redisClient(context.Background()); err != nil {
 		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
 	defer client.Close()
@@ -321,6 +320,59 @@ func TestCloseSubscription(t *testing.T) {
 	if ok && *v != "" {
 		t.Fatalf("expected channel to be closed, and v to be empty; was: %s", *v)
 	}
+}
+
+func TestRedisHost(t *testing.T) {
+	realRedisHost := os.Getenv(EnvRedisHost)
+	defer os.Setenv(EnvRedisHost, realRedisHost)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
+	client, err := redisClient(ctx)
+	if err == nil {
+		client.Close()
+		t.Error("should not have found redis host")
+	}
+
+	os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
+	client, err = redisClient(ctx)
+	if err == nil {
+		client.Close()
+		t.Error("should not have found redis host")
+	}
+
+	realHost := realRedisHost
+	if realHost == "" {
+		realHost = "localhost"
+	}
+	os.Setenv(EnvRedisHost, realHost)
+	client, err = redisClient(ctx)
+	if err != nil {
+		t.Errorf("should have found the redis host, failed with: %s", err)
+	}
+	addr := client.Options().Addr
+	client.Close()
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostIP := net.ParseIP(host)
+	if hostIP == nil {
+		t.Fatal("expected host to be an IP")
+	}
+	addrs, err := net.LookupIP(realHost)
+	if err != nil {
+		t.Fatal("failed to resolve redis host")
+	}
+	for _, a := range addrs {
+		if a.Equal(hostIP) {
+			// Success!
+			return
+		}
+	}
+	t.Fatal("redis address not found in list of addresses")
 }
 
 func consumeOrdered(t *testing.T, ctx context.Context, ch chan *string, values []string) {

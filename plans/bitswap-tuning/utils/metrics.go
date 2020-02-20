@@ -1,14 +1,34 @@
 package utils
 
-import "github.com/ipfs/testground/sdk/runtime"
+import (
+	"fmt"
+
+	"github.com/ipfs/testground/sdk/runtime"
+)
 
 var (
-	MetricTimeToFetch = &runtime.MetricDefinition{Name: "time_to_fetch", Unit: "ns", ImprovementDir: -1}
-	MetricMsgsRcvd    = &runtime.MetricDefinition{Name: "msgs_rcvd", Unit: "messages", ImprovementDir: -1}
-	MetricDataSent    = &runtime.MetricDefinition{Name: "data_sent", Unit: "bytes", ImprovementDir: -1}
-	MetricDataRcvd    = &runtime.MetricDefinition{Name: "data_rcvd", Unit: "bytes", ImprovementDir: -1}
-	MetricDupDataRcvd = &runtime.MetricDefinition{Name: "dup_data_rcvd", Unit: "bytes", ImprovementDir: -1}
-	MetricBlksSent    = &runtime.MetricDefinition{Name: "blks_sent", Unit: "blocks", ImprovementDir: -1}
-	MetricBlksRcvd    = &runtime.MetricDefinition{Name: "blks_rcvd", Unit: "blocks", ImprovementDir: -1}
-	MetricDupBlksRcvd = &runtime.MetricDefinition{Name: "dup_blks_rcvd", Unit: "blocks", ImprovementDir: -1}
+	MetricTimeToFetch = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/time_to_fetch", id), Unit: "ns", ImprovementDir: -1}
+	}
+	MetricMsgsRcvd = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/msgs_rcvd", id), Unit: "messages", ImprovementDir: -1}
+	}
+	MetricDataSent = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/data_sent", id), Unit: "bytes", ImprovementDir: -1}
+	}
+	MetricDataRcvd = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/data_rcvd", id), Unit: "bytes", ImprovementDir: -1}
+	}
+	MetricDupDataRcvd = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/dup_data_rcvd", id), Unit: "bytes", ImprovementDir: -1}
+	}
+	MetricBlksSent = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/blks_sent", id), Unit: "blocks", ImprovementDir: -1}
+	}
+	MetricBlksRcvd = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/blks_rcvd", id), Unit: "blocks", ImprovementDir: -1}
+	}
+	MetricDupBlksRcvd = func(id string) *runtime.MetricDefinition {
+		return &runtime.MetricDefinition{Name: fmt.Sprintf("%s/dup_blks_rcvd", id), Unit: "blocks", ImprovementDir: -1}
+	}
 )

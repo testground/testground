@@ -21,6 +21,7 @@ var Commands = []cli.Command{
 	SidecarCommand,
 	DaemonCommand,
 	CollectCommand,
+	TerminateCommand,
 }
 
 var Flags = []cli.Flag{

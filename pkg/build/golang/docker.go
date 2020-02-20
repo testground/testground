@@ -278,8 +278,8 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 		return err
 	}
 
-	// AWS ECR repository name is testground-<plan_name>.
-	repo := fmt.Sprintf("testground-%s", in.TestPlan.Name)
+	// AWS ECR repository name is testground-<region>-<plan_name>.
+	repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan.Name)
 
 	// Ensure the repo exists, or create it. Get the full URI to the repo, so we
 	// can tag images.
