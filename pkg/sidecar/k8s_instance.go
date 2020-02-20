@@ -266,15 +266,6 @@ type K8sNetwork struct {
 
 func (n *K8sNetwork) Close() error {
 	n.nl.Delete()
-
-	logging.S().Debugw("closing k8s network", "container", n.container.ID)
-	for _, link := range n.activeLinks {
-		logging.S().Debugw("deleting active link", "container", n.container.ID, "ifname", link.rt.IfName)
-
-		if err := n.cninet.DelNetworkList(context.Background(), link.netconf, link.rt); err != nil {
-			logging.S().Warnw("couldnt delete active link", "container", n.container.ID, "ifname", link.rt.IfName, "err", err.Error())
-		}
-	}
 	return nil
 }
 
