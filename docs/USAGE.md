@@ -40,9 +40,10 @@ COMMANDS:
    help, h   Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   -v          verbose output (equivalent to INFO log level)
-   --vv        super verbose output (equivalent to DEBUG log level)
-   --help, -h  show help
+   -v                verbose output (equivalent to DEBUG log level)
+   --vv              super verbose output (equivalent to DEBUG log level for now, it may accommodate TRACE in the future)
+   --endpoint value  set the daemon endpoint URI (overrides .env.toml)
+   --help, -h        show help
 ```
 
 ### How Testground guesses the source directory
@@ -122,7 +123,7 @@ test plan, using the builder (which sets up the environment + compilation) named
 `local:docker` (which runs on your local machine).
 
 ```
-> testground run single dht/find-peers \
+> testground run dht/find-peers \
     --builder=docker:go \
     --runner=local:docker \
     --instances=16
@@ -186,7 +187,7 @@ You can initialize a new `.env.toml` file by copying the prototype [`env-example
 
 2. Use cluster:k8s runner and run a test plan, for example:
 ```bash
-./testground --vv run single dht/find-peers \
+./testground --vv run dht/find-peers \
     --builder=docker:go \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
@@ -264,7 +265,7 @@ func MyTest1(runenv *runtime.RunEnv) error {
 You can pass custom JSON like parameters, for example, if you want to send a map from strings to strings, you could do it like this:
 
 ```
-testground run single test-plan/my-test-1 \
+testground run test-plan/my-test-1 \
    --test-param myparam='{"key1": "value1", "key2": "value2"}'
    ...
 ```
