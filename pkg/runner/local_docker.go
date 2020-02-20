@@ -474,3 +474,37 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
+
+// This method deletes the testground containers.
+// It does *not* delete any downloaded images or networks.
+// I'll leave a friendly message for how to do a more complete cleanup.
+func (*LocalDockerRunner) TerminateAll() error {
+	log := logging.S()
+	log.Info("Terminate local:docker requested")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+	listOpts := types.ContainerListOptions{}
+	listOpts.Filters = filters.NewArgs()
+	listOpts.Filters.Add("name", "testground-sidecar")
+	listOpts.Filters.Add("name", "testground-redis")
+	listOpts.Filters.Add("name", "testground-goproxy")
+
+	containers, err := cli.ContainerList(ctx, listOpts)
+	containerIds := make([]string, 0)
+	if err != nil {
+		return err
+	}
+	for _, container := range containers {
+		containerIds = append(containerIds, container.ID)
+	}
+	deleteContainers(cli, log, containerIds)
+	log.Info("Deleted testground containers.")
+	log.Info("To delete networks and images, you may want to run `docker system prune`")
+
+	return nil
+
+}
