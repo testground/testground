@@ -22,7 +22,15 @@ func signalBarrierBench(runenv *runtime.RunEnv) error {
 		ImprovementDir: -1,
 	}
 
+	// Wait until all the nodes are started
+	runenv.RecordMessage("waiting for others to become ready.")
+	writer.SignalEntry(ctx, sync.State("ready"))
+	_ = <-watcher.Barrier(ctx, sync.State("ready"), int64(runenv.TestInstanceCount))
+	runenv.RecordMessage("Ready to begin.")
+
 	var total int64
+
+	// ping-pong back and forth, with a barrier before each ping
 	for i := 1; i <= iterations; i += 1 {
 		ping := sync.State("ping")
 		pong := sync.State("pong")
