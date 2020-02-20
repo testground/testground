@@ -211,9 +211,7 @@ func (dm *Manager) Manage(
 			switch event.Status {
 			case "start":
 				start(event.ID)
-			case "stop":
-			case "destroy":
-			case "die":
+			case "stop", "destroy", "die":
 				stop(event.ID)
 			default:
 				return fmt.Errorf("unexpected event: type=%s, status=%s", event.Type, event.Status)
