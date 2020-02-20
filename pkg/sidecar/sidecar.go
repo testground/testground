@@ -120,6 +120,5 @@ func Run(runnerName string) error {
 				}
 			}
 		}
-		return nil
 	})
 }
