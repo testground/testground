@@ -163,6 +163,16 @@ items:
           labels:
             name: weave-net
         spec:
+          initContainers:
+          - name: wait-for-flannel
+            image: busybox
+            securityContext:
+              privileged: true
+            command:
+            - sh
+            - -ac
+            - >
+              while [ "$FLANNEL_ROUTES" = "" ]; do export FLANNEL_ROUTES=$(ip route | grep flannel.1); echo "Got FLANNEL_ROUTES: $FLANNEL_ROUTES"; sleep 5; done;
           containers:
             - name: weave
               command:
