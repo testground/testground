@@ -506,7 +506,13 @@ func (*LocalDockerRunner) TerminateAll() error {
 	planListOpts.Filters.Add("label", "testground.purpose=plan")
 
 	infracontainers, err := cli.ContainerList(ctx, listOpts)
+	if err != nil {
+		return err
+	}
 	plancontainers, err := cli.ContainerList(ctx, planListOpts)
+	if err != nil {
+		return err
+	}
 
 	var containerIds []string
 	if err != nil {
