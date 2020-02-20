@@ -21,19 +21,9 @@ import (
 )
 
 func GetClosestPeers(runenv *runtime.RunEnv) error {
-	opts := &SetupOpts{
-		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:     runenv.BooleanParam("random_walk"),
-		NFindPeers:     runenv.IntParam("n_find_peers"),
-		BucketSize:     runenv.IntParam("bucket_size"),
-		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
-		FUndialable:    runenv.FloatParam("f_undialable"),
-		ClientMode:     runenv.BooleanParam("client_mode"),
-		NDisjointPaths: runenv.IntParam("n_paths"),
-		Datastore:      runenv.IntParam("datastore"),
-		RecordCount:    runenv.IntParam("record_count"),
-		Debug:          runenv.IntParam("dbg"),
-	}
+	opts := GetCommonOpts(runenv)
+	opts.RecordCount = runenv.IntParam("record_count")
+	opts.Debug = runenv.IntParam("dbg")
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()

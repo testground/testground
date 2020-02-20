@@ -28,6 +28,7 @@
       n_providing = "1"
       record_count = "5"
       timeout_secs = "2000"
+      autonat_ok = "false"
 
 [[groups]]
   id = "cypress"
