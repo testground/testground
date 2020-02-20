@@ -44,6 +44,9 @@ func TestBuildSelector(t *testing.T) {
 					Plan:           "placebo",
 					Case:           "ok",
 					TotalInstances: 1,
+					BuildConfig: map[string]interface{}{
+						"go_proxy_mode": "direct",
+					},
 				},
 				Groups: []api.Group{
 					api.Group{
