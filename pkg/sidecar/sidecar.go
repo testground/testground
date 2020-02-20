@@ -103,7 +103,12 @@ func Run(runnerName string) error {
 					instance.S().Warnw("context return err different to canceled", "err", err.Error())
 				}
 				return nil
-			case cfg := <-networkChanges:
+			case cfg, ok := <-networkChanges:
+				if !ok {
+					instance.S().Debugw("networkChanges channel closed", "instance", instance.Hostname)
+					return nil
+				}
+
 				instance.S().Infow("applying network change", "network", cfg)
 				if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
 					return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
