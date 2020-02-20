@@ -73,14 +73,11 @@ COPY . /
 
 # Lotus
 
-ARG MAKE_TARGET=all
-
-# Build the thing.
 RUN cd $SRC_DIR \
   && . $HOME/.cargo/env \
   && make clean \
-  && make $MAKE_TARGET
- 
+  && make debug
+
 # Testground
 
 RUN cd ${PLAN_DIR} \
@@ -90,6 +87,11 @@ RUN cd ${PLAN_DIR} \
 # Store module dependencies
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
+
+# Migrate to top
+
+RUN apt-get install -y htop
+RUN mkdir /var/tmp/filecoin-proof-parameters
 
 ENV PATH="/usr/local/bin:${PATH}"
 

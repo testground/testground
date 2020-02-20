@@ -10,7 +10,6 @@ import (
 	gosync "sync"
 	"time"
 
-	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -180,7 +179,8 @@ func run(runenv *runtime.RunEnv) error {
 							// runenv.Message("EOF")
 							break
 						} else if err != nil {
-							logging.S().Error(err)
+							// logging.S().Error(err)
+              runenv.RecordMessage("Error: %v", err)
 							wg.Done()
 							return
 						}
@@ -262,6 +262,8 @@ func run(runenv *runtime.RunEnv) error {
 	default:
 		return fmt.Errorf("Unexpected seq: %v", seq)
 	}
+
+	select {}
 
 	return nil
 }

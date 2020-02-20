@@ -447,6 +447,15 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					Name:         sharedVolumeName,
 					VolumeSource: v1.VolumeSource{HostPath: &mnt},
 				},
+				{
+					Name: "efs-pvc",
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "efs",
+							ReadOnly:  true,
+						},
+					},
+				},
 			},
 			SecurityContext: &v1.PodSecurityContext{
 				Sysctls: testplanSysctls,
@@ -469,6 +478,10 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 							Name:             sharedVolumeName,
 							MountPath:        runenv.TestOutputsPath,
 							MountPropagation: &mountPropagationMode,
+						},
+						{
+							Name:      "efs-pvc",
+							MountPath: "/var/tmp/filecoin-proof-parameters",
 						},
 					},
 					Resources: v1.ResourceRequirements{
