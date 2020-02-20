@@ -123,9 +123,7 @@ func (dm *Manager) Manage(
 	defer cancel()
 
 	stop := func(container string) {
-		dm.S().Infow("got stop event", "container", container)
 		if m, ok := managers[container]; ok {
-			dm.S().Infow("calling m.cancel()", "container", container)
 			m.cancel()
 			delete(managers, container)
 
@@ -198,6 +196,8 @@ func (dm *Manager) Manage(
 	eventFilter.Add("type", "container")
 	eventFilter.Add("event", "start")
 	eventFilter.Add("event", "stop")
+	eventFilter.Add("event", "destroy")
+	eventFilter.Add("event", "die")
 
 	// Manage new containers.
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
@@ -212,6 +212,8 @@ func (dm *Manager) Manage(
 			case "start":
 				start(event.ID)
 			case "stop":
+			case "destroy":
+			case "die":
 				stop(event.ID)
 			default:
 				return fmt.Errorf("unexpected event: type=%s, status=%s", event.Type, event.Status)

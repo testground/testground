@@ -33,7 +33,7 @@ type InstanceManager interface {
 
 // Run runs the sidecar in the given runner environment.
 func Run(runnerName string) error {
-	ctx, cancel := context.WithCancel(context.TODO())
+	globalctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
 	runner, ok := runners[runnerName]
@@ -51,7 +51,7 @@ func Run(runnerName string) error {
 
 	defer manager.Close()
 
-	return manager.Manage(ctx, func(ctx context.Context, instance *Instance) error {
+	return manager.Manage(globalctx, func(ctx context.Context, instance *Instance) error {
 		instance.S().Infow("managing instance", "instance", instance.Hostname)
 
 		defer func() {
@@ -99,9 +99,10 @@ func Run(runnerName string) error {
 			select {
 			case <-ctx.Done():
 				err := ctx.Err()
-				if err != nil {
-					instance.S().Infof("context done", "err", err.Error())
+				if err != nil && err != context.Canceled {
+					instance.S().Warnw("context return err different to canceled", "err", err.Error())
 				}
+				return nil
 			case cfg := <-networkChanges:
 				instance.S().Infow("applying network change", "network", cfg)
 				if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
