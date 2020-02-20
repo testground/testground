@@ -51,7 +51,7 @@ type Writer struct {
 // NOTE: Canceling the context cancels the call to this function, it does not
 // affect the returned watcher.
 func NewWriter(ctx context.Context, runenv *runtime.RunEnv) (w *Writer, err error) {
-	client, err := redisClient(ctx, runenv)
+	client, err := getGlobalRedisClient(ctx)
 	if err != nil {
 		return nil, err
 	}

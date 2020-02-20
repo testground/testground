@@ -23,15 +23,51 @@ const (
 	HostHostname  = "host.docker.internal"
 )
 
+var (
+	globalRedisClient *redis.Client
+	globalRedisErr    error
+	oneRedis          chan bool = func() chan bool {
+		// Prime this channel with a single "true" so the first reader
+		// knows it needs to initialize redis.
+		ch := make(chan bool, 1)
+		ch <- true
+		return ch
+	}()
+)
+
+// getGlobalRedisCLient returns a global redis instance. Don't close this one.
+func getGlobalRedisClient(ctx context.Context) (*redis.Client, error) {
+	var init bool
+	select {
+	case init = <-oneRedis:
+		// The first reader will read (init == true). Subsequent readers
+		// will block until initialized then read (init == false).
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	if init {
+		client, err := redisClient(ctx)
+		// don't signal "done" if we failed because we canceled our context.
+		if err != nil && ctx.Err() != nil {
+			// Well, we've timed out. Let someone else initialize
+			// redis.
+			oneRedis <- true
+			return nil, err
+		}
+		// Ok, we haven't timed out. Store the result and signal that it worked.
+		globalRedisClient = client
+		globalRedisErr = err
+		close(oneRedis)
+	}
+	return globalRedisClient, globalRedisErr
+}
+
 // redisClient returns a consul client from this processes environment
 // variables, or panics if unable to create one.
 //
 // NOTE: Canceling the context cancels the call to this function, it does not
 // affect the returned client.
-//
-// TODO: source redis URL from environment variables. The Redis host and port
-// will be wired in by Nomad/Swarm.
-func redisClient(ctx context.Context, runenv *runtime.RunEnv) (client *redis.Client, err error) {
+func redisClient(ctx context.Context) (client *redis.Client, err error) {
 	var (
 		port = 6379
 		host = os.Getenv(EnvRedisHost)
