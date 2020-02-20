@@ -46,19 +46,37 @@ func init() {
 const minTestInstances = 16
 
 type SetupOpts struct {
-	Timeout        time.Duration
-	RandomWalk     bool
-	NBootstrap     int
-	NFindPeers     int
-	BucketSize     int
-	AutoRefresh    bool
-	NodesProviding int
-	RecordCount    int
-	FUndialable    float64
-	ClientMode     bool
-	NDisjointPaths int
-	Datastore      int
-	Debug          int
+	Timeout         time.Duration
+	RandomWalk      bool
+	NBootstrap      int
+	NFindPeers      int
+	BucketSize      int
+	AutoRefresh     bool
+	NodesProviding  int
+	RecordCount     int
+	FUndialable     float64
+	ClientMode      bool
+	NDisjointPaths  int
+	Datastore       int
+	Debug           int
+	SupportsAutonat bool
+}
+
+func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
+	opts := &SetupOpts{
+		Timeout:         time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
+		RandomWalk:      runenv.BooleanParam("random_walk"),
+		NBootstrap:      runenv.IntParam("n_bootstrap"),
+		NFindPeers:      runenv.IntParam("n_find_peers"),
+		BucketSize:      runenv.IntParam("bucket_size"),
+		AutoRefresh:     runenv.BooleanParam("auto_refresh"),
+		FUndialable:     runenv.FloatParam("f_undialable"),
+		ClientMode:      runenv.BooleanParam("client_mode"),
+		NDisjointPaths:  runenv.IntParam("n_paths"),
+		Datastore:       runenv.IntParam("datastore"),
+		SupportsAutonat: runenv.BooleanParam("autonat_ok"),
+	}
+	return opts
 }
 
 type NodeProperty int
@@ -223,7 +241,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
 	}
 
-	if undialable && opts.ClientMode {
+	if (undialable && opts.ClientMode) || opts.SupportsAutonat {
 		dhtOptions = append(dhtOptions, dhtopts.Client(true))
 	}
 
@@ -699,6 +717,9 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 
 	runenv.RecordMessage("bootstrap: dialing %v", bootstrapNodes)
 
+	autonat.AutoNATBootDelay = 0
+	autonat.AutoNATRetryInterval = time.Second
+	autonat.AutoNATIdentifyDelay = time.Second
 	_ = autonat.NewAutoNAT(ctx, node.host, nil)
 
 	// Connect to our peers.
@@ -711,6 +732,8 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 	if err := stager.End(); err != nil {
 		return err
 	}
+
+	time.Sleep(time.Second * 3)
 
 	////////////////
 	// 2: ROUTING //

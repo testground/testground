@@ -29,3 +29,4 @@
       n_providing = "1"
       record_count = "5"
       timeout_secs = "600"
+      autonat_ok = "false"

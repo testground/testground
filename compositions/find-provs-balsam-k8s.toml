@@ -19,15 +19,16 @@
     percentage = 1.0
   [groups.build]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:bb660eea2f1c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:abd0ca9fb07d"
     [groups.run.test_params]
-      bucket_size = "4"
+      bucket_size = "10"
       client_mode = "false"
       datastore = "0"
-      f_undialable = "0.9"
+      f_undialable = "0.0"
       n_bootstrap = "-4"
-      n_paths = "0"
       n_find_peers = "5"
+      n_paths = "0"
       n_providing = "5"
       record_count = "5"
       timeout_secs = "2000"
+      autonat_ok = "false"

@@ -47,6 +47,7 @@ instances = { min = 16, max = 10000, default = 16 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   n_paths       = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
   datastore     = { type = "int", desc = "datastore type", unit = "int", default = 0 }
+  autonat_ok    = { type = "bool", desc = "supports autonat", unit = "bool", default = "true" }
 
 # seq 1
 [[testcases]]
@@ -66,6 +67,7 @@ instances = { min = 16, max = 10000, default = 16 }
   client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   n_paths = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
   datastore = { type = "int", desc = "datastore type", unit = "int", default = 0 }
+  autonat_ok    = { type = "bool", desc = "supports autonat", unit = "bool", default = "true" }
   #p_providing = { type = "int", desc = "", unit = "% of nodes" }
   #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
   #p_failing = { type = "int", desc = "", unit = "% of nodes" }
@@ -108,6 +110,7 @@ instances = { min = 16, max = 10000, default = 16 }
   n_paths = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
   datastore = { type = "int", desc = "datastore type", unit = "int", default = 0 }
   dbg = {type = "int", desc = "debug autonat", unit = "int", default = 0}
+  autonat_ok = { type = "bool", desc = "supports autonat", unit = "bool", default = "true" }
 
 # seq 4
 [[testcases]]

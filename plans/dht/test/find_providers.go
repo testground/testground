@@ -19,20 +19,9 @@ import (
 )
 
 func FindProviders(runenv *runtime.RunEnv) error {
-	opts := &SetupOpts{
-		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:     runenv.BooleanParam("random_walk"),
-		NBootstrap:     runenv.IntParam("n_bootstrap"),
-		NFindPeers:     runenv.IntParam("n_find_peers"),
-		BucketSize:     runenv.IntParam("bucket_size"),
-		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
-		FUndialable:    runenv.FloatParam("f_undialable"),
-		NodesProviding: runenv.IntParam("n_providing"),
-		RecordCount:    runenv.IntParam("record_count"),
-		ClientMode:     runenv.BooleanParam("client_mode"),
-		NDisjointPaths: runenv.IntParam("n_paths"),
-		Datastore:      runenv.IntParam("datastore"),
-	}
+	opts := GetCommonOpts(runenv)
+	opts.NodesProviding = runenv.IntParam("n_providing")
+	opts.RecordCount = runenv.IntParam("record_count")
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
