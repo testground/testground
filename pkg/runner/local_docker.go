@@ -198,6 +198,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				Image: g.ArtifactPath,
 				Env:   env,
 				Labels: map[string]string{
+					"testground.purpose":  "plan",
 					"testground.plan":     input.TestPlan.Name,
 					"testground.testcase": testcase.Name,
 					"testground.run_id":   input.RunID,
@@ -487,20 +488,37 @@ func (*LocalDockerRunner) TerminateAll() error {
 	if err != nil {
 		return err
 	}
+	// Build query for testground infrastructure
+	// It seems like you have to do two separate queries for these filter types. If this isn't the
+	// case, this could be made simpler. Do two queries to the local docker daemon. For one, filter
+	// out the names of specific container infrastructure.
+	// For the other filter out where labels match the testground.purpose, which we apply to all
+	// plan containers managed by testground
 	listOpts := types.ContainerListOptions{}
 	listOpts.Filters = filters.NewArgs()
 	listOpts.Filters.Add("name", "testground-sidecar")
 	listOpts.Filters.Add("name", "testground-redis")
 	listOpts.Filters.Add("name", "testground-goproxy")
 
-	containers, err := cli.ContainerList(ctx, listOpts)
-	containerIds := make([]string, 0)
+	// Build query for testground plans that are still running
+	planListOpts := types.ContainerListOptions{}
+	planListOpts.Filters = filters.NewArgs()
+	planListOpts.Filters.Add("label", "testground.purpose=plan")
+
+	infracontainers, err := cli.ContainerList(ctx, listOpts)
+	plancontainers, err := cli.ContainerList(ctx, planListOpts)
+
+	var containerIds []string
 	if err != nil {
 		return err
 	}
-	for _, container := range containers {
+	for _, container := range infracontainers {
 		containerIds = append(containerIds, container.ID)
 	}
+	for _, container := range plancontainers {
+		containerIds = append(containerIds, container.ID)
+	}
+
 	deleteContainers(cli, log, containerIds)
 	log.Info("Deleted testground containers.")
 	log.Info("To delete networks and images, you may want to run `docker system prune`")
