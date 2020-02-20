@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -645,4 +646,29 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 	pods := int(math.Round(podsCPUs/podCPU - 0.5))
 
 	return pods, nil
+}
+
+// If the testground daemon has access to enough environment variables, we can terminate using kops
+// if not, then print a messgae about how to do it.
+// I would like to note that when the daemon returns to the client, the cluster may not be deleted
+// yet. This means it will report to the client a success, even if kops is not able to complete the
+// deletion.
+func (c *ClusterK8sRunner) TerminateAll() error {
+	log := logging.S()
+	log.Info(`
+The terminate command uses kops
+In order to use this successfully, the testground daemon must have the KOPS_BACKEND_STORE
+environment variable. Otherwise you will have to run this command for yourself:
+
+kops cluster delete --yes
+`)
+	s3store := os.Getenv("KOPS_BACKEND_STORE")
+	if s3store == "" {
+		return errors.New("KOPS_BACKEND_STORE is not known, not even trying")
+	}
+	cmdname := "kops"
+	cmdstr := fmt.Sprintf("cluster delete --state %s --yes", s3store)
+	log.Info(fmt.Sprintf("Trying to run command: %s %s", cmdname, cmdstr))
+	cmd := exec.Command(cmdname, cmdstr)
+	return cmd.Run()
 }
