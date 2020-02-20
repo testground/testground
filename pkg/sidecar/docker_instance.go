@@ -106,7 +106,7 @@ func NewDockerManager() (InstanceManager, error) {
 
 func (d *DockerInstanceManager) Manage(
 	globalctx context.Context,
-	worker func(ctx context.Context, inst *Instance) error,
+	worker func(context.Context, *Instance) error,
 ) error {
 	return d.manager.Manage(globalctx, func(ctx context.Context, container *dockermanager.Container) error {
 		inst, err := d.manageContainer(ctx, container)
