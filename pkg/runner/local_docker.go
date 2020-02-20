@@ -519,10 +519,11 @@ func (*LocalDockerRunner) TerminateAll() error {
 		containerIds = append(containerIds, container.ID)
 	}
 
-	deleteContainers(cli, log, containerIds)
-	log.Info("Deleted testground containers.")
+	err = deleteContainers(cli, log, containerIds)
+	if err != nil {
+		log.Info("Failed to delete testground containers")
+	}
 	log.Info("To delete networks and images, you may want to run `docker system prune`")
-
-	return nil
+	return err
 
 }
