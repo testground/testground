@@ -9,8 +9,6 @@ import (
 
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/sync"
-
-	"golang.org/x/sync/errgroup"
 )
 
 var runners = map[string]func() (InstanceManager, error){
@@ -57,49 +55,54 @@ func Run(runnerName string) error {
 		instance.S().Infow("managing instance", "instance", instance.Hostname)
 
 		defer func() {
+			instance.S().Infow("closing instance", "instance", instance.Hostname)
 			if err := instance.Close(); err != nil {
 				instance.S().Warnf("failed to close instance: %s", err)
 			}
 		}()
 
-		g, ctx := errgroup.WithContext(ctx)
-
 		// Network configuration loop.
-		g.Go(func() error {
-			err := instance.Network.ConfigureNetwork(ctx, &sync.NetworkConfig{
-				Network: "default",
-				Enable:  true,
-			})
+		err := instance.Network.ConfigureNetwork(ctx, &sync.NetworkConfig{
+			Network: "default",
+			Enable:  true,
+		})
 
-			if err != nil {
-				return err
-			}
+		if err != nil {
+			return err
+		}
 
-			// Wait for all the sidecars to enter the "network-initialized" state.
-			const netInitState = "network-initialized"
-			if _, err = instance.Writer.SignalEntry(ctx, netInitState); err != nil {
-				return fmt.Errorf("failed to signal network ready: %w", err)
-			}
+		// Wait for all the sidecars to enter the "network-initialized" state.
+		const netInitState = "network-initialized"
+		if _, err = instance.Writer.SignalEntry(ctx, netInitState); err != nil {
+			return fmt.Errorf("failed to signal network ready: %w", err)
+		}
 
-			instance.S().Infof("waiting for all networks to be ready")
+		instance.S().Infof("waiting for all networks to be ready")
 
-			if err := <-instance.Watcher.Barrier(
-				ctx,
-				netInitState,
-				int64(instance.RunEnv.TestInstanceCount),
-			); err != nil {
-				return fmt.Errorf("failed to wait for network ready: %w", err)
-			}
+		if err := <-instance.Watcher.Barrier(
+			ctx,
+			netInitState,
+			int64(instance.RunEnv.TestInstanceCount),
+		); err != nil {
+			return fmt.Errorf("failed to wait for network ready: %w", err)
+		}
 
-			instance.S().Infof("all networks ready")
+		instance.S().Infof("all networks ready")
 
-			// Now let the test case tell us how to configure the network.
-			subtree := sync.NetworkSubtree(instance.Hostname)
-			networkChanges := make(chan *sync.NetworkConfig, 16)
-			if err := instance.Watcher.Subscribe(ctx, subtree, networkChanges); err != nil {
-				return fmt.Errorf("failed to subscribe to network changes: %s", err)
-			}
-			for cfg := range networkChanges {
+		// Now let the test case tell us how to configure the network.
+		subtree := sync.NetworkSubtree(instance.Hostname)
+		networkChanges := make(chan *sync.NetworkConfig, 16)
+		if err := instance.Watcher.Subscribe(ctx, subtree, networkChanges); err != nil {
+			return fmt.Errorf("failed to subscribe to network changes: %s", err)
+		}
+		for {
+			select {
+			case <-ctx.Done():
+				err := ctx.Err()
+				if err != nil {
+					instance.S().Infof("context done", "err", err.Error())
+				}
+			case cfg := <-networkChanges:
 				instance.S().Infow("applying network change", "network", cfg)
 				if err := instance.Network.ConfigureNetwork(ctx, cfg); err != nil {
 					return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
@@ -115,9 +118,7 @@ func Run(runnerName string) error {
 					}
 				}
 			}
-			return nil
-		})
-
-		return g.Wait()
+		}
+		return nil
 	})
 }

@@ -123,7 +123,9 @@ func (dm *Manager) Manage(
 	defer cancel()
 
 	stop := func(container string) {
+		dm.S().Infow("got stop event", "container", container)
 		if m, ok := managers[container]; ok {
+			dm.S().Infow("calling m.cancel()", "container", container)
 			m.cancel()
 			delete(managers, container)
 

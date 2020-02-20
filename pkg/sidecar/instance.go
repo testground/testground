@@ -61,6 +61,9 @@ func NewInstance(ctx context.Context, runenv *runtime.RunEnv, hostname string, n
 
 // Close closes the instance. It should not be used after closing.
 func (inst *Instance) Close() error {
+	logging.S().Debugw("instance closing", "hostname", inst.Hostname)
+	defer logging.S().Debugw("instance closing done", "hostname", inst.Hostname)
+
 	var err *multierror.Error
 	err = multierror.Append(err, inst.Watcher.Close())
 	err = multierror.Append(err, inst.Writer.Close())
