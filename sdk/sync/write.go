@@ -96,7 +96,7 @@ func (w *Writer) keepAlive(ctx context.Context) error {
 	// TODO: do this in a transaction. We risk the loop overlapping with the
 	// refresh period, and all kinds of races. We need to be adaptive here.
 	for k := range w.keepAliveSet {
-		err := retry(5, w.re, func() error {
+		err := retry(1, w.re, func() error {
 			return w.client.WithContext(ctx).Expire(k, TTL).Err()
 		})
 		if err != nil {
@@ -199,7 +199,7 @@ func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err e
 	key := strings.Join([]string{w.root, "states", string(s)}, ":")
 
 	var seq int64
-	err = retry(5, w.re, func() error {
+	err = retry(1, w.re, func() error {
 		var err error
 		seq, err = w.client.WithContext(ctx).Incr(key).Result()
 		return err
