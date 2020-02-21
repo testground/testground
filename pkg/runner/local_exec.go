@@ -126,65 +126,14 @@ func (r *LocalExecutableRunner) Close() error {
 
 func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
-		plan        = input.TestPlan
-		seq         = input.Seq
-		name        = plan.Name
-		redisWaitCh = make(chan struct{})
+		plan = input.TestPlan
+		seq  = input.Seq
+		name = plan.Name
 	)
 
 	if seq >= len(plan.TestCases) {
 		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
 	}
-
-	// Housekeeping. If we've started a temporary redis instance for this test,
-	// this defer will keep the runtime alive until it's shut down, giving us an
-	// opportunity to print the "redis stopped successfully" log statement.
-	// Otherwise, it might not be printed out at all.
-	defer func() { <-redisWaitCh }()
-
-	// Check if a local Redis instance is running. If not, try to start it.
-	r.setupLk.Lock()
-	if _, err := net.Dial("tcp", "localhost:6379"); err == nil {
-		logging.S().Info("local redis instance check: OK")
-		close(redisWaitCh)
-	} else {
-		// Try to start a Redis instance.
-		logging.S().Info("local redis instance check: FAIL; attempting to start one for this run")
-
-		// This context gets cancelled when the runner has finished, which in
-		// turn signals the temporary Redis instance to shut down.
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		cmd := exec.CommandContext(ctx, "redis-server", "--save", "\"\"", "--appendonly", "no")
-		if err := cmd.Start(); err == nil {
-			logging.S().Info("temporary redis instance started successfully")
-		} else {
-			close(redisWaitCh)
-			r.setupLk.Unlock()
-			return nil, fmt.Errorf("temporary redis instance failed to start: %w", err)
-		}
-
-		// This goroutine monitors the redis instance, and prints a log output
-		// when it's done. The cmd.Wait() returns when the context is cancelled,
-		// which happens when the runner finishes. Once we print the log
-		// statement, we close the redis wait channel, which allows the method
-		// to return.
-		go func() {
-			_ = cmd.Wait()
-			logging.S().Info("temporary redis instance stopped successfully")
-			close(redisWaitCh)
-		}()
-	}
-
-	// Ensure the outputs dir exists.
-	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	if err := os.MkdirAll(outputsDir, 0777); err != nil {
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	r.setupLk.Unlock()
 
 	// Build a template runenv.
 	template := runtime.RunParams{
@@ -210,7 +159,8 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		_ = pretty.Wait()
 	}()
 
-	var total int
+	total := 0
+	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
 	for _, g := range input.Groups {
 		for i := 0; i < g.Instances; i++ {
 			total++
