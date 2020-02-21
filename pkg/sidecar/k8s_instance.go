@@ -57,11 +57,11 @@ func NewK8sManager() (InstanceManager, error) {
 
 func (d *K8sInstanceManager) Manage(
 	ctx context.Context,
-	worker func(ctx context.Context, inst *Instance) error,
+	worker func(context.Context, *Instance) error,
 ) error {
-	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+	return d.manager.Manage(ctx, func(cctx context.Context, container *dockermanager.Container) error {
 		logging.S().Debugw("got container", "container", container.ID)
-		inst, err := d.manageContainer(ctx, container)
+		inst, err := d.manageContainer(cctx, container)
 		if err != nil {
 			return fmt.Errorf("failed to initialise the container: %w", err)
 		}
@@ -70,7 +70,7 @@ func (d *K8sInstanceManager) Manage(
 			return nil
 		}
 		logging.S().Debugw("managing container", "container", container.ID)
-		err = worker(ctx, inst)
+		err = worker(cctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
 		}
