@@ -176,6 +176,15 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
+	// Call the healthcheck routine if the builder supports it.
+	if hc, ok := bm.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(false, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck errored: %w", err)
+		} else if !rep.ChecksSucceeded() {
+			return nil, fmt.Errorf("some healthchecks failed: %s", rep)
+		}
+	}
+
 	// This var compiles all configurations to coalesce.
 	//
 	// Precedence (highest to lowest):
@@ -297,6 +306,15 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	// Call the healthcheck routine if the runner supports it.
+	if hc, ok := run.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(false, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck errored: %w", err)
+		} else if !rep.ChecksSucceeded() {
+			return nil, fmt.Errorf("some healthchecks failed: %s", rep)
+		}
 	}
 
 	// TODO:
@@ -469,17 +487,17 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, repair bool, 
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
 
-	healthcheckable, ok := run.(api.Healthchecker)
+	hc, ok := run.(api.Healthchecker)
 	if !ok {
-		return nil, fmt.Errorf("runner %s is not healthcheckable", runner)
+		return nil, fmt.Errorf("runner %s does not support healthchecks", runner)
 	}
 
-	_, err := w.Write([]byte("healthchecking runner " + runner + "\n"))
+	_, err := w.Write([]byte("checking runner " + runner + "\n"))
 	if err != nil {
 		return nil, err
 	}
 
-	return healthcheckable.Healthcheck(repair, w)
+	return hc.Healthcheck(repair, e, w)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

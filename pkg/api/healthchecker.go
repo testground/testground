@@ -1,11 +1,16 @@
 package api
 
-import "io"
+import (
+	"fmt"
+	"io"
+	"strings"
+	"text/tabwriter"
+)
 
 // Healthchecker is the interface to be implemented by a runner that supports
 // healthchecks and repairs.
 type Healthchecker interface {
-	Healthcheck(repair bool, writer io.Writer) (*HealthcheckReport, error)
+	Healthcheck(repair bool, engine Engine, writer io.Writer) (*HealthcheckReport, error)
 }
 
 // HealthcheckStatus is an enum that represents
@@ -44,4 +49,35 @@ type HealthcheckReport struct {
 	// Fixes enumerates the outcomes of the fixes applied during repair, if a
 	// repair was requested.
 	Fixes []HealthcheckItem
+}
+
+func (hr *HealthcheckReport) ChecksSucceeded() bool {
+	for _, c := range hr.Checks {
+		if c.Status != HealthcheckStatusOK || c.Status != HealthcheckStatusOmitted {
+			return false
+		}
+	}
+	return true
+}
+
+func (hr *HealthcheckReport) FixesSucceeded() bool {
+	for _, f := range hr.Fixes {
+		if f.Status != HealthcheckStatusOK || f.Status != HealthcheckStatusOmitted {
+			return false
+		}
+	}
+	return true
+}
+
+func (hr *HealthcheckReport) String() string {
+	b := new(strings.Builder)
+	w := tabwriter.NewWriter(b, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
+	for _, c := range hr.Checks {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "check", c.Name, c.Status, c.Message)
+	}
+	for _, f := range hr.Fixes {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "fix", f.Name, f.Status, f.Message)
+	}
+	_ = w.Flush()
+	return b.String()
 }
