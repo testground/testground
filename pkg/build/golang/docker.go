@@ -345,65 +345,73 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 	return nil
 }
 
+func getGoModCache() (path, owner string, err error) {
+	path, err = filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
+	if err != nil {
+		return "", "", err
+	}
+	owner, err = getOwner(path)
+	if err != nil {
+		return "", "", err
+	}
+	return path, owner, err
+}
+
 // setupGoProxy sets up a goproxy container, if and only if the build
 // configuration requires it.
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
-func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (string, error) {
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
-		proxyURL = "direct"
 		log.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
-
+		return "direct", nil
 	case "remote":
 		if cfg.GoProxyURL == "" {
-			warn = fmt.Errorf("[go_proxy_mode=remote] no proxy URL was supplied; falling back to go_proxy_mode=direct")
-			proxyURL = "direct"
-			break
+			return "direct", fmt.Errorf("[go_proxy_mode=remote] no proxy URL was supplied; falling back to go_proxy_mode=direct")
 		}
 
-		proxyURL = cfg.GoProxyURL
-		log.Infof("[go_proxy_mode=remote] using url: %s", proxyURL)
-
-	case "local":
-		fallthrough
-
+		log.Infof("[go_proxy_mode=remote] using url: %s", cfg.GoProxyURL)
+		return cfg.GoProxyURL, nil
+	case "local", "":
 	default:
-		gopkg, err := filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
-		if err != nil {
-			warn = fmt.Errorf("[go_proxy_mode=local] error while resolving go pkg directory: %w; falling back to go_proxy_mode=direct", err)
-			break
-		}
+		return "direct", fmt.Errorf("unknown go proxy mode '%q'", cfg.GoProxyMode)
+	}
 
-		mnt := mount.Mount{
+	// Ok, we're using a go proxy. Create the container.
+	config := docker.EnsureContainerOpts{
+		ContainerName: "testground-goproxy",
+		ContainerConfig: &container.Config{
+			Image: "goproxy/goproxy",
+		},
+		HostConfig: &container.HostConfig{
+			NetworkMode: container.NetworkMode(buildNetworkID),
+		},
+		PullImageIfMissing: true,
+	}
+
+	// First, _try_ to reuse the local GOPATH.
+	if gopkg, owner, err := getGoModCache(); err != nil {
+		// Not really an error, we might not _have_ a local gopath.
+		log.Debugw("failed to mount GOPATH: %w", err)
+	} else {
+		config.ContainerConfig.User = owner
+		config.HostConfig.Mounts = append(config.HostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeBind,
 			Source: gopkg,
 			Target: "/go/pkg",
-		}
-
-		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
-
-		_, _, err = docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
-			ContainerName: "testground-goproxy",
-			ContainerConfig: &container.Config{
-				Image: "goproxy/goproxy",
-			},
-			HostConfig: &container.HostConfig{
-				Mounts:      []mount.Mount{mnt},
-				NetworkMode: container.NetworkMode(buildNetworkID),
-			},
-			PullImageIfMissing: true,
 		})
-		if err != nil {
-			warn = fmt.Errorf("[go_proxy_mode=local] error while creating goproxy container: %w; falling back to go_proxy_mode=direct", err)
-			proxyURL = "direct"
-			break
-		}
-		proxyURL = "http://testground-goproxy:8081"
 	}
 
-	return proxyURL, warn
+	log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
+
+	_, _, err := docker.EnsureContainer(ctx, log, cli, &config)
+	if err != nil {
+		return "direct", fmt.Errorf("[go_proxy_mode=local] error while creating goproxy container: %w; falling back to go_proxy_mode=direct", err)
+	}
+
+	return "http://testground-goproxy:8081", nil
 }
 
 func validateSdkDir(dir string) error {
