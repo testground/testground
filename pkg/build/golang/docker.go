@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	gobuild "go/build"
-
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/docker"
@@ -24,7 +22,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 
@@ -370,27 +367,14 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		fallthrough
 
 	default:
-		gopkg, err := filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
-		if err != nil {
-			warn = fmt.Errorf("[go_proxy_mode=local] error while resolving go pkg directory: %w; falling back to go_proxy_mode=direct", err)
-			break
-		}
-
-		mnt := mount.Mount{
-			Type:   mount.TypeBind,
-			Source: gopkg,
-			Target: "/go/pkg",
-		}
-
 		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
 
-		_, _, err = docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		_, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
 			ContainerConfig: &container.Config{
 				Image: "goproxy/goproxy",
 			},
 			HostConfig: &container.HostConfig{
-				Mounts:      []mount.Mount{mnt},
 				NetworkMode: container.NetworkMode(buildNetworkID),
 			},
 			PullImageIfMissing: true,
