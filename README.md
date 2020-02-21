@@ -71,7 +71,7 @@ The current Testground Team is composed of:
 
 - @raulk - Tech Lead, Lead Software Engineer
 - @nonsense - Software Engineer, Testground as a Service / Infrastructure Lead
-- @robynlt - [Technical Project Manager (TPM)](https://github.com/ipfs/team-mgmt/blob/master/TEAMS_ROLES_STRUCTURES.md#working-group-technical-project-manager-tpm)
+- @Robmat05 - [Technical Project Manager (TPM)](https://github.com/ipfs/team-mgmt/blob/master/TEAMS_ROLES_STRUCTURES.md#working-group-technical-project-manager-tpm)
 - @hacdias - Software Engineer
 - @coryschwartz - Software Engineer
 - @daviddias - Software Engineer
