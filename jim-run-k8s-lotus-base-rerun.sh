@@ -3,8 +3,8 @@
 TAG=$1
 
 if [ -z "$TAG" ]; then
-  echo "Need tag"
-  exit 1
+  TAG=$(cat LAST-TAG)
+  echo "Using tag $TAG"
 fi
 
 ./testground --vv run single lotus-base/upload \
@@ -13,5 +13,5 @@ fi
     --build-cfg push_registry=true \
     --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
-    --instances=2 \
+    --instances=3 \
     --use-build 909427826938.dkr.ecr.us-west-2.amazonaws.com/testground-us-west-2-lotus-base:$TAG

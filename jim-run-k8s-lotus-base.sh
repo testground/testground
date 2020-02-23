@@ -3,7 +3,7 @@
 INSTANCES=$1
 
 if [ -z "$INSTANCES" ]; then
-  INSTANCES=2
+  INSTANCES=3
 fi
 
 ./testground --vv run single lotus-base/upload \
