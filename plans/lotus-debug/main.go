@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"reflect"
@@ -202,6 +205,15 @@ func run(runenv *runtime.RunEnv) error {
 
 		time.Sleep(15 * time.Second)
 
+		// Serve /root/dev.gen file for other nodes to use as genesis
+		go func() {
+			http.HandleFunc("/dev.gen", func(w http.ResponseWriter, r *http.Request) {
+				http.ServeFile(w, r, "/root/dev.gen")
+			})
+
+			log.Fatal(http.ListenAndServe(":9999", nil))
+		}()
+
 		// Signal we're ready
 		_, err = writer.SignalEntry(ctx, ready)
 		if err != nil {
@@ -234,6 +246,22 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 		runenv.RecordMessage("State: ready")
+
+		subnet := runenv.TestSubnet.IPNet
+		genesisIPv4 := &subnet
+		genesisIPv4.IP = append(genesisIPv4.IP[0:2:2], 1, 1)
+
+		// Download dev.gen file from genesis node
+		resp, err := http.Get(fmt.Sprintf("http://%v:9999/dev.gen", genesisIPv4.IP))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		outfile, err := os.Create("/root/dev.gen")
+		if err != nil {
+			return err
+		}
+		io.Copy(outfile, resp.Body)
 
 		/*
 			subnet := runenv.TestSubnet.IPNet
