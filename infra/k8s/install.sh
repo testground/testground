@@ -85,6 +85,9 @@ echo "Install Redis..."
 echo
 helm install redis stable/redis --values ./redis-values.yaml
 
+echo "Install prometheus pushgateway..."
+echo
+helm install prometheus-pushgateway stable/prometheus-pushgateway --values ./prometheus-pushgateway.yaml
 
 echo "Wait for Sidecar to be Ready..."
 echo
