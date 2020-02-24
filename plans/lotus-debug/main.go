@@ -120,25 +120,38 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("Pre-seal some sectors")
 		cmdPreseal := exec.Command(
-			"/bin/sh",
-			"-c",
-			"/lotus/lotus-seed pre-seal --sector-size 1024 --num-sectors 2 "+
-				"> /outputs/pre-seal.out 2>&1",
+			"/lotus/lotus-seed",
+			"pre-seal",
+			"--sector-size=1024",
+			"--num-sectors=2",
 		)
-		err := cmdPreseal.Run()
+		outfile, err := os.Create("/outputs/pre-seal.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdPreseal.Stdout = outfile
+		cmdPreseal.Stderr = outfile
+		err = cmdPreseal.Run()
 		if err != nil {
 			return err
 		}
 
 		runenv.RecordMessage("Create the genesis block and start up the first node")
 		cmdNode := exec.Command(
-			"/bin/sh",
-			"-c",
-			"/lotus/lotus daemon --lotus-make-random-genesis=/root/dev.gen "+
-				"--genesis-presealed-sectors=~/.genesis-sectors/pre-seal-t0101.json "+
-				"--bootstrap=false "+
-				"> /outputs/node.out 2>&1",
+			"/lotus/lotus",
+			"daemon",
+			"--lotus-make-random-genesis=/root/dev.gen",
+			"--genesis-presealed-sectors=~/.genesis-sectors/pre-seal-t0101.json",
+			"--bootstrap=false",
 		)
+		outfile, err = os.Create("/outputs/node.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdNode.Stdout = outfile
+		cmdNode.Stderr = outfile
 		err = cmdNode.Start()
 		if err != nil {
 			return err
@@ -148,13 +161,22 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("Set up the genesis miner")
 		cmdSetupMiner := exec.Command(
-			"/bin/sh",
-			"-c",
-			"/lotus/lotus-storage-miner init --genesis-miner --actor=t0101 "+
-				"--sector-size=1024 --pre-sealed-sectors=~/.genesis-sectors "+
-				"--pre-sealed-metadata=~/.genesis-sectors/pre-seal-t0101.json --nosync "+
-				"> /outputs/miner-setup.out 2>&1",
+			"/lotus/lotus-storage-miner",
+			"init",
+			"--genesis-miner",
+			"--actor=t0101",
+			"--sector-size=1024",
+			"--pre-sealed-sectors=~/.genesis-sectors",
+			"--pre-sealed-metadata=~/.genesis-sectors/pre-seal-t0101.json",
+			"--nosync",
 		)
+		outfile, err = os.Create("/outputs/miner-setup.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdSetupMiner.Stdout = outfile
+		cmdSetupMiner.Stderr = outfile
 		err = cmdSetupMiner.Run()
 		if err != nil {
 			return err
@@ -162,17 +184,23 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("Start up the miner")
 		cmdMiner := exec.Command(
-			"/bin/sh",
-			"-c",
-			"/lotus/lotus-storage-miner run --nosync ",
-			"> /outputs/miner.out 2>&1",
+			"/lotus/lotus-storage-miner",
+			"run",
+			"--nosync",
 		)
+		outfile, err = os.Create("/outputs/miner.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdMiner.Stdout = outfile
+		cmdMiner.Stderr = outfile
 		err = cmdMiner.Start()
 		if err != nil {
 			return err
 		}
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(15 * time.Second)
 
 		// Signal we're ready
 		_, err = writer.SignalEntry(ctx, ready)
