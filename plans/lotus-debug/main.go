@@ -16,8 +16,11 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+	"github.com/libp2p/go-libp2p-core/peer"
 
+	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
+	"github.com/filecoin-project/lotus/lib/jsonrpc"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 )
@@ -230,28 +233,9 @@ func run(runenv *runtime.RunEnv) error {
 			log.Fatal(http.ListenAndServe(":9999", nil))
 		}()
 
-		ma, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/1234/http")
-		if err != nil {
-			panic(err)
-		}
-
-		content, err := ioutil.ReadFile("/root/.lotus/token")
+		api, closer, err := connectToAPI()
 		if err != nil {
 			return err
-		}
-		token := string(content)
-		_, addr, err := manet.DialArgs(ma)
-		if err != nil {
-			return err
-		}
-		addr = "ws://" + addr + "/rpc/v0"
-
-		headers := http.Header{}
-		headers.Add("Authorization", "Bearer "+string(token))
-
-		api, closer, err := client.NewFullNodeRPC(addr, headers)
-		if err != nil {
-			panic(err)
 		}
 		defer closer()
 
@@ -331,6 +315,8 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		io.Copy(outfile, resp.Body)
 
+		var genesisAddrInfo *peer.AddrInfo
+
 		genesisAddrCh := make(chan *string, 0)
 		subscribeCtx, cancel := context.WithCancel(ctx)
 		err = watcher.Subscribe(subscribeCtx, genesisAddrSubtree, genesisAddrCh)
@@ -341,7 +327,14 @@ func run(runenv *runtime.RunEnv) error {
 		select {
 		case genesisAddr := <-genesisAddrCh:
 			cancel()
-			runenv.RecordMessage("Genesis addr: %v", *genesisAddr)
+			genesisMultiaddr, err := multiaddr.NewMultiaddr(*genesisAddr)
+			if err != nil {
+				return err
+			}
+			genesisAddrInfo, err = peer.AddrInfoFromP2pAddr(genesisMultiaddr)
+			if err != nil {
+				return err
+			}
 		case <-time.After(1 * time.Second):
 			cancel()
 			return fmt.Errorf("timeout fetching genesisAddr")
@@ -368,6 +361,24 @@ func run(runenv *runtime.RunEnv) error {
 
 		time.Sleep(5 * time.Second)
 
+		api, closer, err := connectToAPI()
+		if err != nil {
+			return err
+		}
+		defer closer()
+
+		peerID, err := api.ID(ctx)
+		if err != nil {
+			return err
+		}
+		runenv.RecordMessage("Peer ID: %v", peerID)
+
+		runenv.RecordMessage("Connecting to Genesis Node: %v", *genesisAddrInfo)
+		err = api.NetConnect(ctx, *genesisAddrInfo)
+		if err != nil {
+			return err
+		}
+
 		runenv.RecordSuccess()
 
 	default:
@@ -377,4 +388,32 @@ func run(runenv *runtime.RunEnv) error {
 	select {}
 
 	return nil
+}
+
+func connectToAPI() (api.FullNode, jsonrpc.ClientCloser, error) {
+	ma, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/1234/http")
+	if err != nil {
+		return nil, nil, err
+	}
+
+	tokenContent, err := ioutil.ReadFile("/root/.lotus/token")
+	if err != nil {
+		return nil, nil, err
+	}
+	token := string(tokenContent)
+	_, addr, err := manet.DialArgs(ma)
+	if err != nil {
+		return nil, nil, err
+	}
+	addr = "ws://" + addr + "/rpc/v0"
+
+	headers := http.Header{}
+	headers.Add("Authorization", "Bearer "+string(token))
+
+	api, closer, err := client.NewFullNodeRPC(addr, headers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return api, closer, nil
 }
