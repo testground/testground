@@ -1,0 +1,34 @@
+name = "lotus-debug"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/lotus-debug"
+
+[defaults]
+builder = "docker:lotus"
+runner = "local:docker"
+
+[build_strategies."docker:lotus"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/lotus-debug"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "bootstrap"
+instances = { min = 1, max = 20000, default = 2 }
+
+  [testcases.params]
+  delay-between-starts = { type = "int", desc = "delay", unit = "milliseconds", default = 30000 }
+
+# seq 1
+[[testcases]]
+name = "bootstrap-with-shaping"
+instances = { min = 1, max = 20000, default = 2 }
+
+  [testcases.params]
+  delay-between-starts = { type = "int", desc = "delay", unit = "milliseconds", default = 30000 }

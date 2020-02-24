@@ -207,11 +207,19 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 			fmt.Println(odir)
 			hcfg := &container.HostConfig{
 				NetworkMode: container.NetworkMode(ctrlnid),
-				Mounts: []mount.Mount{{
-					Type:   mount.TypeBind,
-					Source: odir,
-					Target: runenv.TestOutputsPath,
-				}},
+				Mounts: []mount.Mount{
+					{
+						Type:   mount.TypeBind,
+						Source: odir,
+						Target: runenv.TestOutputsPath,
+					},
+					{
+						Type:     mount.TypeBind,
+						Source:   "/var/tmp/filecoin-proof-parameters",
+						Target:   "/var/tmp/filecoin-proof-parameters",
+						ReadOnly: true,
+					},
+				},
 			}
 
 			// Create the container.
