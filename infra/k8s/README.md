@@ -68,9 +68,10 @@ aws s3api create-bucket \
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 
 ```
-export KOPS_STATE_STORE=s3://kops-backend-bucket
+export NAME=<desired kubernetes cluster name>
+export KOPS_STATE_STORE=s3://<kops state s3 bucket>
+export ZONE=<aws region>
 export WORKER_NODES=4
-export CLUSTER_SPEC=~/cluster.yaml
 export PUBKEY=~/.ssh/testground_rsa.pub
 
 # details for S3 bucket to be used for assets
@@ -92,7 +93,7 @@ helm repo update
 ## Install the kuberntes cluster
 
 ```
-./install.sh <cluster name> <aws zone> <template> <ssh public key> <number of worker nodes>
+./install.sh  <template file>
 ```
 
 for example, to create a monitored cluster in eu-central-1a with five kubernetes workers:

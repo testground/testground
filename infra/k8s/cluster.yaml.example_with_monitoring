@@ -15,17 +15,17 @@ spec:
     rbac: {}
   channel: stable
   cloudProvider: aws
-  configBase: s3://${ASSETS_BUCKET_NAME}/${NAME}
+  configBase: ${KOPS_STATE_STORE}/${NAME}
   etcdClusters:
   - cpuRequest: 200m
     etcdMembers:
-    - instanceGroup: master-eu-central-1a
+    - instanceGroup: master-${ZONE}
       name: a
     memoryRequest: 100Mi
     name: main
   - cpuRequest: 100m
     etcdMembers:
-    - instanceGroup: master-eu-central-1a
+    - instanceGroup: master-${ZONE}
       name: a
     memoryRequest: 100Mi
     name: events
@@ -51,9 +51,9 @@ spec:
   - 0.0.0.0/0
   subnets:
   - cidr: 172.20.32.0/19
-    name: eu-central-1a
+    name: ${ZONE}
     type: Public
-    zone: eu-central-1a
+    zone: ${ZONE}
   topology:
     dns:
       type: Public
@@ -68,17 +68,17 @@ metadata:
   creationTimestamp: null
   labels:
     kops.k8s.io/cluster: ${NAME}
-  name: master-eu-central-1a
+  name: master-${ZONE}
 spec:
   image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: 1
   minSize: 1
   nodeLabels:
-    kops.k8s.io/instancegroup: master-eu-central-1a
+    kops.k8s.io/instancegroup: master-${ZONE}
   role: Master
   subnets:
-  - eu-central-1a
+  - ${ZONE}
 
 ---
 
@@ -98,4 +98,4 @@ spec:
     kops.k8s.io/instancegroup: nodes
   role: Node
   subnets:
-  - eu-central-1a
+  - ${ZONE}
