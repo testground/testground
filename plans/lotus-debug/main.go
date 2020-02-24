@@ -20,6 +20,16 @@ func main() {
 	runtime.Invoke(run)
 }
 
+var peerID string
+
+var peerIDSubtree = &sync.Subtree{
+	GroupKey:    "peerID",
+	PayloadType: reflect.TypeOf(&peerID),
+	KeyFunc: func(val interface{}) string {
+		return "PeerID"
+	},
+}
+
 func run(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
@@ -214,6 +224,12 @@ func run(runenv *runtime.RunEnv) error {
 			log.Fatal(http.ListenAndServe(":9999", nil))
 		}()
 
+		genesisPeerID := "123"
+		_, err = writer.Write(ctx, peerIDSubtree, &genesisPeerID)
+		if err != nil {
+			return err
+		}
+
 		// Signal we're ready
 		_, err = writer.SignalEntry(ctx, ready)
 		if err != nil {
@@ -263,18 +279,21 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		io.Copy(outfile, resp.Body)
 
-		/*
-			subnet := runenv.TestSubnet.IPNet
-			receiverIPv4 := &subnet
-			receiverIPv4.IP = append(receiverIPv4.IP[0:2:2], 1, 1)
-			runenv.RecordMessage("Dialing %v", receiverIPv4.IP)
-			// Wait until all data is received before shutting down
-			// runenv.RecordMessage("Waiting for received state")
-			err = <-watcher.Barrier(ctx, received, 1)
-			if err != nil {
-				return err
-			}
-		*/
+		genesisPeerIDCh := make(chan *string, 0)
+		subscribeCtx, cancel := context.WithCancel(ctx)
+		err = watcher.Subscribe(subscribeCtx, peerIDSubtree, genesisPeerIDCh)
+		if err != nil {
+			cancel()
+			return err
+		}
+		select {
+		case genesisPeerID := <-genesisPeerIDCh:
+			cancel()
+			runenv.RecordMessage("Genesis PeerID: %v", *genesisPeerID)
+		case <-time.After(1 * time.Second):
+			cancel()
+			return fmt.Errorf("timeout fetching genesisPeerID")
+		}
 		runenv.RecordSuccess()
 
 	default:

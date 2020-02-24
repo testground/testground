@@ -24,16 +24,24 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/go-cid v0.0.4 // indirect
+	github.com/ipfs/go-datastore v0.4.4 // indirect
+	github.com/ipfs/go-log v1.0.2 // indirect
+	github.com/ipfs/testground/plans/smlbench v0.0.0-20200221170422-4f93fa2782e2 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0
-	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
+	github.com/libp2p/go-libp2p-autonat v0.1.1 // indirect
+	github.com/libp2p/go-libp2p-discovery v0.2.0 // indirect
+	github.com/libp2p/go-libp2p-nat v0.0.5 // indirect
+	github.com/libp2p/go-libp2p-peerstore v0.1.4 // indirect
+	github.com/libp2p/go-libp2p-secio v0.2.1 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/multiformats/go-multistream v0.1.1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/otiai10/copy v1.0.2
