@@ -68,11 +68,10 @@ aws s3api create-bucket \
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 
 ```
-export NAME=my-first-cluster-kops.k8s.local
-export ZONES=eu-central-1a
-export KOPS_STATE_STORE=s3://kops-backend-bucket
+export NAME=<desired kubernetes cluster name>
+export KOPS_STATE_STORE=s3://<kops state s3 bucket>
+export ZONE=<aws region>
 export WORKER_NODES=4
-export CLUSTER_SPEC=~/cluster.yaml
 export PUBKEY=~/.ssh/testground_rsa.pub
 
 # details for S3 bucket to be used for assets
@@ -84,41 +83,22 @@ export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_se
 export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
-5. Generate the cluster spec. You could reuse it next time you create a cluster.
-
-```
-kops create cluster \
-  --zones $ZONES \
-  --master-zones $ZONES \
-  --master-size c5.2xlarge \
-  --node-size c5.2xlarge \
-  --node-count $WORKER_NODES \
-  --networking flannel \
-  --name $NAME \
-  --dry-run \
-  -o yaml > $CLUSTER_SPEC
-```
-
-6. Update `kubelet` section in spec with:
-```
-  kubelet:
-    anonymousAuth: false
-    maxPods: 200
-    allowedUnsafeSysctls:
-    - net.core.somaxconn
-```
-
-7. Set up Helm and add the `stable` Helm Charts repository
+5. Set up Helm and add the `stable` Helm Charts repository
 
 ```
 helm repo add stable https://kubernetes-charts.storage.googleapis.com/
 helm repo update
 ```
 
-## Apply the cluster configuration and create cloud resources and install Testground dependencies
+## Install the kuberntes cluster
 
 ```
-./install.sh $NAME $CLUSTER_SPEC $PUBKEY $WORKER_NODES
+./install.sh  <template file>
+```
+
+for example, to create a monitored cluster in eu-central-1a with five kubernetes workers:
+```
+./install.sh test.k8s.local eu-central-1a ./cluster.yaml.example_with_monitoring ~/.ssh/id_rsa.pub 5
 ```
 
 
@@ -211,6 +191,24 @@ kubectl get pods -o wide
 ```
 kubectl logs <pod-id, e.g. tg-dht-c95b5>
 ```
+
+5. Check on the monitoring infrastructure (it runs in the monitoring namespace)
+```
+kubectl get pods --namespace monitoring
+```
+
+6. Get access to teh redis shell
+```
+kubectl port-forward svc/redis-master 6379:6379 &
+redis-cli -h localhost -p 6379
+```
+
+7. Get access to the kubernetes dashboard 
+```
+kubectl proxy
+```
+and then, direct your browser to `http://localhost:8001/ui`
+
 
 
 ## Use a Kubernetes context for another cluster
