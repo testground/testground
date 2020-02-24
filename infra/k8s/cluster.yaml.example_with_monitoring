@@ -1,0 +1,101 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  creationTimestamp: null
+  name: ${NAME}
+spec:
+  addons:
+  - manifest: metrics-server
+  - manifest: prometheus-operator
+  - manifest: kubernetes-dashboard
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: ${KOPS_STATE_STORE}/${NAME}
+  etcdClusters:
+  - cpuRequest: 200m
+    etcdMembers:
+    - instanceGroup: master-${ZONE}
+      name: a
+    memoryRequest: 100Mi
+    name: main
+  - cpuRequest: 100m
+    etcdMembers:
+    - instanceGroup: master-${ZONE}
+      name: a
+    memoryRequest: 100Mi
+    name: events
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  kubelet:
+    anonymousAuth: false
+    maxPods: 200
+    allowedUnsafeSysctls:
+      - net.core.somaxconn
+  kubernetesApiAccess:
+  - 0.0.0.0/0
+  kubernetesVersion: 1.15.9
+  masterInternalName: api.internal.${NAME}
+  masterPublicName: api.${NAME}
+  networkCIDR: 172.20.0.0/16
+  networking:
+    flannel:
+      backend: vxlan
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+  - 0.0.0.0/0
+  subnets:
+  - cidr: 172.20.32.0/19
+    name: ${ZONE}
+    type: Public
+    zone: ${ZONE}
+  topology:
+    dns:
+      type: Public
+    masters: public
+    nodes: public
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: ${NAME}
+  name: master-${ZONE}
+spec:
+  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
+  machineType: c5.2xlarge
+  maxSize: 1
+  minSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-${ZONE}
+  role: Master
+  subnets:
+  - ${ZONE}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: ${NAME}
+  name: nodes
+spec:
+  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
+  machineType: c5.2xlarge
+  maxSize: ${WORKER_NODES}
+  minSize: ${WORKER_NODES}
+  nodeLabels:
+    kops.k8s.io/instancegroup: nodes
+  role: Node
+  subnets:
+  - ${ZONE}
