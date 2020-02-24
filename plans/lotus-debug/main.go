@@ -11,13 +11,13 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
 	"github.com/filecoin-project/lotus/api/client"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
 )
@@ -26,19 +26,19 @@ func main() {
 	runtime.Invoke(run)
 }
 
-var peerID peer.ID
-
-var peerIDSubtree = &sync.Subtree{
-	GroupKey:    "peerID",
-	PayloadType: reflect.TypeOf(&peerID),
-	KeyFunc: func(val interface{}) string {
-		return "PeerID"
-	},
-}
-
 func run(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
+
+	var genesisAddr string
+
+	var genesisAddrSubtree = &sync.Subtree{
+		GroupKey:    "genesisAddr",
+		PayloadType: reflect.TypeOf(&genesisAddr),
+		KeyFunc: func(val interface{}) string {
+			return "GenesisAddr"
+		},
+	}
 
 	withShaping := runenv.TestCaseSeq == 1
 
@@ -255,18 +255,37 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		defer closer()
 
-		v, err := api.Version(ctx)
+		var genesisAddrNet multiaddr.Multiaddr
+
+		addrInfo, err := api.NetAddrsListen(ctx)
 		if err != nil {
 			return err
 		}
-		runenv.Message("Version:", v.Version)
+		for _, addr := range addrInfo.Addrs {
+			// runenv.Message("Listen addr: %v", addr.String())
+			_, ip, err := manet.DialArgs(addr)
+			if err != nil {
+				return err
+			}
+			// runenv.Message("IP: %v", ip)
+			// runenv.Message("Match: %v", config.IPv4.IP.String())
+			if strings.Split(ip, ":")[0] == config.IPv4.IP.String() {
+				genesisAddrNet = addr
+			}
+		}
+		if genesisAddrNet == nil {
+			return fmt.Errorf("Couldn't match genesis addr")
+		}
 
-		genesisPeerID, err := api.ID(ctx)
+		peerID, err := api.ID(ctx)
 		if err != nil {
 			return err
 		}
 
-		_, err = writer.Write(ctx, peerIDSubtree, &genesisPeerID)
+		genesisAddr := fmt.Sprintf("%v/p2p/%v", genesisAddrNet.String(), peerID)
+		runenv.Message("Genesis addr: %v", genesisAddr)
+
+		_, err = writer.Write(ctx, genesisAddrSubtree, &genesisAddr)
 		if err != nil {
 			return err
 		}
@@ -277,14 +296,6 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 		runenv.Message("State: ready")
-
-		/*
-			// Signal we've received all the data
-			_, err = writer.SignalEntry(ctx, received)
-			if err != nil {
-				return err
-			}
-		*/
 
 		runenv.RecordSuccess()
 
@@ -320,21 +331,43 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		io.Copy(outfile, resp.Body)
 
-		genesisPeerIDCh := make(chan *peer.ID, 0)
+		genesisAddrCh := make(chan *string, 0)
 		subscribeCtx, cancel := context.WithCancel(ctx)
-		err = watcher.Subscribe(subscribeCtx, peerIDSubtree, genesisPeerIDCh)
+		err = watcher.Subscribe(subscribeCtx, genesisAddrSubtree, genesisAddrCh)
 		if err != nil {
 			cancel()
 			return err
 		}
 		select {
-		case genesisPeerID := <-genesisPeerIDCh:
+		case genesisAddr := <-genesisAddrCh:
 			cancel()
-			runenv.RecordMessage("Genesis PeerID: %v", *genesisPeerID)
+			runenv.RecordMessage("Genesis addr: %v", *genesisAddr)
 		case <-time.After(1 * time.Second):
 			cancel()
-			return fmt.Errorf("timeout fetching genesisPeerID")
+			return fmt.Errorf("timeout fetching genesisAddr")
 		}
+
+		runenv.RecordMessage("Start the node")
+		cmdNode := exec.Command(
+			"/lotus/lotus",
+			"daemon",
+			"--genesis=/root/dev.gen",
+			"--bootstrap=false",
+		)
+		outfile, err = os.Create("/outputs/node.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdNode.Stdout = outfile
+		cmdNode.Stderr = outfile
+		err = cmdNode.Start()
+		if err != nil {
+			return err
+		}
+
+		time.Sleep(5 * time.Second)
+
 		runenv.RecordSuccess()
 
 	default:
