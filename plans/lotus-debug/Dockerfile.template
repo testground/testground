@@ -7,7 +7,7 @@ ARG GO_VERSION=1.13.8
 
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.
-FROM 5b31d19e202e
+FROM 20a30d86e1f3
 # lotus-base
 
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
@@ -37,16 +37,13 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
+    && go build -o testplan ${TESTPLAN_EXEC_PKG}
 
 # Store module dependencies
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
 
 WORKDIR /root
-
-# Move these
-RUN apt-get install -y vim less
 
 ENV PATH="/lotus:${PATH}"
 

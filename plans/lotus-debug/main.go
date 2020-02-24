@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -14,13 +15,18 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+
+	"github.com/filecoin-project/lotus/api/client"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
+	manet "github.com/multiformats/go-multiaddr-net"
 )
 
 func main() {
 	runtime.Invoke(run)
 }
 
-var peerID string
+var peerID peer.ID
 
 var peerIDSubtree = &sync.Subtree{
 	GroupKey:    "peerID",
@@ -224,7 +230,42 @@ func run(runenv *runtime.RunEnv) error {
 			log.Fatal(http.ListenAndServe(":9999", nil))
 		}()
 
-		genesisPeerID := "123"
+		ma, err := multiaddr.NewMultiaddr("/ip4/127.0.0.1/tcp/1234/http")
+		if err != nil {
+			panic(err)
+		}
+
+		content, err := ioutil.ReadFile("/root/.lotus/token")
+		if err != nil {
+			return err
+		}
+		token := string(content)
+		_, addr, err := manet.DialArgs(ma)
+		if err != nil {
+			return err
+		}
+		addr = "ws://" + addr + "/rpc/v0"
+
+		headers := http.Header{}
+		headers.Add("Authorization", "Bearer "+string(token))
+
+		api, closer, err := client.NewFullNodeRPC(addr, headers)
+		if err != nil {
+			panic(err)
+		}
+		defer closer()
+
+		v, err := api.Version(ctx)
+		if err != nil {
+			return err
+		}
+		runenv.Message("Version:", v.Version)
+
+		genesisPeerID, err := api.ID(ctx)
+		if err != nil {
+			return err
+		}
+
 		_, err = writer.Write(ctx, peerIDSubtree, &genesisPeerID)
 		if err != nil {
 			return err
@@ -279,7 +320,7 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		io.Copy(outfile, resp.Body)
 
-		genesisPeerIDCh := make(chan *string, 0)
+		genesisPeerIDCh := make(chan *peer.ID, 0)
 		subscribeCtx, cancel := context.WithCancel(ctx)
 		err = watcher.Subscribe(subscribeCtx, peerIDSubtree, genesisPeerIDCh)
 		if err != nil {

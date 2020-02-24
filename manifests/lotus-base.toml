@@ -19,24 +19,6 @@ enabled = true
 
 # seq 0
 [[testcases]]
-name = "upload"
-instances = { min = 2, max = 20000, default = 2 }
-
-  [testcases.params]
-  size = { type = "size", desc = "size", unit = "bytes", default = 1000000 }
-  chunk-size = { type = "size", desc = "chunk size", unit = "bytes", default = 102400 }
-  incoming-buffer-size = { type = "size", desc = "chunk size", unit = "bytes", default = 204800 }
-  delay-between-uploads = { type = "int", desc = "delay", unit = "milliseconds", default = 100 }
-
-# seq 1
-[[testcases]]
-name = "upload-with-shaping"
-instances = { min = 2, max = 20000, default = 2 }
-
-  [testcases.params]
-  size = { type = "size", desc = "size", unit = "bytes", default = 1000000 }
-  chunk-size = { type = "size", desc = "chunk size", unit = "bytes", default = 102400 }
-  incoming-buffer-size = { type = "size", desc = "chunk size", unit = "bytes", default = 204800 }
-  bandwidth = { type = "size", desc = "throttle bandwidth", unit = "bytes/s", default = 1048576 }
-  delay-between-uploads = { type = "int", desc = "delay", unit = "milliseconds", default = 7000 }
+name = "placeholder"
+instances = { min = 1, max = 1, default = 1 }
 

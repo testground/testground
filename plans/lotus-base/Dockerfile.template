@@ -20,7 +20,8 @@ ARG GO_PROXY=direct
 
 ENV SRC_DIR /lotus
 
-RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates llvm clang mesa-opencl-icd ocl-icd-opencl-dev
+RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates llvm clang mesa-opencl-icd ocl-icd-opencl-dev \
+  vim less htop
 
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
 
@@ -88,9 +89,6 @@ RUN cd ${PLAN_DIR} \
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
 
-# Migrate to top
-
-RUN apt-get install -y htop
 RUN mkdir /var/tmp/filecoin-proof-parameters
 
 ENV PATH="/usr/local/bin:${PATH}"
