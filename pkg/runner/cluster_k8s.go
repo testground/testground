@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -556,6 +557,7 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 				"testground.testcase": runenv.TestCase,
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
+				"testground.purpose":  "plan",
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
@@ -645,4 +647,25 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 	pods := int(math.Round(podsCPUs/podCPU - 0.5))
 
 	return pods, nil
+}
+
+// If the testground daemon has access to enough environment variables, we can terminate using kops
+// if not, then print a messgae about how to do it.
+// I would like to note that when the daemon returns to the client, the cluster may not be deleted
+// yet. This means it will report to the client a success, even if kops is not able to complete the
+// deletion.
+func (c *ClusterK8sRunner) TerminateAll() error {
+	log := logging.S()
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	planPods := metav1.ListOptions{
+		LabelSelector: "testground.purpose=plan",
+	}
+	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	if err != nil {
+		log.Errorw("Could not terminate all pods.", err)
+		return err
+	}
+	return nil
 }
