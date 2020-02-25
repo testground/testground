@@ -16,13 +16,16 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/filecoin-project/lotus/api"
-	"github.com/filecoin-project/lotus/api/client"
-	"github.com/filecoin-project/lotus/lib/jsonrpc"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr-net"
+
+	"github.com/filecoin-project/go-address"
+	"github.com/filecoin-project/lotus/api"
+	"github.com/filecoin-project/lotus/api/client"
+	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/lib/jsonrpc"
 )
 
 func main() {
@@ -289,6 +292,12 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		runenv.Message("State: ready")
 
+		localWalletAddr, err := api.WalletDefaultAddress(ctx)
+		if err != nil {
+			cancel()
+			return err
+		}
+
 		walletAddressCh := make(chan *string, 0)
 		subscribeCtx, cancel := context.WithCancel(ctx)
 		err = watcher.Subscribe(subscribeCtx, walletAddressSubtree, walletAddressCh)
@@ -300,13 +309,40 @@ func run(runenv *runtime.RunEnv) error {
 			select {
 			case walletAddress := <-walletAddressCh:
 				runenv.Message("Sending funds to wallet: %v", *walletAddress)
-				cancel()
+
+				// Send funds - see cli/send.go in Lotus
+				toAddr, err := address.NewFromString(*walletAddress)
+				if err != nil {
+					cancel()
+					return err
+				}
+
+				val, err := types.ParseFIL("1000")
+				if err != nil {
+					cancel()
+					return err
+				}
+
+				msg := &types.Message{
+					From:     localWalletAddr,
+					To:       toAddr,
+					Value:    types.BigInt(val),
+					GasLimit: types.NewInt(1000),
+					GasPrice: types.NewInt(0),
+				}
+
+				_, err = api.MpoolPushMessage(ctx, msg)
+				if err != nil {
+					cancel()
+					return err
+				}
 			}
 		}
+		cancel()
 
 		runenv.RecordSuccess()
 
-		stallAndWatchTipsetHead(ctx, runenv, api)
+		stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
 
 	case seq >= 2: // additional nodes
 		runenv.RecordMessage("Node: %v", seq)
@@ -421,9 +457,15 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
+		localWalletAddr, err := api.WalletDefaultAddress(ctx)
+		if err != nil {
+			cancel()
+			return err
+		}
+
 		runenv.RecordSuccess()
 
-		stallAndWatchTipsetHead(ctx, runenv, api)
+		stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
 
 	default:
 		return fmt.Errorf("Unexpected seq: %v", seq)
@@ -462,13 +504,20 @@ func connectToAPI() (api.FullNode, jsonrpc.ClientCloser, error) {
 	return api, closer, nil
 }
 
-func stallAndWatchTipsetHead(ctx context.Context, runenv *runtime.RunEnv, api api.FullNode) error {
+func stallAndWatchTipsetHead(ctx context.Context, runenv *runtime.RunEnv,
+	api api.FullNode, address address.Address) error {
 	for {
 		tipset, err := api.ChainHead(ctx)
 		if err != nil {
 			return err
 		}
-		runenv.RecordMessage("Height: %v", tipset.Height())
+
+		balance, err := api.WalletBalance(ctx, address)
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Height: %v Balance: %v", tipset.Height(), balance)
 		time.Sleep(30 * time.Second)
 	}
 }
