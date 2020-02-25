@@ -53,7 +53,7 @@ func healthcheckCommand(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Printf("Finished healthchecking runner %s\n", runner)
+	fmt.Printf("finished checking runner %s\n", runner)
 	fmt.Println(resp.String())
 
 	return nil

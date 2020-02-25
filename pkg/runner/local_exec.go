@@ -40,7 +40,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	r.setupLk.Lock()
 	defer r.setupLk.Unlock()
 
-	var redisCheck, outputDirCheck api.HealthcheckItem
+	var redisCheck, outputsDirCheck api.HealthcheckItem
 
 	// Check if a local Redis instance is running. If not, try to start it.
 	_, err := net.Dial("tcp", "localhost:6379")
@@ -56,17 +56,17 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	outputsDir := filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
 	if _, err := os.Stat(outputsDir); err == nil {
 		msg := "outputs directory exists"
-		outputDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
 	} else if os.IsNotExist(err) {
 		msg := "outputs directory does not exist"
-		outputDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
 	} else {
 		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
-		outputDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
 	if !fix {
-		return &api.HealthcheckReport{Checks: []api.HealthcheckItem{redisCheck, outputDirCheck}}, nil
+		return &api.HealthcheckReport{Checks: []api.HealthcheckItem{redisCheck, outputsDirCheck}}, nil
 	}
 
 	// FIX LOGIC ====================
@@ -99,7 +99,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 		}
 	}
 
-	if outputDirCheck.Status != api.HealthcheckStatusOK {
+	if outputsDirCheck.Status != api.HealthcheckStatusOK {
 		if err := os.MkdirAll(outputsDir, 0777); err == nil {
 			msg := "outputs dir created successfully"
 			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
@@ -112,7 +112,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	}
 
 	return &api.HealthcheckReport{
-		Checks: []api.HealthcheckItem{redisCheck, outputDirCheck},
+		Checks: []api.HealthcheckItem{redisCheck, outputsDirCheck},
 		Fixes:  fixes,
 	}, nil
 }
