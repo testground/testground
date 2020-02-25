@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"text/tabwriter"
 )
 
 // Healthchecker is the interface to be implemented by a runner that supports
@@ -53,7 +52,7 @@ type HealthcheckReport struct {
 
 func (hr *HealthcheckReport) ChecksSucceeded() bool {
 	for _, c := range hr.Checks {
-		if c.Status != HealthcheckStatusOK || c.Status != HealthcheckStatusOmitted {
+		if c.Status != HealthcheckStatusOK && c.Status != HealthcheckStatusOmitted {
 			return false
 		}
 	}
@@ -62,7 +61,7 @@ func (hr *HealthcheckReport) ChecksSucceeded() bool {
 
 func (hr *HealthcheckReport) FixesSucceeded() bool {
 	for _, f := range hr.Fixes {
-		if f.Status != HealthcheckStatusOK || f.Status != HealthcheckStatusOmitted {
+		if f.Status != HealthcheckStatusOK && f.Status != HealthcheckStatusOmitted {
 			return false
 		}
 	}
@@ -71,13 +70,24 @@ func (hr *HealthcheckReport) FixesSucceeded() bool {
 
 func (hr *HealthcheckReport) String() string {
 	b := new(strings.Builder)
-	w := tabwriter.NewWriter(b, 0, 0, 1, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	for _, c := range hr.Checks {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "check", c.Name, c.Status, c.Message)
+
+	if len(hr.Checks) > 0 {
+		fmt.Fprintln(b, "Checks:")
+		for _, check := range hr.Checks {
+			fmt.Fprintf(b, "- %s: %s; %s\n", check.Name, check.Status, check.Message)
+		}
+	} else {
+		fmt.Fprintln(b, "No checks made.")
 	}
-	for _, f := range hr.Fixes {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", "fix", f.Name, f.Status, f.Message)
+
+	if len(hr.Fixes) > 0 {
+		fmt.Fprintln(b, "Fixes:")
+		for _, fix := range hr.Fixes {
+			fmt.Fprintf(b, "- %s: %s; %s\n", fix.Name, fix.Status, fix.Message)
+		}
+	} else {
+		fmt.Fprintln(b, "No fixes applied.")
 	}
-	_ = w.Flush()
+
 	return b.String()
 }

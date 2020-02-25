@@ -54,24 +54,7 @@ func healthcheckCommand(c *cli.Context) error {
 	}
 
 	fmt.Printf("Finished healthchecking runner %s\n", runner)
-
-	if len(resp.Checks) > 0 {
-		fmt.Printf("Checks:\n")
-		for _, check := range resp.Checks {
-			fmt.Printf("- %s: %s; %s\n", check.Name, check.Status, check.Message)
-		}
-	} else {
-		fmt.Println("No checks made.")
-	}
-
-	if len(resp.Fixes) > 0 {
-		fmt.Printf("Fixes:\n")
-		for _, fix := range resp.Fixes {
-			fmt.Printf("- %s: %s; %s\n", fix.Name, fix.Status, fix.Message)
-		}
-	} else {
-		fmt.Println("No fixes applied.")
-	}
+	fmt.Println(resp.String())
 
 	return nil
 }

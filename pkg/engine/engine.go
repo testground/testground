@@ -176,12 +176,12 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
-	// Call the healthcheck routine if the builder supports it.
+	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := bm.(api.Healthchecker); ok {
-		if rep, err := hc.Healthcheck(false, e, output); err != nil {
-			return nil, fmt.Errorf("healthcheck errored: %w", err)
-		} else if !rep.ChecksSucceeded() {
-			return nil, fmt.Errorf("some healthchecks failed: %s", rep)
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
 		}
 	}
 
@@ -308,12 +308,12 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
 
-	// Call the healthcheck routine if the runner supports it.
+	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := run.(api.Healthchecker); ok {
-		if rep, err := hc.Healthcheck(false, e, output); err != nil {
-			return nil, fmt.Errorf("healthcheck errored: %w", err)
-		} else if !rep.ChecksSucceeded() {
-			return nil, fmt.Errorf("some healthchecks failed: %s", rep)
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
 		}
 	}
 
