@@ -6,7 +6,7 @@ if [ -z "$INSTANCES" ]; then
   INSTANCES=3
 fi
 
-./testground --vv run single lotus-base/upload \
+./testground --vv run single lotus-debug/bootstrap \
     --builder=docker:lotus \
     --runner=cluster:k8s \
     --build-cfg push_registry=true \
