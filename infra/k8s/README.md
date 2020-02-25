@@ -70,7 +70,7 @@ You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 ```
 export NAME=<desired kubernetes cluster name>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
-export ZONE=<aws region>
+export ZONE=<aws region, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=~/.ssh/testground_rsa.pub
 
@@ -92,13 +92,10 @@ helm repo update
 
 ## Install the kuberntes cluster
 
-```
-./install.sh  <template file>
-```
+For example, to create a monitored cluster in the region specified in $ZONE with $WORKER_NODES number of workers:
 
-for example, to create a monitored cluster in eu-central-1a with five kubernetes workers:
 ```
-./install.sh test.k8s.local eu-central-1a ./cluster.yaml.example_with_monitoring ~/.ssh/id_rsa.pub 5
+./install.sh ./cluster.yaml
 ```
 
 
@@ -197,7 +194,7 @@ kubectl logs <pod-id, e.g. tg-dht-c95b5>
 kubectl get pods --namespace monitoring
 ```
 
-6. Get access to teh redis shell
+6. Get access to the Redis shell
 ```
 kubectl port-forward svc/redis-master 6379:6379 &
 redis-cli -h localhost -p 6379
