@@ -70,7 +70,7 @@ You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 ```
 export NAME=<desired kubernetes cluster name>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
-export ZONE=<aws region>
+export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=~/.ssh/testground_rsa.pub
 
@@ -92,13 +92,10 @@ helm repo update
 
 ## Install the kuberntes cluster
 
-```
-./install.sh  <template file>
-```
+For example, to create a monitored cluster in the region specified in $ZONE with $WORKER_NODES number of workers:
 
-for example, to create a monitored cluster in eu-central-1a with five kubernetes workers:
 ```
-./install.sh test.k8s.local eu-central-1a ./cluster.yaml.example_with_monitoring ~/.ssh/id_rsa.pub 5
+./install.sh ./cluster.yaml
 ```
 
 
@@ -197,18 +194,22 @@ kubectl logs <pod-id, e.g. tg-dht-c95b5>
 kubectl get pods --namespace monitoring
 ```
 
-6. Get access to teh redis shell
+6. Get access to the Redis shell
 ```
 kubectl port-forward svc/redis-master 6379:6379 &
 redis-cli -h localhost -p 6379
 ```
 
-7. Get access to the kubernetes dashboard 
+7. Get access to Grafana (initial credentials are admin/admin):
+```
+kubectl -n monitoring port-forward service/grafana 3000:3000
+```
+
+8. Get access to the Kubernetes dashboard
 ```
 kubectl proxy
 ```
 and then, direct your browser to `http://localhost:8001/ui`
-
 
 
 ## Use a Kubernetes context for another cluster
@@ -223,11 +224,4 @@ kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
 
 ## Known issues and future improvements
 
-- [ ] 1. Kubernetes cluster creation - we intend to automate this, so that it is one command in the future, most probably with `terraform`.
-
-- [ ] 2. Testground dependencies - we intend to automate this, so that all dependencies for Testground are installed with one command, or as a follow-up provisioner on `terraform` - such as `redis`, `sidecar`, etc.
-
-- [ ] 3. Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
-
-- [X] 4. We need to decide where Testground is going to publish built docker images - DockerHub? or? This might incur a lot of costs if you build a large image and download it from 100 VMs repeatedly.
-Resolution: For now we are using AWS ECR, as clusters are also on AWS.
+- [ ] Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.
