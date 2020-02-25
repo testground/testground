@@ -70,7 +70,7 @@ You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 ```
 export NAME=<desired kubernetes cluster name>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
-export ZONE=<aws region, for example eu-central-1a>
+export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=~/.ssh/testground_rsa.pub
 
