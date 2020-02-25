@@ -185,7 +185,7 @@ securityContext:
   ##
   sysctls:
   - name: net.core.somaxconn
-    value: "10000"
+    value: "100000"
 
 ## Use password authentication
 usePassword: false
@@ -257,8 +257,8 @@ master:
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
   resources:
     requests:
-      memory: 2048Mi
-      cpu: 2000m
+      memory: 14000Mi
+      cpu: 7000m
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
   ##
