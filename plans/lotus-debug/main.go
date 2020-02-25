@@ -34,12 +34,20 @@ func run(runenv *runtime.RunEnv) error {
 	defer cancel()
 
 	var genesisAddr string
-
 	var genesisAddrSubtree = &sync.Subtree{
 		GroupKey:    "genesisAddr",
 		PayloadType: reflect.TypeOf(&genesisAddr),
 		KeyFunc: func(val interface{}) string {
 			return "GenesisAddr"
+		},
+	}
+
+	var walletAddress string
+	var walletAddressSubtree = &sync.Subtree{
+		GroupKey:    "walletAddresses",
+		PayloadType: reflect.TypeOf(&walletAddress),
+		KeyFunc: func(val interface{}) string {
+			return val.(string)
 		},
 	}
 
@@ -281,7 +289,24 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		runenv.Message("State: ready")
 
+		walletAddressCh := make(chan *string, 0)
+		subscribeCtx, cancel := context.WithCancel(ctx)
+		err = watcher.Subscribe(subscribeCtx, walletAddressSubtree, walletAddressCh)
+		if err != nil {
+			cancel()
+			return err
+		}
+		for i := 1; i < runenv.TestInstanceCount; i++ {
+			select {
+			case walletAddress := <-walletAddressCh:
+				runenv.Message("Sending funds to wallet: %v", *walletAddress)
+				cancel()
+			}
+		}
+
 		runenv.RecordSuccess()
+
+		stallAndWatchTipsetHead(ctx, runenv, api)
 
 	case seq >= 2: // additional nodes
 		runenv.RecordMessage("Node: %v", seq)
@@ -379,7 +404,26 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
+		// FIXME: Watch sync state instead
+		runenv.RecordMessage("Sleeping for 15 seconds to sync")
+		time.Sleep(15 * time.Second)
+
+		runenv.RecordMessage("Creating bls wallet")
+		address, err := api.WalletNew(ctx, "bls")
+		if err != nil {
+			return err
+		}
+		walletAddress := address.String()
+		runenv.RecordMessage("Wallet: %v", walletAddress)
+
+		_, err = writer.Write(ctx, walletAddressSubtree, &walletAddress)
+		if err != nil {
+			return err
+		}
+
 		runenv.RecordSuccess()
+
+		stallAndWatchTipsetHead(ctx, runenv, api)
 
 	default:
 		return fmt.Errorf("Unexpected seq: %v", seq)
@@ -416,4 +460,15 @@ func connectToAPI() (api.FullNode, jsonrpc.ClientCloser, error) {
 	}
 
 	return api, closer, nil
+}
+
+func stallAndWatchTipsetHead(ctx context.Context, runenv *runtime.RunEnv, api api.FullNode) error {
+	for {
+		tipset, err := api.ChainHead(ctx)
+		if err != nil {
+			return err
+		}
+		runenv.RecordMessage("Height: %v", tipset.Height())
+		time.Sleep(30 * time.Second)
+	}
 }
