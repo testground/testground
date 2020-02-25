@@ -463,6 +463,57 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
+		count := 0
+		for {
+			balance, err := api.WalletBalance(ctx, address)
+			if err != nil {
+				return err
+			}
+			if balance.Sign() > 0 {
+				break
+			}
+			time.Sleep(1 * time.Second)
+			count++
+			if count > 30 {
+				return fmt.Errorf("Timeout waiting for funds transfer")
+			}
+		}
+
+		runenv.RecordMessage("Set up the miner")
+		cmdSetupMiner := exec.Command(
+			"/lotus/lotus-storage-miner",
+			"init",
+			"--owner="+walletAddress,
+		)
+		outfile, err = os.Create("/outputs/miner-setup.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdSetupMiner.Stdout = outfile
+		cmdSetupMiner.Stderr = outfile
+		err = cmdSetupMiner.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Start up the miner")
+		cmdMiner := exec.Command(
+			"/lotus/lotus-storage-miner",
+			"run",
+		)
+		outfile, err = os.Create("/outputs/miner.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdMiner.Stdout = outfile
+		cmdMiner.Stderr = outfile
+		err = cmdMiner.Start()
+		if err != nil {
+			return err
+		}
+
 		runenv.RecordSuccess()
 
 		stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
