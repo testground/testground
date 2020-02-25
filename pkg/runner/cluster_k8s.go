@@ -648,11 +648,8 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 	return pods, nil
 }
 
-// If the testground daemon has access to enough environment variables, we can terminate using kops
-// if not, then print a messgae about how to do it.
-// I would like to note that when the daemon returns to the client, the cluster may not be deleted
-// yet. This means it will report to the client a success, even if kops is not able to complete the
-// deletion.
+// Terminates all pods for with the label testground.purpose: plan
+// This command will remove all plan pods in the cluster.
 func (c *ClusterK8sRunner) TerminateAll() error {
 	log := logging.S()
 	client := c.pool.Acquire()
