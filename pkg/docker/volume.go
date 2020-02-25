@@ -37,9 +37,12 @@ func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 
 	for _, v := range volumes.Volumes {
 		if v.Name == opts.Name { // We found a match, volume exists.
+			log.Infof("Found existing volume %s\n", v.Name)
 			return v, false, nil
 		}
 	}
+
+	log.Infof("Creating new docker volume %s\n", opts.Name)
 
 	volCreate := volumetypes.VolumeCreateBody{
 		Name:       opts.Name,
@@ -50,6 +53,7 @@ func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 
 	vol, err := cli.VolumeCreate(ctx, volCreate)
 	if err != nil {
+		log.Warnw("Could not create volume", err)
 		return nil, false, err
 	}
 	return &vol, true, nil
