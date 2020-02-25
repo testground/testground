@@ -36,7 +36,7 @@ type LocalExecutableRunner struct {
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-func (r *LocalExecutableRunner) Healthcheck(repair bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
 	r.setupLk.Lock()
 	defer r.setupLk.Unlock()
 
@@ -65,9 +65,11 @@ func (r *LocalExecutableRunner) Healthcheck(repair bool, engine api.Engine, writ
 		outputDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
-	if !repair {
+	if !fix {
 		return &api.HealthcheckReport{Checks: []api.HealthcheckItem{redisCheck, outputDirCheck}}, nil
 	}
+
+	// FIX LOGIC ====================
 
 	var fixes []api.HealthcheckItem
 
