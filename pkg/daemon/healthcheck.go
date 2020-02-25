@@ -27,7 +27,7 @@ func (srv *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWri
 			return
 		}
 
-		out, err := engine.DoHealthcheck(r.Context(), req.Runner, req.Repair, tgw)
+		out, err := engine.DoHealthcheck(r.Context(), req.Runner, req.Fix, tgw)
 		if err != nil {
 			tgw.WriteError("healthcheck error", "err", err.Error())
 			return

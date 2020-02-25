@@ -8,16 +8,16 @@ import (
 )
 
 // Healthchecker is the interface to be implemented by a runner that supports
-// healthchecks and repairs.
+// healthchecks and fixes.
 type Healthchecker interface {
-	Healthcheck(repair bool, engine Engine, writer io.Writer) (*HealthcheckReport, error)
+	Healthcheck(fix bool, engine Engine, writer io.Writer) (*HealthcheckReport, error)
 }
 
 // HealthcheckStatus is an enum that represents
 type HealthcheckStatus string
 
 var (
-	// HealthcheckStatusOK indicates success in a healthcheck or a repair.
+	// HealthcheckStatusOK indicates success in a healthcheck or a fix.
 	HealthcheckStatusOK = HealthcheckStatus("ok")
 	// HealthcheckStatusFailed indicates the outcome of a healthcheck or an
 	// attempted fix was negative.
@@ -46,8 +46,8 @@ type HealthcheckReport struct {
 	// Checks enumerates the outcomes of the health checks.
 	Checks []HealthcheckItem
 
-	// Fixes enumerates the outcomes of the fixes applied during repair, if a
-	// repair was requested.
+	// Fixes enumerates the outcomes of the fixes applied during fix, if a
+	// fix was requested.
 	Fixes []HealthcheckItem
 }
 

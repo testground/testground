@@ -33,7 +33,7 @@ type TerminateRequest struct {
 
 type HealthcheckRequest struct {
 	Runner string `json:"runner"`
-	Repair bool   `json:"repair"`
+	Fix    bool   `json:"fix"`
 }
 
 type HealthcheckResponse = api.HealthcheckReport

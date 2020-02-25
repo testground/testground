@@ -481,7 +481,7 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) er
 	return err
 }
 
-func (e *Engine) DoHealthcheck(ctx context.Context, runner string, repair bool, w io.Writer) (*api.HealthcheckReport, error) {
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*api.HealthcheckReport, error) {
 	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
@@ -497,7 +497,7 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, repair bool, 
 		return nil, err
 	}
 
-	return hc.Healthcheck(repair, e, w)
+	return hc.Healthcheck(fix, e, w)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

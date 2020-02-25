@@ -14,8 +14,8 @@ var HealthcheckCommand = cli.Command{
 	Action: healthcheckCommand,
 	Flags: []cli.Flag{
 		cli.BoolFlag{
-			Name:  "repair",
-			Usage: "should try to repair the preconditions",
+			Name:  "fix",
+			Usage: "should try to fix the preconditions",
 		},
 		cli.StringFlag{
 			Name:     "runner",
@@ -31,7 +31,7 @@ func healthcheckCommand(c *cli.Context) error {
 
 	var (
 		runner = c.String("runner")
-		repair = c.Bool("repair")
+		fix    = c.Bool("fix")
 	)
 
 	api, err := setupClient(c)
@@ -41,7 +41,7 @@ func healthcheckCommand(c *cli.Context) error {
 
 	r, err := api.Healthcheck(ctx, &client.HealthcheckRequest{
 		Runner: runner,
-		Repair: repair,
+		Fix:    fix,
 	})
 	if err != nil {
 		return err
@@ -58,7 +58,7 @@ func healthcheckCommand(c *cli.Context) error {
 	if len(resp.Checks) > 0 {
 		fmt.Printf("Checks:\n")
 		for _, check := range resp.Checks {
-			fmt.Printf("- %s\n", check)
+			fmt.Printf("- %s: %s; %s\n", check.Name, check.Status, check.Message)
 		}
 	} else {
 		fmt.Println("No checks made.")
@@ -66,8 +66,8 @@ func healthcheckCommand(c *cli.Context) error {
 
 	if len(resp.Fixes) > 0 {
 		fmt.Printf("Fixes:\n")
-		for _, check := range resp.Fixes {
-			fmt.Printf("- %s\n", check)
+		for _, fix := range resp.Fixes {
+			fmt.Printf("- %s: %s; %s\n", fix.Name, fix.Status, fix.Message)
 		}
 	} else {
 		fmt.Println("No fixes applied.")
