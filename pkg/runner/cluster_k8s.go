@@ -660,7 +660,7 @@ func (c *ClusterK8sRunner) TerminateAll() error {
 	}
 	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
-		log.Errorw("Could not terminate all pods.", err)
+		log.Errorw("could not terminate all pods.", "err", err) 
 		return err
 	}
 	return nil
