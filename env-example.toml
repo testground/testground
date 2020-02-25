@@ -41,3 +41,7 @@ listen = ":8080"
 
 [client]
 endpoint = "localhost:8080"
+
+
+[build_strategies."docker:go"]
+go_proxy_storage = "volume"

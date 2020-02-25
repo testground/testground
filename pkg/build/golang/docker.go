@@ -15,8 +15,6 @@ import (
 	"sync"
 	"time"
 
-	gobuild "go/build"
-
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/docker"
@@ -70,6 +68,10 @@ type DockerGoBuilderConfig struct {
 
 	// GoProxyURL specifies the URL of the proxy when GoProxyMode = "custom".
 	GoProxyURL string `toml:"go_proxy_url" overridable:"yes"`
+	// GoProxyStorage specifies the storage location for GoProxy.
+	// * By specifying "volume" create a named docker volume.
+	// * by specifying a path, we will bind mount to the given path.
+	GoProxyStorage string `toml:go_proxy_storage overridable:"yes"`
 }
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
@@ -345,12 +347,49 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 	return nil
 }
 
+func setupLocalGoProxyVol(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, location string) (*mount.Mount, error) {
+	//switch location {
+	//case "volume":
+	volumeOpts := docker.EnsureVolumeOpts{
+		Name: "testground-goproxy-vol",
+	}
+	vol, _, err := docker.EnsureVolume(ctx, log, cli, &volumeOpts)
+	if err != nil {
+		return nil, err
+	}
+	mnt := mount.Mount{
+		Type:   mount.TypeVolume,
+		Source: vol.Name,
+		Target: "/go",
+	}
+	return &mnt, nil
+
+	//default:
+	//	log.Info(location)
+	//	storage, err := filepath.EvalSymlinks(location)
+	//	if err != nil {
+	//		log.Warnw("Cannot cannot create bind mount to %s. %w", storage, err)
+	//		return nil, err
+	//	}
+	//	log.Info(storage)
+	//	log.Infof("Goproxy will use a bind mount to %s.", storage)
+	//	mnt := mount.Mount{
+	//		Type:   mount.TypeBind,
+	//		Source: storage,
+	//		Target: "/go",
+	//	}
+	//	return &mnt, nil
+	//}
+}
+
 // setupGoProxy sets up a goproxy container, if and only if the build
 // configuration requires it.
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
 func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+	var mnt *mount.Mount
+	var err error
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
@@ -370,39 +409,27 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		fallthrough
 
 	default:
-		gopkg, err := filepath.EvalSymlinks(filepath.Join(gobuild.Default.GOPATH, "pkg"))
+		proxyURL = "http://testground-goproxy:8081"
+		mnt, err = setupLocalGoProxyVol(ctx, log, cli, cfg.GoProxyStorage)
 		if err != nil {
-			warn = fmt.Errorf("[go_proxy_mode=local] error while resolving go pkg directory: %w; falling back to go_proxy_mode=direct", err)
+			proxyURL = "direct"
+			warn = fmt.Errorf("[go_proxy_storage] No storage configuration was supplied. Goproxy will use direct mode")
 			break
 		}
-
-		mnt := mount.Mount{
-			Type:   mount.TypeBind,
-			Source: gopkg,
-			Target: "/go/pkg",
-		}
-
-		log.Debugw("ensuring testground-goproxy container is started", "go_proxy_mode", "local")
-
-		_, _, err = docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+		containerOpts := docker.EnsureContainerOpts{
 			ContainerName: "testground-goproxy",
 			ContainerConfig: &container.Config{
 				Image: "goproxy/goproxy",
 			},
 			HostConfig: &container.HostConfig{
-				Mounts:      []mount.Mount{mnt},
+				Mounts:      []mount.Mount{*mnt},
 				NetworkMode: container.NetworkMode(buildNetworkID),
 			},
 			PullImageIfMissing: true,
-		})
-		if err != nil {
-			warn = fmt.Errorf("[go_proxy_mode=local] error while creating goproxy container: %w; falling back to go_proxy_mode=direct", err)
-			proxyURL = "direct"
-			break
 		}
-		proxyURL = "http://testground-goproxy:8081"
-	}
+		_, _, err = docker.EnsureContainer(ctx, log, cli, &containerOpts)
 
+	}
 	return proxyURL, warn
 }
 
