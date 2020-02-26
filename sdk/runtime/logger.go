@@ -38,7 +38,10 @@ func (l *logger) init() {
 		level.SetLevel(zapcore.InfoLevel)
 	}
 	if _, err := os.Stat(l.runenv.TestOutputsPath); os.IsNotExist(err) {
-		os.Mkdir(l.runenv.TestOutputsPath, os.ModePerm)
+		err := os.Mkdir(l.runenv.TestOutputsPath, os.ModePerm)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	paths := []string{"stdout"}
