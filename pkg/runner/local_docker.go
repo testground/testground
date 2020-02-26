@@ -144,6 +144,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
+		TestStartTime:     time.Now(),
 	}
 
 	// Create a data network.

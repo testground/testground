@@ -171,6 +171,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
+		TestStartTime:     time.Now(),
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -660,7 +661,7 @@ func (c *ClusterK8sRunner) TerminateAll() error {
 	}
 	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
-		log.Errorw("could not terminate all pods.", "err", err) 
+		log.Errorw("could not terminate all pods.", "err", err)
 		return err
 	}
 	return nil

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -91,7 +92,8 @@ type RunParams struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *IPNet `json:"network,omitempty"`
+	TestSubnet    *IPNet    `json:"network,omitempty"`
+	TestStartTime time.Time `json:"start_time,omitempty"`
 }
 
 // RunEnv encapsulates the context for this test run.
