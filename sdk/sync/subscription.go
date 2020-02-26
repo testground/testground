@@ -81,7 +81,11 @@ func (s *subscription) process() {
 	for {
 		streams, err := conn.XRead(args).Result()
 		if err != nil && err != redis.Nil {
-			if s.client.Context().Err() == nil {
+			select {
+			case <-s.w.close:
+			case <-s.client.Context().Done():
+			default:
+				// only log an error if we didn't explicitly abort early.
 				log.Errorf("failed to XREAD from subtree stream: %w", err)
 			}
 			return
