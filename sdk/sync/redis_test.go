@@ -28,11 +28,9 @@ func init() {
 func ensureRedis(t *testing.T) (close func()) {
 	t.Helper()
 
-	runenv := randomRunEnv()
-
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
-	client, err := redisClient(context.Background(), runenv)
+	client, err := redisClient(context.Background())
 	if err == nil {
 		client.Close()
 		return func() {}
@@ -46,7 +44,7 @@ func ensureRedis(t *testing.T) (close func()) {
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
-	if client, err = redisClient(context.Background(), runenv); err != nil {
+	if client, err = redisClient(context.Background()); err != nil {
 		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
 	defer client.Close()
@@ -325,7 +323,6 @@ func TestCloseSubscription(t *testing.T) {
 }
 
 func TestRedisHost(t *testing.T) {
-	runenv := randomRunEnv()
 	realRedisHost := os.Getenv(EnvRedisHost)
 	defer os.Setenv(EnvRedisHost, realRedisHost)
 
@@ -333,14 +330,14 @@ func TestRedisHost(t *testing.T) {
 	defer cancel()
 
 	os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
-	client, err := redisClient(ctx, runenv)
+	client, err := redisClient(ctx)
 	if err == nil {
 		client.Close()
 		t.Error("should not have found redis host")
 	}
 
 	os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
-	client, err = redisClient(ctx, runenv)
+	client, err = redisClient(ctx)
 	if err == nil {
 		client.Close()
 		t.Error("should not have found redis host")
@@ -351,7 +348,7 @@ func TestRedisHost(t *testing.T) {
 		realHost = "localhost"
 	}
 	os.Setenv(EnvRedisHost, realHost)
-	client, err = redisClient(ctx, runenv)
+	client, err = redisClient(ctx)
 	if err != nil {
 		t.Errorf("should have found the redis host, failed with: %s", err)
 	}
