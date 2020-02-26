@@ -8,10 +8,39 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/client_golang/prometheus/push"
 )
+
+// NewPrometheusPusher instantiates a prometheus pusher object which is configured to use
+// the testgroudn prometheus pushgateway
+func (runenv *RunEnv) NewPrometheusPusher(metricName string, collectors ...prometheus.Collector) *push.Pusher {
+
+	fullMetricName := strings.Join([]string{
+		runenv.TestPlan,
+		runenv.TestCase,
+		metricName},
+		"/")
+
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(collectors...)
+
+	return push.New("http://pushgateway:9091", fullMetricName)
+}
+
+// NewPrometheusGauge is a helper function for creating prometheus metrics.
+// This is here to prevent plans from needing to import prometheus directly,
+// but the object returend is the same as that returend by prometheus.NewGauge
+func (runenv *RunEnv) NewPrometheusGauge(name string, help string) prometheus.Gauge {
+	return prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: name,
+		Help: help,
+	})
+}
 
 // MustExportPrometheus starts an HTTP server with the Prometheus handler.
 // It starts on a random open port and returns the listener. It is the caller
