@@ -113,7 +113,9 @@ func NetworkIpChangeBench(runenv *runtime.RunEnv) error {
 	}
 	// Change the IP address.
 	// Not checking if the IP address I'm changing to already exists, by the way
+	// Just flipping bits around on the second half of the IP.
 	ipBytes := []byte(netConfig.IPv4.IP)
+	ipBytes[2] = ipBytes[2] ^ byte(255)
 	ipBytes[3] = ipBytes[3] ^ byte(255)
 	netConfig.IPv4.IP = net.IP(ipBytes)
 
