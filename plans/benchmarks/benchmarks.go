@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net"
+	"os"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -45,6 +47,85 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	}
 
 	emitTime(runenv, "Time to Network", time.Now().Sub(startupTime))
+	return nil
+}
+
+func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+		return err
+	}
+	// A state name unique to the container...
+	name, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	doneState := sync.State("net configured " + name)
+
+	// A new network configuration
+	netConfig := sync.NetworkConfig{
+		Network: "default",
+		Default: sync.LinkShape{
+			Latency: 250 * time.Millisecond,
+		},
+		State: doneState,
+	}
+
+	beforeNetConfig := time.Now()
+	// Send configuration to the sidecar.
+	writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
+	// Wait for the signal that the network change is completed.
+	err = <-watcher.Barrier(ctx, doneState, 1)
+	if err != nil {
+		return err
+	}
+	emitTime(runenv, "Time to configure link shape", time.Now().Sub(beforeNetConfig))
+	return nil
+}
+
+func NetworkIpChangeBench(runenv *runtime.RunEnv) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+		return err
+	}
+	// A state name unique to the container...
+	name, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	doneState := sync.State("net configured " + name)
+
+	// A new network configuration
+	netConfig := sync.NetworkConfig{
+		Network: "default",
+		IPv4:    &runenv.TestSubnet.IPNet,
+		State:   doneState,
+	}
+	// Change the IP address.
+	// Not checking if the IP address I'm changing to already exists, by the way
+	ipBytes := []byte(netConfig.IPv4.IP)
+	ipBytes[3] = ipBytes[3] ^ byte(255)
+	netConfig.IPv4.IP = net.IP(ipBytes)
+
+	beforeNetConfig := time.Now()
+	// Send configuration to the sidecar.
+	writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
+	// Wait for the signal that the network change is completed.
+	err = <-watcher.Barrier(ctx, doneState, 1)
+	if err != nil {
+		return err
+	}
+	emitTime(runenv, "Time to change IP address", time.Now().Sub(beforeNetConfig))
 	return nil
 }
 
