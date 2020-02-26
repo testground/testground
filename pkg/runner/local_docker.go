@@ -349,7 +349,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 		ctx,
 		log, cli,
 		"testground-control",
-		true,
+		false,
 		network.IPAMConfig{
 			Subnet:  controlSubnet,
 			Gateway: controlGateway,
@@ -402,7 +402,8 @@ func ensurePrometheusContainer(ctx context.Context, cli *client.Client, log *zap
 			Image: "prom/prometheus",
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
+			NetworkMode:     container.NetworkMode(controlNetworkID),
+			PublishAllPorts: true,
 		},
 		PullImageIfMissing: true,
 	})
@@ -421,7 +422,8 @@ func ensurePushgatewayContainer(ctx context.Context, cli *client.Client, log *za
 			Image: "prom/pushgateway",
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
+			NetworkMode:     container.NetworkMode(controlNetworkID),
+			PublishAllPorts: true,
 		},
 		PullImageIfMissing: true,
 	})
