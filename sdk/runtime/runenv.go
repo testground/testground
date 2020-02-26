@@ -157,7 +157,7 @@ func (re *RunParams) ToEnvVars() map[string]string {
 		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
-		EnvTestOutputsPath:        re.TestOutputsPath,
+		//		EnvTestOutputsPath:        re.TestOutputsPath,
 	}
 
 	return out

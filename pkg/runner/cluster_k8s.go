@@ -250,7 +250,15 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				return c.createPod(ctx, podName, input, runenv, env, g, i)
+				currentEnv := make([]v1.EnvVar, len(env))
+				copy(currentEnv, env)
+
+				currentEnv = append(currentEnv, v1.EnvVar{
+					Name:  "TEST_OUTPUTS_PATH",
+					Value: fmt.Sprintf("/outputs/%s-%s-%s-%d", jobName, input.RunID, g.ID, i),
+				})
+
+				return c.createPod(ctx, podName, input, runenv, currentEnv, g, i)
 			})
 		}
 	}
@@ -540,13 +548,13 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 	defer c.pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
-	hostpathtype := v1.HostPathType("DirectoryOrCreate")
-	sharedVolumeName := "s3-shared"
+	//hostpathtype := v1.HostPathType("DirectoryOrCreate")
+	sharedVolumeName := "efs-shared"
 
-	mnt := v1.HostPathVolumeSource{
-		Path: fmt.Sprintf("/mnt/%s/%s/%d", input.RunID, g.ID, i),
-		Type: &hostpathtype,
-	}
+	//mnt := v1.HostPathVolumeSource{
+	//Path: fmt.Sprintf("/mnt/%s/%s/%d", input.RunID, g.ID, i),
+	//Type: &hostpathtype,
+	//}
 
 	podRequest := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -563,10 +571,20 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
 				{
-					Name:         sharedVolumeName,
-					VolumeSource: v1.VolumeSource{HostPath: &mnt},
+					Name: sharedVolumeName,
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "efs",
+						},
+					},
 				},
 			},
+			//Volumes: []v1.Volume{
+			//{
+			//Name:         sharedVolumeName,
+			//VolumeSource: v1.VolumeSource{HostPath: &mnt},
+			//},
+			//},
 			SecurityContext: &v1.PodSecurityContext{
 				Sysctls: testplanSysctls,
 			},
@@ -586,10 +604,17 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
-							MountPath:        runenv.TestOutputsPath,
+							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
 						},
 					},
+					//VolumeMounts: []v1.VolumeMount{
+					//{
+					//Name:             sharedVolumeName,
+					//MountPath:        runenv.TestOutputsPath,
+					//MountPropagation: &mountPropagationMode,
+					//},
+					//},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
 							v1.ResourceMemory: c.podResourceMemory,
@@ -660,7 +685,7 @@ func (c *ClusterK8sRunner) TerminateAll() error {
 	}
 	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
-		log.Errorw("could not terminate all pods.", "err", err) 
+		log.Errorw("could not terminate all pods.", "err", err)
 		return err
 	}
 	return nil
