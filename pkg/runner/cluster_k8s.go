@@ -55,7 +55,7 @@ const (
 	// utilisation is how many CPUs from the remainder shall we allocate to Testground
 	// note that there are other services running on the Kubernetes cluster such as
 	// api proxy, kubedns, s3bucket, etc.
-	utilisation = 0.8
+	utilisation = 0.85
 
 	// magic values that we monitor on the Testground runner side to detect when Testground
 	// testplan instances are initialised and at the stage of actually running a test

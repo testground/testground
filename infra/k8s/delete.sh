@@ -40,6 +40,13 @@ echo "Detected Subnet ID: $subnetId"
 
 pushd efs-terraform
 
+# extract s3 bucket from kops state store
+S3_BUCKET="${KOPS_STATE_STORE:5:100}"
+
+terraform init -backend-config=bucket=$S3_BUCKET \
+               -backend-config=key=tf-efs-$NAME \
+               -backend-config=region=$AWS_REGION
+
 terraform destroy -var aws_region=$AWS_REGION -var fs_subnet_id=$subnetId -var fs_sg_id=$securityGroupId -auto-approve
 
 popd
