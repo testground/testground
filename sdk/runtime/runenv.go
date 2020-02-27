@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"go.uber.org/zap"
-
 	"github.com/dustin/go-humanize"
+	"github.com/prometheus/client_golang/prometheus/push"
+	"go.uber.org/zap"
 )
 
 const (
@@ -99,16 +99,23 @@ type RunEnv struct {
 	RunParams
 	*logger
 
-	unstructured chan *os.File
-	structured   chan *zap.Logger
+	MetricsPusher *push.Pusher
+	unstructured  chan *os.File
+	structured    chan *zap.Logger
 }
 
 // NewRunEnv constructs a runtime environment from the given runtime parameters.
 func NewRunEnv(params RunParams) *RunEnv {
+	jobName := strings.Join([]string{
+		params.TestPlan,
+		params.TestCase},
+		"/")
 	re := &RunEnv{
-		RunParams:    params,
-		structured:   make(chan *zap.Logger, 32),
-		unstructured: make(chan *os.File, 32),
+		RunParams: params,
+
+		MetricsPusher: push.New("http://prometheus:9090", jobName).Grouping("run", params.TestRun),
+		structured:    make(chan *zap.Logger, 32),
+		unstructured:  make(chan *os.File, 32),
 	}
 
 	re.logger = newLogger(&re.RunParams)

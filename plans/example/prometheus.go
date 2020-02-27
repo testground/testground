@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -10,20 +9,26 @@ import (
 // the testrgound-ified version of this example:
 // https://godoc.org/github.com/prometheus/client_golang/prometheus/push#example-Pusher-Add
 func ExamplePrometheus(runenv *runtime.RunEnv) error {
-	completionTime := runenv.NewPrometheusGauge(
+	completionTime := runtime.NewGauge(
+		runenv,
 		"db_backup_last_completion_time_seconds",
 		"The timestamp of the last completion of a DB backup, successful or not.")
-	successTime := runenv.NewPrometheusGauge(
+	successTime := runtime.NewGauge(
+		runenv,
 		"db_backup_last_success_timestamp_seconds",
 		"The timestamp of the last successful completion of a DB backup.")
-	duration := runenv.NewPrometheusGauge(
+	duration := runtime.NewGauge(
+		runenv,
 		"db_backup_duration_seconds",
 		"The duration of the last DB backup in seconds.")
-	records := runenv.NewPrometheusGauge(
+	records := runtime.NewGauge(
+		runenv,
 		"db_backup_records_processed",
 		"The number of records processed in the last DB backup.")
 
-	pusher := runenv.NewPrometheusPusher("db_backup", completionTime, duration, records)
+	// Notice, you don't have to instantiate the pusher or push data yourself.
+	// This is handled for you by runtime.Invoke()
+	// Just create the collectors, and add to them as appropriate :)
 
 	start := time.Now()
 
@@ -38,13 +43,7 @@ func ExamplePrometheus(runenv *runtime.RunEnv) error {
 	if err != nil {
 		runenv.RecordFailure(err)
 	} else {
-		pusher.Collector(successTime)
 		successTime.SetToCurrentTime()
 	}
-
-	if err := pusher.Add(); err != nil {
-		runenv.RecordFailure(fmt.Errorf("Could not push to Pushgateway: %v", err))
-	}
-
 	return nil
 }
