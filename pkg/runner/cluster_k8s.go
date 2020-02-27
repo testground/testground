@@ -548,13 +548,7 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 	defer c.pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
-	//hostpathtype := v1.HostPathType("DirectoryOrCreate")
 	sharedVolumeName := "efs-shared"
-
-	//mnt := v1.HostPathVolumeSource{
-	//Path: fmt.Sprintf("/mnt/%s/%s/%d", input.RunID, g.ID, i),
-	//Type: &hostpathtype,
-	//}
 
 	podRequest := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -579,16 +573,26 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 					},
 				},
 			},
-			//Volumes: []v1.Volume{
-			//{
-			//Name:         sharedVolumeName,
-			//VolumeSource: v1.VolumeSource{HostPath: &mnt},
-			//},
-			//},
 			SecurityContext: &v1.PodSecurityContext{
 				Sysctls: testplanSysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
+			InitContainers: []v1.Container{
+				{
+					Name:    "mkdir-outputs",
+					Image:   "busybox",
+					Args:    []string{"-c", "mkdir -p $TEST_OUTPUTS_PATH"},
+					Command: []string{"sh"},
+					Env:     env,
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:             sharedVolumeName,
+							MountPath:        "/outputs",
+							MountPropagation: &mountPropagationMode,
+						},
+					},
+				},
+			},
 			Containers: []v1.Container{
 				{
 					Name:  podName,
@@ -608,13 +612,6 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 							MountPropagation: &mountPropagationMode,
 						},
 					},
-					//VolumeMounts: []v1.VolumeMount{
-					//{
-					//Name:             sharedVolumeName,
-					//MountPath:        runenv.TestOutputsPath,
-					//MountPropagation: &mountPropagationMode,
-					//},
-					//},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
 							v1.ResourceMemory: c.podResourceMemory,
