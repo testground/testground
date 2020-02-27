@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
@@ -396,6 +397,8 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 func ensurePrometheusContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+	cfg, _ := config.GetEnvConfig()
+	promCfg := cfg.WrkDir + "/prometheus.yml"
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: "prometheus",
 		ContainerConfig: &container.Config{
@@ -404,6 +407,11 @@ func ensurePrometheusContainer(ctx context.Context, cli *client.Client, log *zap
 		HostConfig: &container.HostConfig{
 			NetworkMode:     container.NetworkMode(controlNetworkID),
 			PublishAllPorts: true,
+			Mounts: []mount.Mount{{
+				Type:   mount.TypeBind,
+				Source: promCfg,
+				Target: "/etc/prometheus/prometheus.yml",
+			}},
 		},
 		PullImageIfMissing: true,
 	})
