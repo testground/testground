@@ -375,7 +375,7 @@ func setupLocalGoProxyVol(ctx context.Context, log *zap.SugaredLogger, cli *clie
 // mode (i.e. no proxy, not even Google's default one).
 func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
 	var mnt *mount.Mount
-	var err error
+
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
@@ -396,10 +396,10 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 
 	default:
 		proxyURL = "http://testground-goproxy:8081"
-		mnt, err = setupLocalGoProxyVol(ctx, log, cli)
-		if err != nil {
+		mnt, warn = setupLocalGoProxyVol(ctx, log, cli)
+		if warn != nil {
 			proxyURL = "direct"
-			warn = fmt.Errorf("encountered an error setting up the goproxy volueme; falling back to go_proxy_mode=direct")
+			warn = fmt.Errorf("encountered an error setting up the goproxy volueme; falling back to go_proxy_mode=direct; err: %w", warn)
 			break
 		}
 		containerOpts := docker.EnsureContainerOpts{
@@ -413,10 +413,10 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 			},
 			PullImageIfMissing: true,
 		}
-		_, _, err = docker.EnsureContainer(ctx, log, cli, &containerOpts)
-		if err != nil {
+		_, _, warn = docker.EnsureContainer(ctx, log, cli, &containerOpts)
+		if warn != nil {
 			proxyURL = "direct"
-			warn = fmt.Errorf("encountered an error when creating the goproxy container; falling back to go_proxy_mode=direct")
+			warn = fmt.Errorf("encountered an error when creating the goproxy container; falling back to go_proxy_mode=direct; err: %w", warn)
 		}
 	}
 	return proxyURL, warn
