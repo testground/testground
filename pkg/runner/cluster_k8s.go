@@ -242,7 +242,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 				currentEnv = append(currentEnv, v1.EnvVar{
 					Name:  "TEST_OUTPUTS_PATH",
-					Value: fmt.Sprintf("/outputs/%s/%s/%s/%d", jobName, input.RunID, g.ID, i),
+					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
 				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i)
@@ -283,9 +283,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
-	runName := fmt.Sprintf("compress-tg-%s-%s", input.TestPlan.Name, input.RunID)
-	log.Infow("compressing outputs for testplan run", "run-name", runName)
-	err = c.compressOutputsPod(ctx, runName, input)
+	log.Infow("compressing outputs for testplan run", "run-id", input.RunID)
+	err = c.compressOutputsPod(ctx, input.RunID)
 	if err != nil {
 		return nil, err
 	}
@@ -342,23 +341,70 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	file := fmt.Sprintf("/outputs/%s.tgz", input.RunID)
 	args := fmt.Sprintf("kubectl exec %s cat %s -- ", collectOutputsPodName, file)
 	cmd := exec.Command("sh", "-c", args)
-	stdout, err := cmd.StdoutPipe()
+
+	var stdout io.ReadCloser
+	stdout, err = cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	done := make(chan struct{})
+	defer func() {
+		<-done
+	}()
 
 	go func() {
 		_, err := io.Copy(w, stdout)
 		if err != nil {
 			log.Errorw("error while copying cmd stdout", "err", err.Error())
 		}
+		done <- struct{}{}
 	}()
 
-	if err := cmd.Start(); err != nil {
-		return err
+	if err := cmd.Wait(); err != nil {
+		// we assume that the run did not succeed so we archive whatever is present on the drive and return that.
+		log.Warn("it appears that this run did not complete, archive with outputs is missing")
+
+		err := c.compressOutputsPod(ctx, input.RunID)
+		if err != nil {
+			return err
+		}
+
+		// try again to get the archive
+		cmd := exec.Command("sh", "-c", args)
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+
+		if err := cmd.Start(); err != nil {
+			return err
+		}
+
+		done := make(chan struct{})
+		defer func() {
+			<-done
+		}()
+
+		go func() {
+			_, err := io.Copy(w, stdout)
+			if err != nil {
+				log.Errorw("error while copying cmd stdout", "err", err.Error())
+			}
+			done <- struct{}{}
+		}()
+
+		if err := cmd.Wait(); err != nil {
+			log.Errorw("errors in cmd.start", "err", err.Error())
+			return err
+		}
 	}
 
-	return cmd.Wait()
+	return nil
 }
 
 // waitForPod waits until a given pod reaches the desired `phase` or the context is canceled
@@ -796,7 +842,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 	return err
 }
 
-func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName string, input *api.RunInput) error {
+func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, runID string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -805,8 +851,8 @@ func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName strin
 		return err
 	}
 
-	archive := fmt.Sprintf("%s.tgz", input.RunID)
-	tarcmd := fmt.Sprintf("cd /outputs/tg-%s && tar -czf ../%s %s", input.TestPlan.Name, archive, input.RunID)
+	archive := fmt.Sprintf("%s.tgz", runID)
+	tarcmd := fmt.Sprintf("cd /outputs && tar -czf %s %s", archive, runID)
 	args := fmt.Sprintf("kubectl exec %s -- sh -c '%s'", collectOutputsPodName, tarcmd)
 	cmd := exec.Command("sh", "-c", args)
 
