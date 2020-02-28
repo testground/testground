@@ -50,10 +50,6 @@ func NewSummary(runenv *RunEnv, name string, help string) prometheus.Summary {
 	return s
 }
 
-func NewTimer(o prometheus.Observer) *prometheus.Timer {
-	return prometheus.NewTimer(o)
-}
-
 // MustExportPrometheus starts an HTTP server with the Prometheus handler.
 // It starts on a random open port and returns the listener. It is the caller
 // responsability to close the listener.
