@@ -16,7 +16,7 @@ import (
 // CollectCommand is the specification of the `collect` command.
 var CollectCommand = cli.Command{
 	Name:      "collect",
-	Usage:     "Produces a zip file with the output from a certain run",
+	Usage:     "Produces a tgz file with the output from a certain run",
 	Action:    collectCommand,
 	ArgsUsage: "[run_id]",
 	Flags: []cli.Flag{
@@ -27,7 +27,7 @@ var CollectCommand = cli.Command{
 		},
 		cli.StringFlag{
 			Name:  "output, o",
-			Usage: "specifies a named output for the zip file",
+			Usage: "specifies a named output for the tgz file",
 		},
 	},
 }
@@ -44,7 +44,7 @@ func collectCommand(c *cli.Context) error {
 	var (
 		id     = c.Args().First()
 		runner = c.String("runner")
-		output = id + ".zip"
+		output = id + ".tgz"
 	)
 
 	if o := c.String("output"); o != "" {

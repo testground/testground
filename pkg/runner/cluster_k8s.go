@@ -1,7 +1,6 @@
 package runner
 
 import (
-	"archive/zip"
 	"bufio"
 	"bytes"
 	"context"
@@ -12,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -22,14 +22,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/prometheus/common/log"
 	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
@@ -46,6 +43,7 @@ var (
 
 const (
 	defaultK8sNetworkAnnotation = "flannel"
+	collectOutputsPodName       = "collect-outputs"
 
 	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
 	redisCPUs = 2.0
@@ -255,10 +253,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 				currentEnv = append(currentEnv, v1.EnvVar{
 					Name:  "TEST_OUTPUTS_PATH",
-					Value: fmt.Sprintf("/outputs/%s-%s-%s-%d", jobName, input.RunID, g.ID, i),
+					Value: fmt.Sprintf("/outputs/%s/%s/%s/%d", jobName, input.RunID, g.ID, i),
 				})
 
-				return c.createPod(ctx, podName, input, runenv, currentEnv, g, i)
+				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i)
 			})
 		}
 	}
@@ -296,6 +294,13 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
+	runName := fmt.Sprintf("compress-tg-%s-%s", input.TestPlan.Name, input.RunID)
+	log.Infow("compressing outputs for testplan run", "run-name", runName)
+	err = c.compressOutputsPod(ctx, runName, input)
+	if err != nil {
+		return nil, err
+	}
+
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
@@ -311,54 +316,104 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
 	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	// init Kubernetes runner
+	once.Do(func() {
+		c.config = defaultKubernetesConfig()
+
+		var err error
+		workers := 20
+		c.pool, err = newPool(workers, c.config)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
+		c.podResourceMemory = resource.MustParse(cfg.PodResourceMemory)
+	})
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	log.Info("collecting outputs")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(cfg.OutputsBucketRegion)},
-	)
+	err := c.ensureCollectOutputsPods(ctx)
 	if err != nil {
-		return fmt.Errorf("Couldn't establish an AWS session to list items in bucket: %v", err)
+		return err
 	}
 
-	svc := s3.New(sess)
+	file := fmt.Sprintf("/outputs/%s.tgz", input.RunID)
+	args := fmt.Sprintf("kubectl exec %s cat %s -- ", collectOutputsPodName, file)
+	cmd := exec.Command("sh", "-c", args)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	downloader := s3manager.NewDownloader(sess)
-	downloader.Concurrency = 1 // force sequential downloads.
+	if err := cmd.Start(); err != nil {
+		return err
+	}
 
-	zipWriter := zip.NewWriter(w)
-	defer zipWriter.Close()
+	go io.Copy(w, stdout)
 
-	query := s3.ListObjectsV2Input{Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)}
+	return cmd.Wait()
+}
+
+func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase string) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	var p string
+
 	for {
-		resp, err := svc.ListObjectsV2WithContext(ctx, &query)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			if p == phase {
+				return nil
+			}
+			res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+				FieldSelector: "metadata.name=" + podName,
+			})
+			if err != nil {
+				return err
+			}
+			if len(res.Items) != 1 {
+				continue
+			}
+
+			pod := res.Items[0]
+			p = string(pod.Status.Phase)
+		}
+	}
+}
+
+func (c *ClusterK8sRunner) ensureCollectOutputsPods(ctx context.Context) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+		FieldSelector: "metadata.name=" + collectOutputsPodName,
+	})
+	if err != nil {
+		return err
+	}
+	if len(res.Items) == 0 {
+		err = c.createCollectOutputsPod(ctx)
 		if err != nil {
-			return fmt.Errorf("Unable to list items in bucket %q, %v", cfg.OutputsBucket, err)
+			return err
 		}
-
-		log.Debugw("got contents", "len", len(resp.Contents))
-		for _, item := range resp.Contents {
-			ww, err := zipWriter.Create(*item.Key)
-			if err != nil {
-				return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
-			}
-
-			_, err = downloader.DownloadWithContext(ctx, FakeWriterAt{ww},
-				&s3.GetObjectInput{
-					Bucket: aws.String(cfg.OutputsBucket),
-					Key:    item.Key,
-				})
-			if err != nil {
-				return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
-			}
+		err = c.waitForPod(ctx, collectOutputsPodName, "Running")
+		if err != nil {
+			return err
 		}
-		if !*resp.IsTruncated {
-			break
-		}
-		query.SetContinuationToken(*resp.NextContinuationToken)
+	} else if len(res.Items) > 1 {
+		return errors.New("unexpected number of pods for outputs collection")
 	}
 
 	return nil
@@ -543,7 +598,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap
 	}
 }
 
-func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int) error {
+func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -686,4 +741,80 @@ func (c *ClusterK8sRunner) TerminateAll() error {
 		return err
 	}
 	return nil
+}
+
+func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	mountPropagationMode := v1.MountPropagationHostToContainer
+	sharedVolumeName := "efs-shared"
+
+	podRequest := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: collectOutputsPodName,
+			Labels: map[string]string{
+				"testground.purpose": "outputs",
+			},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+		},
+		Spec: v1.PodSpec{
+			Volumes: []v1.Volume{
+				{
+					Name: sharedVolumeName,
+					VolumeSource: v1.VolumeSource{
+						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "efs",
+						},
+					},
+				},
+			},
+			SecurityContext: &v1.PodSecurityContext{
+				Sysctls: testplanSysctls,
+			},
+			RestartPolicy: v1.RestartPolicyNever,
+			Containers: []v1.Container{
+				{
+					Name:    "collect-outputs",
+					Image:   "busybox",
+					Args:    []string{"-c", "sleep 999999999"},
+					Command: []string{"sh"},
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:             sharedVolumeName,
+							MountPath:        "/outputs",
+							MountPropagation: &mountPropagationMode,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
+	return err
+}
+
+func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName string, input *api.RunInput) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	log.Info("compressing outputs")
+
+	err := c.ensureCollectOutputsPods(ctx)
+	if err != nil {
+		return err
+	}
+
+	file := fmt.Sprintf("%s.tgz", input.RunID)
+	dir := fmt.Sprintf("tg-%s/%s", input.TestPlan.Name, input.RunID)
+	tarcmd := fmt.Sprintf("cd /outputs && tar -czf %s %s", file, dir)
+	args := fmt.Sprintf("kubectl exec %s -- sh -c '%s'", collectOutputsPodName, tarcmd)
+	cmd := exec.Command("sh", "-c", args)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	return cmd.Wait()
 }
