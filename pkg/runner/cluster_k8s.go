@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -26,7 +27,6 @@ import (
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/prometheus/common/log"
 	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
@@ -727,7 +727,8 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 // Terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
 func (c *ClusterK8sRunner) TerminateAll() error {
-	log := logging.S()
+	log := logging.S().With("runner", "cluster:k8s")
+
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -797,8 +798,6 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName string, input *api.RunInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
-
-	log.Info("compressing outputs")
 
 	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
