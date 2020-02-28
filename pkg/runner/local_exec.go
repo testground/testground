@@ -29,7 +29,9 @@ var (
 )
 
 type LocalExecutableRunner struct {
-	setupLk      sync.Mutex
+	lk sync.RWMutex
+
+	outputsDir   string
 	redisCloseFn context.CancelFunc
 }
 
@@ -37,8 +39,8 @@ type LocalExecutableRunner struct {
 type LocalExecutableRunnerCfg struct{}
 
 func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
-	r.setupLk.Lock()
-	defer r.setupLk.Unlock()
+	r.lk.Lock()
+	defer r.lk.Unlock()
 
 	var redisCheck, outputsDirCheck api.HealthcheckItem
 
@@ -53,8 +55,8 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	}
 
 	// Ensure the outputs dir exists.
-	outputsDir := filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
-	if _, err := os.Stat(outputsDir); err == nil {
+	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
+	if _, err := os.Stat(r.outputsDir); err == nil {
 		msg := "outputs directory exists"
 		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
 	} else if os.IsNotExist(err) {
@@ -100,7 +102,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	}
 
 	if outputsDirCheck.Status != api.HealthcheckStatusOK {
-		if err := os.MkdirAll(outputsDir, 0777); err == nil {
+		if err := os.MkdirAll(r.outputsDir, 0777); err == nil {
 			msg := "outputs dir created successfully"
 			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
 			fixes = append(fixes, it)
@@ -127,6 +129,9 @@ func (r *LocalExecutableRunner) Close() error {
 }
 
 func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+	r.lk.RLock()
+	defer r.lk.RUnlock()
+
 	var (
 		plan = input.TestPlan
 		seq  = input.Seq
@@ -161,14 +166,13 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		_ = pretty.Wait()
 	}()
 
-	total := 0
-	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
+	var total int
 	for _, g := range input.Groups {
 		for i := 0; i < g.Instances; i++ {
 			total++
 			id := fmt.Sprintf("instance %3d", total)
 
-			odir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			odir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
 			if err := os.MkdirAll(odir, 0777); err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
 				pretty.FailStart(id, err)
