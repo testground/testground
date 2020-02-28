@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -307,8 +306,9 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 }
 
 func (c *ClusterK8sRunner) initRunner(cfg ClusterK8sRunnerConfig) {
-	// init Kubernetes runner
 	once.Do(func() {
+		log := logging.S().With("runner", "cluster:k8s")
+
 		c.config = defaultKubernetesConfig()
 
 		var err error
