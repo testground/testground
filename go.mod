@@ -44,7 +44,7 @@ require (
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200202164722-d101bd2416d5 // indirect
-	golang.org/x/tools v0.0.0-20191216052735-49a3e744a425 // indirect
+	google.golang.org/appengine v1.6.5 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a
