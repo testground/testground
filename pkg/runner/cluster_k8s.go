@@ -399,7 +399,6 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		}()
 
 		if err := cmd.Wait(); err != nil {
-			log.Errorw("errors in cmd.start", "err", err.Error())
 			return err
 		}
 	}
