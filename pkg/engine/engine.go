@@ -446,7 +446,7 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) er
 		return err
 	}
 
-	err = terminatable.TerminateAll()
+	err = terminatable.TerminateAll(ctx)
 	if err != nil {
 		return err
 	}
