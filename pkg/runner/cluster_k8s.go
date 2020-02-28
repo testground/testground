@@ -43,7 +43,9 @@ var (
 
 const (
 	defaultK8sNetworkAnnotation = "flannel"
-	collectOutputsPodName       = "collect-outputs"
+	// collect-outputs pod is used to compress outputs at the end of a testplan run
+	// as well as to copy archives from it, since it has EFS attached to it
+	collectOutputsPodName = "collect-outputs"
 
 	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
 	redisCPUs = 2.0
