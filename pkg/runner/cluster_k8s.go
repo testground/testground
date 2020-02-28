@@ -342,8 +342,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	defer c.pool.Release(client)
 
 	log.Info("collecting outputs")
-
-	err := c.ensureCollectOutputsPods(ctx)
+	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
 		return err
 	}
@@ -353,18 +352,24 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	cmd := exec.Command("sh", "-c", args)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	go func() {
+		_, err := io.Copy(w, stdout)
+		if err != nil {
+			log.Errorw("error while copying cmd stdout", "err", err.Error())
+		}
+	}()
 
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 
-	go io.Copy(w, stdout)
-
 	return cmd.Wait()
 }
 
+// waitForPod waits until a given pod reaches the desired `phase` or the context is canceled
 func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
@@ -395,7 +400,8 @@ func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase
 	}
 }
 
-func (c *ClusterK8sRunner) ensureCollectOutputsPods(ctx context.Context) error {
+// ensureCollectOutputsPod ensures that we have a collect-outputs pod running
+func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -803,7 +809,7 @@ func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName strin
 
 	log.Info("compressing outputs")
 
-	err := c.ensureCollectOutputsPods(ctx)
+	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
 		return err
 	}
