@@ -284,7 +284,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	}
 
 	log.Infow("compressing outputs for testplan run", "run-id", input.RunID)
-	err = c.compressOutputsPod(ctx, input.RunID)
+	err = c.compressOutputs(ctx, input.RunID)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +369,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		// we assume that the run did not succeed so we archive whatever is present on the drive and return that.
 		log.Warn("it appears that this run did not complete, archive with outputs is missing")
 
-		err := c.compressOutputsPod(ctx, input.RunID)
+		err := c.compressOutputs(ctx, input.RunID)
 		if err != nil {
 			return err
 		}
@@ -842,7 +842,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 	return err
 }
 
-func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, runID string) error {
+func (c *ClusterK8sRunner) compressOutputs(ctx context.Context, runID string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
