@@ -11,7 +11,7 @@ err_report() {
 
 trap 'err_report $LINENO' ERR
 
-vpcId=`aws ec2 describe-vpcs --filters Name=tag:Name,Values=$NAME | jq ".Vpcs | .[] | .VpcId" | tr -d "\""`
+vpcId=`aws ec2 describe-vpcs --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
 
 if [[ -z ${vpcId} ]]; then
   echo "Couldn't detect AWS VPC created by `kops`"
@@ -20,7 +20,7 @@ fi
 
 echo "Detected VPC: $vpcId"
 
-securityGroupId=`aws ec2 describe-security-groups | jq ".SecurityGroups | .[] | select(.GroupName==\"nodes.$NAME\") | .GroupId" | tr -d '"'`
+securityGroupId=`aws ec2 describe-security-groups --output text | awk '/nodes.'$NAME'/ && /SECURITYGROUPS/ { print $6 };'`
 
 if [[ -z ${securityGroupId} ]]; then
   echo "Couldn't detect AWS Security Group created by `kops`"
@@ -29,7 +29,7 @@ fi
 
 echo "Detected Security Group ID: $securityGroupId"
 
-subnetId=`aws ec2 describe-subnets | jq ".Subnets | .[] | select (.VpcId == \"$vpcId\") | .SubnetId" | tr -d '"'`
+subnetId=`aws ec2 describe-subnets --output text | awk '/'$vpcId'/ { print $12 }'`
 
 if [[ -z ${subnetId} ]]; then
   echo "Couldn't detect AWS Subnet created by `kops`"
