@@ -98,5 +98,5 @@ type CollectionInput struct {
 // Terminatable is the interface to be implemented by a runner that can be
 // terminated.
 type Terminatable interface {
-	TerminateAll() error
+	TerminateAll(context.Context) error
 }
