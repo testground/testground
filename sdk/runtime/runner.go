@@ -5,30 +5,44 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 // Invoke runs the passed test-case and reports the result.
 func Invoke(tc func(*RunEnv) error) {
 	runenv := CurrentRunEnv()
-	defer runenv.MetricsPusher.Push()
+	start := time.Now()
+	durationGuage := NewGauge(runenv, "plan_duration", "Run time (Seconds)")
+
+	// Push metrics automatically every 10 seconds
+	go func() {
+		for _ = range time.Tick(10 * time.Second) {
+			runenv.MetricsPusher.Add()
+		}
+	}()
+
+	// Push metrics one last time, including the duration for the whole run.
+	defer func() {
+		durationGuage.Set(time.Since(start).Seconds())
+		err := runenv.MetricsPusher.Add()
+		if err != nil {
+			runenv.RecordFailure(fmt.Errorf("Could not push metrics! %w", err))
+		}
+	}()
+
 	defer runenv.Close()
 
-	startGauge := NewGauge(runenv, "start_time", "time of plan start")
-	startGauge.SetToCurrentTime()
 	runenv.RecordStart()
 
-	endGauge := NewGauge(runenv, "end_time", "time of plan end")
 	errfile, err := runenv.CreateRawAsset("run.err")
 	if err != nil {
 		runenv.RecordCrash(err)
-		endGauge.SetToCurrentTime()
 		return
 	}
 
 	rd, wr, err := os.Pipe()
 	if err != nil {
 		runenv.RecordCrash(err)
-		endGauge.SetToCurrentTime()
 		return
 	}
 
@@ -42,13 +56,11 @@ func Invoke(tc func(*RunEnv) error) {
 		_, err := io.Copy(w, rd)
 		if err != nil && !strings.Contains(err.Error(), "file already closed") {
 			runenv.RecordCrash(fmt.Errorf("stderr copy failed: %w", err))
-			endGauge.SetToCurrentTime()
 			return
 		}
 
 		if err = errfile.Sync(); err != nil {
 			runenv.RecordCrash(fmt.Errorf("stderr file tee sync failed failed: %w", err))
-			endGauge.SetToCurrentTime()
 			return
 		}
 	}()
@@ -58,7 +70,6 @@ func Invoke(tc func(*RunEnv) error) {
 		if err := recover(); err != nil {
 			// Handle panics.
 			runenv.RecordCrash(err)
-			endGauge.SetToCurrentTime()
 		}
 	}()
 
@@ -66,10 +77,8 @@ func Invoke(tc func(*RunEnv) error) {
 	switch err {
 	case nil:
 		runenv.RecordSuccess()
-		endGauge.SetToCurrentTime()
 	default:
 		runenv.RecordFailure(err)
-		endGauge.SetToCurrentTime()
 	}
 
 	_ = rd.Close()
