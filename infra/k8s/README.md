@@ -27,8 +27,9 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 ## Requirements
 
 1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
-2. [AWS CLI](https://aws.amazon.com/cli)
-3. [helm](https://github.com/helm/helm)
+2. [terraform](https://terraform.io). >= 0.12.21
+3. [AWS CLI](https://aws.amazon.com/cli)
+4. [helm](https://github.com/helm/helm)
 
 ## Set up cloud credentials, cluster specification and repositories for dependencies
 
