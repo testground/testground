@@ -556,6 +556,7 @@ func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input 
 				"testground.testcase": runenv.TestCase,
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
+				"testground.purpose":  "plan",
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
@@ -645,4 +646,22 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 	pods := int(math.Round(podsCPUs/podCPU - 0.5))
 
 	return pods, nil
+}
+
+// Terminates all pods for with the label testground.purpose: plan
+// This command will remove all plan pods in the cluster.
+func (c *ClusterK8sRunner) TerminateAll() error {
+	log := logging.S()
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	planPods := metav1.ListOptions{
+		LabelSelector: "testground.purpose=plan",
+	}
+	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	if err != nil {
+		log.Errorw("could not terminate all pods.", "err", err)
+		return err
+	}
+	return nil
 }

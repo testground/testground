@@ -22,6 +22,7 @@ var Commands = []cli.Command{
 	DaemonCommand,
 	CollectCommand,
 	TerminateCommand,
+	HealthcheckCommand,
 }
 
 var Flags = []cli.Flag{
