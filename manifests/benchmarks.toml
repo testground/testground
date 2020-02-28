@@ -45,9 +45,5 @@ name = "netlinkshape"
 instances = { min = 1, max = 200, default = 1 }
 
 [[testcases]]
-name = "netipchange"
-instances = { min = 1, max = 200, default = 1 }
-
-[[testcases]]
 name = "barrier"
 instances = { min = 1, max = 200, default = 1 }

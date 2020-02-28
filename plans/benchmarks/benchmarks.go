@@ -88,49 +88,6 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func NetworkIpChangeBench(runenv *runtime.RunEnv) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-	defer cancel()
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
-		return err
-	}
-	// A state name unique to the container...
-	name, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	doneState := sync.State("net configured " + name)
-
-	// A new network configuration
-	netConfig := sync.NetworkConfig{
-		Network: "default",
-		IPv4:    &runenv.TestSubnet.IPNet,
-		State:   doneState,
-	}
-	// Change the IP address.
-	// Not checking if the IP address I'm changing to already exists, by the way
-	// Just flipping bits around on the second half of the IP.
-	ipBytes := []byte(netConfig.IPv4.IP)
-	ipBytes[2] = ipBytes[2] ^ byte(255)
-	ipBytes[3] = ipBytes[3] ^ byte(255)
-	netConfig.IPv4.IP = net.IP(ipBytes)
-
-	beforeNetConfig := time.Now()
-	// Send configuration to the sidecar.
-	writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
-	// Wait for the signal that the network change is completed.
-	err = <-watcher.Barrier(ctx, doneState, 1)
-	if err != nil {
-		return err
-	}
-	emitTime(runenv, "Time to change IP address", time.Now().Sub(beforeNetConfig))
-	return nil
-}
-
 // BarrierBench tests the time it takes to wait on Barriers, waiting on a different number
 // of instances in each loop.
 func BarrierBench(runenv *runtime.RunEnv) error {

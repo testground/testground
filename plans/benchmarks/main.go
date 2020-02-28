@@ -21,15 +21,12 @@ func run(runenv *runtime.RunEnv) error {
 		return NetworkInitBench(runenv)
 	case "netlinkshape":
 		return NetworkLinkShapeBench(runenv)
-	case "netipchange":
-		return NetworkIpChangeBench(runenv)
 	case "barrier":
 		return BarrierBench(runenv)
 	case "all":
 		_ = StartTimeBench(runenv)
 		_ = NetworkInitBench(runenv)
 		_ = NetworkLinkShapeBench(runenv)
-		_ = NetworkIpChangeBench(runenv)
 		_ = BarrierBench(runenv)
 		return nil
 	default:
