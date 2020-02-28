@@ -32,10 +32,11 @@ func NewGauge(runenv *RunEnv, name string, help string) prometheus.Gauge {
 	return g
 }
 
-func NewHistogram(runenv *RunEnv, name string, help string) prometheus.Histogram {
+func NewHistogram(runenv *RunEnv, name string, help string, buckets ...float64) prometheus.Histogram {
 	h := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name: name,
-		Help: help,
+		Name:    name,
+		Help:    help,
+		Buckets: buckets,
 	})
 	runenv.MetricsPusher.Collector(h)
 	return h

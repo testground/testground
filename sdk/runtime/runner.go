@@ -17,7 +17,10 @@ func Invoke(tc func(*RunEnv) error) {
 	// Push metrics automatically every 10 seconds
 	go func() {
 		for _ = range time.Tick(10 * time.Second) {
-			runenv.MetricsPusher.Add()
+			err := runenv.MetricsPusher.Add()
+			if err != nil {
+				runenv.RecordFailure(fmt.Errorf("error during periodic metric push: %w", err))
+			}
 		}
 	}()
 
@@ -26,7 +29,7 @@ func Invoke(tc func(*RunEnv) error) {
 		durationGuage.Set(time.Since(start).Seconds())
 		err := runenv.MetricsPusher.Add()
 		if err != nil {
-			runenv.RecordFailure(fmt.Errorf("Could not push metrics! %w", err))
+			runenv.RecordFailure(fmt.Errorf("error during end metric push: %w", err))
 		}
 	}()
 
