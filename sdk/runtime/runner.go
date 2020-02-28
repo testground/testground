@@ -14,9 +14,11 @@ func Invoke(tc func(*RunEnv) error) {
 	start := time.Now()
 	durationGuage := NewGauge(runenv, "plan_duration", "Run time (Seconds)")
 
-	// Push metrics automatically every 10 seconds
+	// Push metrics automatically every 15 seconds
+	// prometheus scrapes the pushgateway every 15 seconds,
+	// so it a fresh push for every scrape.
 	go func() {
-		for _ = range time.Tick(10 * time.Second) {
+		for _ = range time.Tick(15 * time.Second) {
 			err := runenv.MetricsPusher.Add()
 			if err != nil {
 				runenv.RecordFailure(fmt.Errorf("error during periodic metric push: %w", err))
