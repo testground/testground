@@ -37,6 +37,7 @@ import (
 var (
 	_ api.Runner        = (*LocalDockerRunner)(nil)
 	_ api.Healthchecker = (*LocalDockerRunner)(nil)
+	_ api.Terminatable  = (*LocalDockerRunner)(nil)
 )
 
 // LocalDockerRunnerConfig is the configuration object of this runner. Boolean
