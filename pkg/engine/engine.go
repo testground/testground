@@ -79,6 +79,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
+	if _, err := e.discoverTestPlans(); err != nil {
+		return nil, err
+	}
+
 	return e, nil
 }
 
@@ -98,8 +102,6 @@ func NewDefaultEngine() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	_, _ = e.discoverTestPlans()
 
 	return e, nil
 }
@@ -233,6 +235,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
 				TestPlan:     plan,
+				Selectors:    grp.Build.Selectors,
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 
