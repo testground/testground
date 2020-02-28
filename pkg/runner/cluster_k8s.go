@@ -805,9 +805,8 @@ func (c *ClusterK8sRunner) compressOutputsPod(ctx context.Context, podName strin
 		return err
 	}
 
-	file := fmt.Sprintf("%s.tgz", input.RunID)
-	dir := fmt.Sprintf("tg-%s/%s", input.TestPlan.Name, input.RunID)
-	tarcmd := fmt.Sprintf("cd /outputs && tar -czf %s %s", file, dir)
+	archive := fmt.Sprintf("%s.tgz", input.RunID)
+	tarcmd := fmt.Sprintf("cd /outputs/tg-%s && tar -czf ../%s %s", input.TestPlan.Name, archive, input.RunID)
 	args := fmt.Sprintf("kubectl exec %s -- sh -c '%s'", collectOutputsPodName, tarcmd)
 	cmd := exec.Command("sh", "-c", args)
 
