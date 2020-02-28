@@ -68,5 +68,5 @@ spec:
   storageClassName: aws-efs
   resources:
     requests:
-      storage: 100Mi
+      storage: 1000Mi
 ---
