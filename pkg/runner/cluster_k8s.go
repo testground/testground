@@ -37,8 +37,9 @@ import (
 )
 
 var (
-	_    api.Runner = &ClusterK8sRunner{}
-	once            = sync.Once{}
+	_    api.Runner       = (*ClusterK8sRunner)(nil)
+	_    api.Terminatable = (*ClusterK8sRunner)(nil)
+	once                  = sync.Once{}
 )
 
 const (
@@ -726,7 +727,7 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 
 // Terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
-func (c *ClusterK8sRunner) TerminateAll() error {
+func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
 	log := logging.S().With("runner", "cluster:k8s")
 
 	client := c.pool.Acquire()
