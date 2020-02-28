@@ -53,7 +53,7 @@ func CheckContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cli
 // EnsureContainer ensures there's a container started of the specified kind.
 func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client,
 	opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
-	log = log.With("containerName", opts.ContainerName)
+	log = log.With("container_name", opts.ContainerName)
 
 	log.Debug("checking state of container")
 
