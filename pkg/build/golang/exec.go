@@ -127,8 +127,6 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 	}
 	args = append(args, cfg.ExecPkg)
 
-	fmt.Printf("%v\n", args)
-
 	// Execute the build.
 	cmd = exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = plandst

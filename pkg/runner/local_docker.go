@@ -37,6 +37,7 @@ import (
 var (
 	_ api.Runner        = (*LocalDockerRunner)(nil)
 	_ api.Healthchecker = (*LocalDockerRunner)(nil)
+	_ api.Terminatable  = (*LocalDockerRunner)(nil)
 )
 
 // LocalDockerRunnerConfig is the configuration object of this runner. Boolean
@@ -353,6 +354,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				Image: g.ArtifactPath,
 				Env:   env,
 				Labels: map[string]string{
+					"testground.purpose":  "plan",
 					"testground.plan":     input.TestPlan.Name,
 					"testground.testcase": testcase.Name,
 					"testground.run_id":   input.RunID,
@@ -628,4 +630,59 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
+}
+
+// This method deletes the testground containers.
+// It does *not* delete any downloaded images or networks.
+// I'll leave a friendly message for how to do a more complete cleanup.
+func (*LocalDockerRunner) TerminateAll(ctx context.Context) error {
+	log := logging.S()
+	log.Info("terminate local:docker requested")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	// Build two separate queries: one for infrastructure containers, another
+	// for test plan containers. The former, we match by container name. The
+	// latter, we match by the `testground.purpose` label, which we apply to all
+	// plan containers managed by testground label.
+
+	// Build query for runner infrastructure containers.
+	infraOpts := types.ContainerListOptions{}
+	infraOpts.Filters = filters.NewArgs()
+	infraOpts.Filters.Add("name", "testground-sidecar")
+	infraOpts.Filters.Add("name", "testground-redis")
+	infraOpts.Filters.Add("name", "testground-goproxy")
+
+	// Build query for testground plans that are still running.
+	planOpts := types.ContainerListOptions{}
+	planOpts.Filters = filters.NewArgs()
+	planOpts.Filters.Add("label", "testground.purpose=plan")
+
+	infracontainers, err := cli.ContainerList(ctx, infraOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list infrastructure containers: %w", err)
+	}
+	plancontainers, err := cli.ContainerList(ctx, planOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list test plan containers: %w", err)
+	}
+
+	containers := make([]string, 0, len(infracontainers)+len(plancontainers))
+	for _, container := range infracontainers {
+		containers = append(containers, container.ID)
+	}
+	for _, container := range plancontainers {
+		containers = append(containers, container.ID)
+	}
+
+	err = deleteContainers(cli, log, containers)
+	if err != nil {
+		return fmt.Errorf("failed to list testground containers: %w", err)
+	}
+
+	log.Info("to delete networks and images, you may want to run `docker system prune`")
+	return nil
 }
