@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -14,21 +15,22 @@ import (
 )
 
 const (
-	EnvTestPlan               = "TEST_PLAN"
 	EnvTestBranch             = "TEST_BRANCH"
 	EnvTestCase               = "TEST_CASE"
-	EnvTestTag                = "TEST_TAG"
-	EnvTestRun                = "TEST_RUN"
-	EnvTestRepo               = "TEST_REPO"
-	EnvTestSubnet             = "TEST_SUBNET"
 	EnvTestCaseSeq            = "TEST_CASE_SEQ"
-	EnvTestSidecar            = "TEST_SIDECAR"
-	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
-	EnvTestInstanceRole       = "TEST_INSTANCE_ROLE"
-	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
+	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
+	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
+	EnvTestInstanceRole       = "TEST_INSTANCE_ROLE"
 	EnvTestOutputsPath        = "TEST_OUTPUTS_PATH"
+	EnvTestPlan               = "TEST_PLAN"
+	EnvTestRepo               = "TEST_REPO"
+	EnvTestRun                = "TEST_RUN"
+	EnvTestSidecar            = "TEST_SIDECAR"
+	EnvTestStartTime          = "TEST_START_TIME"
+	EnvTestSubnet             = "TEST_SUBNET"
+	EnvTestTag                = "TEST_TAG"
 )
 
 type IPNet struct {
@@ -91,7 +93,8 @@ type RunParams struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *IPNet `json:"network,omitempty"`
+	TestSubnet    *IPNet    `json:"network,omitempty"`
+	TestStartTime time.Time `json:"start_time,omitempty"`
 }
 
 // RunEnv encapsulates the context for this test run.
@@ -143,21 +146,22 @@ func (re *RunParams) ToEnvVars() map[string]string {
 	}
 
 	out := map[string]string{
-		EnvTestSidecar:            strconv.FormatBool(re.TestSidecar),
-		EnvTestPlan:               re.TestPlan,
 		EnvTestBranch:             re.TestBranch,
 		EnvTestCase:               re.TestCase,
-		EnvTestTag:                re.TestTag,
-		EnvTestRun:                re.TestRun,
-		EnvTestRepo:               re.TestRepo,
-		EnvTestSubnet:             re.TestSubnet.String(),
 		EnvTestCaseSeq:            strconv.Itoa(re.TestCaseSeq),
-		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
-		EnvTestInstanceRole:       re.TestInstanceRole,
-		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
+		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
+		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
+		EnvTestInstanceRole:       re.TestInstanceRole,
 		EnvTestOutputsPath:        re.TestOutputsPath,
+		EnvTestPlan:               re.TestPlan,
+		EnvTestRepo:               re.TestRepo,
+		EnvTestRun:                re.TestRun,
+		EnvTestSidecar:            strconv.FormatBool(re.TestSidecar),
+		EnvTestStartTime:          re.TestStartTime.Format(time.RFC3339),
+		EnvTestSubnet:             re.TestSubnet.String(),
+		EnvTestTag:                re.TestTag,
 	}
 
 	return out
@@ -198,6 +202,16 @@ func toNet(s string) *IPNet {
 	return &IPNet{IPNet: *ipnet}
 }
 
+// Try to parse the time.
+// Failing to do so, return a zero value time
+func toTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
 	re, _ := ParseRunEnv(os.Environ())
@@ -212,21 +226,22 @@ func ParseRunParams(env []string) (*RunParams, error) {
 	}
 
 	return &RunParams{
-		TestSidecar:            toBool(m[EnvTestSidecar]),
-		TestPlan:               m[EnvTestPlan],
-		TestCase:               m[EnvTestCase],
-		TestRun:                m[EnvTestRun],
-		TestTag:                m[EnvTestTag],
 		TestBranch:             m[EnvTestBranch],
-		TestRepo:               m[EnvTestRepo],
-		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestCase:               m[EnvTestCase],
 		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
-		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
-		TestInstanceRole:       m[EnvTestInstanceRole],
-		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
+		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
+		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
+		TestInstanceRole:       m[EnvTestInstanceRole],
 		TestOutputsPath:        m[EnvTestOutputsPath],
+		TestPlan:               m[EnvTestPlan],
+		TestRepo:               m[EnvTestRepo],
+		TestRun:                m[EnvTestRun],
+		TestSidecar:            toBool(m[EnvTestSidecar]),
+		TestStartTime:          toTime(EnvTestStartTime),
+		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestTag:                m[EnvTestTag],
 	}, nil
 }
 
