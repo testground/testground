@@ -109,7 +109,7 @@ type RunEnv struct {
 func NewRunEnv(params RunParams) *RunEnv {
 	re := &RunEnv{
 		RunParams: params,
-		MetricsPusher: push.New("http://pushgateway:9091", "testground/plan").
+		MetricsPusher: push.New("http://prometheus-pushgateway:9091", "testground/plan").
 			Gatherer(prometheus.NewRegistry()).
 			Grouping("TestPlan", params.TestPlan).
 			Grouping("TestCase", params.TestCase).
