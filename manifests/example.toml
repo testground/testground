@@ -28,6 +28,9 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
+[run_strategies."cluster:k8s"]
+enabled = true
+
 [[testcases]]
 name = "output"
 instances = { min = 1, max = 200, default = 1 }
