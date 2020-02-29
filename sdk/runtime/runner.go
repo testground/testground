@@ -21,7 +21,7 @@ func Invoke(tc func(*RunEnv) error) {
 		for range time.Tick(15 * time.Second) {
 			err := runenv.MetricsPusher.Add()
 			if err != nil {
-				runenv.RecordFailure(fmt.Errorf("error during periodic metric push: %w", err))
+				runenv.RecordMessage("error during periodic metric push: %w", err)
 			}
 		}
 	}()
@@ -31,7 +31,7 @@ func Invoke(tc func(*RunEnv) error) {
 		durationGuage.Set(time.Since(start).Seconds())
 		err := runenv.MetricsPusher.Add()
 		if err != nil {
-			runenv.RecordFailure(fmt.Errorf("error during end metric push: %w", err))
+			runenv.RecordMessage("error during end metric push: %w", err)
 		}
 	}()
 
