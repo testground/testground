@@ -45,7 +45,7 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	emitTime(runenv, "Time to Network", time.Now().Sub(startupTime))
+	emitTime(runenv, "Time to Network", time.Since(startupTime))
 	return nil
 }
 
@@ -77,13 +77,16 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 
 	beforeNetConfig := time.Now()
 	// Send configuration to the sidecar.
-	writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
+	_, err = writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
+	if err != nil {
+		return err
+	}
 	// Wait for the signal that the network change is completed.
 	err = <-watcher.Barrier(ctx, doneState, 1)
 	if err != nil {
 		return err
 	}
-	emitTime(runenv, "Time to configure link shape", time.Now().Sub(beforeNetConfig))
+	emitTime(runenv, "Time to configure link shape", time.Since(beforeNetConfig))
 	return nil
 }
 
@@ -108,12 +111,18 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 		}
 		testLoopName := fmt.Sprintf("barrier test for %d instances (%d%%)", testInstanceNum, int(100*percent))
 		testState := sync.State(testLoopName)
-		writer.SignalEntry(ctx, readyState)
+		_, err := writer.SignalEntry(ctx, readyState)
+		if err != nil {
+			return err
+		}
 		<-watcher.Barrier(ctx, readyState, int64(runenv.TestInstanceCount))
 		barrierTestStart := time.Now()
-		writer.SignalEntry(ctx, testState)
+		_, err = writer.SignalEntry(ctx, testState)
+		if err != nil {
+			return err
+		}
 		<-watcher.Barrier(ctx, sync.State(testState), testInstanceNum)
-		emitTime(runenv, testLoopName, time.Now().Sub(barrierTestStart))
+		emitTime(runenv, testLoopName, time.Since(barrierTestStart))
 	}
 
 	return nil
