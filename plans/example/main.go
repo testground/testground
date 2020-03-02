@@ -29,6 +29,8 @@ func run(runenv *runtime.RunEnv) error {
 		return ExamplePrometheus(runenv)
 	case "prometheus2":
 		return ExamplePrometheus2(runenv)
+	case "prometheus3":
+		return ExamplePrometheus3(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)
