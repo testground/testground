@@ -7,7 +7,7 @@ ARG GO_VERSION=1.13.8
 
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.
-FROM d9b8064c9a53
+FROM 9d744c3db934
 # lotus-base
 
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.

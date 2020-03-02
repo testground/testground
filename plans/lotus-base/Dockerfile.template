@@ -25,50 +25,6 @@ RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates l
 
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
 
-# Testplan Go dependencies
-
-ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
-# PLAN_DIR is the location containing the plan source inside the container.
-ENV PLAN_DIR /plan/
-
-# Copy only go.mod files and download deps, in order to leverage Docker caching.
-COPY /plan/go.mod ${PLAN_DIR}
-# Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
-# inside sdk.
-COPY /sdk/sync/go.mod /sdk/sync/go.mod
-COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
-COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
-
-# Download deps.
-RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY="${GO_PROXY}" \
-    && go mod download
-
-# Lotus Go depenencies
-
-# Download packages first so they can be cached.
-
-COPY ./lotus/go.mod ./lotus/go.sum $SRC_DIR/
-COPY ./lotus/extern/ $SRC_DIR/extern/
-RUN cd $SRC_DIR \
-  && go env -w GOPROXY="${GO_PROXY}" \
-  && go mod download
-
-# Lotus other dependencies
-
-COPY ./lotus/Makefile $SRC_DIR
-
-# Because extern/filecoin-ffi building script need to get version number from git
-COPY ./lotus/.git/ $SRC_DIR/.git/
-COPY ./lotus/.gitmodules $SRC_DIR/
-
-# Download dependencies first
-RUN cd $SRC_DIR \
-  && mkdir $SRC_DIR/build \
-  && . $HOME/.cargo/env \
-  && make clean \
-  && make deps
-
 # Now copy the rest of the source and run the build.
 COPY . /
 
@@ -79,18 +35,10 @@ RUN cd $SRC_DIR \
   && make clean \
   && make debug
 
-# Testground
-
-RUN cd ${PLAN_DIR} \
-    && go env -w GOPROXY="${GO_PROXY}" \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${TESTPLAN_EXEC_PKG}
-
 # Store module dependencies
-RUN cd ${PLAN_DIR} \
-  && go list -m all > /testground_dep_list
+RUN touch /testground_dep_list
 
 RUN mkdir /var/tmp/filecoin-proof-parameters
 
 ENV PATH="/usr/local/bin:${PATH}"
 
-ENTRYPOINT [ "/plan/testplan", "--vv"]

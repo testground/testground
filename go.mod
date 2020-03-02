@@ -28,6 +28,9 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/go-datastore v0.4.4 // indirect
 	github.com/ipfs/go-log v1.0.2 // indirect
+	github.com/ipfs/testground/plans/bitswap-tuning v0.0.0-20200229082028-b55feddab732 // indirect
+	github.com/ipfs/testground/plans/chew-datasets v0.0.0-20200229082028-b55feddab732 // indirect
+	github.com/ipfs/testground/plans/dht v0.0.0-20200229082028-b55feddab732 // indirect
 	github.com/ipfs/testground/plans/smlbench v0.0.0-20200221170422-4f93fa2782e2 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0
@@ -39,6 +42,8 @@ require (
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
+	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
+	github.com/shurcooL/vfsgen v0.0.0-20181202132449-6a9ea43bcacd // indirect
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
