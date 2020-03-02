@@ -117,6 +117,7 @@ serviceMonitor:
 
   # Fallback to the prometheus default unless specified
   # interval: 10s
+  # This is set to the same value as the "push_interval" in `sdk/runtime/runner.go`
   interval: 5s
 
   # Fallback to the prometheus default unless specified
