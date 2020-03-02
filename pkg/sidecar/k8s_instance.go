@@ -488,6 +488,4 @@ func waitForPodRunningPhase(ctx context.Context, podName string) error {
 			phase = string(pod.Status.Phase)
 		}
 	}
-
-	return nil
 }
