@@ -117,6 +117,7 @@ serviceMonitor:
 
   # Fallback to the prometheus default unless specified
   # interval: 10s
+  interval: 5s
 
   # Fallback to the prometheus default unless specified
   # scrapeTimeout: 30s
