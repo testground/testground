@@ -2,12 +2,6 @@ module github.com/ipfs/testground
 
 go 1.13
 
-replace (
-	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb
-	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
-	github.com/ipfs/testground/sdk/sync => ./sdk/sync
-)
-
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
@@ -25,9 +19,8 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk/runtime v0.1.0
-	github.com/ipfs/testground/sdk/sync v0.1.0
-	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
+	github.com/ipfs/testground/sdk/runtime v0.2.0
+	github.com/ipfs/testground/sdk/sync v0.2.0
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
