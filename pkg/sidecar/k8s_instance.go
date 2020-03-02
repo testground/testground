@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -486,6 +487,8 @@ func waitForPodRunningPhase(ctx context.Context, podName string) error {
 			}
 
 			phase = string(pod.Status.Phase)
+
+			time.Sleep(1 * time.Second)
 		}
 	}
 }
