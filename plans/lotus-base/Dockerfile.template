@@ -33,7 +33,7 @@ COPY . /
 RUN cd $SRC_DIR \
   && . $HOME/.cargo/env \
   && make clean \
-  && make debug
+  && FFI_BUILD_FROM_SOURCE=1 make debug
 
 # Store module dependencies
 RUN touch /testground_dep_list
