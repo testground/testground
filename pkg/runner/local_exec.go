@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"io"
 	"net"
@@ -184,6 +185,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			runenv.TestGroupInstanceCount = g.Instances
 			runenv.TestInstanceParams = g.Parameters
 			runenv.TestOutputsPath = odir
+			runenv.TestStartTime = time.Now()
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
