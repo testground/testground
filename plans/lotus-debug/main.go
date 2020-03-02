@@ -158,6 +158,7 @@ func run(runenv *runtime.RunEnv) error {
 			"--sector-size=1024",
 			"--num-sectors=2",
 		)
+		cmdPreseal.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err := os.Create("/outputs/pre-seal.out")
 		if err != nil {
 			return err
@@ -178,6 +179,7 @@ func run(runenv *runtime.RunEnv) error {
 			"--genesis-presealed-sectors=~/.genesis-sectors/pre-seal-t0101.json",
 			"--bootstrap=false",
 		)
+		cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/node.out")
 		if err != nil {
 			return err
@@ -203,6 +205,7 @@ func run(runenv *runtime.RunEnv) error {
 			"--pre-sealed-metadata=~/.genesis-sectors/pre-seal-t0101.json",
 			"--nosync",
 		)
+		cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner-setup.out")
 		if err != nil {
 			return err
@@ -221,6 +224,7 @@ func run(runenv *runtime.RunEnv) error {
 			"run",
 			"--nosync",
 		)
+		cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner.out")
 		if err != nil {
 			return err
@@ -408,6 +412,7 @@ func run(runenv *runtime.RunEnv) error {
 			"--genesis=/root/dev.gen",
 			"--bootstrap=false",
 		)
+		cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/node.out")
 		if err != nil {
 			return err
@@ -485,6 +490,7 @@ func run(runenv *runtime.RunEnv) error {
 			"init",
 			"--owner="+walletAddress,
 		)
+		cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner-setup.out")
 		if err != nil {
 			return err
@@ -502,6 +508,7 @@ func run(runenv *runtime.RunEnv) error {
 			"/lotus/lotus-storage-miner",
 			"run",
 		)
+		cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner.out")
 		if err != nil {
 			return err

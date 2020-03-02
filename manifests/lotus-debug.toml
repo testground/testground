@@ -24,6 +24,7 @@ instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
   delay-between-starts = { type = "int", desc = "delay", unit = "milliseconds", default = 30000 }
+  log-level = { type = "string", desc = "log level", default = "INFO" }
 
 # seq 1
 [[testcases]]
@@ -32,3 +33,4 @@ instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
   delay-between-starts = { type = "int", desc = "delay", unit = "milliseconds", default = 30000 }
+  log-level = { type = "string", desc = "log level", default = "INFO" }
