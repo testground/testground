@@ -163,7 +163,7 @@ func (dm *Manager) Manage(
 			err := worker(cctx, handle)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
-					handle.S().Warnf("sidecar worker failed: %s", err)
+					handle.S().Debugf("sidecar worker failed: %s", err)
 				} else {
 					handle.S().Errorf("sidecar worker failed: %s", err)
 				}
