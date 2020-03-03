@@ -52,6 +52,28 @@ func ExamplePrometheus(runenv *runtime.RunEnv) error {
 
 // I want to demonstrate other kinds of prometheus metrics types,
 // In this example, we have a long-ish running test which periodically updates metrics
+
+// Here are some promql queries you can run in the prometheus dashboard, to get some ideas:
+//
+// Get the 50th percentile of samples over a 2-minute period:
+// histogram_quantile(0.5, rate(example_histogram_bucket[2m])
+//
+// 90th percentile of histogram, by a grouping. In this case, the TestGroupId
+// histogram_quantile(0.9, sum(rate(example_histogram_bucket[1m])) by (TestGroupId, le))
+//
+// Averages, sums, etc.
+// avg(example_gauge)
+// sum(example_gauge)
+//
+// if you only care about the top K performers:
+// topk(5, example_counter2)
+// Or the bottom k:
+// bottomk(5, example_counter2)
+// How much difference is there?
+// stddev(example_gauge2)
+// stdvar(example_gauge)
+//
+// For more examples, see https://prometheus.io/docs/prometheus/latest/querying/basics/
 func ExamplePrometheus2(runenv *runtime.RunEnv) error {
 	counter := runtime.NewCounter(runenv, "example_counter", "I count how many times something happens")
 	counter2 := runtime.NewCounter(runenv, "example_counter2", "I count how many times something happens")
@@ -59,11 +81,12 @@ func ExamplePrometheus2(runenv *runtime.RunEnv) error {
 	histogram2 := runtime.NewHistogram(runenv, "example_histogram2", "histogram with non-default buckets", 1.0, 5.0, 6.0)
 	gauge := runtime.NewGauge(runenv, "example_gauge", "values, can go up and down")
 	gauge2 := runtime.NewGauge(runenv, "example_gauge2", "values, can go up and down")
+	rand.Seed(time.Now().UnixNano())
 
 	// increment the counter once per second
 	// Also record a random number into each of the metrics
 	for i := 0; i <= 600; i++ {
-		//time.Sleep(time.Second)
+		time.Sleep(time.Second)
 		data := float64(rand.Intn(15))
 		runenv.RecordMessage("Doing work: %f", data)
 		counter.Inc()
