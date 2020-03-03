@@ -1,0 +1,50 @@
+#:::
+#::: BUILD CONTAINER
+#:::
+
+# GO_VERSION is the golang version this image will be built against.
+ARG GO_VERSION=1.13.8
+
+# Dynamically select the golang version.
+# TODO: Not sure how this interplays with image caching.
+FROM 7c7fd8399ad8
+# lotus-base
+
+# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
+# The image will build that package only.
+ARG TESTPLAN_EXEC_PKG
+# GO_PROXY is the go proxy that will be used, or direct by default.
+ARG GO_PROXY=direct
+
+# Testplan Go dependencies
+
+ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan/
+
+# Copy only go.mod files and download deps, in order to leverage Docker caching.
+COPY /plan/go.mod ${PLAN_DIR}
+
+# Download deps.
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && go mod download
+
+# Now copy the rest of the source and run the build.
+COPY . /
+
+# Testground
+
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && go build -o testplan ${TESTPLAN_EXEC_PKG}
+
+# Store module dependencies
+RUN cd ${PLAN_DIR} \
+  && go list -m all > /testground_dep_list
+
+WORKDIR /root
+
+ENV PATH="/lotus:${PATH}"
+
+ENTRYPOINT [ "/plan/testplan", "--vv"]
