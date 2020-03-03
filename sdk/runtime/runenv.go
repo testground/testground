@@ -110,6 +110,7 @@ type RunEnv struct {
 
 // NewRunEnv constructs a runtime environment from the given runtime parameters.
 func NewRunEnv(params RunParams) *RunEnv {
+	containerName, _ := os.Hostname()
 	re := &RunEnv{
 		RunParams: params,
 		MetricsPusher: push.New("http://prometheus-pushgateway:9091", "testground/plan").
@@ -120,7 +121,8 @@ func NewRunEnv(params RunParams) *RunEnv {
 			Grouping("TestGroupID", params.TestGroupID).
 			Grouping("TestCaseSeq", string(params.TestCaseSeq)).
 			Grouping("TestCommit", params.TestCommit).
-			Grouping("TestTag", params.TestTag),
+			Grouping("TestTag", params.TestTag).
+			Grouping("ContainerName", containerName),
 		structured:   make(chan *zap.Logger, 32),
 		unstructured: make(chan *os.File, 32),
 	}
