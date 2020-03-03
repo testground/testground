@@ -434,6 +434,8 @@ func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase
 
 			pod := res.Items[0]
 			p = string(pod.Status.Phase)
+
+			time.Sleep(1 * time.Second)
 		}
 	}
 }
