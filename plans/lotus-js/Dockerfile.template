@@ -5,10 +5,23 @@
 # GO_VERSION is the golang version this image will be built against.
 ARG GO_VERSION=1.13.8
 
+# Node.js
+FROM node:13.8.0-buster
+
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.
 FROM 7c7fd8399ad8
 # lotus-base
+
+# Copy Node.js
+WORKDIR /usr/local/bin
+COPY --from=0 /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=0 /opt/yarn-v1.21.1 /opt/yarn-v1.21.1
+COPY --from=0 /usr/local/bin/node /usr/local/bin
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js npm
+RUN ln -s ../lib/node_modules/npm/bin/npx-cli.js npx
+RUN ln -s /opt/yarn-v1.21.1/bin/yarn yarn
+WORKDIR /root
 
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
