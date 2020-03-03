@@ -35,7 +35,7 @@
 - name: area/builders
   color: 0bb1ed
   description: "Area: Builders"
-- name: area/multiplexing
+- name: area/infrastructure
   color: 0bb1ed
   description: "Area: Infrastructure"
 - name: area/infra
