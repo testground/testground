@@ -856,11 +856,5 @@ func (c *ClusterK8sRunner) compressOutputs(ctx context.Context, runID string) er
 	archive := fmt.Sprintf("%s.tgz", runID)
 	tarcmd := fmt.Sprintf("cd /outputs && tar -czf %s %s", archive, runID)
 	args := fmt.Sprintf("kubectl exec %s -- sh -c '%s'", collectOutputsPodName, tarcmd)
-	cmd := exec.Command("sh", "-c", args)
-
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	return cmd.Wait()
+	return exec.Command("sh", "-c", args).Run()
 }
