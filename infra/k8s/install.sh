@@ -85,6 +85,10 @@ echo "Install Redis..."
 echo
 helm install redis stable/redis --values ./redis-values.yaml
 
+echo "Install Redis exporter..."
+echo
+helm install redis-exporter stable/prometheus-redis-exporter --values ./redis-exporter-values.yaml
+
 echo "Install prometheus pushgateway..."
 echo
 helm install prometheus-pushgateway stable/prometheus-pushgateway --values ./prometheus-pushgateway.yaml
