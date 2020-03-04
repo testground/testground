@@ -37,5 +37,5 @@ name = "public-nodes"
 instances = { min = 4, max = 10000, default = 16 }
 
   [testcases.params]
-  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 1 }
+  n_bootstrap   = { type = "int", desc = "number of bootstrap nodes", unit = "int", default = 2 }
   timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }

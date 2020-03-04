@@ -38,10 +38,16 @@ func PublicNodes(runenv *runtime.RunEnv) error {
 	go func() {
 		for {
 			select {
-			case <-pubSub.Out():
+			case _, ok := <-pubSub.Out():
+				if !ok {
+					return
+				}
 				runenv.RecordMessage("node believes it is publicly reachable")
 				statuses = append(statuses, autonat.NATStatusPublic)
-			case <-priSub.Out():
+			case _, ok := <-priSub.Out():
+				if !ok {
+					return
+				}
 				runenv.RecordMessage("node believes it is a private node")
 				statuses = append(statuses, autonat.NATStatusPrivate)
 			case <-ctx.Done():
