@@ -114,7 +114,7 @@ func PublicNodes(runenv *runtime.RunEnv) error {
 
 	if len(statuses) > 3 {
 		runenv.RecordFailure(fmt.Errorf("Nat status shouldn't flap, but %d statuses emitted", len(statuses)))
-	} else if len(statuses) == 0 {
+	} else if len(statuses) == 0 && (!isBootstrap || bootstrapDialed) {
 		runenv.RecordFailure(fmt.Errorf("Nat should have settled on public or private, but no status emitted"))
 		return nil
 	}
