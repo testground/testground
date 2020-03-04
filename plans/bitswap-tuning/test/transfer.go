@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -11,6 +13,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
+	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -25,10 +28,8 @@ func Transfer(runenv *runtime.RunEnv) error {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
 	runTimeout := time.Duration(runenv.IntParam("run_timeout_secs")) * time.Second
-	parallelGenMax := runenv.IntParam("parallel_gen_mb") * 1024 * 1024
 	leechCount := runenv.IntParam("leech_count")
 	passiveCount := runenv.IntParam("passive_count")
-	seedCount := runenv.TestInstanceCount - (leechCount + passiveCount)
 	requestStagger := time.Duration(runenv.IntParam("request_stagger")) * time.Millisecond
 	bstoreDelay := time.Duration(runenv.IntParam("bstore_delay_ms")) * time.Millisecond
 	runCount := runenv.IntParam("run_count")
@@ -61,11 +62,35 @@ func Transfer(runenv *runtime.RunEnv) error {
 		return err
 	}
 	defer h.Close()
+	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Get sequence number of this host
 	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
 	if err != nil {
 		return err
+	}
+	grpseq, nodetp, tpindex, err := parseType(ctx, runenv, writer, h, seq)
+	if err != nil {
+		return err
+	}
+
+	var seedIndex int64
+	if nodetp == utils.Seed {
+		if runenv.TestGroupID == "" {
+			// If we're not running in group mode, calculate the seed index as
+			// the sequence number minus the other types of node (leech / passive).
+			// Note: sequence number starts from 1 (not 0)
+			seedIndex = seq - int64(leechCount+passiveCount) - 1
+		} else {
+			// If we are in group mode, signal other seed nodes to work out the
+			// seed index
+			seedSeq, err := getNodeSetSeq(ctx, writer, h, "seeds")
+			if err != nil {
+				return err
+			}
+			// Sequence number starts from 1 (not 0)
+			seedIndex = seedSeq - 1
+		}
 	}
 
 	// Get addresses of all peers
@@ -83,26 +108,6 @@ func Transfer(runenv *runtime.RunEnv) error {
 	cancelSub()
 
 	/// --- Warm up
-
-	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
-
-	// Note: seq starts at 1 (not 0)
-	var nodetp utils.NodeType
-	var tpindex int
-	switch {
-	case seq <= int64(leechCount):
-		nodetp = utils.Leech
-		tpindex = int(seq) - 1
-		runenv.RecordMessage("I am leech %d", tpindex)
-	case seq > int64(leechCount+passiveCount):
-		nodetp = utils.Seed
-		tpindex = int(seq) - 1 - (leechCount + passiveCount)
-		runenv.RecordMessage("I am seed %d", tpindex)
-	default:
-		nodetp = utils.Passive
-		tpindex = int(seq) - 1 - leechCount
-		runenv.RecordMessage("I am passive node %d (neither leech nor seed)", tpindex)
-	}
 
 	// Set up network (with traffic shaping)
 	latency, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, watcher, writer, nodetp, tpindex)
@@ -129,7 +134,8 @@ func Transfer(runenv *runtime.RunEnv) error {
 	for sizeIndex, fileSize := range fileSizes {
 		// If the total amount of seed data to be generated is greater than
 		// parallelGenMax, generate seed data in series
-		genSeedSerial := seedCount > 2 || fileSize*seedCount > parallelGenMax
+		// genSeedSerial := seedCount > 2 || fileSize*seedCount > parallelGenMax
+		genSeedSerial := true
 
 		// Run the test runCount times
 		var rootCid cid.Cid
@@ -166,8 +172,6 @@ func Transfer(runenv *runtime.RunEnv) error {
 					if genSeedSerial {
 						// Each seed generates the seed data in series, to avoid
 						// overloading a single machine hosting multiple instances
-						seedIndex := seq - int64(leechCount+passiveCount) - 1
-
 						if seedIndex > 0 {
 							// Wait for the seeds with an index lower than this one
 							// to generate their seed data
@@ -178,11 +182,11 @@ func Transfer(runenv *runtime.RunEnv) error {
 						}
 
 						// Generate a file of the given size and add it to the datastore
-						runenv.RecordMessage("Generating seed data of %d bytes", fileSize)
 						start = time.Now()
 					}
+					runenv.Message("Generating seed data of %d bytes", fileSize)
 
-					rootCid, err := setupSeed(ctx, bsnode, fileSize)
+					rootCid, err := setupSeed(ctx, runenv, bsnode, fileSize, int(seedIndex))
 					if err != nil {
 						return fmt.Errorf("Failed to set up seed: %w", err)
 					}
@@ -282,7 +286,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 			}
 
 			/// --- Report stats
-			err = emitMetrics(runenv, bsnode, runNum, seq, latency, bandwidthMB, fileSize, nodetp, tpindex, timeToFetch)
+			err = emitMetrics(runenv, bsnode, runNum, seq, grpseq, latency, bandwidthMB, fileSize, nodetp, tpindex, timeToFetch)
 			if err != nil {
 				return err
 			}
@@ -325,14 +329,134 @@ func Transfer(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func setupSeed(ctx context.Context, node *utils.Node, fileSize int) (cid.Cid, error) {
+func parseType(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer, h host.Host, seq int64) (int64, utils.NodeType, int, error) {
+	leechCount := runenv.IntParam("leech_count")
+	passiveCount := runenv.IntParam("passive_count")
+
+	grpCountOverride := false
+	if runenv.TestGroupID != "" {
+		grpLchLabel := runenv.TestGroupID + "_leech_count"
+		if runenv.IsParamSet(grpLchLabel) {
+			leechCount = runenv.IntParam(grpLchLabel)
+			grpCountOverride = true
+		}
+		grpPsvLabel := runenv.TestGroupID + "_passive_count"
+		if runenv.IsParamSet(grpPsvLabel) {
+			passiveCount = runenv.IntParam(grpPsvLabel)
+			grpCountOverride = true
+		}
+	}
+
+	var nodetp utils.NodeType
+	var tpindex int
+	grpseq := seq
+	seqstr := fmt.Sprintf("- seq %d / %d", seq, runenv.TestInstanceCount)
+	grpPrefix := ""
+	if grpCountOverride {
+		grpPrefix = runenv.TestGroupID + " "
+
+		var err error
+		grpseq, err = getNodeSetSeq(ctx, writer, h, runenv.TestGroupID)
+		if err != nil {
+			return grpseq, nodetp, tpindex, err
+		}
+
+		seqstr = fmt.Sprintf("%s (%d / %d of %s)", seqstr, grpseq, runenv.TestGroupInstanceCount, runenv.TestGroupID)
+	}
+
+	// Note: seq starts at 1 (not 0)
+	switch {
+	case grpseq <= int64(leechCount):
+		nodetp = utils.Leech
+		tpindex = int(grpseq) - 1
+	case grpseq > int64(leechCount+passiveCount):
+		nodetp = utils.Seed
+		tpindex = int(grpseq) - 1 - (leechCount + passiveCount)
+	default:
+		nodetp = utils.Passive
+		tpindex = int(grpseq) - 1 - leechCount
+	}
+
+	runenv.Message("I am %s %d %s", grpPrefix+nodetp.String(), tpindex, seqstr)
+
+	return grpseq, nodetp, tpindex, nil
+}
+
+func getNodeSetSeq(ctx context.Context, writer *sync.Writer, h host.Host, setID string) (int64, error) {
+	subtree := &sync.Subtree{
+		GroupKey:    "nodes" + setID,
+		PayloadType: reflect.TypeOf(&peer.AddrInfo{}),
+		KeyFunc: func(val interface{}) string {
+			return val.(*peer.AddrInfo).ID.Pretty()
+		},
+	}
+
+	return writer.Write(ctx, subtree, host.InfoFromHost(h))
+}
+
+func setupSeed(ctx context.Context, runenv *runtime.RunEnv, node *utils.Node, fileSize int, seedIndex int) (cid.Cid, error) {
 	tmpFile := utils.RandReader(fileSize)
 	ipldNode, err := node.Add(ctx, tmpFile)
 	if err != nil {
 		return cid.Cid{}, err
 	}
 
+	if !runenv.IsParamSet("seed_fraction") {
+		return ipldNode.Cid(), nil
+	}
+	seedFrac := runenv.StringParam("seed_fraction")
+	if seedFrac == "" {
+		return ipldNode.Cid(), nil
+	}
+
+	parts := strings.Split(seedFrac, "/")
+	if len(parts) != 2 {
+		return cid.Cid{}, fmt.Errorf("Invalid seed fraction %s", seedFrac)
+	}
+	numerator, nerr := strconv.ParseInt(parts[0], 10, 64)
+	denominator, derr := strconv.ParseInt(parts[1], 10, 64)
+	if nerr != nil || derr != nil {
+		return cid.Cid{}, fmt.Errorf("Invalid seed fraction %s", seedFrac)
+	}
+
+	nodes, err := getLeafNodes(ctx, ipldNode, node.Dserv)
+	if err != nil {
+		return cid.Cid{}, err
+	}
+	var del []cid.Cid
+	for i := 0; i < len(nodes); i++ {
+		idx := i + seedIndex
+		if idx%int(denominator) >= int(numerator) {
+			del = append(del, nodes[i].Cid())
+		}
+	}
+	if err := node.Dserv.RemoveMany(ctx, del); err != nil {
+		return cid.Cid{}, err
+	}
+
+	runenv.Message("Retained %d / %d of blocks from seed, removed %d / %d blocks", numerator, denominator, len(del), len(nodes))
 	return ipldNode.Cid(), nil
+}
+
+func getLeafNodes(ctx context.Context, node ipld.Node, dserv ipld.DAGService) ([]ipld.Node, error) {
+	if len(node.Links()) == 0 {
+		return []ipld.Node{node}, nil
+	}
+
+	var leaves []ipld.Node
+	for _, l := range node.Links() {
+		child, err := l.GetNode(ctx, dserv)
+		if err != nil {
+			return nil, err
+		}
+		childLeaves, err := getLeafNodes(ctx, child, dserv)
+		if err != nil {
+			return nil, err
+		}
+		leaves = append(leaves, childLeaves...)
+	}
+
+	return leaves, nil
 }
 
 func getRootCidSubtree(id int) *sync.Subtree {
@@ -345,7 +469,7 @@ func getRootCidSubtree(id int) *sync.Subtree {
 	}
 }
 
-func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64,
+func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64, grpseq int64,
 	latency time.Duration, bandwidthMB int, fileSize int, nodetp utils.NodeType, tpindex int, timeToFetch time.Duration) error {
 
 	stats, err := bsnode.Bitswap.Stat()
@@ -354,7 +478,8 @@ func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int
 	}
 
 	latencyMS := latency.Milliseconds()
-	id := fmt.Sprintf("latencyMS:%d/bandwidthMB:%d/run:%d/seq:%d/file-size:%d/%s:%d", latencyMS, bandwidthMB, runNum, seq, fileSize, nodetp, tpindex)
+	id := fmt.Sprintf("latencyMS:%d/bandwidthMB:%d/run:%d/seq:%d/groupName:%s/groupSeq:%d/fileSize:%d/nodeType:%s/nodeTypeIndex:%d",
+		latencyMS, bandwidthMB, runNum, seq, runenv.TestGroupID, grpseq, fileSize, nodetp, tpindex)
 	if nodetp == utils.Leech {
 		runenv.RecordMetric(utils.MetricTimeToFetch(id), float64(timeToFetch))
 	}

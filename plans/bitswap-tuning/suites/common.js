@@ -11,21 +11,15 @@ function parseMetrics (data) {
 
     if ((log.event || {}).type === 'metric') {
       const metric = log.event.metric
+      const res = {}
       const parts = metric.name.split(/\//)
-      // [ 'latencyMS:100', 'bandwidthMB:1024', 'run:1', 'seq:2', 'file-size:10485760', 'Seed:1', 'msgs_rcvd' ]
-      if (parts.length !== 7) {
-        throw new Error(`Unexpected metric format ${metric}`)
+      for (const part of parts) {
+        const [k, v] = part.split(':')
+        res[k] = v
       }
+      res.value = metric.value
 
-      const [latencyDef, bandwidthDef, runDef, seqDef, fileSizeDef, nodeTypeDef, metricName] = parts
-      const latencyMS = latencyDef.split(':')[1]
-      const bandwidthMB = bandwidthDef.split(':')[1]
-      const run = runDef.split(':')[1]
-      const seq = seqDef.split(':')[1]
-      const fileSize = fileSizeDef.split(':')[1]
-      const [nodeType, nodeTypeIndex] = nodeTypeDef.split(':')
-
-      metrics.push({ run, seq, latencyMS, bandwidthMB, fileSize, nodeType, nodeTypeIndex, name: metricName, value: metric.value })
+      metrics.push(res)
     }
   }
 
@@ -42,7 +36,7 @@ function groupBy (arr, key) {
   return res
 }
 
-function parseArgs (required, defaults) {
+function parseArgs (required = [], defaults = {}) {
   const res = {}
   const args = process.argv.slice(2)
   for (let i = 0; i < args.length; i++) {
@@ -81,6 +75,7 @@ const lineColors = [
   ['#bbe1fa', '#3282b8', '#0f4c75', '#1b262c'],
   ['#f1bc31', '#e25822', '#b22222', '#7c0a02'],
   ['#64e291', '#a0cc78', '#589167', '#207561'],
+  ['#cc6666', '#aa4444', '#992222', '#660000'],
 ]
 const usedColors = []
 function getLineColor (branch, seeds, leeches) {
