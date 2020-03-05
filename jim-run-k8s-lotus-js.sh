@@ -3,7 +3,7 @@
 INSTANCES=$1
 
 if [ -z "$INSTANCES" ]; then
-  INSTANCES=3
+  INSTANCES=2
 fi
 
 ./testground --vv run single lotus-js/bootstrap \

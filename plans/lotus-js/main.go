@@ -354,6 +354,46 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		runenv.RecordMessage("State: nodeReady from other nodes")
 
+		// Run Javascript tests from Genesis node
+		runenv.RecordMessage("Start up nginx")
+		cmdNginx := exec.Command(
+			"npm",
+			"run",
+			"nginx",
+		)
+		cmdNginx.Dir = "/plan/lotus-api-playground"
+		outfile, err = os.Create("/outputs/nginx.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdNginx.Stdout = outfile
+		cmdNginx.Stderr = outfile
+		err = cmdNginx.Start()
+		if err != nil {
+			return err
+		}
+		time.Sleep(2 * time.Second) // Give nginx time to start
+
+		// Run Javascript test suite
+		runenv.RecordMessage("Run npm test")
+		cmdNpmTest := exec.Command(
+			"npm",
+			"test",
+		)
+		cmdNpmTest.Dir = "/plan/lotus-api-playground"
+		outfile, err = os.Create("/outputs/npm-test.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdNpmTest.Stdout = outfile
+		cmdNpmTest.Stderr = outfile
+		err = cmdNpmTest.Run()
+		if err != nil {
+			return err
+		}
+
 		// Signal we're done and everybody should shut down
 		_, err = writer.SignalEntry(ctx, doneState)
 		if err != nil {
