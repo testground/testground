@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"io"
 	"net"
@@ -24,77 +25,123 @@ var (
 )
 
 var (
-	_ api.Runner = (*LocalExecutableRunner)(nil)
+	_ api.Runner        = (*LocalExecutableRunner)(nil)
+	_ api.Healthchecker = (*LocalExecutableRunner)(nil)
 )
 
 type LocalExecutableRunner struct {
-	setupLk sync.Mutex
+	lk sync.RWMutex
+
+	outputsDir   string
+	redisCloseFn context.CancelFunc
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
+func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+	r.lk.Lock()
+	defer r.lk.Unlock()
+
+	var redisCheck, outputsDirCheck api.HealthcheckItem
+
+	// Check if a local Redis instance is running. If not, try to start it.
+	_, err := net.Dial("tcp", "localhost:6379")
+	if err == nil {
+		msg := "local redis instance check: OK"
+		redisCheck = api.HealthcheckItem{Name: "local-redis", Status: api.HealthcheckStatusOK, Message: msg}
+	} else {
+		msg := fmt.Sprintf("local redis instance check: FAIL; %s", err)
+		redisCheck = api.HealthcheckItem{Name: "local-redis", Status: api.HealthcheckStatusFailed, Message: msg}
+	}
+
+	// Ensure the outputs dir exists.
+	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
+	if _, err := os.Stat(r.outputsDir); err == nil {
+		msg := "outputs directory exists"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+	} else if os.IsNotExist(err) {
+		msg := "outputs directory does not exist"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+	} else {
+		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	if !fix {
+		return &api.HealthcheckReport{Checks: []api.HealthcheckItem{redisCheck, outputsDirCheck}}, nil
+	}
+
+	// FIX LOGIC ====================
+
+	var fixes []api.HealthcheckItem
+
+	if redisCheck.Status != api.HealthcheckStatusOK {
+		// if there was a previous close function, it's possible that the
+		// user has killed the redis instance manually, or some other
+		// pathological situation is in place. Call the close function
+		// first just in case.
+		if r.redisCloseFn != nil {
+			r.redisCloseFn()
+		}
+
+		// Create a new cancellable context for the redis process. Store the
+		// cancel function and renew the sync.Once in the runner's state.
+		ctx, cancel := context.WithCancel(engine.Context())
+		r.redisCloseFn = cancel
+
+		cmd := exec.CommandContext(ctx, "redis-server", "--save", "\"\"", "--appendonly", "no")
+		if err := cmd.Start(); err == nil {
+			msg := "temporary redis instance started successfully"
+			it := api.HealthcheckItem{Name: "local-redis", Status: api.HealthcheckStatusOK, Message: msg}
+			fixes = append(fixes, it)
+		} else {
+			msg := fmt.Sprintf("temporary redis instance failed to start: %s", err)
+			it := api.HealthcheckItem{Name: "local-redis", Status: api.HealthcheckStatusFailed, Message: msg}
+			fixes = append(fixes, it)
+		}
+	}
+
+	if outputsDirCheck.Status != api.HealthcheckStatusOK {
+		if err := os.MkdirAll(r.outputsDir, 0777); err == nil {
+			msg := "outputs dir created successfully"
+			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+			fixes = append(fixes, it)
+		} else {
+			msg := fmt.Sprintf("failed to create outputs dir: %s", err)
+			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+			fixes = append(fixes, it)
+		}
+	}
+
+	return &api.HealthcheckReport{
+		Checks: []api.HealthcheckItem{redisCheck, outputsDirCheck},
+		Fixes:  fixes,
+	}, nil
+}
+
+func (r *LocalExecutableRunner) Close() error {
+	if r.redisCloseFn != nil {
+		r.redisCloseFn()
+		logging.S().Info("temporary redis instance stopped")
+	}
+
+	return nil
+}
+
 func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+	r.lk.RLock()
+	defer r.lk.RUnlock()
+
 	var (
-		plan        = input.TestPlan
-		seq         = input.Seq
-		name        = plan.Name
-		redisWaitCh = make(chan struct{})
+		plan = input.TestPlan
+		seq  = input.Seq
+		name = plan.Name
 	)
 
 	if seq >= len(plan.TestCases) {
 		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
 	}
-
-	// Housekeeping. If we've started a temporary redis instance for this test,
-	// this defer will keep the runtime alive until it's shut down, giving us an
-	// opportunity to print the "redis stopped successfully" log statement.
-	// Otherwise, it might not be printed out at all.
-	defer func() { <-redisWaitCh }()
-
-	// Check if a local Redis instance is running. If not, try to start it.
-	r.setupLk.Lock()
-	if _, err := net.Dial("tcp", "localhost:6379"); err == nil {
-		logging.S().Info("local redis instance check: OK")
-		close(redisWaitCh)
-	} else {
-		// Try to start a Redis instance.
-		logging.S().Info("local redis instance check: FAIL; attempting to start one for this run")
-
-		// This context gets cancelled when the runner has finished, which in
-		// turn signals the temporary Redis instance to shut down.
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		cmd := exec.CommandContext(ctx, "redis-server", "--save", "\"\"", "--appendonly", "no")
-		if err := cmd.Start(); err == nil {
-			logging.S().Info("temporary redis instance started successfully")
-		} else {
-			close(redisWaitCh)
-			r.setupLk.Unlock()
-			return nil, fmt.Errorf("temporary redis instance failed to start: %w", err)
-		}
-
-		// This goroutine monitors the redis instance, and prints a log output
-		// when it's done. The cmd.Wait() returns when the context is cancelled,
-		// which happens when the runner finishes. Once we print the log
-		// statement, we close the redis wait channel, which allows the method
-		// to return.
-		go func() {
-			_ = cmd.Wait()
-			logging.S().Info("temporary redis instance stopped successfully")
-			close(redisWaitCh)
-		}()
-	}
-
-	// Ensure the outputs dir exists.
-	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	if err := os.MkdirAll(outputsDir, 0777); err != nil {
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	r.setupLk.Unlock()
 
 	// Build a template runenv.
 	template := runtime.RunParams{
@@ -126,7 +173,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			total++
 			id := fmt.Sprintf("instance %3d", total)
 
-			odir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			odir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
 			if err := os.MkdirAll(odir, 0777); err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
 				pretty.FailStart(id, err)
@@ -138,6 +185,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			runenv.TestGroupInstanceCount = g.Instances
 			runenv.TestInstanceParams = g.Parameters
 			runenv.TestOutputsPath = odir
+			runenv.TestStartTime = time.Now()
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 

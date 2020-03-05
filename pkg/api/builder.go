@@ -33,6 +33,9 @@ type BuildInput struct {
 	Directories Directories
 	// TestPlan is the metadata of the test plan being built.
 	TestPlan *TestPlanDefinition
+	// Selectors specifies any source selection strings to be sent to the
+	// builder. In the case of go builders, this field maps to build tags.
+	Selectors []string
 	// Dependencies are the versions of upstream dependencies we want to build
 	// against. For a go build, this could be e.g.:
 	//  github.com/ipfs/go-ipfs=v0.4.22

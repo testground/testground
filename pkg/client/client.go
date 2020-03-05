@@ -105,7 +105,7 @@ func (c *Client) CollectOutputs(ctx context.Context, r *OutputsRequest) (io.Read
 	return c.request(ctx, "POST", "/outputs", bytes.NewReader(body.Bytes()))
 }
 
-// Terminate sned a `terminate` request to the daemon.
+// Terminate sends a `terminate` request to the daemon.
 func (c *Client) Terminate(ctx context.Context, r *TerminateRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -114,6 +114,17 @@ func (c *Client) Terminate(ctx context.Context, r *TerminateRequest) (io.ReadClo
 	}
 
 	return c.request(ctx, "POST", "/terminate", bytes.NewReader(body.Bytes()))
+}
+
+// Healthcheck sends a `healthcheck` request to the daemon.
+func (c *Client) Healthcheck(ctx context.Context, r *HealthcheckRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/healthcheck", bytes.NewReader(body.Bytes()))
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
@@ -211,6 +222,21 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 			return nil
 		},
 	)
+}
+
+// ParseHealthcheckResponse parses a response from a 'healthcheck' call
+func ParseHealthcheckResponse(r io.ReadCloser) (HealthcheckResponse, error) {
+	var resp HealthcheckResponse
+
+	err := parseGeneric(
+		r,
+		printProgress,
+		func(result interface{}) error {
+			return mapstructure.Decode(result, &resp)
+		},
+	)
+
+	return resp, err
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader) (io.ReadCloser, error) {

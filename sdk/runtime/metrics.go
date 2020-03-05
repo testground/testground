@@ -10,8 +10,46 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+func NewCounter(runenv *RunEnv, name string, help string) prometheus.Counter {
+	c := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: name,
+		Help: help,
+	})
+	runenv.MetricsPusher.Collector(c)
+	return c
+}
+
+func NewGauge(runenv *RunEnv, name string, help string) prometheus.Gauge {
+	g := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: name,
+		Help: help,
+	})
+	runenv.MetricsPusher.Collector(g)
+	return g
+}
+
+func NewHistogram(runenv *RunEnv, name string, help string, buckets ...float64) prometheus.Histogram {
+	h := prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    name,
+		Help:    help,
+		Buckets: buckets,
+	})
+	runenv.MetricsPusher.Collector(h)
+	return h
+}
+
+func NewSummary(runenv *RunEnv, name string, help string) prometheus.Summary {
+	s := prometheus.NewSummary(prometheus.SummaryOpts{
+		Name: name,
+		Help: help,
+	})
+	runenv.MetricsPusher.Collector(s)
+	return s
+}
 
 // MustExportPrometheus starts an HTTP server with the Prometheus handler.
 // It starts on a random open port and returns the listener. It is the caller

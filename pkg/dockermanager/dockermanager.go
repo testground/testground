@@ -163,7 +163,7 @@ func (dm *Manager) Manage(
 			err := worker(cctx, handle)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
-					handle.S().Warnf("sidecar worker failed: %s", err)
+					handle.S().Debugf("sidecar worker failed: %s", err)
 				} else {
 					handle.S().Errorf("sidecar worker failed: %s", err)
 				}
@@ -196,6 +196,8 @@ func (dm *Manager) Manage(
 	eventFilter.Add("type", "container")
 	eventFilter.Add("event", "start")
 	eventFilter.Add("event", "stop")
+	eventFilter.Add("event", "destroy")
+	eventFilter.Add("event", "die")
 
 	// Manage new containers.
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
@@ -209,7 +211,7 @@ func (dm *Manager) Manage(
 			switch event.Status {
 			case "start":
 				start(event.ID)
-			case "stop":
+			case "stop", "destroy", "die":
 				stop(event.ID)
 			default:
 				return fmt.Errorf("unexpected event: type=%s, status=%s", event.Type, event.Status)

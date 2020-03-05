@@ -70,7 +70,7 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, target string) cont
 			case routing.Provider, routing.Value:
 				msg = "result"
 			}
-			log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra, "closer", e.Responses)
+			log.Infow(msg, "peer", e.ID, "closer", e.Responses, "value", e.Extra)
 		}
 	}()
 

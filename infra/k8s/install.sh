@@ -8,13 +8,9 @@ START_TIME=`date +%s`
 echo "Creating cluster for Testground..."
 echo
 
-NAME=$1
-CLUSTER_SPEC=$2
-PUBKEY=$3
-WORKER_NODES=$4
+CLUSTER_SPEC_TEMPLATE=$1
 
 echo "Name: $NAME"
-echo "Cluster spec: $CLUSTER_SPEC"
 echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
@@ -38,6 +34,24 @@ if [[ -z ${ASSETS_S3_ENDPOINT} ]]; then
   echo "ASSETS_S3_ENDPOINT is not set. Make sure you set credentials and location for S3 outputs bucket."
   exit 1
 fi
+
+CLUSTER_SPEC=$(mktemp)
+envsubst <$CLUSTER_SPEC_TEMPLATE >$CLUSTER_SPEC
+cat $CLUSTER_SPEC
+
+# Verify with the user before continuing.
+echo
+echo "The output above is the cluster I will create for you."
+echo -n "Does this look about right to you? [y/n]: "
+read response
+
+if [ "$response" != "y" ]
+then
+	echo "Canceling ."
+	exit 2
+fi
+
+# The remainder of this script creates the cluster using the generated template
 
 kops create -f $CLUSTER_SPEC
 kops create secret --name $NAME sshpublickey admin -i $PUBKEY
@@ -71,6 +85,9 @@ echo "Install Redis..."
 echo
 helm install redis stable/redis --values ./redis-values.yaml
 
+echo "Install prometheus pushgateway..."
+echo
+helm install prometheus-pushgateway stable/prometheus-pushgateway --values ./prometheus-pushgateway.yaml
 
 echo "Wait for Sidecar to be Ready..."
 echo
