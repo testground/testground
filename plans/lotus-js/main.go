@@ -145,7 +145,9 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	// States
-	ready := sync.State("ready")
+	genesisReadyState := sync.State("genesisReady")
+	nodeReadyState := sync.State("nodeReady")
+	doneState := sync.State("done")
 
 	switch {
 	case seq == 1: // genesis node
@@ -290,11 +292,11 @@ func run(runenv *runtime.RunEnv) error {
 		}
 
 		// Signal we're ready
-		_, err = writer.SignalEntry(ctx, ready)
+		_, err = writer.SignalEntry(ctx, genesisReadyState)
 		if err != nil {
 			return err
 		}
-		runenv.Message("State: ready")
+		runenv.Message("State: genesisReady")
 
 		localWalletAddr, err := api.WalletDefaultAddress(ctx)
 		if err != nil {
@@ -344,9 +346,26 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		cancel()
 
+		// Wait until nodeReady state is signalled by all secondary nodes
+		runenv.RecordMessage("Waiting for nodeReady from other nodes")
+		err = <-watcher.Barrier(ctx, nodeReadyState, int64(runenv.TestInstanceCount-1))
+		if err != nil {
+			return err
+		}
+		runenv.RecordMessage("State: nodeReady from other nodes")
+
+		// Signal we're done and everybody should shut down
+		_, err = writer.SignalEntry(ctx, doneState)
+		if err != nil {
+			return err
+		}
+		runenv.Message("State: done")
+
 		runenv.RecordSuccess()
 
-		stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
+		if runenv.BooleanParam("keep-alive") {
+			stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
+		}
 
 	case seq >= 2: // additional nodes
 		runenv.RecordMessage("Node: %v", seq)
@@ -356,13 +375,13 @@ func run(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("Delaying for %v", delay)
 		time.Sleep(delay)
 
-		// Wait until ready state is signalled.
-		runenv.RecordMessage("Waiting for ready")
-		err = <-watcher.Barrier(ctx, ready, 1)
+		// Wait until genesisReady state is signalled.
+		runenv.RecordMessage("Waiting for genesisReady")
+		err = <-watcher.Barrier(ctx, genesisReadyState, 1)
 		if err != nil {
 			return err
 		}
-		runenv.RecordMessage("State: ready")
+		runenv.RecordMessage("State: genesisReady")
 
 		subnet := runenv.TestSubnet.IPNet
 		genesisIPv4 := &subnet
@@ -523,13 +542,32 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordSuccess()
 
-		stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
+		// Signal we're ready
+		_, err = writer.SignalEntry(ctx, nodeReadyState)
+		if err != nil {
+			return err
+		}
+		runenv.Message("State: nodeReady")
+
+		// Wait until done state is signalled.
+		runenv.RecordMessage("Waiting for done")
+		err = <-watcher.Barrier(ctx, doneState, 1)
+		if err != nil {
+			return err
+		}
+		runenv.RecordMessage("State: done")
+
+		if runenv.BooleanParam("keep-alive") {
+			stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
+		}
 
 	default:
 		return fmt.Errorf("Unexpected seq: %v", seq)
 	}
 
-	select {}
+	if runenv.BooleanParam("keep-alive") {
+		select {}
+	}
 
 	return nil
 }
