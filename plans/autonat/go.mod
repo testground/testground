@@ -19,7 +19,7 @@ require (
 	github.com/libp2p/go-libp2p-autonat-svc v0.1.1-0.20200304022055-c1f9c7d0db8f
 	github.com/libp2p/go-libp2p-circuit v0.1.4
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
-	github.com/libp2p/go-libp2p-core v0.3.2-0.20200302164944-ee95739931de
+	github.com/libp2p/go-libp2p-core v0.3.2-0.20200305051524-d143201d83c2
 	github.com/libp2p/go-libp2p-peerstore v0.1.4
 	github.com/libp2p/go-libp2p-routing v0.1.0
 	github.com/libp2p/go-libp2p-swarm v0.2.2

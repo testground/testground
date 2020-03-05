@@ -9,6 +9,7 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 	autonat "github.com/libp2p/go-libp2p-autonat"
 	"github.com/libp2p/go-libp2p-core/event"
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 func PublicNodes(runenv *runtime.RunEnv) error {
@@ -29,27 +30,27 @@ func PublicNodes(runenv *runtime.RunEnv) error {
 	}
 
 	// Listen to the node's autonat status.
-	pubSub, _ := node.EventBus().Subscribe(new(event.EvtLocalRoutabilityPublic))
-	priSub, _ := node.EventBus().Subscribe(new(event.EvtLocalRoutabilityPrivate))
-	defer pubSub.Close()
-	defer priSub.Close()
+	sub, _ := node.EventBus().Subscribe(new(event.EvtLocalReachabilityChanged))
+	defer sub.Close()
 
-	var statuses []autonat.NATStatus
+	var statuses []network.Reachability
 	go func() {
 		for {
 			select {
-			case _, ok := <-pubSub.Out():
+			case ev, ok := <-sub.Out():
 				if !ok {
 					return
 				}
-				runenv.RecordMessage("node believes it is publicly reachable")
-				statuses = append(statuses, autonat.NATStatusPublic)
-			case _, ok := <-priSub.Out():
+				evt, ok := ev.(event.EvtLocalReachabilityChanged)
 				if !ok {
-					return
+					continue
 				}
-				runenv.RecordMessage("node believes it is a private node")
-				statuses = append(statuses, autonat.NATStatusPrivate)
+				if evt.Reachability == network.ReachabilityPublic {
+					runenv.RecordMessage("node believes it is publicly reachable")
+				} else {
+					runenv.RecordMessage("node believes it is a private node")
+				}
+				statuses = append(statuses, evt.Reachability)
 			case <-ctx.Done():
 				return
 			}
@@ -122,11 +123,11 @@ func PublicNodes(runenv *runtime.RunEnv) error {
 	}
 
 	lastStatus := statuses[len(statuses)-1]
-	if isBootstrap && lastStatus != autonat.NATStatusPublic {
+	if isBootstrap && lastStatus != network.ReachabilityPublic {
 		if bootstrapDialed {
 			runenv.RecordFailure(fmt.Errorf("Bootstrap node believed it had autonat status %#v", lastStatus))
 		}
-	} else if !isBootstrap && lastStatus != autonat.NATStatusPrivate {
+	} else if !isBootstrap && lastStatus != network.ReachabilityPrivate {
 		runenv.RecordFailure(fmt.Errorf("Non bootstrap node believed it had autonat status %#v", lastStatus))
 	}
 
