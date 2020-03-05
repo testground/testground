@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ipfs/testground/sdk/network"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -24,7 +25,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 	defer writer.Close()
 
 	runenv.RecordMessage("Waiting for network initialization")
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 	runenv.RecordMessage("Network initilization complete")

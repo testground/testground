@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ipfs/testground/sdk/network"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -21,7 +22,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 	}
 
 	// Wait for the network to be initialized.
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return 0, 0, err
 	}
 

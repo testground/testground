@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/sdk/network"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -39,7 +40,7 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	runenv.RecordMessage("before sync.WaitNetworkInitialized")
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 

@@ -2,18 +2,21 @@ module github.com/ipfs/testground/plans/dht
 
 go 1.13
 
-replace github.com/ipfs/testground/sdk/sync => ../../sdk/sync
-
 replace github.com/ipfs/testground/sdk/iptb => ../../sdk/iptb
 
+replace github.com/ipfs/testground/sdk/network => ../../sdk/network
+
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
+
+replace github.com/ipfs/testground/sdk/sync => ../../sdk/sync
 
 require (
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.3.1
 	github.com/ipfs/go-ipfs-util v0.0.1
-	github.com/ipfs/testground/sdk/runtime v0.1.0
-	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/ipfs/testground/sdk/network v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/runtime v0.2.0
+	github.com/ipfs/testground/sdk/sync v0.2.0
 	github.com/libp2p/go-libp2p v0.4.2
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.3.0

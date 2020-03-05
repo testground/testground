@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ipfs/testground/sdk/network"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -41,7 +42,7 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 
@@ -56,7 +57,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 	// A state name unique to the container...
@@ -99,7 +100,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := network.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
 
