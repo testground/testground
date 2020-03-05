@@ -23,7 +23,7 @@ require (
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-merkledag v0.2.4
 	github.com/ipfs/go-unixfs v0.2.2
-	github.com/ipfs/testground/sdk/network v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/network v0.2.0
 	github.com/ipfs/testground/sdk/runtime v0.2.0
 	github.com/ipfs/testground/sdk/sync v0.2.0
 	github.com/libp2p/go-libp2p v0.4.0

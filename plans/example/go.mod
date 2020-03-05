@@ -9,7 +9,7 @@ replace (
 )
 
 require (
-	github.com/ipfs/testground/sdk/network v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground/sdk/network v0.2.0
 	github.com/ipfs/testground/sdk/runtime v0.2.0
 	github.com/ipfs/testground/sdk/sync v0.2.0
 )

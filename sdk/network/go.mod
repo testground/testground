@@ -6,3 +6,7 @@ require (
 	github.com/ipfs/testground/sdk/runtime v0.2.0
 	github.com/ipfs/testground/sdk/sync v0.2.0
 )
+
+replace github.com/ipfs/testground/sdk/runtime => ../runtime
+
+replace github.com/ipfs/testground/sdk/sync => ../sync
