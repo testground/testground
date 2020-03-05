@@ -58,6 +58,6 @@ RUN cd ${PLAN_DIR} \
 
 WORKDIR /root
 
-ENV PATH="/lotus:${PATH}"
+ENV PATH="/lotus:/plan:${PATH}"
 
 ENTRYPOINT [ "/plan/testplan", "--vv"]
