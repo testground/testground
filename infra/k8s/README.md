@@ -217,6 +217,12 @@ If you want to let other people on your team connect to your Kubernetes cluster,
 kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
 ```
 
+## How to access the prometheus web UI (for metrics observability)
+```
+kubectl -n monitoring port-forward service/prometheus-k8s 9090:9090
+```
+Direct your web browser to `http://localhost:9090`
+
 ## Known issues and future improvements
 
 - [ ] Alerts (and maybe auto-scaling down) for idle clusters, so that we don't incur costs.

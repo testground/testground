@@ -28,6 +28,9 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
+[run_strategies."cluster:k8s"]
+enabled = true
+
 [[testcases]]
 name = "output"
 instances = { min = 1, max = 200, default = 1 }
@@ -51,3 +54,11 @@ instances = { min = 1, max = 200, default = 1 }
 [[testcases]]
 name = "sync"
 instances = { min = 2, max = 200, default = 5 }
+
+[[testcases]]
+name = "prometheus"
+instances = { min = 1, max = 200, default = 5 }
+
+[[testcases]]
+name = "prometheus2"
+instances = { min = 1, max = 200, default = 5 }
