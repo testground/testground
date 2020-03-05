@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/ipfs/testground v0.1.0
-	github.com/ipfs/testground/sdk/network v0.0.0-00010101000000-000000000000
+	github.com/ipfs/testground v0.2.0
+	github.com/ipfs/testground/sdk/network v0.2.0
 	github.com/ipfs/testground/sdk/runtime v0.2.0
 	github.com/ipfs/testground/sdk/sync v0.2.0
 	github.com/onsi/ginkgo v1.10.3 // indirect
