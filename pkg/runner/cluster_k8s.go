@@ -770,13 +770,22 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 // This command will remove all plan pods in the cluster.
 func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
 	log := logging.S()
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
+	// Until the first Run, pool is a null pointer.
+	// We expect TerminateAll to be able to remove plans inadvertently left behind from previous runs,
+	// even if the daemon is freshly started. For that reason, TerminateAll will use a separate pool,
+	// rather than the one that can be found at c.pool.
+	pool, err := newPool(20, defaultKubernetesConfig())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := pool.Acquire()
+	defer pool.Release(client)
 
 	planPods := metav1.ListOptions{
 		LabelSelector: "testground.purpose=plan",
 	}
-	err := client.CoreV1().Pods(c.config.Namespace).DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	err = client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
 		log.Errorw("could not terminate all pods.", "err", err)
 		return err

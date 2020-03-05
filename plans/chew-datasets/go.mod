@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/dustin/go-humanize v1.0.0
+	github.com/golang/mock v1.4.1 // indirect
 	github.com/ipfs/go-ipfs v0.4.22-0.20191108103059-ec748a7b5b2f
 	github.com/ipfs/go-ipfs-api v0.0.3
 	github.com/ipfs/go-ipfs-config v0.2.0
