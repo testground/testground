@@ -5,12 +5,42 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 )
 
 // Invoke runs the passed test-case and reports the result.
 func Invoke(tc func(*RunEnv) error) {
 	runenv := CurrentRunEnv()
+	start := time.Now()
+	durationGuage := NewGauge(runenv, "plan_duration", "Run time (Seconds)")
+
+	// The prometheus pushgateway has a customized scrape interval, which is used to hint to the
+	// prometheus operator at which interval the it should be scraped. This is currently set to 5s.
+	// To provide an updated metric in every scrape, jobs will push to the pushgateway at the same
+	// interval. When this "push_interval" is changed, you may want to change the scrape interval
+	// on the pushgateway
+	push_interval := 5
+	go func() {
+		for range time.Tick(time.Duration(push_interval) * time.Second) {
+			err := runenv.MetricsPusher.Add()
+			if err != nil {
+				runenv.RecordMessage("error during periodic metric push: %w", err)
+			}
+		}
+	}()
+
+	// Push metrics one last time, including the duration for the whole run.
+	defer func() {
+		durationGuage.Set(time.Since(start).Seconds())
+		err := runenv.MetricsPusher.Add()
+		if err != nil {
+			runenv.RecordMessage("error during end metric push: %w", err)
+		}
+	}()
+
 	defer runenv.Close()
+
+	runenv.RecordStart()
 
 	errfile, err := runenv.CreateRawAsset("run.err")
 	if err != nil {
@@ -42,8 +72,6 @@ func Invoke(tc func(*RunEnv) error) {
 			return
 		}
 	}()
-
-	runenv.RecordStart()
 
 	// Prepare the event.
 	defer func() {

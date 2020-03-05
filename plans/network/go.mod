@@ -9,7 +9,6 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.1.0
 	github.com/onsi/ginkgo v1.10.3 // indirect
 	github.com/onsi/gomega v1.7.1 // indirect
-	golang.org/x/tools v0.0.0-20191122185353-c02aa52d2b72 // indirect
 	gopkg.in/yaml.v2 v2.2.7 // indirect
 )
 
