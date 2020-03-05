@@ -183,9 +183,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
-		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync"),
 		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb"),
-		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/network=../sdk/network"),
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"),
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync"))
 
 	// Write replace directives.
 	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
