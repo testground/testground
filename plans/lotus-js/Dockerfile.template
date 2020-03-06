@@ -88,8 +88,9 @@ RUN cd ${PLAN_DIR} \
 
 # Download npm deps
 COPY /plan/lotus-api-playground/package.json ${PLAN_DIR}/lotus-api-playground/
-RUN cd ${PLAN_DIR}/lotus-api-playground \
-    && yarn
+RUN cd ${PLAN_DIR}lotus-api-playground && yarn
+COPY /plan/js-lotus-api-testground/package.json ${PLAN_DIR}/js-lotus-api-testground/
+RUN cd ${PLAN_DIR}js-lotus-api-testground && yarn
 
 # Now copy the rest of the source and run the build.
 
