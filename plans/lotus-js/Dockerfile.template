@@ -94,6 +94,7 @@ RUN cd ${PLAN_DIR}/lotus-api-playground \
 # Now copy the rest of the source and run the build.
 
 COPY . /
+RUN rm -f /plan/checkout.sh
 
 # Testground
 
