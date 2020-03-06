@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -31,8 +30,11 @@ import (
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"github.com/kubernetes/client-go/tools/remotecommand"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var (
@@ -284,12 +286,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
-	log.Infow("compressing outputs for testplan run", "run-id", input.RunID)
-	err = c.compressOutputs(ctx, input.RunID)
-	if err != nil {
-		return nil, err
-	}
-
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
@@ -325,6 +321,10 @@ func (c *ClusterK8sRunner) initRunner(cfg ClusterK8sRunnerConfig) {
 
 func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
 	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+	err := c.ensureCollectOutputsPod(ctx)
+	if err != nil {
+		return err
+	}
 
 	//TODO: we shouldn't have to init the runner in every handler
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
@@ -333,77 +333,61 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	log.Info("collecting outputs")
-	err := c.ensureCollectOutputsPod(ctx)
+	// This is the same line found in client_pool.go...
+	// I need the restCfg, for remotecommand.
+	// TODO: Reorganize not to repeat ourselves.
+	k8sCfg, err := clientcmd.BuildConfigFromFlags("", c.config.KubeConfigPath)
 	if err != nil {
 		return err
 	}
 
-	file := fmt.Sprintf("/outputs/%s.tgz", input.RunID)
-	args := fmt.Sprintf("kubectl exec %s cat %s -- ", collectOutputsPodName, file)
-	cmd := exec.Command("sh", "-c", args)
+	// This request is sent to the collect-outputs pod
+	// tar, compress, and write to stdout.
+	// stdout will remain connected so we can read it later.
 
-	var stdout io.ReadCloser
-	stdout, err = cmd.StdoutPipe()
+	outputPath := "/outputs/" + input.RunID
+	log.Info("collecting outputs from ", outputPath)
+
+	req := client.
+		CoreV1().
+		RESTClient().
+		Post().
+		Resource("pods").
+		Name("collect-outputs").
+		Namespace("default").
+		SubResource("exec").
+		Param("container", "collect-outputs").
+		VersionedParams(&v1.PodExecOptions{
+			Container: "collect-outputs",
+			Command: []string{
+				"tar",
+				"-czf",
+				"-",
+				outputPath,
+			},
+			Stdin:  false,
+			Stderr: false,
+			Stdout: true,
+		}, scheme.ParameterCodec)
+
+	log.Info("Sending command to remote server: ", req.URL())
+	exec, err := remotecommand.NewSPDYExecutor(k8sCfg, "POST", req.URL())
 	if err != nil {
+		log.Warnf("failed to send remote collection command: %v", err)
 		return err
 	}
 
-	if err := cmd.Start(); err != nil {
+	// Connect stdout of the above command to the output file
+	// Connect stderr to a buffer which we can read from to display any errors to the user.
+	outbuf := bufio.NewWriter(w)
+	defer outbuf.Flush()
+	err = exec.Stream(remotecommand.StreamOptions{
+		Stdout: outbuf,
+	})
+	if err != nil {
+		log.Warnf("failed to collect results from remote collection command: %v", err)
 		return err
 	}
-
-	done := make(chan struct{})
-	defer func() {
-		<-done
-	}()
-
-	go func() {
-		_, err := io.Copy(w, stdout)
-		if err != nil {
-			log.Errorw("error while copying cmd stdout", "err", err.Error())
-		}
-		done <- struct{}{}
-	}()
-
-	if err := cmd.Wait(); err != nil {
-		// we assume that the run did not succeed so we archive whatever is present on the drive and return that.
-		log.Warn("it appears that this run did not complete, archive with outputs is missing")
-
-		err := c.compressOutputs(ctx, input.RunID)
-		if err != nil {
-			return err
-		}
-
-		// try again to get the archive
-		cmd := exec.Command("sh", "-c", args)
-		stdout, err = cmd.StdoutPipe()
-		if err != nil {
-			return err
-		}
-
-		if err := cmd.Start(); err != nil {
-			return err
-		}
-
-		done := make(chan struct{})
-		defer func() {
-			<-done
-		}()
-
-		go func() {
-			_, err := io.Copy(w, stdout)
-			if err != nil {
-				log.Errorw("error while copying cmd stdout", "err", err.Error())
-			}
-			done <- struct{}{}
-		}()
-
-		if err := cmd.Wait(); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -850,19 +834,4 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 
 	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
-}
-
-func (c *ClusterK8sRunner) compressOutputs(ctx context.Context, runID string) error {
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
-	err := c.ensureCollectOutputsPod(ctx)
-	if err != nil {
-		return err
-	}
-
-	archive := fmt.Sprintf("%s.tgz", runID)
-	tarcmd := fmt.Sprintf("cd /outputs && tar -czf %s %s", archive, runID)
-	args := fmt.Sprintf("kubectl exec %s -- sh -c '%s'", collectOutputsPodName, tarcmd)
-	return exec.Command("sh", "-c", args).Run()
 }
