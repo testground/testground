@@ -391,7 +391,11 @@ func run(runenv *runtime.RunEnv) error {
 		cmdNpmTest.Stderr = outfile
 		err = cmdNpmTest.Run()
 		if err != nil {
-			return err
+			if runenv.BooleanParam("keep-alive") {
+				runenv.RecordMessage("npm test failed")
+			} else {
+				return err
+			}
 		}
 
 		// Signal we're done and everybody should shut down
