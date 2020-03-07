@@ -1,8 +1,9 @@
-module github.com/ipfs/testground/plans/lotus-debug
+module github.com/ipfs/testground/plans/lotus-js
 
 go 1.13
 
 require (
+	github.com/filecoin-project/go-address v0.0.2-0.20200218010043-eb9bb40ed5be
 	github.com/filecoin-project/lotus v0.2.8
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0

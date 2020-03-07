@@ -11,6 +11,7 @@ go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/lotus-base"
 exec_pkg = "."
 copy_lotus = true
+lotus_path = "../lotus"
 
 [run_strategies."local:docker"]
 enabled = true

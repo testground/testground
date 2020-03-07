@@ -49,6 +49,7 @@ type DockerLotusBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
 	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
 	CopyLotus  bool   `toml:"copy_lotus" overridable:"no"`
+	LotusPath  string `toml:"lotus_path" overridable:"yes"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
@@ -124,7 +125,7 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 
 	var (
 		plansrc       = in.TestPlan.SourcePath
-		lotussrc      = filepath.Join(in.Directories.SourceDir(), "../lotus")
+		lotussrc      = filepath.Join(in.Directories.SourceDir(), cfg.LotusPath)
 		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
 		dockerfilesrc = filepath.Join(plansrc, "Dockerfile.template")
 
@@ -143,6 +144,7 @@ func (b *DockerLotusBuilder) Build(ctx context.Context, in *api.BuildInput, outp
 	}
 
 	if cfg.CopyLotus {
+	  log.Infow("copying lotus src", "lotus_path", cfg.LotusPath)
 		// Copy the lotus source; go-getter will create the dir.
 		if err := getter.Get(lotusdst, lotussrc, getter.WithContext(ctx)); err != nil {
 			return nil, err

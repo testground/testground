@@ -25,6 +25,7 @@ import (
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
 	"github.com/filecoin-project/lotus/chain/types"
+	"github.com/filecoin-project/lotus/chain/wallet"
 	"github.com/filecoin-project/lotus/lib/jsonrpc"
 )
 
@@ -157,10 +158,10 @@ func run(runenv *runtime.RunEnv) error {
 		cmdPreseal := exec.Command(
 			"/lotus/lotus-seed",
 			"pre-seal",
-			"--sector-size=1024",
+			"--sector-size=2048",
 			"--num-sectors=2",
 		)
-		cmdPreseal.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdPreseal.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err := os.Create("/outputs/pre-seal.out")
 		if err != nil {
 			return err
@@ -173,15 +174,56 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-		runenv.RecordMessage("Create the genesis block and start up the first node")
+		runenv.RecordMessage("Create localnet.json")
+		cmdCreateLocalNetJSON := exec.Command(
+			"/lotus/lotus-seed",
+			"genesis",
+			"new",
+			"/root/localnet.json",
+		)
+		// cmdCreateLocalNetJSON.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		outfile, err = os.Create("/outputs/create-localnet-json.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdCreateLocalNetJSON.Stdout = outfile
+		cmdCreateLocalNetJSON.Stderr = outfile
+		err = cmdCreateLocalNetJSON.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Add genesis miner")
+		cmdAddGenesisMiner := exec.Command(
+			"/lotus/lotus-seed",
+			"genesis",
+			"add-miner",
+			"/root/localnet.json",
+			"/root/.genesis-sectors/pre-seal-t01000.json",
+		)
+		// cmdAddGenesisMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		outfile, err = os.Create("/outputs/add-genesis-miner.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdAddGenesisMiner.Stdout = outfile
+		cmdAddGenesisMiner.Stderr = outfile
+		err = cmdAddGenesisMiner.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Start up the first node")
 		cmdNode := exec.Command(
 			"/lotus/lotus",
 			"daemon",
-			"--lotus-make-random-genesis=/root/dev.gen",
-			"--genesis-presealed-sectors=~/.genesis-sectors/pre-seal-t0101.json",
+			"--lotus-make-genesis=/root/dev.gen",
+			"--genesis-template=/root/localnet.json",
 			"--bootstrap=false",
 		)
-		cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/node.out")
 		if err != nil {
 			return err
@@ -196,18 +238,38 @@ func run(runenv *runtime.RunEnv) error {
 
 		time.Sleep(5 * time.Second)
 
+		runenv.RecordMessage("Import the genesis miner key")
+		cmdImportGenesisMinerKey := exec.Command(
+			"/lotus/lotus",
+			"wallet",
+			"import",
+			"/root/.genesis-sectors/pre-seal-t01000.key",
+		)
+		// cmdImportGenesisMinerKey.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		outfile, err = os.Create("/outputs/import-genesis-miner-key.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdImportGenesisMinerKey.Stdout = outfile
+		cmdImportGenesisMinerKey.Stderr = outfile
+		err = cmdImportGenesisMinerKey.Run()
+		if err != nil {
+			return err
+		}
+
 		runenv.RecordMessage("Set up the genesis miner")
 		cmdSetupMiner := exec.Command(
 			"/lotus/lotus-storage-miner",
 			"init",
 			"--genesis-miner",
-			"--actor=t0101",
-			"--sector-size=1024",
+			"--actor=t01000",
+			"--sector-size=2048",
 			"--pre-sealed-sectors=~/.genesis-sectors",
-			"--pre-sealed-metadata=~/.genesis-sectors/pre-seal-t0101.json",
+			"--pre-sealed-metadata=~/.genesis-sectors/pre-seal-t01000.json",
 			"--nosync",
 		)
-		cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner-setup.out")
 		if err != nil {
 			return err
@@ -226,7 +288,7 @@ func run(runenv *runtime.RunEnv) error {
 			"run",
 			"--nosync",
 		)
-		cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner.out")
 		if err != nil {
 			return err
@@ -298,7 +360,15 @@ func run(runenv *runtime.RunEnv) error {
 		}
 		runenv.Message("State: genesisReady")
 
-		localWalletAddr, err := api.WalletDefaultAddress(ctx)
+		var localWalletAddr *address.Address
+		addrs, err := api.WalletList(ctx)
+		for _, addr := range addrs {
+			localWalletAddr = &addr
+		}
+		if localWalletAddr == nil {
+			return fmt.Errorf("Couldn't find wallet")
+		}
+
 		if err != nil {
 			cancel()
 			return err
@@ -323,14 +393,14 @@ func run(runenv *runtime.RunEnv) error {
 					return err
 				}
 
-				val, err := types.ParseFIL("1000")
+				val, err := types.ParseFIL("0.00001")
 				if err != nil {
 					cancel()
 					return err
 				}
 
 				msg := &types.Message{
-					From:     localWalletAddr,
+					From:     *localWalletAddr,
 					To:       toAddr,
 					Value:    types.BigInt(val),
 					GasLimit: types.NewInt(1000),
@@ -408,7 +478,7 @@ func run(runenv *runtime.RunEnv) error {
 		runenv.RecordSuccess()
 
 		if runenv.BooleanParam("keep-alive") {
-			stallAndWatchTipsetHead(ctx, runenv, api, localWalletAddr)
+			stallAndWatchTipsetHead(ctx, runenv, api, *localWalletAddr)
 		}
 
 	case seq >= 2: // additional nodes
@@ -475,7 +545,7 @@ func run(runenv *runtime.RunEnv) error {
 			"--genesis=/root/dev.gen",
 			"--bootstrap=false",
 		)
-		cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/node.out")
 		if err != nil {
 			return err
@@ -513,7 +583,7 @@ func run(runenv *runtime.RunEnv) error {
 		time.Sleep(15 * time.Second)
 
 		runenv.RecordMessage("Creating bls wallet")
-		address, err := api.WalletNew(ctx, "bls")
+		address, err := api.WalletNew(ctx, wallet.ActSigType("bls"))
 		if err != nil {
 			return err
 		}
@@ -553,7 +623,7 @@ func run(runenv *runtime.RunEnv) error {
 			"init",
 			"--owner="+walletAddress,
 		)
-		cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdSetupMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner-setup.out")
 		if err != nil {
 			return err
@@ -571,7 +641,7 @@ func run(runenv *runtime.RunEnv) error {
 			"/lotus/lotus-storage-miner",
 			"run",
 		)
-		cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		// cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 		outfile, err = os.Create("/outputs/miner.out")
 		if err != nil {
 			return err

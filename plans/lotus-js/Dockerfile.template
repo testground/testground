@@ -10,8 +10,13 @@ FROM node:13.8.0-buster
 
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.
-FROM 7c7fd8399ad8
-# lotus-base
+
+# lotus-base master
+#FROM 7c7fd8399ad8
+
+# lotus-base testnet/3
+FROM 96b2452ddb15
+
 
 # Copy Node.js
 WORKDIR /usr/local/bin
