@@ -103,6 +103,7 @@ RUN cd /plan/js-lotus-api-testground && yarn
 
 COPY . /
 RUN rm -f /plan/checkout.sh
+RUN mv /plan/test-data /root
 
 RUN cd /plan/js-lotus-api-rpc && \
   rm -rf node_modules && \
