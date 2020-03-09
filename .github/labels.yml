@@ -35,16 +35,16 @@
 - name: area/builders
   color: 0bb1ed
   description: "Area: Builders"
-- name: area/infrastructure
-  color: 0bb1ed
-  description: "Area: Infrastructure"
 - name: area/infra
   color: 0bb1ed
-  description: "Area: Specs"
+  description: "Area: Infrastructure"
 - name: area/specs
   color: 0bb1ed
-  description: "Area: Documentation"
+  description: "Area: Specs"
 - name: area/docs
+  color: 0bb1ed
+  description: "Area: Documentation"
+- name: area/testing
   color: 0bb1ed
   description: "Area: Testing"
 
