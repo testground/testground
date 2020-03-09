@@ -244,3 +244,6 @@
 - name: status/rotten
   color: edb3a6
   description: "Status: Rotten"  
+- name: status/discarded
+  color: a0aec0
+  description: "Status: Discarded / Won't fix"  
