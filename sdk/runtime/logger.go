@@ -9,14 +9,14 @@ import (
 )
 
 type logger struct {
-	runenv *RunEnv
+	runenv *RunParams
 
 	// TODO: we'll want different kinds of loggers.
 	logger  *zap.Logger
 	slogger *zap.SugaredLogger
 }
 
-func newLogger(runenv *RunEnv) *logger {
+func newLogger(runenv *RunParams) *logger {
 	l := &logger{runenv: runenv}
 	l.init()
 	return l
@@ -25,8 +25,15 @@ func newLogger(runenv *RunEnv) *logger {
 func (l *logger) init() {
 	level := zap.NewAtomicLevel()
 
-	if l := os.Getenv("LOG_LEVEL"); l != "" {
-		level.UnmarshalText([]byte(l))
+	if lvl := os.Getenv("LOG_LEVEL"); lvl != "" {
+		if err := level.UnmarshalText([]byte(lvl)); err != nil {
+			defer func() {
+				// once the logger is defined...
+				if l.slogger != nil {
+					l.slogger.Errorf("failed to decode log level '%q': %s", l, err)
+				}
+			}()
+		}
 	} else {
 		level.SetLevel(zapcore.InfoLevel)
 	}

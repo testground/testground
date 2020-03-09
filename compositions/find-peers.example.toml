@@ -23,6 +23,7 @@ id = "bootstrappers"
 instances = { count = 1 }
 
   [groups.build]
+  selectors = ["foo"]
   dependencies = [
       { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
       { module = "github.com/libp2p/go-libp2p", version = "76944c4fc848530530f6be36fb22b70431ca506c"},
@@ -37,3 +38,6 @@ instances = { count = 49 }
 
   [groups.run]
   test_params = { random_walk = "true", n_bootstrap = "1" }
+
+  [groups.build]
+  selectors = ["bar", "bee"]

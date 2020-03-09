@@ -89,4 +89,14 @@ type CollectionInput struct {
 	EnvConfig config.EnvConfig
 	RunID     string
 	RunnerID  string
+
+	// RunnerConfig is the configuration of the runner sourced from the test
+	// plan manifest, coalesced with any user-provided overrides.
+	RunnerConfig interface{}
+}
+
+// Terminatable is the interface to be implemented by a runner that can be
+// terminated.
+type Terminatable interface {
+	TerminateAll(context.Context) error
 }

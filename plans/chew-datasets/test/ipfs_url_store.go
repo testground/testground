@@ -30,13 +30,13 @@ func (t *IpfsUrlStore) AddRepoOptions() iptb.AddRepoOptions {
 
 func (t *IpfsUrlStore) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
-		runenv.Message("Running against the Core API")
-		runenv.Message("Not Implemented Yet")
+		runenv.RecordMessage("Running against the Core API")
+		runenv.RecordMessage("Not Implemented Yet")
 	}
 
 	if cfg.IpfsDaemon != nil {
-		runenv.Message("Running against the Daemon (IPTB)")
-		runenv.Message("Not Implemented Yet")
+		runenv.RecordMessage("Running against the Daemon (IPTB)")
+		runenv.RecordMessage("Not Implemented Yet")
 	}
 
 	return fmt.Errorf("not implemented")

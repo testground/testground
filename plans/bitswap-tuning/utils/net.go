@@ -37,7 +37,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 	}
 
 	bandwidth := runenv.IntParam("bandwidth_mb")
-	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -46,8 +46,11 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		},
 		State: "network-configured",
 	})
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
+	}
 
-	runenv.Message("%s %d has %s latency and %dMB bandwidth", nodetp, tpindex, latency, bandwidth)
+	runenv.RecordMessage("%s %d has %s latency and %dMB bandwidth", nodetp, tpindex, latency, bandwidth)
 
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
 	if err != nil {

@@ -35,7 +35,9 @@ import (
 )
 
 var (
-	_ api.Runner = &LocalDockerRunner{}
+	_ api.Runner        = (*LocalDockerRunner)(nil)
+	_ api.Healthchecker = (*LocalDockerRunner)(nil)
+	_ api.Terminatable  = (*LocalDockerRunner)(nil)
 )
 
 // LocalDockerRunnerConfig is the configuration object of this runner. Boolean
@@ -72,12 +74,203 @@ var defaultConfig = LocalDockerRunnerConfig{
 // use the latter because it's a python program and it doesn't expose a network
 // API.
 type LocalDockerRunner struct {
-	setupLk sync.Mutex
+	lk sync.RWMutex
+
+	controlNetworkID string
+	outputsDir       string
 }
 
-// TODO runner option to keep containers alive instead of deleting them after
-// the test has run.
+func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+	r.lk.Lock()
+	defer r.lk.Unlock()
+
+	// Reset state.
+	r.controlNetworkID = ""
+	r.outputsDir = ""
+
+	// This context must be long, because some fixes will end up downloading
+	// Docker images.
+	ctx, cancel := context.WithTimeout(engine.Context(), 5*time.Minute)
+	defer cancel()
+
+	log := logging.S().With("runner", "local:docker")
+
+	// Create a docker client.
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		ctrlNetCheck          api.HealthcheckItem
+		outputsDirCheck       api.HealthcheckItem
+		redisContainerCheck   api.HealthcheckItem
+		sidecarContainerCheck api.HealthcheckItem
+	)
+
+	networks, err := docker.CheckBridgeNetwork(ctx, log, cli, "testground-control")
+	if err == nil {
+		switch len(networks) {
+		case 0:
+			msg := "control network: not created"
+			ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusFailed, Message: msg}
+		default:
+			msg := "control network: exists"
+			ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusOK, Message: msg}
+			r.controlNetworkID = networks[0].ID
+		}
+	} else {
+		msg := fmt.Sprintf("control network errored: %s", err)
+		ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	ci, err := docker.CheckContainer(ctx, log, cli, "testground-redis")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "redis container: non-existent"
+			redisContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "redis container: running"
+			redisContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("redis container: status %s", ci.State.Status)
+			redisContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("redis container errored: %s", err)
+		redisContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	ci, err = docker.CheckContainer(ctx, log, cli, "testground-sidecar")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "sidecar container: non-existent"
+			sidecarContainerCheck = api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "sidecar container: running"
+			sidecarContainerCheck = api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("sidecar container: status %s", ci.State.Status)
+			sidecarContainerCheck = api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("sidecar container errored: %s", err)
+		sidecarContainerCheck = api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	// Ensure the outputs dir exists.
+	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
+	if _, err := os.Stat(r.outputsDir); err == nil {
+		msg := "outputs directory exists"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+	} else if os.IsNotExist(err) {
+		msg := "outputs directory does not exist"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+	} else {
+		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	report := &api.HealthcheckReport{
+		Checks: []api.HealthcheckItem{
+			ctrlNetCheck,
+			outputsDirCheck,
+			redisContainerCheck,
+			sidecarContainerCheck,
+		},
+	}
+
+	if !fix {
+		return report, nil
+	}
+
+	// FIX LOGIC ====================
+
+	var fixes []api.HealthcheckItem
+
+	if ctrlNetCheck.Status != api.HealthcheckStatusOK {
+		id, err := ensureControlNetwork(ctx, cli, log)
+		if err == nil {
+			r.controlNetworkID = id
+			msg := "control network created successfully"
+			it := api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusOK, Message: msg}
+			fixes = append(fixes, it)
+		} else {
+			msg := fmt.Sprintf("failed to create control network: %s", err)
+			it := api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusFailed, Message: msg}
+			fixes = append(fixes, it)
+		}
+	}
+
+	if outputsDirCheck.Status != api.HealthcheckStatusOK {
+		if err := os.MkdirAll(r.outputsDir, 0777); err == nil {
+			msg := "outputs dir created successfully"
+			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+			fixes = append(fixes, it)
+		} else {
+			msg := fmt.Sprintf("failed to create outputs dir: %s", err)
+			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+			fixes = append(fixes, it)
+		}
+	}
+
+	if redisContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of redis container; no control network"
+			it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			_, err := ensureRedisContainer(ctx, cli, log, r.controlNetworkID)
+			if err == nil {
+				msg := "redis container created successfully"
+				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
+				fixes = append(fixes, it)
+			} else {
+				msg := fmt.Sprintf("failed to create redis container: %s", err)
+				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
+		}
+	}
+
+	if sidecarContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of sidecar container; no control network"
+			it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			_, err := ensureSidecarContainer(ctx, cli, r.outputsDir, log, r.controlNetworkID)
+			if err == nil {
+				msg := "control network created successfully"
+				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOK, Message: msg}
+				fixes = append(fixes, it)
+			} else {
+				msg := fmt.Sprintf("failed to create control network: %s", err)
+
+				if err == errors.New("image not found") {
+					msg += "; docker image ipfs/testground not found, run `make docker-ipfs-testground`"
+				}
+
+				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
+		}
+	}
+
+	report.Fixes = fixes
+	return report, nil
+}
+
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+	// Grab a read lock. This will allow many runs to run simultaneously, but
+	// they will be exclusive of state-altering healthchecks.
+	r.lk.RLock()
+	defer r.lk.RUnlock()
+
 	var (
 		seq = input.Seq
 		log = logging.S().With("runner", "local:docker", "run_id", input.RunID)
@@ -98,45 +291,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	r.setupLk.Lock()
-
-	// Ensure we have a control network.
-	ctrlnid, err := ensureControlNetwork(ctx, cli, log)
-	if err != nil {
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	// Ensure that we have a testground-redis container; if not, create it.
-	_, err = ensureRedisContainer(ctx, cli, log, ctrlnid)
-	if err != nil {
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	// Ensure the outputs dir exists.
-	outputsDir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
-	if err := os.MkdirAll(outputsDir, 0777); err != nil {
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	// Ensure that we have a testground-sidecar container; if not, we'll
-	// create it.
-	switch _, err = ensureSidecarContainer(ctx, cli, outputsDir, log, ctrlnid); err {
-	case nil:
-	case errors.New("image not found"):
-		r.setupLk.Unlock()
-		return nil, errors.New("Docker image ipfs/testground not found, run `make docker-ipfs-testground`")
-	default:
-		r.setupLk.Unlock()
-		return nil, err
-	}
-
-	r.setupLk.Unlock()
-
 	// Build a template runenv.
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          testcase.Name,
 		TestRun:           input.RunID,
@@ -144,6 +300,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
+		TestStartTime:     time.Now(),
 	}
 
 	// Create a data network.
@@ -176,7 +333,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		}
 
 		// Create the run output directory and write the runenv.
-		runDir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID)
+		runDir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID)
 		if err := os.MkdirAll(runDir, 0777); err != nil {
 			return nil, err
 		}
@@ -184,7 +341,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
 			// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
-			odir := filepath.Join(outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			odir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
 			err = os.MkdirAll(odir, 0777)
 			if err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
@@ -198,15 +355,16 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				Image: g.ArtifactPath,
 				Env:   env,
 				Labels: map[string]string{
+					"testground.purpose":  "plan",
 					"testground.plan":     input.TestPlan.Name,
 					"testground.testcase": testcase.Name,
 					"testground.run_id":   input.RunID,
 					"testground.group_id": g.ID,
 				},
 			}
-			fmt.Println(odir)
+
 			hcfg := &container.HostConfig{
-				NetworkMode: container.NetworkMode(ctrlnid),
+				NetworkMode: container.NetworkMode(r.controlNetworkID),
 				Mounts: []mount.Mount{{
 					Type:   mount.TypeBind,
 					Source: odir,
@@ -345,7 +503,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 	)
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunEnv, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -473,4 +631,59 @@ func (*LocalDockerRunner) ConfigType() reflect.Type {
 
 func (*LocalDockerRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
+}
+
+// This method deletes the testground containers.
+// It does *not* delete any downloaded images or networks.
+// I'll leave a friendly message for how to do a more complete cleanup.
+func (*LocalDockerRunner) TerminateAll(ctx context.Context) error {
+	log := logging.S()
+	log.Info("terminate local:docker requested")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	// Build two separate queries: one for infrastructure containers, another
+	// for test plan containers. The former, we match by container name. The
+	// latter, we match by the `testground.purpose` label, which we apply to all
+	// plan containers managed by testground label.
+
+	// Build query for runner infrastructure containers.
+	infraOpts := types.ContainerListOptions{}
+	infraOpts.Filters = filters.NewArgs()
+	infraOpts.Filters.Add("name", "testground-sidecar")
+	infraOpts.Filters.Add("name", "testground-redis")
+	infraOpts.Filters.Add("name", "testground-goproxy")
+
+	// Build query for testground plans that are still running.
+	planOpts := types.ContainerListOptions{}
+	planOpts.Filters = filters.NewArgs()
+	planOpts.Filters.Add("label", "testground.purpose=plan")
+
+	infracontainers, err := cli.ContainerList(ctx, infraOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list infrastructure containers: %w", err)
+	}
+	plancontainers, err := cli.ContainerList(ctx, planOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list test plan containers: %w", err)
+	}
+
+	containers := make([]string, 0, len(infracontainers)+len(plancontainers))
+	for _, container := range infracontainers {
+		containers = append(containers, container.ID)
+	}
+	for _, container := range plancontainers {
+		containers = append(containers, container.ID)
+	}
+
+	err = deleteContainers(cli, log, containers)
+	if err != nil {
+		return fmt.Errorf("failed to list testground containers: %w", err)
+	}
+
+	log.Info("to delete networks and images, you may want to run `docker system prune`")
+	return nil
 }

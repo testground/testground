@@ -26,7 +26,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
@@ -72,7 +72,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		t := time.Now()
 
 		ectx, cancel := context.WithCancel(ctx)
-		ectx = TraceQuery(ctx, runenv, p.ID.Pretty())
+		ectx = TraceQuery(ectx, runenv, p.ID.Pretty())
 
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
@@ -83,11 +83,11 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			return fmt.Errorf("find peer failed: %s", err)
 		}
 
-		runenv.EmitMetric(&runtime.MetricDefinition{
+		runenv.RecordMetric(&runtime.MetricDefinition{
 			Name:           fmt.Sprintf("time-to-find-%d", found),
 			Unit:           "ns",
 			ImprovementDir: -1,
-		}, float64(time.Now().Sub(t).Nanoseconds()))
+		}, float64(time.Since(t).Nanoseconds()))
 
 		found++
 	}

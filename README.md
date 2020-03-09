@@ -2,7 +2,6 @@
 
 ![](https://img.shields.io/badge/go-%3E%3D1.13.0-blue.svg)
 [![](https://travis-ci.com/ipfs/testground.svg?branch=master)](https://travis-ci.com/ipfs/testground)
-[![codecov](https://codecov.io/gh/ipfs/testground/branch/master/graph/badge.svg)](https://codecov.io/gh/ipfs/testground)
 
 
 ## What is Testground
@@ -23,7 +22,7 @@ Testground's goal is to provide a set of tools for testing next generation P2P a
 
 You may have noticed a few test efforts with similar names underway! Testing at scale is a hard problem. We are indeed exploring and experimenting a lot, until we land on an end-to-end solution that works for us.
 
--  Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
+- Interplanetary Testbed (IPTB): https://github.com/ipfs/iptb
   - a simple utility to manage local clusters/aggregates of IPFS instances.
 - libp2p testlab: https://github.com/libp2p/testlab
   - a Nomad deployer for libp2p nodes with a DSL for test scenarios.
@@ -70,21 +69,17 @@ Testground aims to be tightly integrated with the software engineering practices
 
 The current Testground Team is composed of:
 
-- @raulk - Lead Architect, Engineer, Developer
-- @daviddias - Engineer, Developer, acting as interim PM for the project
-- @nonsense - Engineer, Developer, Testground as a Service / Infrastructure Lead
-- @jimpick - Engineer, Developer
-- @stebalien - Engineer, Developer
-- @hacdias - Engineer, Developer
+- @raulk - Tech Lead, Lead Software Engineer
+- @nonsense - Software Engineer, Testground as a Service / Infrastructure Lead
+- @Robmat05 - [Technical Project Manager (TPM)](https://github.com/ipfs/team-mgmt/blob/master/TEAMS_ROLES_STRUCTURES.md#working-group-technical-project-manager-tpm)
+- @coryschwartz - Software Engineer
 - you! Yes, you can contribute as well, however, do understand that this is a brand new and fast moving project and so contributing might require extra time to onboard
 
 To learn how this team works together read [HOW_WE_WORK](./docs/HOW_WE_WORK.md)
 
-
 ## Contributing
 
 Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a contribution.
-
 
 ## License
 

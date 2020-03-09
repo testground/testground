@@ -13,6 +13,8 @@ import (
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
 
+	"errors"
+
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
 )
@@ -77,6 +79,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
+	if _, err := e.discoverTestPlans(); err != nil {
+		return nil, err
+	}
+
 	return e, nil
 }
 
@@ -96,8 +102,6 @@ func NewDefaultEngine() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	_, _ = e.discoverTestPlans()
 
 	return e, nil
 }
@@ -174,6 +178,15 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
+	// Call the healthcheck routine if the runner supports it, with fix=true.
+	if hc, ok := bm.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		}
+	}
+
 	// This var compiles all configurations to coalesce.
 	//
 	// Precedence (highest to lowest):
@@ -231,6 +244,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
 				TestPlan:     plan,
+				Selectors:    grp.Build.Selectors,
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 
@@ -297,6 +311,23 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
 
+	// Call the healthcheck routine if the runner supports it, with fix=true.
+	if hc, ok := run.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		}
+	}
+
+	// TODO:
+	// Check runner health.
+	// if health, ok := run.(api.Healthchecker); ok {
+	// if err := health.Healthcheck(true); err != nil {
+	// 	return nil, fmt.Errorf("error while checking runner health: %v", err)
+	// }
+	// }
+
 	// Check if builder and runner are compatible
 	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
@@ -326,21 +357,21 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	//
 	var cfg config.CoalescedConfig
 
-	// Add the base configuration of the build strategy (point 3 above).
+	// Add the base configuration of the run strategy (point 3 above).
 	if c, ok := plan.RunStrategies[runner]; !ok {
 		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
 	} else {
 		cfg = cfg.Append(c)
 	}
 
-	// 2. Get the env config for the builder.
+	// 2. Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
 
 	// 1. Get overrides from the CLI.
 	cfg = cfg.Append(comp.Global.RunConfig)
 
 	// Coalesce all configurations and deserialise into the config type
-	// mandated by the builder.
+	// mandated by the runner.
 	obj, err := cfg.CoalesceIntoType(run.ConfigType())
 	if err != nil {
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
@@ -391,8 +422,10 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	out, err := run.Run(ctx, &in, output)
 	if err == nil {
 		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+	} else if errors.Is(err, context.Canceled) {
+		logging.S().Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		logging.S().Infow("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		logging.S().Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
@@ -404,13 +437,70 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 		return fmt.Errorf("unknown runner: %s", runner)
 	}
 
+	var cfg config.CoalescedConfig
+
+	// Get the env config for the runner.
+	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+
+	// Coalesce all configurations and deserialise into the config type
+	// mandated by the builder.
+	obj, err := cfg.CoalesceIntoType(run.ConfigType())
+	if err != nil {
+		return fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
 	input := &api.CollectionInput{
-		RunnerID:  runner,
-		RunID:     runID,
-		EnvConfig: *e.envcfg,
+		RunnerID:     runner,
+		RunID:        runID,
+		EnvConfig:    *e.envcfg,
+		RunnerConfig: obj,
 	}
 
 	return run.CollectOutputs(ctx, input, w)
+}
+
+func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) error {
+	run, ok := e.runners[runner]
+	if !ok {
+		return fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	terminatable, ok := run.(api.Terminatable)
+	if !ok {
+		return fmt.Errorf("runner %s is not terminatable", runner)
+	}
+
+	_, err := w.Write([]byte("terminating all jobs on runner " + runner + "\n"))
+	if err != nil {
+		return err
+	}
+
+	err = terminatable.TerminateAll(ctx)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
+	return err
+}
+
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*api.HealthcheckReport, error) {
+	run, ok := e.runners[runner]
+	if !ok {
+		return nil, fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	hc, ok := run.(api.Healthchecker)
+	if !ok {
+		return nil, fmt.Errorf("runner %s does not support healthchecks", runner)
+	}
+
+	_, err := w.Write([]byte("checking runner " + runner + "\n"))
+	if err != nil {
+		return nil, err
+	}
+
+	return hc.Healthcheck(fix, e, w)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

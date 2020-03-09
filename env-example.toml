@@ -30,6 +30,12 @@ docker_tls_ca_cert_path = "/"
 docker_tls_cert_path = "/"
 docker_tls_key_path = "/"
 
+[run_strategies."cluster:k8s"]
+outputs_bucket        = "assets-s3-bucket"
+outputs_bucket_region = "eu-central-1"
+pod_resource_cpu      = "100m"
+pod_resource_memory   = "100Mi"
+
 [daemon]
 listen = ":8080"
 

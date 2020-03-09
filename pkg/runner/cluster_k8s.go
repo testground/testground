@@ -2,16 +2,20 @@ package runner
 
 import (
 	"archive/zip"
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -29,7 +33,6 @@ import (
 	"go.uber.org/zap"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -37,13 +40,29 @@ import (
 )
 
 var (
-	_ api.Runner = &ClusterK8sRunner{}
+	_    api.Runner       = (*ClusterK8sRunner)(nil)
+	_    api.Terminatable = (*ClusterK8sRunner)(nil)
+	once                  = sync.Once{}
 )
 
 const (
 	defaultK8sNetworkAnnotation = "flannel"
-	outputsBucket               = "assets-s3-bucket"
-	outputsBucketRegion         = "eu-central-1"
+
+	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
+	redisCPUs = 2.0
+	// number of CPUs allocated to each Sidecar. should be same as what is set in sidecar.yaml
+	sidecarCPUs = 0.2
+
+	// utilisation is how many CPUs from the remainder shall we allocate to Testground
+	// note that there are other services running on the Kubernetes cluster such as
+	// api proxy, kubedns, s3bucket, etc.
+	utilisation = 0.8
+
+	// magic values that we monitor on the Testground runner side to detect when Testground
+	// testplan instances are initialised and at the stage of actually running a test
+	// check sdk/sync for more information
+	NetworkInitialisationSuccessful = "network initialisation successful"
+	NetworkInitialisationFailed     = "network initialisation failed"
 )
 
 var (
@@ -77,16 +96,30 @@ type ClusterK8sRunnerConfig struct {
 	// LogLevel sets the log level in the test containers (default: not set).
 	LogLevel string `toml:"log_level"`
 
-	// Background avoids tailing the output of containers, and displaying it as
-	// log messages (default: true).
-	Background bool `toml:"background"`
-
 	KeepService bool `toml:"keep_service"`
+
+	// Name of the S3 bucket used for `outputs` from test plans
+	OutputsBucket string `toml:"outputs_bucket"`
+
+	// Region of the S3 bucket used for `outputs` from test plans
+	OutputsBucketRegion string `toml:"outputs_bucket_region"`
+
+	// Resources requested for each pod from the Kubernetes cluster
+	PodResourceMemory string `toml:"pod_resource_memory"`
+	PodResourceCPU    string `toml:"pod_resource_cpu"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
-type ClusterK8sRunner struct{}
+type ClusterK8sRunner struct {
+	config KubernetesConfig
+	pool   *pool
+
+	podResourceCPU    resource.Quantity
+	podResourceMemory resource.Quantity
+
+	maxAllowedPods int
+}
 
 type KubernetesConfig struct {
 	// KubeConfigPath is the path to your kubernetes configuration path
@@ -105,18 +138,33 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
 	var (
 		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 	)
+
+	// init Kubernetes runner
+	once.Do(func() {
+		c.config = defaultKubernetesConfig()
+
+		var err error
+		workers := 20
+		c.pool, err = newPool(workers, c.config)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
+		c.podResourceMemory = resource.MustParse(cfg.PodResourceMemory)
+	})
 
 	// Sanity check.
 	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
 		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
 	}
 
-	template := runtime.RunEnv{
+	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
 		TestRun:           input.RunID,
@@ -124,6 +172,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
+		TestStartTime:     time.Now(),
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
@@ -138,12 +187,13 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	k8sConfig := defaultKubernetesConfig()
-
-	workers := 20
-	pool, err := newPool(workers, k8sConfig)
+	c.maxAllowedPods, err = c.maxPods() // TODO: maybe move to the `init` / runner constructor at some point
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
+	}
+
+	if c.maxAllowedPods < input.TotalInstances {
+		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", c.maxAllowedPods)
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -152,8 +202,12 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 
 	var eg errgroup.Group
 
+	// atomic counter which records how many networks have been initialised.
+	// it should equal the number of all testplan instances for the given run eventually.
+	var initialisedNetworks uint64
+
 	eg.Go(func() error {
-		return monitorTestplanRunState(ctx, pool, log, input, k8sConfig.Namespace)
+		return c.monitorTestplanRunState(ctx, log, input, &initialisedNetworks)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -187,12 +241,9 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 				if cfg.KeepService {
 					return
 				}
-				client, err := pool.Acquire(ctx)
-				if err != nil {
-					log.Errorw("couldn't get client from pool", "pod", podName, "err", err)
-				}
-				defer pool.Release(client)
-				err = client.CoreV1().Pods("default").Delete(podName, &metav1.DeleteOptions{})
+				client := c.pool.Acquire()
+				defer c.pool.Release(client)
+				err = client.CoreV1().Pods(c.config.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					log.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -201,7 +252,7 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			eg.Go(func() error {
 				defer func() { <-sem }()
 
-				return createPod(ctx, pool, podName, input, runenv, env, k8sConfig.Namespace, g, i)
+				return c.createPod(ctx, podName, input, runenv, env, g, i)
 			})
 		}
 	}
@@ -214,7 +265,6 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 	var gg errgroup.Group
 
 	for _, g := range input.Groups {
-
 		for i := 0; i < g.Instances; i++ {
 			i := i
 			sem <- struct{}{}
@@ -222,15 +272,12 @@ func (*ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Wri
 			gg.Go(func() error {
 				defer func() { <-sem }()
 
-				client, err := pool.Acquire(ctx)
+				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
+
+				logs, err := c.getPodLogs(log, podName)
 				if err != nil {
 					return err
 				}
-				defer pool.Release(client)
-
-				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
-
-				logs := getPodLogs(client, podName)
 
 				fmt.Print(logs)
 				return nil
@@ -260,11 +307,12 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 
 func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
 	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
 	log.Info("collecting outputs")
 
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(outputsBucketRegion)},
+		Region: aws.String(cfg.OutputsBucketRegion)},
 	)
 	if err != nil {
 		return fmt.Errorf("Couldn't establish an AWS session to list items in bucket: %v", err)
@@ -272,21 +320,17 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 
 	svc := s3.New(sess)
 
-	startAfter := ""
 	downloader := s3manager.NewDownloader(sess)
+	downloader.Concurrency = 1 // force sequential downloads.
 
 	zipWriter := zip.NewWriter(w)
 	defer zipWriter.Close()
 
+	query := s3.ListObjectsV2Input{Bucket: aws.String(cfg.OutputsBucket), Prefix: aws.String(input.RunID)}
 	for {
-		log.Debugw("start after", "cursor", startAfter)
-		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{StartAfter: &startAfter, Bucket: aws.String(outputsBucket), Prefix: aws.String(input.RunID)})
+		resp, err := svc.ListObjectsV2WithContext(ctx, &query)
 		if err != nil {
-			return fmt.Errorf("Unable to list items in bucket %q, %v", outputsBucket, err)
-		}
-
-		if len(resp.Contents) == 0 {
-			break
+			return fmt.Errorf("Unable to list items in bucket %q, %v", cfg.OutputsBucket, err)
 		}
 
 		log.Debugw("got contents", "len", len(resp.Contents))
@@ -296,51 +340,139 @@ func (*ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collecti
 				return fmt.Errorf("Couldn't add file to the zip archive: %v", err)
 			}
 
-			_, err = downloader.Download(FakeWriterAt{ww},
+			_, err = downloader.DownloadWithContext(ctx, FakeWriterAt{ww},
 				&s3.GetObjectInput{
-					Bucket: aws.String(outputsBucket),
+					Bucket: aws.String(cfg.OutputsBucket),
 					Key:    item.Key,
 				})
 			if err != nil {
 				return fmt.Errorf("Couldn't download item from S3: %q, err: %v", item, err)
 			}
 		}
-		startAfter = *(resp.Contents[len(resp.Contents)-1].Key)
+		if !*resp.IsTruncated {
+			break
+		}
+		query.SetContinuationToken(*resp.NextContinuationToken)
 	}
 
 	return nil
 }
 
-func getPodLogs(clientset *kubernetes.Clientset, podName string) string {
+func (c *ClusterK8sRunner) getPodLogs(log *zap.SugaredLogger, podName string) (string, error) {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
 	podLogOpts := v1.PodLogOptions{
 		TailLines: int64Ptr(2),
 	}
-	req := clientset.CoreV1().Pods("default").GetLogs(podName, &podLogOpts)
-	podLogs, err := req.Stream()
+
+	var podLogs io.ReadCloser
+	var err error
+	err = retry(5, 5*time.Second, func() error {
+		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
+		podLogs, err = req.Stream()
+		if err != nil {
+			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
+		}
+		return err
+	})
 	if err != nil {
-		return "error in opening stream"
+		return "", fmt.Errorf("error in opening stream: %v", err)
 	}
 	defer podLogs.Close()
 
 	buf := new(bytes.Buffer)
 	_, err = io.Copy(buf, podLogs)
 	if err != nil {
-		return "error in copy information from podLogs to buf"
+		return "", fmt.Errorf("error in copy information from podLogs to buf: %v", err)
 	}
-	str := buf.String()
 
-	return str
+	return buf.String(), nil
 }
 
-func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLogger, input *api.RunInput, k8sNamespace string) error {
-	client, err := pool.Acquire(ctx)
+func (c *ClusterK8sRunner) waitNetworksInitialised(ctx context.Context, log *zap.SugaredLogger, runID string, initialisedNetworks *uint64) error {
+	client := c.pool.Acquire()
+	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
+	})
+	c.pool.Release(client)
 	if err != nil {
 		return err
 	}
-	defer pool.Release(client)
+
+	var eg errgroup.Group
+
+	for _, pod := range res.Items {
+		podName := pod.Name
+
+		eg.Go(func() error {
+			err := c.waitNetworkInitialised(ctx, log, podName)
+			if err != nil {
+				return err
+			}
+
+			atomic.AddUint64(initialisedNetworks, 1)
+
+			return nil
+		})
+	}
+
+	return eg.Wait()
+}
+
+func (c *ClusterK8sRunner) waitNetworkInitialised(ctx context.Context, log *zap.SugaredLogger, podName string) error {
+	podLogOpts := v1.PodLogOptions{
+		SinceSeconds: int64Ptr(1000),
+		Follow:       true,
+	}
+
+	var podLogs io.ReadCloser
+	var err error
+	err = retry(5, 5*time.Second, func() error {
+		client := c.pool.Acquire()
+		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
+		c.pool.Release(client)
+		podLogs, err = req.Stream()
+		if err != nil {
+			log.Warnw("got error when trying to fetch pod logs", "err", err.Error())
+		}
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("error in opening stream: %v", err)
+	}
+	defer podLogs.Close()
+
+	scanner := bufio.NewScanner(podLogs)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			line := scanner.Text()
+			if strings.Contains(line, NetworkInitialisationSuccessful) {
+				return nil
+			}
+		}
+	}
+
+	return errors.New("network initialisation successful log line not detected")
+}
+
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap.SugaredLogger, input *api.RunInput, initialisedNetworks *uint64) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	start := time.Now()
+	allRunningStage := false
+	allNetworksStage := false
 	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if time.Since(start) > 10*time.Minute {
 			return errors.New("global timeout")
 		}
@@ -352,7 +484,7 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
-			res, err := client.CoreV1().Pods(k8sNamespace).List(opts)
+			res, err := client.CoreV1().Pods(c.config.Namespace).List(opts)
 			if err != nil {
 				log.Warnw("k8s client pods list error", "err", err.Error())
 				return -1
@@ -380,20 +512,34 @@ func monitorTestplanRunState(ctx context.Context, pool *pool, log *zap.SugaredLo
 		}
 		wg.Wait()
 
-		log.Debugw("testplan state", "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		initNets := int(atomic.LoadUint64(initialisedNetworks))
+		log.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+
+		if counters["Running"] == input.TotalInstances && !allRunningStage {
+			allRunningStage = true
+			log.Infow("all testplan instances in `Running` state", "took", time.Since(start))
+
+			go func() {
+				_ = c.waitNetworksInitialised(ctx, log, input.RunID, initialisedNetworks)
+			}()
+		}
+
+		if initNets == input.TotalInstances && !allNetworksStage {
+			allNetworksStage = true
+			log.Infow("all testplan instances networks initialised", "took", time.Since(start))
+		}
 
 		if counters["Succeeded"] == input.TotalInstances {
+			log.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
 			return nil
 		}
+
 	}
 }
 
-func createPod(ctx context.Context, pool *pool, podName string, input *api.RunInput, runenv runtime.RunEnv, env []v1.EnvVar, k8sNamespace string, g api.RunGroup, i int) error {
-	client, err := pool.Acquire(ctx)
-	if err != nil {
-		return err
-	}
-	defer pool.Release(client)
+func (c *ClusterK8sRunner) createPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int) error {
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	hostpathtype := v1.HostPathType("DirectoryOrCreate")
@@ -412,6 +558,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 				"testground.testcase": runenv.TestCase,
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
+				"testground.purpose":  "plan",
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
@@ -432,6 +579,12 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					Image: g.ArtifactPath,
 					Args:  []string{},
 					Env:   env,
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "pprof",
+							ContainerPort: 6060,
+						},
+					},
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
@@ -441,8 +594,8 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: resource.MustParse("100Mi"),
-							v1.ResourceCPU:    resource.MustParse("100m"),
+							v1.ResourceMemory: c.podResourceMemory,
+							v1.ResourceCPU:    c.podResourceCPU,
 						},
 					},
 				},
@@ -450,7 +603,7 @@ func createPod(ctx context.Context, pool *pool, podName string, input *api.RunIn
 		},
 	}
 
-	_, err = client.CoreV1().Pods(k8sNamespace).Create(podRequest)
+	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
 }
 
@@ -463,4 +616,63 @@ type FakeWriterAt struct {
 func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 	// ignore 'offset' because we forced sequential downloads
 	return fw.w.Write(p)
+}
+
+// maxPods returns the max allowed pods for the current cluster size
+// at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
+func (c *ClusterK8sRunner) maxPods() (int, error) {
+	podCPU, err := strconv.ParseFloat(c.podResourceCPU.AsDec().String(), 64)
+	if err != nil {
+		return 0, err
+	}
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "kubernetes.io/role=node",
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	nodes := len(res.Items)
+
+	// all worker nodes are the same, so just take allocatable CPU from the first
+	item := res.Items[0].Status.Allocatable["cpu"]
+	nodeCPUs, _ := item.AsInt64()
+
+	totalCPUs := nodes * int(nodeCPUs)
+	availableCPUs := float64(totalCPUs) - redisCPUs - float64(nodes)*sidecarCPUs
+	podsCPUs := availableCPUs * utilisation
+	pods := int(math.Round(podsCPUs/podCPU - 0.5))
+
+	return pods, nil
+}
+
+// Terminates all pods for with the label testground.purpose: plan
+// This command will remove all plan pods in the cluster.
+func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
+	log := logging.S()
+	// Until the first Run, pool is a null pointer.
+	// We expect TerminateAll to be able to remove plans inadvertently left behind from previous runs,
+	// even if the daemon is freshly started. For that reason, TerminateAll will use a separate pool,
+	// rather than the one that can be found at c.pool.
+	pool, err := newPool(20, defaultKubernetesConfig())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	client := pool.Acquire()
+	defer pool.Release(client)
+
+	planPods := metav1.ListOptions{
+		LabelSelector: "testground.purpose=plan",
+	}
+	err = client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	if err != nil {
+		log.Errorw("could not terminate all pods.", "err", err)
+		return err
+	}
+	return nil
 }

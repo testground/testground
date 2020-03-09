@@ -12,15 +12,11 @@ func SignalAndWaitForAll(ctx context.Context, instanceCount int, stateName strin
 	doneCh := watcher.Barrier(ctx, state, int64(instanceCount))
 
 	// Signal we've entered the state.
-	_, err := writer.SignalEntry(state)
+	_, err := writer.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}
 
 	// Wait until all others have signalled.
-	if err = <-doneCh; err != nil {
-		return err
-	}
-
-	return nil
+	return <-doneCh
 }

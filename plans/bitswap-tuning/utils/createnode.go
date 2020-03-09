@@ -24,7 +24,7 @@ import (
 	"github.com/ipfs/go-unixfs/importer/balanced"
 	"github.com/ipfs/go-unixfs/importer/helpers"
 	"github.com/ipfs/go-unixfs/importer/trickle"
-	host "github.com/libp2p/go-libp2p-core/host"
+	core "github.com/libp2p/go-libp2p-core"
 	"github.com/multiformats/go-multihash"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -79,8 +79,8 @@ func ClearBlockstore(ctx context.Context, bstore blockstore.Blockstore) error {
 	return g.Wait()
 }
 
-func CreateBitswapNode(ctx context.Context, h host.Host, bstore blockstore.Blockstore) (*Node, error) {
-	routing, err := nilrouting.ConstructNilRouting(nil, nil, nil, nil)
+func CreateBitswapNode(ctx context.Context, h core.Host, bstore blockstore.Blockstore) (*Node, error) {
+	routing, err := nilrouting.ConstructNilRouting(ctx, nil, nil, nil)
 	if err != nil {
 		return nil, err
 	}

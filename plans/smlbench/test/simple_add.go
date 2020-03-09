@@ -50,6 +50,6 @@ func (tc *SimpleAddTC) Execute(runenv *runtime.RunEnv, ensemble *iptb.TestEnsemb
 		return err
 	}
 
-	runenv.EmitMetric(utils.MetricTimeToAdd, float64(time.Now().Sub(tstarted)/time.Millisecond))
+	runenv.RecordMetric(utils.MetricTimeToAdd, float64(time.Since(tstarted)/time.Millisecond))
 	return nil
 }

@@ -7,30 +7,31 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"go.uber.org/zap"
+	"time"
 
 	"github.com/dustin/go-humanize"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/push"
+	"go.uber.org/zap"
 )
 
-type key int
-
 const (
-	EnvTestPlan               = "TEST_PLAN"
 	EnvTestBranch             = "TEST_BRANCH"
 	EnvTestCase               = "TEST_CASE"
-	EnvTestTag                = "TEST_TAG"
-	EnvTestRun                = "TEST_RUN"
-	EnvTestRepo               = "TEST_REPO"
-	EnvTestSubnet             = "TEST_SUBNET"
 	EnvTestCaseSeq            = "TEST_CASE_SEQ"
-	EnvTestSidecar            = "TEST_SIDECAR"
-	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
-	EnvTestInstanceRole       = "TEST_INSTANCE_ROLE"
-	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
+	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
+	EnvTestInstanceParams     = "TEST_INSTANCE_PARAMS"
+	EnvTestInstanceRole       = "TEST_INSTANCE_ROLE"
 	EnvTestOutputsPath        = "TEST_OUTPUTS_PATH"
+	EnvTestPlan               = "TEST_PLAN"
+	EnvTestRepo               = "TEST_REPO"
+	EnvTestRun                = "TEST_RUN"
+	EnvTestSidecar            = "TEST_SIDECAR"
+	EnvTestStartTime          = "TEST_START_TIME"
+	EnvTestSubnet             = "TEST_SUBNET"
+	EnvTestTag                = "TEST_TAG"
 )
 
 type IPNet struct {
@@ -63,10 +64,8 @@ func (i *IPNet) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// RunEnv encapsulates the context for this test run.
-type RunEnv struct {
-	*logger
-
+// RunParams encapsulates the runtime parameters for this test.
+type RunParams struct {
 	TestPlan    string `json:"plan"`
 	TestCase    string `json:"case"`
 	TestRun     string `json:"run"`
@@ -95,15 +94,50 @@ type RunEnv struct {
 	// the "data" network interface.
 	//
 	// This will be 127.1.0.0/16 when using the local exec runner.
-	TestSubnet *IPNet `json:"network,omitempty"`
+	TestSubnet    *IPNet    `json:"network,omitempty"`
+	TestStartTime time.Time `json:"start_time,omitempty"`
+}
 
-	unstructured chan *os.File
-	structured   chan *zap.Logger
+// RunEnv encapsulates the context for this test run.
+type RunEnv struct {
+	RunParams
+	*logger
+
+	MetricsPusher *push.Pusher
+	unstructured  chan *os.File
+	structured    chan *zap.Logger
+}
+
+// NewRunEnv constructs a runtime environment from the given runtime parameters.
+func NewRunEnv(params RunParams) *RunEnv {
+	containerName, _ := os.Hostname()
+	re := &RunEnv{
+		RunParams: params,
+		MetricsPusher: push.New("http://prometheus-pushgateway:9091", "testground/plan").
+			Gatherer(prometheus.NewRegistry()).
+			Grouping("TestPlan", params.TestPlan).
+			Grouping("TestCase", params.TestCase).
+			Grouping("TestRun", params.TestRun).
+			Grouping("TestGroupID", params.TestGroupID).
+			Grouping("TestCaseSeq", string(params.TestCaseSeq)).
+			Grouping("TestCommit", params.TestCommit).
+			Grouping("TestTag", params.TestTag).
+			Grouping("ContainerName", containerName),
+		structured:   make(chan *zap.Logger, 32),
+		unstructured: make(chan *os.File, 32),
+	}
+
+	re.logger = newLogger(&re.RunParams)
+	return re
 }
 
 func (re *RunEnv) Close() error {
 	close(re.structured)
 	close(re.unstructured)
+
+	if l := re.logger; l != nil {
+		_ = l.SLogger().Sync()
+	}
 
 	for l := range re.structured {
 		_ = l.Sync() // ignore errors.
@@ -115,7 +149,7 @@ func (re *RunEnv) Close() error {
 	return nil
 }
 
-func (re *RunEnv) ToEnvVars() map[string]string {
+func (re *RunParams) ToEnvVars() map[string]string {
 	packParams := func(in map[string]string) string {
 		arr := make([]string, 0, len(in))
 		for k, v := range in {
@@ -125,21 +159,22 @@ func (re *RunEnv) ToEnvVars() map[string]string {
 	}
 
 	out := map[string]string{
-		EnvTestSidecar:            strconv.FormatBool(re.TestSidecar),
-		EnvTestPlan:               re.TestPlan,
 		EnvTestBranch:             re.TestBranch,
 		EnvTestCase:               re.TestCase,
-		EnvTestTag:                re.TestTag,
-		EnvTestRun:                re.TestRun,
-		EnvTestRepo:               re.TestRepo,
-		EnvTestSubnet:             re.TestSubnet.String(),
 		EnvTestCaseSeq:            strconv.Itoa(re.TestCaseSeq),
-		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
-		EnvTestInstanceRole:       re.TestInstanceRole,
-		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
+		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
+		EnvTestInstanceParams:     packParams(re.TestInstanceParams),
+		EnvTestInstanceRole:       re.TestInstanceRole,
 		EnvTestOutputsPath:        re.TestOutputsPath,
+		EnvTestPlan:               re.TestPlan,
+		EnvTestRepo:               re.TestRepo,
+		EnvTestRun:                re.TestRun,
+		EnvTestSidecar:            strconv.FormatBool(re.TestSidecar),
+		EnvTestStartTime:          re.TestStartTime.Format(time.RFC3339),
+		EnvTestSubnet:             re.TestSubnet.String(),
+		EnvTestTag:                re.TestTag,
 	}
 
 	return out
@@ -180,53 +215,67 @@ func toNet(s string) *IPNet {
 	return &IPNet{IPNet: *ipnet}
 }
 
+// Try to parse the time.
+// Failing to do so, return a zero value time
+func toTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
+}
+
 // CurrentRunEnv populates a test context from environment vars.
 func CurrentRunEnv() *RunEnv {
 	re, _ := ParseRunEnv(os.Environ())
 	return re
 }
 
-// ParseRunEnv parses a list of environment variables into a RunEnv.
-func ParseRunEnv(env []string) (*RunEnv, error) {
+// ParseRunParams parses a list of environment variables into a RunParams.
+func ParseRunParams(env []string) (*RunParams, error) {
 	m, err := ParseKeyValues(env)
 	if err != nil {
 		return nil, err
 	}
 
-	re := &RunEnv{
-		TestSidecar:            toBool(m[EnvTestSidecar]),
-		TestPlan:               m[EnvTestPlan],
-		TestCase:               m[EnvTestCase],
-		TestRun:                m[EnvTestRun],
-		TestTag:                m[EnvTestTag],
+	return &RunParams{
 		TestBranch:             m[EnvTestBranch],
-		TestRepo:               m[EnvTestRepo],
-		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestCase:               m[EnvTestCase],
 		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
-		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
-		TestInstanceRole:       m[EnvTestInstanceRole],
-		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
+		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
+		TestInstanceParams:     unpackParams(m[EnvTestInstanceParams]),
+		TestInstanceRole:       m[EnvTestInstanceRole],
 		TestOutputsPath:        m[EnvTestOutputsPath],
+		TestPlan:               m[EnvTestPlan],
+		TestRepo:               m[EnvTestRepo],
+		TestRun:                m[EnvTestRun],
+		TestSidecar:            toBool(m[EnvTestSidecar]),
+		TestStartTime:          toTime(EnvTestStartTime),
+		TestSubnet:             toNet(m[EnvTestSubnet]),
+		TestTag:                m[EnvTestTag],
+	}, nil
+}
 
-		structured:   make(chan *zap.Logger, 32),
-		unstructured: make(chan *os.File, 32),
+// ParseRunEnv parses a list of environment variables into a RunEnv.
+func ParseRunEnv(env []string) (*RunEnv, error) {
+	p, err := ParseRunParams(env)
+	if err != nil {
+		return nil, err
 	}
 
-	re.logger = newLogger(re)
-
-	return re, nil
+	return NewRunEnv(*p), nil
 }
 
 // IsParamSet checks if a certain parameter is set.
-func (re *RunEnv) IsParamSet(name string) bool {
+func (re *RunParams) IsParamSet(name string) bool {
 	_, ok := re.TestInstanceParams[name]
 	return ok
 }
 
 // StringParam returns a string parameter, or "" if the parameter is not set.
-func (re *RunEnv) StringParam(name string) string {
+func (re *RunParams) StringParam(name string) string {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))
@@ -234,8 +283,8 @@ func (re *RunEnv) StringParam(name string) string {
 	return v
 }
 
-func (re *RunEnv) SizeParam(name string) uint64 {
-	v, _ := re.TestInstanceParams[name]
+func (re *RunParams) SizeParam(name string) uint64 {
+	v := re.TestInstanceParams[name]
 	m, err := humanize.ParseBytes(v)
 	if err != nil {
 		panic(err)
@@ -245,7 +294,7 @@ func (re *RunEnv) SizeParam(name string) uint64 {
 
 // IntParam returns an int parameter, or -1 if the parameter is not set or
 // the conversion failed. It panics on error.
-func (re *RunEnv) IntParam(name string) int {
+func (re *RunParams) IntParam(name string) int {
 	v, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))
@@ -259,17 +308,14 @@ func (re *RunEnv) IntParam(name string) int {
 }
 
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
-func (re *RunEnv) BooleanParam(name string) bool {
-	s, _ := re.TestInstanceParams[name]
-	if s == "true" {
-		return true
-	}
-	return false
+func (re *RunParams) BooleanParam(name string) bool {
+	s := re.TestInstanceParams[name]
+	return s == "true"
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array
 // if it does not exist. It panics on error.
-func (re *RunEnv) StringArrayParam(name string) []string {
+func (re *RunParams) StringArrayParam(name string) []string {
 	a := []string{}
 	re.JSONParam(name, &a)
 	return a
@@ -278,7 +324,7 @@ func (re *RunEnv) StringArrayParam(name string) []string {
 // SizeArrayParam returns an array of uint64 elements which represent sizes,
 // in bytes. If the response is nil, then there was an error parsing the input.
 // It panics on error.
-func (re *RunEnv) SizeArrayParam(name string) []uint64 {
+func (re *RunParams) SizeArrayParam(name string) []uint64 {
 	humanSizes := re.StringArrayParam(name)
 	sizes := []uint64{}
 
@@ -295,7 +341,7 @@ func (re *RunEnv) SizeArrayParam(name string) []uint64 {
 
 // JSONParam unmarshals a JSON parameter in an arbitrary interface.
 // It panics on error.
-func (re *RunEnv) JSONParam(name string, v interface{}) {
+func (re *RunParams) JSONParam(name string, v interface{}) {
 	s, ok := re.TestInstanceParams[name]
 	if !ok {
 		panic(fmt.Errorf("%s was not set", name))

@@ -2,27 +2,56 @@
 
 set -o errexit
 set -o pipefail
-set -o nounset
 
 START_TIME=`date +%s`
 
 echo "Creating cluster for Testground..."
 echo
 
-NAME=$1
-CLUSTER_SPEC=$2
-PUBKEY=$3
-WORKER_NODES=$4
+CLUSTER_SPEC_TEMPLATE=$1
 
 echo "Name: $NAME"
-echo "Cluster spec: $CLUSTER_SPEC"
 echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
-ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
+if [[ -z ${ASSETS_ACCESS_KEY} ]]; then
+  echo "ASSETS_ACCESS_KEY is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+if [[ -z ${ASSETS_SECRET_KEY} ]]; then
+  echo "ASSETS_SECRET_KEY is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+if [[ -z ${ASSETS_BUCKET_NAME} ]]; then
+  echo "ASSETS_BUCKET_NAME is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+if [[ -z ${ASSETS_S3_ENDPOINT} ]]; then
+  echo "ASSETS_S3_ENDPOINT is not set. Make sure you set credentials and location for S3 outputs bucket."
+  exit 1
+fi
+
+CLUSTER_SPEC=$(mktemp)
+envsubst <$CLUSTER_SPEC_TEMPLATE >$CLUSTER_SPEC
+cat $CLUSTER_SPEC
+
+# Verify with the user before continuing.
+echo
+echo "The output above is the cluster I will create for you."
+echo -n "Does this look about right to you? [y/n]: "
+read response
+
+if [ "$response" != "y" ]
+then
+	echo "Canceling ."
+	exit 2
+fi
+
+# The remainder of this script creates the cluster using the generated template
 
 kops create -f $CLUSTER_SPEC
 kops create secret --name $NAME sshpublickey admin -i $PUBKEY
@@ -41,6 +70,7 @@ echo "Add secret for S3 bucket"
 echo
 kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSETS_ACCESS_KEY" \
                                                --from-literal=secret-key="$ASSETS_SECRET_KEY" \
+                                               --from-literal=s3-endpoint="$ASSETS_S3_ENDPOINT" \
                                                --from-literal=bucket-name="$ASSETS_BUCKET_NAME"
 
 
@@ -55,6 +85,9 @@ echo "Install Redis..."
 echo
 helm install redis stable/redis --values ./redis-values.yaml
 
+echo "Install prometheus pushgateway..."
+echo
+helm install prometheus-pushgateway stable/prometheus-pushgateway --values ./prometheus-pushgateway.yaml
 
 echo "Wait for Sidecar to be Ready..."
 echo

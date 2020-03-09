@@ -4,28 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"time"
 
-	host "github.com/libp2p/go-libp2p-core/host"
+	core "github.com/libp2p/go-libp2p-core"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"golang.org/x/sync/errgroup"
 )
 
-func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int, timeout time.Duration) ([]peer.AddrInfo, error) {
+func AddrInfosFromChan(peerCh chan *peer.AddrInfo, count int) ([]peer.AddrInfo, error) {
 	var ais []peer.AddrInfo
 	for i := 1; i <= count; i++ {
-		select {
-		case ai := <-peerCh:
-			ais = append(ais, *ai)
-
-		case <-time.After(timeout):
-			return nil, fmt.Errorf("no new peers in %d seconds", timeout/time.Second)
+		ai, ok := <-peerCh
+		if !ok {
+			return ais, fmt.Errorf("subscription closed")
 		}
+		ais = append(ais, *ai)
 	}
 	return ais, nil
 }
 
-func DialOtherPeers(ctx context.Context, self host.Host, ais []peer.AddrInfo) ([]peer.AddrInfo, error) {
+func DialOtherPeers(ctx context.Context, self core.Host, ais []peer.AddrInfo) ([]peer.AddrInfo, error) {
 	// Grab list of other peers that are available for this Run
 	var toDial []peer.AddrInfo
 	for _, ai := range ais {

@@ -30,7 +30,7 @@ func (t *IpfsAddDirSharding) AddRepoOptions() iptb.AddRepoOptions {
 
 func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv, cfg *utils.TestCaseOptions) error {
 	if cfg.IpfsInstance != nil {
-		runenv.Message("Running against the Core API")
+		runenv.RecordMessage("Running against the Core API")
 
 		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			unixfsFile, err := utils.ConvertToUnixfs(path, isDir)
@@ -43,7 +43,7 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 			if err != nil {
 				return "", err
 			}
-			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			runenv.RecordMetric(utils.MakeTimeToAddMetric(size, "coreapi"), float64(time.Since(tstarted)/time.Millisecond))
 
 			return cidFile.String(), nil
 		})
@@ -54,12 +54,12 @@ func (t *IpfsAddDirSharding) Execute(ctx context.Context, runenv *runtime.RunEnv
 	}
 
 	if cfg.IpfsDaemon != nil {
-		runenv.Message("Running against the Daemon (IPTB)")
+		runenv.RecordMessage("Running against the Daemon (IPTB)")
 
 		err := cfg.ForEachPath(runenv, func(path string, size int64, isDir bool) (string, error) {
 			tstarted := time.Now()
 			cid, err := cfg.IpfsDaemon.AddDir(path)
-			runenv.EmitMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Now().Sub(tstarted)/time.Millisecond))
+			runenv.RecordMetric(utils.MakeTimeToAddMetric(size, "daemon"), float64(time.Since(tstarted)/time.Millisecond))
 			return cid, err
 		})
 

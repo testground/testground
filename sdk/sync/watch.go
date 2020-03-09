@@ -10,31 +10,34 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
-	"github.com/hashicorp/go-multierror"
 )
 
 // Watcher exposes methods to watch subtrees within the sync tree of this test.
 type Watcher struct {
-	lk       sync.RWMutex
-	re       *runtime.RunEnv
-	client   *redis.Client
-	root     string
-	subtrees map[*Subtree]map[*subscription]struct{}
+	re        *runtime.RunEnv
+	client    *redis.Client
+	root      string
+	subs      sync.WaitGroup
+	close     chan struct{}
+	closeOnce sync.Once
 }
 
 // NewWatcher begins watching the subtree underneath this path.
-func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
-	client, err := redisClient(runenv)
+//
+// NOTE: Canceling the context cancels the call to this function, it does not
+// affect the returned watcher.
+func NewWatcher(ctx context.Context, runenv *runtime.RunEnv) (w *Watcher, err error) {
+	client, err := getGlobalRedisClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("during redisClient: %w", err)
 	}
 
 	prefix := basePrefix(runenv)
 	w = &Watcher{
-		re:       runenv,
-		client:   client,
-		root:     prefix,
-		subtrees: make(map[*Subtree]map[*subscription]struct{}),
+		re:     runenv,
+		client: client,
+		root:   prefix,
+		close:  make(chan struct{}),
 	}
 	return w, nil
 }
@@ -47,57 +50,44 @@ func NewWatcher(runenv *runtime.RunEnv) (w *Watcher, err error) {
 // that point, the caller should consume the error (or nil value) from the
 // returned errCh.
 //
-// The user can cancel the subscription by calling the returned cancelFn. The
-// subscription will die if an internal error occurs, in which case the cancelFn
-// should also be called.
-func (w *Watcher) Subscribe(subtree *Subtree, ch interface{}) (func() error, error) {
+// The user can cancel the subscription by calling the returned cancelFn or by
+// canceling the passed context. The subscription will die if an internal error
+// occurs.
+func (w *Watcher) Subscribe(ctx context.Context, subtree *Subtree, ch interface{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := w.client.Context().Err(); err != nil {
+		return err
+	}
+
 	chV := reflect.ValueOf(ch)
 	if k := chV.Kind(); k != reflect.Chan {
-		return nil, fmt.Errorf("value is not a channel: %T", ch)
+		return fmt.Errorf("value is not a channel: %T", ch)
 	}
 
 	if err := subtree.AssertType(chV.Type().Elem()); err != nil {
 		chV.Close()
-		return nil, err
-	}
-
-	w.lk.Lock()
-
-	// Make sure we have a subtree mapping.
-	if _, ok := w.subtrees[subtree]; !ok {
-		w.subtrees[subtree] = make(map[*subscription]struct{})
+		return err
 	}
 
 	root := w.root + ":" + subtree.GroupKey
 	sub := &subscription{
 		w:       w,
 		subtree: subtree,
-		client:  w.client,
+		client:  w.client.WithContext(ctx),
 		key:     root,
-		connCh:  make(chan int64, 1),
-		closeCh: make(chan struct{}),
-		doneCh:  make(chan struct{}),
 		outCh:   chV,
 	}
 
-	w.subtrees[subtree][sub] = struct{}{}
-	w.lk.Unlock()
-
 	// Start the subscription.
-	go sub.process()
+	w.subs.Add(1)
+	go func() {
+		defer w.subs.Done()
+		sub.process()
+	}()
 
-	cancelFn := func() error {
-		w.lk.Lock()
-		defer w.lk.Unlock()
-
-		delete(w.subtrees[subtree], sub)
-		if len(w.subtrees[subtree]) == 0 {
-			delete(w.subtrees, subtree)
-		}
-
-		return sub.stop()
-	}
-	return cancelFn, nil
+	return nil
 }
 
 // Barrier awaits until the specified amount of items are advertising to be in
@@ -114,7 +104,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 	log.Debugw("setting barrier for state", "state", state, "required", required)
 
-	resCh := make(chan error)
+	resCh := make(chan error, 1)
 	go func() {
 		defer close(resCh)
 
@@ -123,14 +113,15 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 			err    error
 			ticker = time.NewTicker(250 * time.Millisecond)
 			k      = state.Key(w.root)
+			client = w.client.WithContext(ctx)
 		)
 
 		defer ticker.Stop()
 
-		for last != required {
+		for last < required {
 			select {
 			case <-ticker.C:
-				last, err = w.client.Get(k).Int64()
+				last, err = client.Get(k).Int64()
 				if err != nil && err != redis.Nil {
 					err = fmt.Errorf("error occured in barrier: %w", err)
 					resCh <- err
@@ -141,12 +132,19 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 			case <-ctx.Done():
 				// Context fired before we got enough elements.
-				err := fmt.Errorf("context deadline exceeded waiting on %s; not enough elements, required: %d, got: %d", state, required, last)
+				err := fmt.Errorf("%s waiting on %s; not enough elements, required %d, got %d", err, state, required, last)
 				resCh <- err
+				return
+			case <-w.close:
+				resCh <- fmt.Errorf("closed")
 				return
 			}
 		}
-		resCh <- nil
+		if last > required {
+			resCh <- fmt.Errorf("when waiting on %s; too many elements, required %d, got %d", state, required, last)
+		} else {
+			resCh <- nil
+		}
 	}()
 
 	return resCh
@@ -154,16 +152,12 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 // Close closes this watcher. After calling this method, the watcher can't be
 // resused.
+//
+// Note: Concurrently closing the watcher while calling Subscribe may panic.
 func (w *Watcher) Close() error {
-	w.lk.Lock()
-	defer w.lk.Unlock()
-
-	var result *multierror.Error
-	for _, st := range w.subtrees {
-		for sub := range st {
-			result = multierror.Append(result, sub.stop())
-		}
-	}
-	w.subtrees = nil
-	return result.ErrorOrNil()
+	w.closeOnce.Do(func() {
+		close(w.close)
+		w.subs.Wait()
+	})
+	return nil
 }

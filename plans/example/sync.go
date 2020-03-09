@@ -19,15 +19,15 @@ import (
 func ExampleSync(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
-	runenv.Message("Waiting for network initialization")
+	runenv.RecordMessage("Waiting for network initialization")
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
-	runenv.Message("Network initilization complete")
+	runenv.RecordMessage("Network initilization complete")
 
 	st := sync.Subtree{
 		GroupKey:    "messages",
@@ -36,44 +36,47 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 			return val.(string)
 		}}
 
-	seq, err := writer.Write(&st, runenv.TestRun)
+	seq, err := writer.Write(ctx, &st, runenv.TestRun)
 	if err != nil {
 		return err
 	}
 
-	runenv.Message("My seqeuence ID: %d", seq)
+	runenv.RecordMessage("My seqeuence ID: %d", seq)
 
 	readyState := sync.State("ready")
 	startState := sync.State("start")
 
 	if seq == 1 {
-		runenv.Message("I'm the boss.")
+		runenv.RecordMessage("I'm the boss.")
 		numFollowers := runenv.TestInstanceCount - 1
-		runenv.Message("Waiting for %d instances to become ready", numFollowers)
+		runenv.RecordMessage("Waiting for %d instances to become ready", numFollowers)
 		err := <-watcher.Barrier(ctx, readyState, int64(numFollowers))
 		if err != nil {
 			return err
 		}
-		runenv.Message("The followers are all ready")
-		runenv.Message("Ready...")
+		runenv.RecordMessage("The followers are all ready")
+		runenv.RecordMessage("Ready...")
 		time.Sleep(1 * time.Second)
-		runenv.Message("Set...")
+		runenv.RecordMessage("Set...")
 		time.Sleep(5 * time.Second)
-		runenv.Message("Go!")
-		writer.SignalEntry(startState)
-		return nil
+		runenv.RecordMessage("Go!")
+		_, err = writer.SignalEntry(ctx, startState)
+		return err
 	} else {
 
 		rand.Seed(time.Now().UnixNano())
 		sleepTime := rand.Intn(10)
-		runenv.Message("I'm a follower. Signaling ready after %d seconds", sleepTime)
+		runenv.RecordMessage("I'm a follower. Signaling ready after %d seconds", sleepTime)
 		time.Sleep(time.Duration(sleepTime) * time.Second)
-		writer.SignalEntry(readyState)
+		_, err = writer.SignalEntry(ctx, readyState)
+		if err != nil {
+			return err
+		}
 		err = <-watcher.Barrier(ctx, startState, 1)
 		if err != nil {
 			return err
 		}
-		runenv.Message("Received Start")
+		runenv.RecordMessage("Received Start")
 		return nil
 	}
 }

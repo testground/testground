@@ -14,8 +14,10 @@ import (
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/dockermanager"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -58,11 +60,11 @@ func NewK8sManager() (InstanceManager, error) {
 
 func (d *K8sInstanceManager) Manage(
 	ctx context.Context,
-	worker func(ctx context.Context, inst *Instance) error,
+	worker func(context.Context, *Instance) error,
 ) error {
-	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+	return d.manager.Manage(ctx, func(cctx context.Context, container *dockermanager.Container) error {
 		logging.S().Debugw("got container", "container", container.ID)
-		inst, err := d.manageContainer(ctx, container)
+		inst, err := d.manageContainer(cctx, container)
 		if err != nil {
 			return fmt.Errorf("failed to initialise the container: %w", err)
 		}
@@ -71,7 +73,7 @@ func (d *K8sInstanceManager) Manage(
 			return nil
 		}
 		logging.S().Debugw("managing container", "container", container.ID)
-		err = worker(ctx, inst)
+		err = worker(cctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
 		}
@@ -84,10 +86,6 @@ func (d *K8sInstanceManager) Close() error {
 }
 
 func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *dockermanager.Container) (inst *Instance, err error) {
-	// TODO: sidecar is racing to modify container network with CNI and pod getting ready
-	// we should probably adjust this function to be called when a pod is in `1/1 Ready` state, and not just listen on the docker socket
-	time.Sleep(20 * time.Second)
-
 	// Get the state/config of the cluster
 	info, err := container.Inspect(ctx)
 	if err != nil {
@@ -95,26 +93,32 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	}
 
 	if !info.State.Running {
-		return nil, fmt.Errorf("not running")
+		return nil, fmt.Errorf("container is not running: %s", container.ID)
 	}
-
-	// Remove TEST_OUTPUTS_PATH env var.
-	m, err := conv.ParseKeyValues(info.Config.Env)
-	if err != nil {
-		return nil, err
-	}
-	delete(m, runtime.EnvTestOutputsPath)
-	info.Config.Env = conv.ToOptionsSlice(m)
 
 	// Construct the runtime environment
-	runenv, err := runtime.ParseRunEnv(info.Config.Env)
+	params, err := runtime.ParseRunParams(info.Config.Env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
 
-	if !runenv.TestSidecar {
+	if !params.TestSidecar {
 		return nil, nil
 	}
+
+	podName, ok := info.Config.Labels["io.kubernetes.pod.name"]
+	if !ok {
+		return nil, fmt.Errorf("couldn't get pod name from container labels for: %s", container.ID)
+	}
+
+	err = waitForPodRunningPhase(ctx, podName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove the TestOutputsPath. We can't store anything from the sidecar.
+	params.TestOutputsPath = ""
+	runenv := runtime.NewRunEnv(*params)
 
 	//////////////////
 	//  NETWORKING  //
@@ -245,7 +249,7 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 		}
 	}
 
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(ctx, runenv, info.Config.Hostname, network)
 }
 
 type k8sLink struct {
@@ -266,6 +270,7 @@ type K8sNetwork struct {
 }
 
 func (n *K8sNetwork) Close() error {
+	n.nl.Delete()
 	return nil
 }
 
@@ -453,4 +458,37 @@ func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, erro
 	redisRoute := redisRoutes[0]
 
 	return &redisRoute, nil
+}
+
+func waitForPodRunningPhase(ctx context.Context, podName string) error {
+	k8scfg, err := clientcmd.BuildConfigFromFlags("", "")
+	if err != nil {
+		return fmt.Errorf("error in wait for pod running phase: %v", err)
+	}
+
+	k8sClientset, err := kubernetes.NewForConfig(k8scfg)
+	if err != nil {
+		return fmt.Errorf("error in wait for pod running phase: %v", err)
+	}
+
+	var phase string
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for pod context (pod name: %s) erred with: %w", podName, ctx.Err())
+		default:
+			if phase == "Running" {
+				return nil
+			}
+			pod, err := k8sClientset.CoreV1().Pods("default").Get(podName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("error in wait for pod running phase: %v", err)
+			}
+
+			phase = string(pod.Status.Phase)
+
+			time.Sleep(1 * time.Second)
+		}
+	}
 }

@@ -1,9 +1,7 @@
 package runner
 
 import (
-	"context"
 	"fmt"
-	"sync"
 
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -11,8 +9,6 @@ import (
 )
 
 type pool struct {
-	sync.Mutex
-
 	availableC chan *kubernetes.Clientset
 }
 
@@ -39,18 +35,10 @@ func newPool(workers int, config KubernetesConfig) (*pool, error) {
 	return pool, nil
 }
 
-func (p *pool) Acquire(ctx context.Context) (*kubernetes.Clientset, error) {
-	select {
-	case cs := <-p.availableC:
-		return cs, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+func (p *pool) Acquire() *kubernetes.Clientset {
+	return <-p.availableC
 }
 
 func (p *pool) Release(cs *kubernetes.Clientset) {
-	p.Lock()
-	defer p.Unlock()
-
 	p.availableC <- cs
 }

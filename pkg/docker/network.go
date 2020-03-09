@@ -27,14 +27,18 @@ func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, inte
 	return res.ID, nil
 }
 
-func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool, config ...network.IPAMConfig) (id string, err error) {
+func CheckBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) ([]types.NetworkResource, error) {
 	opts := types.NetworkListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg("name", name),
 			filters.Arg("driver", "bridge"),
 		),
 	}
-	networks, err := cli.NetworkList(ctx, opts)
+	return cli.NetworkList(ctx, opts)
+}
+
+func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool, config ...network.IPAMConfig) (id string, err error) {
+	networks, err := CheckBridgeNetwork(ctx, log, cli, name)
 	if err != nil {
 		return "", err
 	}

@@ -111,13 +111,24 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 	// Write replace directives.
 	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 	cmd.Dir = plandst
-	_, err = cmd.CombinedOutput()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
 	if err != nil {
 		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
 	}
 
+	// Calculate the arguments to go build.
+	// go build -o <output_path> [-tags <comma-separated tags>] <exec_pkg>
+	var args = []string{"build", "-o", path}
+	if len(input.Selectors) > 0 {
+		args = append(args, "-tags")
+		args = append(args, strings.Join(input.Selectors, ","))
+	}
+	args = append(args, cfg.ExecPkg)
+
 	// Execute the build.
-	cmd = exec.CommandContext(ctx, "go", "build", "-o", path, cfg.ExecPkg)
+	cmd = exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = plandst
 	out, err := cmd.CombinedOutput()
 	if err != nil {

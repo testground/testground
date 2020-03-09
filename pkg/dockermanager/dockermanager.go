@@ -6,6 +6,8 @@ import (
 	"io"
 	"time"
 
+	"errors"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
@@ -109,11 +111,9 @@ func (dm *Manager) Manage(
 	managers := make(map[string]workerHandle)
 
 	defer func() {
-		// cancel the remaining managers
-		for _, m := range managers {
-			m.cancel()
-		}
 		// wait for the running managers to exit
+		// They'll get canceled when we close the main context (deferred
+		// below).
 		for _, m := range managers {
 			<-m.done
 		}
@@ -146,23 +146,27 @@ func (dm *Manager) Manage(
 			}
 		}
 	}
-	start := func(container string) {
-		if _, ok := managers[container]; ok {
+	start := func(containerID string) {
+		if _, ok := managers[containerID]; ok {
 			return
 		}
 
 		cctx, cancel := context.WithCancel(ctx)
 		done := make(chan struct{})
-		managers[container] = workerHandle{
+		managers[containerID] = workerHandle{
 			done:   done,
 			cancel: cancel,
 		}
 		go func() {
 			defer close(done)
-			handle := dm.NewHandle(container)
+			handle := dm.NewHandle(containerID)
 			err := worker(cctx, handle)
 			if err != nil {
-				handle.S().Errorf("sidecar worker failed: %s", err)
+				if errors.Is(err, context.Canceled) {
+					handle.S().Debugf("sidecar worker failed: %s", err)
+				} else {
+					handle.S().Errorf("sidecar worker failed: %s", err)
+				}
 			}
 		}()
 	}
@@ -192,6 +196,8 @@ func (dm *Manager) Manage(
 	eventFilter.Add("type", "container")
 	eventFilter.Add("event", "start")
 	eventFilter.Add("event", "stop")
+	eventFilter.Add("event", "destroy")
+	eventFilter.Add("event", "die")
 
 	// Manage new containers.
 	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
@@ -205,7 +211,7 @@ func (dm *Manager) Manage(
 			switch event.Status {
 			case "start":
 				start(event.ID)
-			case "stop":
+			case "stop", "destroy", "die":
 				stop(event.ID)
 			default:
 				return fmt.Errorf("unexpected event: type=%s, status=%s", event.Type, event.Status)

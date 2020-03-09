@@ -29,8 +29,8 @@ func run(runenv *runtime.RunEnv) error {
 		return fmt.Errorf("aborting")
 	}
 
-	runenv.Message("before sync.MustWatcherWriter")
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	runenv.RecordMessage("before sync.MustWatcherWriter")
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
@@ -38,7 +38,7 @@ func run(runenv *runtime.RunEnv) error {
 		return nil
 	}
 
-	runenv.Message("before sync.WaitNetworkInitialized")
+	runenv.RecordMessage("before sync.WaitNetworkInitialized")
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
@@ -67,13 +67,13 @@ func run(runenv *runtime.RunEnv) error {
 		State: "network-configured",
 	}
 
-	runenv.Message("before writer config")
-	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
+	runenv.RecordMessage("before writer config")
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		return err
 	}
 
-	runenv.Message("before barrier")
+	runenv.RecordMessage("before barrier")
 	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
 	if err != nil {
 		return err
@@ -91,8 +91,8 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	// Get a sequence number
-	runenv.Message("get a sequence number")
-	seq, err := writer.Write(&sync.Subtree{
+	runenv.RecordMessage("get a sequence number")
+	seq, err := writer.Write(ctx, &sync.Subtree{
 		GroupKey:    "ip-allocation",
 		PayloadType: reflect.TypeOf(""),
 		KeyFunc: func(val interface{}) string {
@@ -103,7 +103,7 @@ func run(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	runenv.Message("I am %d", seq)
+	runenv.RecordMessage("I am %d", seq)
 
 	if seq >= 1<<16 {
 		return fmt.Errorf("test-case only supports 2**16 instances")
@@ -129,7 +129,7 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	logging.S().Debug("before writing changed ip config to redis")
-	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		return err
 	}
@@ -158,12 +158,15 @@ func run(runenv *runtime.RunEnv) error {
 	defer conn.Close()
 
 	// trying to measure latency here.
-	conn.SetNoDelay(true)
+	err = conn.SetNoDelay(true)
+	if err != nil {
+		return err
+	}
 
 	pingPong := func(test string, rttMin, rttMax time.Duration) error {
 		buf := make([]byte, 1)
 
-		runenv.Message("waiting until ready")
+		runenv.RecordMessage("waiting until ready")
 		// wait till both sides are ready
 		_, err = conn.Write([]byte{0})
 		if err != nil {
@@ -176,33 +179,33 @@ func run(runenv *runtime.RunEnv) error {
 
 		start := time.Now()
 
-		runenv.Message("writing my id")
+		runenv.RecordMessage("writing my id")
 		// write sequence number.
 		_, err = conn.Write([]byte{byte(seq)})
 		if err != nil {
 			return err
 		}
 
-		runenv.Message("reading their id")
+		runenv.RecordMessage("reading their id")
 		// pong other sequence number
 		_, err = conn.Read(buf)
 		if err != nil {
 			return err
 		}
-		runenv.Message("returning their id")
+		runenv.RecordMessage("returning their id")
 		_, err = conn.Write(buf)
 		if err != nil {
 			return err
 		}
 
-		runenv.Message("reading my id")
+		runenv.RecordMessage("reading my id")
 		// read our sequence number
 		_, err = conn.Read(buf)
 		if err != nil {
 			return err
 		}
 
-		runenv.Message("done")
+		runenv.RecordMessage("done")
 
 		// stop
 		end := time.Now()
@@ -217,12 +220,15 @@ func run(runenv *runtime.RunEnv) error {
 		if rtt < rttMin || rtt > rttMax {
 			return fmt.Errorf("expected an RTT between %s and %s, got %s", rttMin, rttMax, rtt)
 		}
-		runenv.Message("ping RTT was %s [%s, %s]", rtt, rttMin, rttMax)
+		runenv.RecordMessage("ping RTT was %s [%s, %s]", rtt, rttMin, rttMax)
 
 		state := sync.State("ping-pong-" + test)
 
 		// Don't reconfigure the network until we're done with the first test.
-		writer.SignalEntry(state)
+		_, err = writer.SignalEntry(ctx, state)
+		if err != nil {
+			return err
+		}
 		err = <-watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
 		if err != nil {
 			return err
@@ -238,7 +244,7 @@ func run(runenv *runtime.RunEnv) error {
 	config.State = "latency-reduced"
 
 	logging.S().Debug("writing new config with latency reduced")
-	_, err = writer.Write(sync.NetworkSubtree(hostname), &config)
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
 	if err != nil {
 		return err
 	}

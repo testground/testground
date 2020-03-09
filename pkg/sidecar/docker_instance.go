@@ -8,8 +8,6 @@ import (
 	"net"
 	"os"
 
-	"github.com/ipfs/testground/pkg/conv"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
@@ -107,10 +105,10 @@ func NewDockerManager() (InstanceManager, error) {
 }
 
 func (d *DockerInstanceManager) Manage(
-	ctx context.Context,
-	worker func(ctx context.Context, inst *Instance) error,
+	globalctx context.Context,
+	worker func(context.Context, *Instance) error,
 ) error {
-	return d.manager.Manage(ctx, func(ctx context.Context, container *dockermanager.Container) error {
+	return d.manager.Manage(globalctx, func(ctx context.Context, container *dockermanager.Container) error {
 		inst, err := d.manageContainer(ctx, container)
 		switch {
 		case err != nil:
@@ -143,24 +141,20 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 		return nil, fmt.Errorf("not running")
 	}
 
-	// Remove TEST_OUTPUTS_PATH env var.
-	m, err := conv.ParseKeyValues(info.Config.Env)
-	if err != nil {
-		return nil, err
-	}
-	delete(m, runtime.EnvTestOutputsPath)
-	info.Config.Env = conv.ToOptionsSlice(m)
-
 	// Construct the runtime environment
-	runenv, err := runtime.ParseRunEnv(info.Config.Env)
+	params, err := runtime.ParseRunParams(info.Config.Env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
 
 	// Not using the sidecar, ignore this container.
-	if !runenv.TestSidecar {
+	if !params.TestSidecar {
 		return nil, nil
 	}
+
+	// Remove the TestOutputsPath. We can't store anything from the sidecar.
+	params.TestOutputsPath = ""
+	runenv := runtime.NewRunEnv(*params)
 
 	//////////////////
 	//  NETWORKING  //
@@ -276,7 +270,7 @@ func (d *DockerInstanceManager) manageContainer(ctx context.Context, container *
 			}
 		}
 	}
-	return NewInstance(runenv, info.Config.Hostname, network)
+	return NewInstance(ctx, runenv, info.Config.Hostname, network)
 }
 
 type dockerLink struct {

@@ -29,7 +29,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
@@ -72,12 +72,12 @@ func FindProviders(runenv *runtime.RunEnv) error {
 				err := dht.Provide(ctx, c, true)
 
 				if err == nil {
-					runenv.Message("Provided CID: %s", c)
-					runenv.EmitMetric(&runtime.MetricDefinition{
+					runenv.RecordMessage("Provided CID: %s", c)
+					runenv.RecordMetric(&runtime.MetricDefinition{
 						Name:           fmt.Sprintf("time-to-provide-%d", i),
 						Unit:           "ns",
 						ImprovementDir: -1,
-					}, float64(time.Now().Sub(t).Nanoseconds()))
+					}, float64(time.Since(t).Nanoseconds()))
 				}
 
 				return err
@@ -97,13 +97,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 				pids, err := dht.FindProviders(ctx, c)
 
 				if err == nil {
-					runenv.EmitMetric(&runtime.MetricDefinition{
+					runenv.RecordMetric(&runtime.MetricDefinition{
 						Name:           fmt.Sprintf("time-to-find-%d", i),
 						Unit:           "ns",
 						ImprovementDir: -1,
-					}, float64(time.Now().Sub(t).Nanoseconds()))
+					}, float64(time.Since(t).Nanoseconds()))
 
-					runenv.EmitMetric(&runtime.MetricDefinition{
+					runenv.RecordMetric(&runtime.MetricDefinition{
 						Name:           fmt.Sprintf("peers-found-%d", i),
 						Unit:           "peers",
 						ImprovementDir: 1,
