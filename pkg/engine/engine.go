@@ -380,6 +380,13 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	// Create a coalesced configuration for test case parameters.
 	defaultParams := make(map[string]string, len(tcase.Parameters))
 	for n, v := range tcase.Parameters {
+		if v.Default == nil {
+			continue
+		}
+		if s, ok := v.Default.(string); ok {
+			defaultParams[n] = s
+			continue
+		}
 		data, err := json.Marshal(v.Default)
 		if err != nil {
 			logging.S().Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
