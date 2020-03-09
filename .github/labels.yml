@@ -83,7 +83,10 @@
   description: "Kind: Enhancement"
 - name: kind/discussion
   color: fcf0b5
-  description: "Kind: Discussion"  
+  description: "Kind: Discussion"
+- name: kind/spike
+  color: fcf0b5
+  description: "Kind: Spike"  
 
 ###
 ### Difficulties
