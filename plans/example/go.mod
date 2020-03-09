@@ -8,6 +8,6 @@ replace (
 )
 
 require (
-	github.com/ipfs/testground/sdk/runtime v0.1.0
-	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/ipfs/testground/sdk/runtime v0.2.0
+	github.com/ipfs/testground/sdk/sync v0.2.0
 )

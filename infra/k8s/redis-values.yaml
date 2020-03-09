@@ -466,7 +466,7 @@ slave:
 ## Prometheus Exporter / Metrics
 ##
 metrics:
-  enabled: false
+  enabled: true
 
   image:
     registry: docker.io
@@ -508,6 +508,7 @@ metrics:
     ## [Kube Prometheus Selector Label](https://github.com/helm/charts/tree/master/stable/prometheus-operator#exporters)
     selector:
       prometheus: kube-prometheus
+      #      prometheus: prometheus-k8s
 
   ## Metrics exporter pod priorityClassName
   # priorityClassName: {}
