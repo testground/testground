@@ -917,15 +917,15 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 		var err error
 		for i := 1; i <= attempts; i++ {
 			runenv.RecordMessage("dialling peer %s (attempt %d)", ai.ID, i)
-			//select {
-			//case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
-			//case <-ctx.Done():
-			//	return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
-			//}
 			if err = dht.Host().Connect(ctx, ai); err == nil {
 				return nil
 			} else {
 				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+			}
+			select {
+			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
 		}
 		return fmt.Errorf("failed while dialing peer %v, attempts: %d: %w", ai.Addrs, attempts, err)
