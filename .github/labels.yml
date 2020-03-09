@@ -58,6 +58,9 @@
 - name: kind/problem
   color: c92712
   description: "Kind: Problem"
+- name: kind/feature
+  color: fcf0b5
+  description: "Kind: Feature"
 - name: kind/improvement
   color: fcf0b5
   description: "Kind: Improvement"
