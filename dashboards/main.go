@@ -58,27 +58,30 @@ func ImportDatasources(c *sdk.Client) {
 		err         error
 	)
 	if datasources, err = c.GetAllDatasources(); err != nil {
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err))
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 	filesInDir, err = ioutil.ReadDir("./datasources")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err))
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 	}
 	for _, file := range filesInDir {
 		if strings.HasSuffix(file.Name(), ".json") {
 			if rawDS, err = ioutil.ReadFile(file.Name()); err != nil {
-				fmt.Fprint(os.Stderr, fmt.Sprintf("%s\n", err))
+				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 			var newDS sdk.Datasource
 			if err = json.Unmarshal(rawDS, &newDS); err != nil {
-				fmt.Fprint(os.Stderr, fmt.Sprintf("%s\n", err))
+				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
 			for _, existingDS := range datasources {
 				if existingDS.Name == newDS.Name {
-					c.DeleteDatasource(existingDS.ID)
+					sm, err := c.DeleteDatasource(existingDS.ID)
+					if err != nil {
+						log.Print(sm.Message)
+					}
 					break
 				}
 			}
@@ -113,8 +116,11 @@ func ImportDashboards(c *sdk.Client) {
 				log.Println(err)
 				continue
 			}
-			c.DeleteDashboard(board.UpdateSlug())
-			_, err := c.SetDashboard(board, false)
+			sm, err := c.DeleteDashboard(board.UpdateSlug())
+			if err != nil {
+				log.Print(sm.Message)
+			}
+			_, err = c.SetDashboard(board, false)
 			if err != nil {
 				log.Printf("error on importing dashboard %s", board.Title)
 				continue
@@ -134,16 +140,16 @@ func BackupDatasources(c *sdk.Client) {
 		err         error
 	)
 	if datasources, err = c.GetAllDatasources(); err != nil {
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err))
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 	for _, ds := range datasources {
 		if dsPacked, err = json.Marshal(ds); err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("%s for %s\n", err, ds.Name))
+			fmt.Fprintf(os.Stderr, "%s for %s\n", err, ds.Name)
 			continue
 		}
 		if err = ioutil.WriteFile(fmt.Sprintf("./datasources/%s.json", slug.Make(ds.Name)), dsPacked, os.FileMode(int(0666))); err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("%s for %s\n", err, meta.Slug))
+			fmt.Fprintf(os.Stderr, "%s for %s\n", err, meta.Slug)
 		}
 	}
 }
@@ -160,16 +166,16 @@ func BackupDashboards(c *sdk.Client) {
 		err        error
 	)
 	if boardLinks, err = c.SearchDashboards("", false, "testground"); err != nil {
-		fmt.Fprintf(os.Stderr, fmt.Sprintf("%s\n", err))
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 	for _, link := range boardLinks {
 		if rawBoard, meta, err = c.GetRawDashboardBySlug(link.URI); err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("%s for %s\n", err, link.URI))
+			fmt.Fprintf(os.Stderr, "%s for %s\n", err, link.URI)
 			continue
 		}
 		if err = ioutil.WriteFile(fmt.Sprintf("./dashboards/%s.json", meta.Slug), rawBoard, os.FileMode(int(0666))); err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("%s for %s\n", err, meta.Slug))
+			fmt.Fprintf(os.Stderr, "%s for %s\n", err, meta.Slug)
 		}
 	}
 }
