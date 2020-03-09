@@ -169,12 +169,23 @@ func BackupDashboards(c *sdk.Client) {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
+	var board sdk.Board
 	for _, link := range boardLinks {
 		if rawBoard, meta, err = c.GetRawDashboardBySlug(link.URI); err != nil {
 			fmt.Fprintf(os.Stderr, "%s for %s\n", err, link.URI)
 			continue
 		}
-		if err = ioutil.WriteFile(fmt.Sprintf("./dashboards/%s.json", meta.Slug), rawBoard, os.FileMode(int(0666))); err != nil {
+		err := json.Unmarshal(rawBoard, &board)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		pretty, err := json.MarshalIndent(board, "", "    ")
+		if err != nil {
+			log.Printf("couldn't pretty print %s. continuing anyway.", meta.Slug)
+			pretty = rawBoard
+		}
+		if err = ioutil.WriteFile(fmt.Sprintf("./dashboards/%s.json", meta.Slug), pretty, os.FileMode(int(0666))); err != nil {
 			fmt.Fprintf(os.Stderr, "%s for %s\n", err, meta.Slug)
 		}
 	}

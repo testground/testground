@@ -1,1 +1,1169 @@
-{"annotations":{"list":[{"datasource":"-- Grafana --","enable":true,"iconColor":"rgba(0, 211, 255, 1)","iconSize":0,"lineColor":"","name":"Annotations \u0026 Alerts","query":"","showLine":false,"tags":null,"tagsField":"","textField":"","type":"dashboard"}]},"editable":true,"graphTooltip":1,"hideControls":false,"id":59,"links":[],"originalTitle":"","panels":[{"colorBackground":false,"colorValue":false,"colors":["rgba(245, 54, 54, 0.9)","rgba(237, 129, 40, 0.89)","rgba(50, 172, 45, 0.97)"],"datasource":"prometheus","decimals":0,"editable":true,"error":false,"format":"s","gauge":{"maxValue":100,"minValue":0,"show":false,"thresholdLabels":false,"thresholdMarkers":true},"gridPos":{"h":7,"w":2,"x":0,"y":0},"id":9,"isNew":true,"mappingType":1,"mappingTypes":[{"name":"value to text","value":1},{"name":"range to text","value":2}],"maxDataPoints":100,"nullPointMode":"connected","postfix":"","postfixFontSize":"50%","prefix":"","prefixFontSize":"50%","rangeMaps":[{"from":"null","text":"N/A","to":"null"}],"span":0,"sparkline":{"fillColor":"rgba(31, 118, 189, 0.18)","lineColor":"rgb(31, 120, 193)","show":true},"targets":[{"expr":"max(max_over_time(redis_uptime_in_seconds{instance=~\"$instance\"}[$__interval]))","format":"time_series","intervalFactor":2,"refId":"A","step":1800}],"thresholds":"","title":"Uptime","transparent":false,"type":"singlestat","valueFontSize":"70%","valueMaps":[{"op":"=","text":"N/A","value":"null"}],"valueName":"current"},{"colorBackground":false,"colorValue":false,"colors":["rgba(245, 54, 54, 0.9)","rgba(237, 129, 40, 0.89)","rgba(50, 172, 45, 0.97)"],"datasource":"prometheus","decimals":0,"editable":true,"error":false,"format":"none","gauge":{"maxValue":100,"minValue":0,"show":false,"thresholdLabels":false,"thresholdMarkers":true},"gridPos":{"h":7,"w":2,"x":2,"y":0},"hideTimeOverride":true,"id":12,"isNew":true,"mappingType":1,"mappingTypes":[{"name":"value to text","value":1},{"name":"range to text","value":2}],"maxDataPoints":100,"nullPointMode":"connected","postfix":"","postfixFontSize":"50%","prefix":"","prefixFontSize":"50%","rangeMaps":[{"from":"null","text":"N/A","to":"null"}],"span":0,"sparkline":{"fillColor":"rgba(31, 118, 189, 0.18)","lineColor":"rgb(31, 120, 193)","show":true},"targets":[{"expr":"redis_connected_clients{instance=~\"$instance\"}","format":"time_series","intervalFactor":2,"refId":"A","step":2}],"thresholds":"","title":"Clients","transparent":false,"type":"singlestat","valueFontSize":"80%","valueMaps":[{"op":"=","text":"N/A","value":"null"}],"valueName":"current"},{"colorBackground":false,"colorValue":false,"colors":["rgba(50, 172, 45, 0.97)","rgba(237, 129, 40, 0.89)","rgba(245, 54, 54, 0.9)"],"datasource":"prometheus","decimals":0,"editable":true,"error":false,"format":"percent","gauge":{"maxValue":100,"minValue":0,"show":true,"thresholdLabels":false,"thresholdMarkers":true},"gridPos":{"h":7,"w":4,"x":4,"y":0},"hideTimeOverride":true,"id":11,"isNew":true,"mappingType":1,"mappingTypes":[{"name":"value to text","value":1},{"name":"range to text","value":2}],"maxDataPoints":100,"nullPointMode":"connected","postfix":"","postfixFontSize":"50%","prefix":"","prefixFontSize":"50%","rangeMaps":[{"from":"null","text":"N/A","to":"null"}],"span":0,"sparkline":{"fillColor":"rgba(31, 118, 189, 0.18)","lineColor":"rgb(31, 120, 193)","show":true},"targets":[{"expr":"100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"})","format":"time_series","intervalFactor":2,"refId":"A","step":2}],"thresholds":"80,95","title":"Memory Usage","transparent":false,"type":"singlestat","valueFontSize":"80%","valueMaps":[{"op":"=","text":"N/A","value":"null"}],"valueName":"current"},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":8,"gridPos":{"h":7,"w":8,"x":8,"y":0},"id":18,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":1,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":true,"steppedLine":false,"targets":[{"expr":"sum(topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))) by (cmd)","format":"time_series","intervalFactor":2,"legendFormat":"{{ cmd }}","refId":"A","step":240}],"title":"Total Commands / sec","tooltip":{"msResolution":true,"shared":true,"sort":2,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"short","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","decimals":2,"editable":true,"error":false,"fill":1,"gridPos":{"h":7,"w":8,"x":16,"y":0},"id":1,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":false,"total":false,"values":false},"lines":true,"linewidth":2,"nullPointMode":"connected","percentage":true,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"irate(redis_keyspace_hits_total{instance=~\"$instance\"}[5m])","format":"time_series","intervalFactor":2,"legendFormat":"hits","refId":"A","step":240},{"expr":"irate(redis_keyspace_misses_total{instance=~\"$instance\"}[5m])","format":"time_series","intervalFactor":2,"legendFormat":"misses","refId":"B","step":240}],"title":"Hits / Misses per Sec","tooltip":{"shared":true,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"short","logBase":1,"min":0,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{"max":"#BF1B00"},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":1,"gridPos":{"h":7,"w":12,"x":0,"y":7},"id":7,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":2,"nullPointMode":"null as zero","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"redis_memory_used_bytes{instance=~\"$instance\"} ","format":"time_series","intervalFactor":2,"legendFormat":"used","refId":"A","step":240},{"expr":"redis_memory_max_bytes{instance=~\"$instance\"} ","format":"time_series","intervalFactor":2,"legendFormat":"max","refId":"B","step":240}],"title":"Total Memory Usage","tooltip":{"shared":true,"value_type":"cumulative"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"bytes","logBase":1,"min":0,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":1,"gridPos":{"h":7,"w":12,"x":12,"y":7},"id":10,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":2,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"rate(redis_net_input_bytes_total{instance=~\"$instance\"}[5m])","format":"time_series","intervalFactor":2,"legendFormat":"{{ input }}","refId":"A","step":240},{"expr":"rate(redis_net_output_bytes_total{instance=~\"$instance\"}[5m])","format":"time_series","intervalFactor":2,"legendFormat":"{{ output }}","refId":"B","step":240}],"title":"Network I/O","tooltip":{"msResolution":true,"shared":true,"value_type":"cumulative"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"bytes","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":7,"gridPos":{"h":7,"w":12,"x":0,"y":14},"id":5,"isNew":true,"legend":{"alignAsTable":true,"avg":false,"current":true,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":true,"show":true,"total":false,"values":true},"lines":true,"linewidth":2,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":true,"steppedLine":false,"targets":[{"expr":"sum (redis_db_keys{instance=~\"$instance\"}) by (db)","format":"time_series","intervalFactor":2,"legendFormat":"{{ db }} ","refId":"A","step":240}],"title":"Total Items per DB","tooltip":{"shared":true,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"none","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":7,"gridPos":{"h":7,"w":12,"x":12,"y":14},"id":13,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":2,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":true,"steppedLine":false,"targets":[{"expr":"sum (redis_db_keys{instance=~\"$instance\"}) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) ","format":"time_series","intervalFactor":2,"legendFormat":"not expiring","refId":"A","step":240},{"expr":"sum (redis_db_keys_expiring{instance=~\"$instance\"})","format":"time_series","intervalFactor":2,"legendFormat":"expiring","refId":"B","step":240}],"title":"Expiring vs Not-Expiring Keys","tooltip":{"shared":true,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"short","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{"evicts":"#890F02","memcached_items_evicted_total{instance=\"172.17.0.1:9150\",job=\"prometheus\"}":"#890F02","reclaims":"#3F6833"},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":1,"gridPos":{"h":7,"w":12,"x":0,"y":21},"id":8,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":2,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","seriesOverrides":[{"alias":"reclaims","yaxis":2}],"spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"sum(rate(redis_expired_keys_total{instance=~\"$instance\"}[5m])) by (instance)","format":"time_series","intervalFactor":2,"legendFormat":"expired","refId":"A","step":240},{"expr":"sum(rate(redis_evicted_keys_total{instance=~\"$instance\"}[5m])) by (instance)","format":"time_series","intervalFactor":2,"legendFormat":"evicted","refId":"B","step":240}],"title":"Expired/Evicted Keys","tooltip":{"shared":true,"value_type":"cumulative"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"short","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":false,"error":false,"fill":1,"gridPos":{"h":7,"w":12,"x":12,"y":21},"id":16,"isNew":false,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":1,"nullPointMode":"null","percentage":false,"pointradius":2,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"redis_connected_clients{instance=\"$instance\"}","format":"time_series","intervalFactor":1,"legendFormat":"connected","refId":"A"},{"expr":"redis_blocked_clients{instance=\"$instance\"}","format":"time_series","intervalFactor":1,"legendFormat":"blocked","refId":"B"}],"title":"Connected/Blocked Clients","tooltip":{"shared":true,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"short","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":1,"gridPos":{"h":7,"w":12,"x":0,"y":28},"id":20,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":1,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":false,"steppedLine":false,"targets":[{"expr":"topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\"}[1m])) by (cmd)\n)","format":"time_series","intervalFactor":2,"legendFormat":"{{ cmd }}","refId":"A","step":240}],"title":"Average Time Spent by Command / sec","tooltip":{"msResolution":true,"shared":true,"sort":2,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"s","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]},{"aliasColors":{},"bars":false,"dashLength":10,"dashes":false,"datasource":"prometheus","editable":true,"error":false,"fill":8,"gridPos":{"h":7,"w":12,"x":12,"y":28},"id":14,"isNew":true,"legend":{"alignAsTable":false,"avg":false,"current":false,"hideEmpty":false,"hideZero":false,"max":false,"min":false,"rightSide":false,"show":true,"total":false,"values":false},"lines":true,"linewidth":1,"nullPointMode":"connected","percentage":false,"pointradius":5,"points":false,"renderer":"flot","spaceLength":10,"span":0,"stack":true,"steppedLine":false,"targets":[{"expr":"topk(10, sum(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd))","format":"time_series","intervalFactor":2,"legendFormat":"{{ cmd }}","refId":"A","step":240}],"title":"Total Time Spent by Command / sec","tooltip":{"msResolution":true,"shared":true,"sort":2,"value_type":"individual"},"transparent":false,"type":"graph","xaxis":{"format":"","logBase":0,"show":true},"yaxes":[{"format":"s","logBase":1,"show":true},{"format":"short","logBase":1,"show":true}]}],"refresh":false,"rows":null,"schemaVersion":22,"sharedCrosshair":false,"slug":"testground-redis-dashboard","style":"dark","tags":["testground","testground_infra"],"templating":{"list":[{"allFormat":"","allValue":"","current":{"text":"","value":null},"datasource":"prometheus","hide":0,"includeAll":false,"label":"","multi":false,"multiFormat":"","name":"instance","options":[],"query":"label_values(redis_up, instance)","refresh":2,"regex":"","sort":1,"type":"query"}]},"time":{"from":"now-24h","to":"now"},"timepicker":{"refresh_intervals":["5s","10s","30s","1m","5m","15m","30m","1h","2h","1d"],"time_options":["5m","15m","1h","6h","12h","24h","2d","7d","30d"]},"timezone":"browser","title":"testground redis dashboard","uid":"2LtOhWXZk","version":1}
+{
+    "id": 59,
+    "uid": "2LtOhWXZk",
+    "slug": "testground-redis-dashboard",
+    "title": "testground redis dashboard",
+    "originalTitle": "",
+    "tags": [
+        "testground",
+        "testground_infra"
+    ],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "sharedCrosshair": false,
+    "panels": [
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 2,
+                "x": 0,
+                "y": 0
+            },
+            "id": 9,
+            "isNew": true,
+            "span": 0,
+            "title": "Uptime",
+            "transparent": false,
+            "type": "singlestat",
+            "colors": [
+                "rgba(245, 54, 54, 0.9)",
+                "rgba(237, 129, 40, 0.89)",
+                "rgba(50, 172, 45, 0.97)"
+            ],
+            "colorValue": false,
+            "colorBackground": false,
+            "decimals": 0,
+            "format": "s",
+            "gauge": {
+                "maxValue": 100,
+                "minValue": 0,
+                "show": false,
+                "thresholdLabels": false,
+                "thresholdMarkers": true
+            },
+            "mappingType": 1,
+            "mappingTypes": [
+                {
+                    "name": "value to text",
+                    "value": 1
+                },
+                {
+                    "name": "range to text",
+                    "value": 2
+                }
+            ],
+            "maxDataPoints": 100,
+            "nullPointMode": "connected",
+            "postfix": "",
+            "postfixFontSize": "50%",
+            "prefix": "",
+            "prefixFontSize": "50%",
+            "rangeMaps": [
+                {
+                    "from": "null",
+                    "text": "N/A",
+                    "to": "null"
+                }
+            ],
+            "sparkline": {
+                "fillColor": "rgba(31, 118, 189, 0.18)",
+                "lineColor": "rgb(31, 120, 193)",
+                "show": true
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "max(max_over_time(redis_uptime_in_seconds{instance=~\"$instance\"}[$__interval]))",
+                    "intervalFactor": 2,
+                    "step": 1800,
+                    "format": "time_series"
+                }
+            ],
+            "thresholds": "",
+            "valueFontSize": "70%",
+            "valueMaps": [
+                {
+                    "op": "=",
+                    "text": "N/A",
+                    "value": "null"
+                }
+            ],
+            "valueName": "current"
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 2,
+                "x": 2,
+                "y": 0
+            },
+            "hideTimeOverride": true,
+            "id": 12,
+            "isNew": true,
+            "span": 0,
+            "title": "Clients",
+            "transparent": false,
+            "type": "singlestat",
+            "colors": [
+                "rgba(245, 54, 54, 0.9)",
+                "rgba(237, 129, 40, 0.89)",
+                "rgba(50, 172, 45, 0.97)"
+            ],
+            "colorValue": false,
+            "colorBackground": false,
+            "decimals": 0,
+            "format": "none",
+            "gauge": {
+                "maxValue": 100,
+                "minValue": 0,
+                "show": false,
+                "thresholdLabels": false,
+                "thresholdMarkers": true
+            },
+            "mappingType": 1,
+            "mappingTypes": [
+                {
+                    "name": "value to text",
+                    "value": 1
+                },
+                {
+                    "name": "range to text",
+                    "value": 2
+                }
+            ],
+            "maxDataPoints": 100,
+            "nullPointMode": "connected",
+            "postfix": "",
+            "postfixFontSize": "50%",
+            "prefix": "",
+            "prefixFontSize": "50%",
+            "rangeMaps": [
+                {
+                    "from": "null",
+                    "text": "N/A",
+                    "to": "null"
+                }
+            ],
+            "sparkline": {
+                "fillColor": "rgba(31, 118, 189, 0.18)",
+                "lineColor": "rgb(31, 120, 193)",
+                "show": true
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "redis_connected_clients{instance=~\"$instance\"}",
+                    "intervalFactor": 2,
+                    "step": 2,
+                    "format": "time_series"
+                }
+            ],
+            "thresholds": "",
+            "valueFontSize": "80%",
+            "valueMaps": [
+                {
+                    "op": "=",
+                    "text": "N/A",
+                    "value": "null"
+                }
+            ],
+            "valueName": "current"
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 4,
+                "x": 4,
+                "y": 0
+            },
+            "hideTimeOverride": true,
+            "id": 11,
+            "isNew": true,
+            "span": 0,
+            "title": "Memory Usage",
+            "transparent": false,
+            "type": "singlestat",
+            "colors": [
+                "rgba(50, 172, 45, 0.97)",
+                "rgba(237, 129, 40, 0.89)",
+                "rgba(245, 54, 54, 0.9)"
+            ],
+            "colorValue": false,
+            "colorBackground": false,
+            "decimals": 0,
+            "format": "percent",
+            "gauge": {
+                "maxValue": 100,
+                "minValue": 0,
+                "show": true,
+                "thresholdLabels": false,
+                "thresholdMarkers": true
+            },
+            "mappingType": 1,
+            "mappingTypes": [
+                {
+                    "name": "value to text",
+                    "value": 1
+                },
+                {
+                    "name": "range to text",
+                    "value": 2
+                }
+            ],
+            "maxDataPoints": 100,
+            "nullPointMode": "connected",
+            "postfix": "",
+            "postfixFontSize": "50%",
+            "prefix": "",
+            "prefixFontSize": "50%",
+            "rangeMaps": [
+                {
+                    "from": "null",
+                    "text": "N/A",
+                    "to": "null"
+                }
+            ],
+            "sparkline": {
+                "fillColor": "rgba(31, 118, 189, 0.18)",
+                "lineColor": "rgb(31, 120, 193)",
+                "show": true
+            },
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"})",
+                    "intervalFactor": 2,
+                    "step": 2,
+                    "format": "time_series"
+                }
+            ],
+            "thresholds": "80,95",
+            "valueFontSize": "80%",
+            "valueMaps": [
+                {
+                    "op": "=",
+                    "text": "N/A",
+                    "value": "null"
+                }
+            ],
+            "valueName": "current"
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 8,
+                "y": 0
+            },
+            "id": 18,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Total Commands / sec",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 8,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": true,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum(topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))) by (cmd)",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ cmd }}",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual",
+                "msResolution": true,
+                "sort": 2
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 8,
+                "x": 16,
+                "y": 0
+            },
+            "id": 1,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Hits / Misses per Sec",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "decimals": 2,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": false,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "connected",
+            "percentage": true,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "irate(redis_keyspace_hits_total{instance=~\"$instance\"}[5m])",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "hits",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "irate(redis_keyspace_misses_total{instance=~\"$instance\"}[5m])",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "misses",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "min": 0,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": 7
+            },
+            "id": 7,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Total Memory Usage",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {
+                "max": "#BF1B00"
+            },
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "null as zero",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "redis_memory_used_bytes{instance=~\"$instance\"} ",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "used",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "redis_memory_max_bytes{instance=~\"$instance\"} ",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "max",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "cumulative"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "bytes",
+                    "logBase": 1,
+                    "min": 0,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": 7
+            },
+            "id": 10,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Network I/O",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "rate(redis_net_input_bytes_total{instance=~\"$instance\"}[5m])",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ input }}",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "rate(redis_net_output_bytes_total{instance=~\"$instance\"}[5m])",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ output }}",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "cumulative",
+                "msResolution": true
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "bytes",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": 14
+            },
+            "id": 5,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Total Items per DB",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 7,
+            "legend": {
+                "alignAsTable": true,
+                "avg": false,
+                "current": true,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": true,
+                "show": true,
+                "total": false,
+                "values": true
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": true,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db)",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ db }} ",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "none",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": 14
+            },
+            "id": 13,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Expiring vs Not-Expiring Keys",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 7,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": true,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum (redis_db_keys{instance=~\"$instance\"}) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) ",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "not expiring",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"})",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "expiring",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": 21
+            },
+            "id": 8,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Expired/Evicted Keys",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {
+                "evicts": "#890F02",
+                "memcached_items_evicted_total{instance=\"172.17.0.1:9150\",job=\"prometheus\"}": "#890F02",
+                "reclaims": "#3F6833"
+            },
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 2,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "seriesOverrides": [
+                {
+                    "alias": "reclaims",
+                    "yaxis": 2
+                }
+            ],
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "sum(rate(redis_expired_keys_total{instance=~\"$instance\"}[5m])) by (instance)",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "expired",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "sum(rate(redis_evicted_keys_total{instance=~\"$instance\"}[5m])) by (instance)",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "evicted",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "cumulative"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": false,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": 21
+            },
+            "id": 16,
+            "isNew": false,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Connected/Blocked Clients",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "null",
+            "percentage": false,
+            "pointradius": 2,
+            "points": false,
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "redis_connected_clients{instance=\"$instance\"}",
+                    "intervalFactor": 1,
+                    "legendFormat": "connected",
+                    "format": "time_series"
+                },
+                {
+                    "refId": "B",
+                    "expr": "redis_blocked_clients{instance=\"$instance\"}",
+                    "intervalFactor": 1,
+                    "legendFormat": "blocked",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual"
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 0,
+                "y": 28
+            },
+            "id": 20,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Average Time Spent by Command / sec",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 1,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": false,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\"}[1m])) by (cmd)\n)",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ cmd }}",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual",
+                "msResolution": true,
+                "sort": 2
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "s",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        },
+        {
+            "datasource": "prometheus",
+            "editable": true,
+            "error": false,
+            "gridPos": {
+                "h": 7,
+                "w": 12,
+                "x": 12,
+                "y": 28
+            },
+            "id": 14,
+            "isNew": true,
+            "renderer": "flot",
+            "span": 0,
+            "title": "Total Time Spent by Command / sec",
+            "transparent": false,
+            "type": "graph",
+            "aliasColors": {},
+            "bars": false,
+            "dashLength": 10,
+            "dashes": false,
+            "fill": 8,
+            "legend": {
+                "alignAsTable": false,
+                "avg": false,
+                "current": false,
+                "hideEmpty": false,
+                "hideZero": false,
+                "max": false,
+                "min": false,
+                "rightSide": false,
+                "show": true,
+                "total": false,
+                "values": false
+            },
+            "lines": true,
+            "linewidth": 1,
+            "nullPointMode": "connected",
+            "percentage": false,
+            "pointradius": 5,
+            "points": false,
+            "spaceLength": 10,
+            "stack": true,
+            "steppedLine": false,
+            "targets": [
+                {
+                    "refId": "A",
+                    "expr": "topk(10, sum(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd))",
+                    "intervalFactor": 2,
+                    "step": 240,
+                    "legendFormat": "{{ cmd }}",
+                    "format": "time_series"
+                }
+            ],
+            "tooltip": {
+                "shared": true,
+                "value_type": "individual",
+                "msResolution": true,
+                "sort": 2
+            },
+            "xaxis": {
+                "format": "",
+                "logBase": 0,
+                "show": true
+            },
+            "yaxes": [
+                {
+                    "format": "s",
+                    "logBase": 1,
+                    "show": true
+                },
+                {
+                    "format": "short",
+                    "logBase": 1,
+                    "show": true
+                }
+            ]
+        }
+    ],
+    "rows": null,
+    "templating": {
+        "list": [
+            {
+                "name": "instance",
+                "type": "query",
+                "datasource": "prometheus",
+                "refresh": 2,
+                "options": [],
+                "includeAll": false,
+                "allFormat": "",
+                "allValue": "",
+                "multi": false,
+                "multiFormat": "",
+                "query": "label_values(redis_up, instance)",
+                "regex": "",
+                "current": {
+                    "text": "",
+                    "value": null
+                },
+                "label": "",
+                "hide": 0,
+                "sort": 1
+            }
+        ]
+    },
+    "annotations": {
+        "list": [
+            {
+                "name": "Annotations \u0026 Alerts",
+                "datasource": "-- Grafana --",
+                "showLine": false,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "lineColor": "",
+                "iconSize": 0,
+                "enable": true,
+                "query": "",
+                "textField": "",
+                "tagsField": "",
+                "tags": null,
+                "type": "dashboard"
+            }
+        ]
+    },
+    "refresh": "10s",
+    "schemaVersion": 22,
+    "version": 1,
+    "links": [],
+    "time": {
+        "from": "now-24h",
+        "to": "now"
+    },
+    "timepicker": {
+        "refresh_intervals": [
+            "5s",
+            "10s",
+            "30s",
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1h",
+            "2h",
+            "1d"
+        ],
+        "time_options": [
+            "5m",
+            "15m",
+            "1h",
+            "6h",
+            "12h",
+            "24h",
+            "2d",
+            "7d",
+            "30d"
+        ]
+    },
+    "graphTooltip": 1
+}
