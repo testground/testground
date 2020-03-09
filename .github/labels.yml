@@ -26,6 +26,9 @@
 - name: area/sdk-testplans
   color: 0bb1ed
   description: "Area: SDK | Test plan API"
+- name: area/sidecar
+  color: 0bb1ed
+  description: "Area: Sidecar"
 - name: area/observability
   color: 0bb1ed
   description: "Area: Observability"
@@ -47,7 +50,9 @@
 - name: area/testing
   color: 0bb1ed
   description: "Area: Testing"
-
+- name: area/test-plan
+  color: 0bb1ed
+  description: "Area: Test Plans"
 
 ###
 ### Kinds
@@ -146,12 +151,15 @@
 - name: topic/interoperability
   color: bf0f73
   description: "Topic: Interoperability"
+- name: topic/multi-language
+  color: bf0f73
+  description: "Topic: Multi-language"
+- name: topic/docs
+  color: bf0f73
+  description: "Topic: Specs"
 - name: topic/docs
   color: bf0f73
   description: "Topic: Documentation"
-- name: topic/infra
-  color: bf0f73
-  description: "Topic: Infrastructure"
 - name: topic/architecture
   color: bf0f73
   description: "Topic: Architecture"  
