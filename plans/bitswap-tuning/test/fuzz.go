@@ -7,6 +7,7 @@ import (
 	"os"
 	"reflect"
 	"runtime/pprof"
+	"strconv"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -21,15 +22,25 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// NOTE: To run use:
-// ./testground run s bitswap-tuning/fuzz --builder=exec:go --runner="local:exec" --dep="github.com/ipfs/go-bitswap=master" -instances=8 --test-param pprof_path=/tmp/my.prof
+//
+// To run use:
+//
+// ./testground run s bitswap-tuning/fuzz \
+//   --builder=exec:go \
+//   --runner="local:exec" \
+//   --dep="github.com/ipfs/go-bitswap=master" \
+//   -instances=8 \
+//   --test-param cpuprof_path=/tmp/cpu.prof \
+//   --test-param memprof_path=/tmp/mem.prof
+//
 
 // Fuzz test Bitswap
 func Fuzz(runenv *runtime.RunEnv) error {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
 	randomDisconnectsFq := float32(runenv.IntParam("random_disconnects_fq")) / 100
-	profilingEnabled := runenv.IsParamSet("pprof_path")
+	cpuProfilingEnabled := runenv.IsParamSet("cpuprof_path")
+	memProfilingEnabled := runenv.IsParamSet("memprof_path")
 
 	/// --- Set up
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -234,8 +245,8 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		}()
 	}
 
-	if seq == 1 && profilingEnabled {
-		f, err := os.Create(runenv.StringParam("pprof_path"))
+	if cpuProfilingEnabled {
+		f, err := os.Create(runenv.StringParam("cpuprof_path") + "." + strconv.Itoa(int(seq)))
 		if err != nil {
 			return err
 		}
@@ -299,8 +310,16 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Wait for all leeches to have downloaded the data from seeds
 	signalAndWaitForAll("transfer-complete")
 
-	if seq == 1 && profilingEnabled {
+	if cpuProfilingEnabled {
 		pprof.StopCPUProfile()
+	}
+	if memProfilingEnabled {
+		f, err := os.Create(runenv.StringParam("memprof_path") + "." + strconv.Itoa(int(seq)))
+		if err != nil {
+			return err
+		}
+		pprof.WriteHeapProfile(f)
+		f.Close()
 	}
 
 	// Shut down bitswap
