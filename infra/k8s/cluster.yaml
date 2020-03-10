@@ -7,7 +7,6 @@ spec:
   addons:
   - manifest: metrics-server
   - manifest: prometheus-operator
-  - manifest: kubernetes-dashboard
   api:
     loadBalancer:
       type: Public
