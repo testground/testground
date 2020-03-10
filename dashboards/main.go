@@ -31,18 +31,20 @@ func main() {
 
 	client := sdk.NewClient(*grafana, *apikey, sdk.DefaultHTTPClient)
 
-	// import mode
 	if *imode {
+		// import mode
+		log.Println("importing datasources")
 		ImportDatasources(client)
+		log.Println("importing dashboards")
 		ImportDashboards(client)
-		os.Exit(0)
+	} else {
+		// backup mode
+		log.Println("backing up datasources")
+		BackupDatasources(client)
+		log.Println("backing up dashboards")
+		BackupDashboards(client)
 	}
 
-	// backup mode
-	log.Println("backing up datasources")
-	BackupDatasources(client)
-	log.Println("backing up dashboards")
-	BackupDashboards(client)
 }
 
 // ImportDatasources imports datasource json files from ./datasources and uploads them to the
