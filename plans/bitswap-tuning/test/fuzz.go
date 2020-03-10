@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"runtime/pprof"
 	"time"
 
 	"github.com/ipfs/go-cid"
@@ -21,19 +22,20 @@ import (
 )
 
 // NOTE: To run use:
-// ./testground run data-exchange/fuzz --builder=docker:go --runner="local:docker" --dep="github.com/ipfs/go-bitswap=master"
+// ./testground run s bitswap-tuning/fuzz --builder=exec:go --runner="local:exec" --dep="github.com/ipfs/go-bitswap=master" -instances=8 --test-param pprof_path=/tmp/my.prof
 
 // Fuzz test Bitswap
 func Fuzz(runenv *runtime.RunEnv) error {
 	// Test Parameters
 	timeout := time.Duration(runenv.IntParam("timeout_secs")) * time.Second
 	randomDisconnectsFq := float32(runenv.IntParam("random_disconnects_fq")) / 100
+	profilingEnabled := runenv.IsParamSet("pprof_path")
 
 	/// --- Set up
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(runenv)
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 
 	/// --- Tear down
 	defer func() {
@@ -55,18 +57,22 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	defer h.Close()
 
 	// Get sequence number of this host
-	seq, err := writer.Write(sync.PeerSubtree, host.InfoFromHost(h))
+	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
 	if err != nil {
 		return err
 	}
 
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
-	cancelSub, err := watcher.Subscribe(sync.PeerSubtree, peerCh)
-	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount, timeout)
-	if err != nil {
+	sctx, cancelSub := context.WithCancel(ctx)
+	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
 		cancelSub()
 		return err
+	}
+	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount)
+	if err != nil {
+		cancelSub()
+		return fmt.Errorf("no addrs in %d seconds", timeout/time.Second)
 	}
 	cancelSub()
 
@@ -114,8 +120,9 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 	// Listen for seed generation
 	rootCidCh := make(chan *cid.Cid, 1)
-	cancelRootCidSub, err := watcher.Subscribe(rootCidSubtree, rootCidCh)
-	if err != nil {
+	sctx, cancelRootCidSub := context.WithCancel(ctx)
+	if err := watcher.Subscribe(sctx, rootCidSubtree, rootCidCh); err != nil {
+		cancelRootCidSub()
 		return fmt.Errorf("Failed to subscribe to rootCidSubtree %w", err)
 	}
 
@@ -147,13 +154,13 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	runenv.Message("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 	// Signal we've completed generating the seed data
-	_, err = writer.SignalEntry(seedGenerated)
+	_, err = writer.SignalEntry(ctx, seedGenerated)
 	if err != nil {
 		return fmt.Errorf("Failed to signal seed generated: %w", err)
 	}
 
 	// Inform other nodes of the root CID
-	if _, err = writer.Write(rootCidSubtree, &rootCid); err != nil {
+	if _, err = writer.Write(ctx, rootCidSubtree, &rootCid); err != nil {
 		return fmt.Errorf("Failed to get Redis Sync rootCidSubtree %w", err)
 	}
 
@@ -227,6 +234,14 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		}()
 	}
 
+	if seq == 1 && profilingEnabled {
+		f, err := os.Create(runenv.StringParam("pprof_path"))
+		if err != nil {
+			return err
+		}
+		pprof.StartCPUProfile(f)
+	}
+
 	g, gctx := errgroup.WithContext(ctx)
 	for _, rootCid := range rootCids {
 		// Fetch two thirds of the root cids of other nodes
@@ -284,6 +299,10 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Wait for all leeches to have downloaded the data from seeds
 	signalAndWaitForAll("transfer-complete")
 
+	if seq == 1 && profilingEnabled {
+		pprof.StopCPUProfile()
+	}
+
 	// Shut down bitswap
 	err = bsnode.Close()
 	if err != nil {
@@ -323,7 +342,7 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	latency := time.Duration(2+rnd.Intn(100)) * time.Millisecond
 	bandwidth := 1 + rnd.Intn(100)
-	writer.Write(sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
