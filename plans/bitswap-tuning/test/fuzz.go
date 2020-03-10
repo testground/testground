@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	gort "runtime"
 	"runtime/pprof"
 	"strconv"
 	"time"
@@ -41,6 +42,11 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	randomDisconnectsFq := float32(runenv.IntParam("random_disconnects_fq")) / 100
 	cpuProfilingEnabled := runenv.IsParamSet("cpuprof_path")
 	memProfilingEnabled := runenv.IsParamSet("memprof_path")
+
+	defaultMemProfileRate := gort.MemProfileRate
+	if memProfilingEnabled {
+		gort.MemProfileRate = 0
+	}
 
 	/// --- Set up
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -252,6 +258,9 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		}
 		pprof.StartCPUProfile(f)
 	}
+	if memProfilingEnabled {
+		gort.MemProfileRate = defaultMemProfileRate
+	}
 
 	g, gctx := errgroup.WithContext(ctx)
 	for _, rootCid := range rootCids {
@@ -367,6 +376,7 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 		Default: sync.LinkShape{
 			Latency:   latency,
 			Bandwidth: uint64(bandwidth * 1024 * 1024),
+			Jitter:    (latency * 10) / 100,
 		},
 		State: "network-configured",
 	})
