@@ -62,7 +62,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 		return err
 	}
 	defer h.Close()
-	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
+	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Get sequence number of this host
 	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
@@ -184,7 +184,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 						// Generate a file of the given size and add it to the datastore
 						start = time.Now()
 					}
-					runenv.Message("Generating seed data of %d bytes", fileSize)
+					runenv.RecordMessage("Generating seed data of %d bytes", fileSize)
 
 					rootCid, err := setupSeed(ctx, runenv, bsnode, fileSize, int(seedIndex))
 					if err != nil {
@@ -377,7 +377,7 @@ func parseType(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer,
 		tpindex = int(grpseq) - 1 - leechCount
 	}
 
-	runenv.Message("I am %s %d %s", grpPrefix+nodetp.String(), tpindex, seqstr)
+	runenv.RecordMessage("I am %s %d %s", grpPrefix+nodetp.String(), tpindex, seqstr)
 
 	return grpseq, nodetp, tpindex, nil
 }
@@ -434,7 +434,7 @@ func setupSeed(ctx context.Context, runenv *runtime.RunEnv, node *utils.Node, fi
 		return cid.Cid{}, err
 	}
 
-	runenv.Message("Retained %d / %d of blocks from seed, removed %d / %d blocks", numerator, denominator, len(del), len(nodes))
+	runenv.RecordMessage("Retained %d / %d of blocks from seed, removed %d / %d blocks", numerator, denominator, len(del), len(nodes))
 	return ipldNode.Cid(), nil
 }
 
