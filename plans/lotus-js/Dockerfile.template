@@ -8,15 +8,8 @@ ARG GO_VERSION=1.13.8
 # Node.js
 FROM node:13.8.0-buster
 
-# Dynamically select the golang version.
-# TODO: Not sure how this interplays with image caching.
-
-# lotus-base master
-#FROM 7c7fd8399ad8
-
 # lotus-base testnet/3
-FROM 96b2452ddb15
-
+FROM 4a0846341fa9
 
 # Copy Node.js
 WORKDIR /usr/local/bin

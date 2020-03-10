@@ -13,6 +13,7 @@ FROM golang:${GO_VERSION}-buster
 # inside sdk.
 COPY /sdk/sync/go.mod /sdk/sync/go.mod
 COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
+COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.

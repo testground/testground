@@ -322,6 +322,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 		if err != nil {
 			return fmt.Errorf("failed to generate new network config list: %w", err)
 		}
+		logging.S().Debugw("Jim", "netconf", netconf)
 
 		cniArgs := [][2]string{}                   // empty
 		capabilityArgs := map[string]interface{}{} // empty
@@ -432,6 +433,7 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		]
 }
 `)
+		logging.S().Debugw("Jim", "bytes", string(bytes))
 		return libcni.ConfListFromBytes(bytes)
 
 	default:

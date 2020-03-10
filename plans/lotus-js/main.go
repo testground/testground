@@ -25,7 +25,7 @@ import (
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
 	"github.com/filecoin-project/lotus/chain/types"
-	"github.com/filecoin-project/lotus/chain/wallet"
+  "github.com/filecoin-project/lotus/chain/wallet"
 	"github.com/filecoin-project/lotus/lib/jsonrpc"
 )
 
@@ -191,7 +191,12 @@ func run(runenv *runtime.RunEnv) error {
 		cmdCreateLocalNetJSON.Stderr = outfile
 		err = cmdCreateLocalNetJSON.Run()
 		if err != nil {
-			return err
+			if runenv.BooleanParam("keep-alive") {
+				runenv.RecordMessage("create localnet.json failed")
+				select {}
+			} else {
+				return err
+			}
 		}
 
 		runenv.RecordMessage("Add genesis miner")
@@ -583,7 +588,7 @@ func run(runenv *runtime.RunEnv) error {
 		time.Sleep(15 * time.Second)
 
 		runenv.RecordMessage("Creating bls wallet")
-		address, err := api.WalletNew(ctx, wallet.ActSigType("bls"))
+    address, err := api.WalletNew(ctx, wallet.ActSigType("bls"))
 		if err != nil {
 			return err
 		}
