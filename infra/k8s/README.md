@@ -205,13 +205,6 @@ redis-cli -h localhost -p 6379
 kubectl -n monitoring port-forward service/grafana 3000:3000
 ```
 
-8. Get access to the Kubernetes dashboard
-```
-kubectl proxy
-```
-and then, direct your browser to `http://localhost:8001/ui`
-
-
 ## Use a Kubernetes context for another cluster
 
 `kops` lets you download the entire Kubernetes context config.
