@@ -95,7 +95,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 	/// --- Warm up
 
-	runenv.Message("I am %s with addrs: %v", h.ID(), h.Addrs())
+	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Set up network (with traffic shaping)
 	err = setupFuzzNetwork(ctx, runenv, watcher, writer)
@@ -105,14 +105,17 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 	// Signal that this node is in the given state, and wait for all peers to
 	// send the same signal
-	signalAndWaitForAll := func(state string) {
-		utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
+	signalAndWaitForAll := func(state string) error {
+		return utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
 	}
 
 	// Wait for all nodes to be ready to start
-	signalAndWaitForAll("start")
+	err = signalAndWaitForAll("start")
+	if err != nil {
+		return err
+	}
 
-	runenv.Message("Starting")
+	runenv.RecordMessage("Starting")
 	var bsnode *utils.Node
 	rootCidSubtree := &sync.Subtree{
 		GroupKey:    "root-cid",
@@ -138,8 +141,8 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Listen for seed generation
 	rootCidCh := make(chan *cid.Cid, 1)
 	sctx, cancelRootCidSub := context.WithCancel(ctx)
+	defer cancelRootCidSub()
 	if err := watcher.Subscribe(sctx, rootCidSubtree, rootCidCh); err != nil {
-		cancelRootCidSub()
 		return fmt.Errorf("Failed to subscribe to rootCidSubtree %w", err)
 	}
 
@@ -160,7 +163,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Generate a file of random size and add it to the datastore
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	fileSize := 2*1024*1024 + rnd.Intn(64*1024*1024)
-	runenv.Message("Generating seed data of %d bytes", fileSize)
+	runenv.RecordMessage("Generating seed data of %d bytes", fileSize)
 	start = time.Now()
 
 	rootCid, err := setupSeed(ctx, bsnode, fileSize)
@@ -168,7 +171,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		return fmt.Errorf("Failed to set up seed: %w", err)
 	}
 
-	runenv.Message("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
+	runenv.RecordMessage("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 	// Signal we've completed generating the seed data
 	_, err = writer.SignalEntry(ctx, seedGenerated)
@@ -188,33 +191,39 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		case rootCidPtr := <-rootCidCh:
 			rootCids = append(rootCids, *rootCidPtr)
 		case <-time.After(timeout):
-			cancelRootCidSub()
 			return fmt.Errorf("could not get all cids in %d seconds", timeout/time.Second)
 		}
 	}
 	cancelRootCidSub()
 
 	// Wait for all nodes to be ready to dial
-	signalAndWaitForAll("ready-to-connect")
+	err = signalAndWaitForAll("ready-to-connect")
+	if err != nil {
+		return err
+	}
 
 	// Dial all peers
 	dialed, err := utils.DialOtherPeers(ctx, h, addrInfos)
 	if err != nil {
 		return err
 	}
-	runenv.Message("Dialed %d other nodes", len(dialed))
+	runenv.RecordMessage("Dialed %d other nodes", len(dialed))
 
 	// Wait for all nodes to be connected
-	signalAndWaitForAll("connect-complete")
+	err = signalAndWaitForAll("connect-complete")
+	if err != nil {
+		return err
+	}
 
 	/// --- Start test
-	runenv.Message("Start fetching")
+	runenv.RecordMessage("Start fetching")
 
 	// Randomly disconnect and reconnect
 	var cancelFetchingCtx func()
 	if randomDisconnectsFq > 0 {
 		var fetchingCtx context.Context
 		fetchingCtx, cancelFetchingCtx = context.WithCancel(ctx)
+		defer cancelFetchingCtx()
 		go func() {
 			for {
 				time.Sleep(time.Duration(rnd.Intn(1000)) * time.Millisecond)
@@ -227,10 +236,10 @@ func Fuzz(runenv *runtime.RunEnv) error {
 					if rnd.Float32() < randomDisconnectsFq {
 						conns := h.Network().Conns()
 						conn := conns[rnd.Intn(len(conns))]
-						runenv.Message("    closing connection to %s", conn.RemotePeer())
+						runenv.RecordMessage("    closing connection to %s", conn.RemotePeer())
 						err := conn.Close()
 						if err != nil {
-							runenv.Message("    error disconnecting: %w", err)
+							runenv.RecordMessage("    error disconnecting: %w", err)
 						} else {
 							ai := peer.AddrInfo{
 								ID:    conn.RemotePeer(),
@@ -238,11 +247,11 @@ func Fuzz(runenv *runtime.RunEnv) error {
 							}
 							go func() {
 								// time.Sleep(time.Duration(rnd.Intn(200)) * time.Millisecond)
-								runenv.Message("    reconnecting to %s", conn.RemotePeer())
+								runenv.RecordMessage("    reconnecting to %s", conn.RemotePeer())
 								if err := h.Connect(fetchingCtx, ai); err != nil {
-									runenv.Message("    error while reconnecting to peer %v: %w", ai, err)
+									runenv.RecordMessage("    error while reconnecting to peer %v: %w", ai, err)
 								}
-								runenv.Message("    reconnected to %s", conn.RemotePeer())
+								runenv.RecordMessage("    reconnected to %s", conn.RemotePeer())
 							}()
 						}
 					}
@@ -256,7 +265,10 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		if err != nil {
 			return err
 		}
-		pprof.StartCPUProfile(f)
+		err = pprof.StartCPUProfile(f)
+		if err != nil {
+			return err
+		}
 	}
 	if memProfilingEnabled {
 		gort.MemProfileRate = defaultMemProfileRate
@@ -280,7 +292,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 			// Half the time do a regular fetch, half the time cancel and then
 			// restart the fetch
-			runenv.Message("  FTCH %s after %s delay", pretty, startDelay)
+			runenv.RecordMessage("  FTCH %s after %s delay", pretty, startDelay)
 			start = time.Now()
 			cctx, cancel := context.WithCancel(gctx)
 			if rnd.Float32() < 0.5 {
@@ -288,14 +300,14 @@ func Fuzz(runenv *runtime.RunEnv) error {
 				go func() {
 					cancelDelay := time.Duration(rnd.Intn(100)) * time.Millisecond
 					time.Sleep(cancelDelay)
-					runenv.Message("  cancel %s after %s delay", pretty, startDelay)
+					runenv.RecordMessage("  cancel %s after %s delay", pretty, startDelay)
 					cancel()
 				}()
 				err = bsnode.FetchGraph(cctx, rootCid)
 				if err != nil {
 					// If there was an error (probably because the fetch was
 					// cancelled) try fetching again
-					runenv.Message("  got err fetching %s: %s", pretty, err)
+					runenv.RecordMessage("  got err fetching %s: %s", pretty, err)
 					err = bsnode.FetchGraph(gctx, rootCid)
 				}
 			} else {
@@ -303,7 +315,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 				err = bsnode.FetchGraph(cctx, rootCid)
 			}
 			timeToFetch := time.Since(start)
-			runenv.Message("  RCVD %s in %s", pretty, timeToFetch)
+			runenv.RecordMessage("  RCVD %s in %s", pretty, timeToFetch)
 
 			return err
 		})
@@ -311,13 +323,16 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	if err := g.Wait(); err != nil {
 		return fmt.Errorf("Error fetching data through Bitswap: %w", err)
 	}
-	runenv.Message("Fetching complete")
+	runenv.RecordMessage("Fetching complete")
 	if randomDisconnectsFq > 0 {
 		cancelFetchingCtx()
 	}
 
 	// Wait for all leeches to have downloaded the data from seeds
-	signalAndWaitForAll("transfer-complete")
+	err = signalAndWaitForAll("transfer-complete")
+	if err != nil {
+		return err
+	}
 
 	if cpuProfilingEnabled {
 		pprof.StopCPUProfile()
@@ -327,7 +342,10 @@ func Fuzz(runenv *runtime.RunEnv) error {
 		if err != nil {
 			return err
 		}
-		pprof.WriteHeapProfile(f)
+		err = pprof.WriteHeapProfile(f)
+		if err != nil {
+			return err
+		}
 		f.Close()
 	}
 
@@ -370,7 +388,7 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	latency := time.Duration(2+rnd.Intn(100)) * time.Millisecond
 	bandwidth := 1 + rnd.Intn(100)
-	writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -380,8 +398,11 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 		},
 		State: "network-configured",
 	})
+	if err != nil {
+		return err
+	}
 
-	runenv.Message("I have %s latency and %dMB bandwidth", latency, bandwidth)
+	runenv.RecordMessage("I have %s latency and %dMB bandwidth", latency, bandwidth)
 
 	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
 	if err != nil {
