@@ -8,7 +8,6 @@ require (
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	go.uber.org/zap v1.12.0 // indirect
 	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d // indirect
-	gopkg.in/yaml.v2 v2.2.4 // indirect
 )
 
 replace (

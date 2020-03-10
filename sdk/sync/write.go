@@ -51,7 +51,7 @@ type Writer struct {
 // NOTE: Canceling the context cancels the call to this function, it does not
 // affect the returned watcher.
 func NewWriter(ctx context.Context, runenv *runtime.RunEnv) (w *Writer, err error) {
-	client, err := redisClient(ctx, runenv)
+	client, err := getGlobalRedisClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,12 @@ func (w *Writer) keepAliveWorker(ctx context.Context) {
 	for {
 		select {
 		case <-time.After(KeepAlivePeriod):
-			w.keepAlive(ctx)
+			if err := w.keepAlive(ctx); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				panic(err)
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -84,7 +89,7 @@ func (w *Writer) keepAliveWorker(ctx context.Context) {
 }
 
 // keepAlive extends the TTL of all keys in the keepAliveSet.
-func (w *Writer) keepAlive(ctx context.Context) {
+func (w *Writer) keepAlive(ctx context.Context) error {
 	w.lk.RLock()
 	defer w.lk.RUnlock()
 
@@ -92,9 +97,10 @@ func (w *Writer) keepAlive(ctx context.Context) {
 	// refresh period, and all kinds of races. We need to be adaptive here.
 	for k := range w.keepAliveSet {
 		if err := w.client.WithContext(ctx).Expire(k, TTL).Err(); err != nil {
-			panic(err)
+			return err
 		}
 	}
+	return nil
 }
 
 // Write writes a payload in the sync tree for the test, which is backed by a

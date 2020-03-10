@@ -22,6 +22,34 @@ type EnsureContainerOpts struct {
 	PullImageIfMissing bool
 }
 
+func CheckContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) (container *types.ContainerJSON, err error) {
+	log = log.With("container_name", name)
+
+	log.Debug("checking state of container")
+
+	// Check if a ${name} container exists.
+	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("name", name)),
+	})
+	if err != nil || len(containers) == 0 {
+		return nil, err
+	}
+
+	c := containers[0]
+
+	log.Debugw("container found", "container_id", c.ID, "state", c.State)
+
+	ci, err := cli.ContainerInspect(ctx, c.ID)
+	if err != nil {
+		log.Errorw("inspecting container failed", "container_id", container.ID)
+		return nil, err
+	}
+
+	return &ci, nil
+
+}
+
 // EnsureContainer ensures there's a container started of the specified kind.
 func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client,
 	opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
@@ -29,38 +57,22 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 
 	log.Debug("checking state of container")
 
-	// Check if a ${containerName} container exists.
-	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
-		All:     true,
-		Filters: filters.NewArgs(filters.Arg("name", opts.ContainerName)),
-	})
+	ci, err := CheckContainer(ctx, log, cli, opts.ContainerName)
 	if err != nil {
 		return nil, false, err
 	}
 
-	if len(containers) > 0 {
-		container := containers[0]
+	if ci != nil && ci.State.Status != "running" {
+		log.Infof("container isn't running; starting")
 
-		log.Debugw("container found", "containerId", container.ID, "state", container.State)
-
-		switch container.State {
-		case "running":
-		default:
-			log.Infof("container isn't running; starting")
-			err := cli.ContainerStart(ctx, container.ID, types.ContainerStartOptions{})
-			if err != nil {
-				log.Errorw("starting container failed", "containerId", container.ID)
-				return nil, false, err
-			}
-		}
-
-		c, err := cli.ContainerInspect(ctx, container.ID)
+		err := cli.ContainerStart(ctx, ci.ID, types.ContainerStartOptions{})
 		if err != nil {
-			log.Errorw("inspecting container failed", "containerId", container.ID)
+			log.Errorw("starting container failed", "container_id", container.ID)
 			return nil, false, err
 		}
 
-		return &c, false, nil
+		ci, err = CheckContainer(ctx, log, cli, opts.ContainerName)
+		return ci, false, err
 	}
 
 	log.Infow("container not found; creating")

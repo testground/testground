@@ -49,6 +49,8 @@ func New(listenAddr string) (srv *Daemon, err error) {
 	r.HandleFunc("/build", srv.buildHandler(engine)).Methods("POST")
 	r.HandleFunc("/run", srv.runHandler(engine)).Methods("POST")
 	r.HandleFunc("/outputs", srv.outputsHandler(engine)).Methods("POST")
+	r.HandleFunc("/terminate", srv.terminateHandler(engine)).Methods("POST")
+	r.HandleFunc("/healthcheck", srv.healthcheckHandler(engine)).Methods("POST")
 
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{

@@ -79,6 +79,10 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
+	if _, err := e.discoverTestPlans(); err != nil {
+		return nil, err
+	}
+
 	return e, nil
 }
 
@@ -98,8 +102,6 @@ func NewDefaultEngine() (*Engine, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	_, _ = e.discoverTestPlans()
 
 	return e, nil
 }
@@ -176,6 +178,15 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 		return nil, fmt.Errorf("unrecognized builder: %s", builder)
 	}
 
+	// Call the healthcheck routine if the runner supports it, with fix=true.
+	if hc, ok := bm.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		}
+	}
+
 	// This var compiles all configurations to coalesce.
 	//
 	// Precedence (highest to lowest):
@@ -233,6 +244,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
 				TestPlan:     plan,
+				Selectors:    grp.Build.Selectors,
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 
@@ -298,6 +310,23 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
 	}
+
+	// Call the healthcheck routine if the runner supports it, with fix=true.
+	if hc, ok := run.(api.Healthchecker); ok {
+		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+		} else if !rep.FixesSucceeded() {
+			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		}
+	}
+
+	// TODO:
+	// Check runner health.
+	// if health, ok := run.(api.Healthchecker); ok {
+	// if err := health.Healthcheck(true); err != nil {
+	// 	return nil, fmt.Errorf("error while checking runner health: %v", err)
+	// }
+	// }
 
 	// Check if builder and runner are compatible
 	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
@@ -428,6 +457,50 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	}
 
 	return run.CollectOutputs(ctx, input, w)
+}
+
+func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) error {
+	run, ok := e.runners[runner]
+	if !ok {
+		return fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	terminatable, ok := run.(api.Terminatable)
+	if !ok {
+		return fmt.Errorf("runner %s is not terminatable", runner)
+	}
+
+	_, err := w.Write([]byte("terminating all jobs on runner " + runner + "\n"))
+	if err != nil {
+		return err
+	}
+
+	err = terminatable.TerminateAll()
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
+	return err
+}
+
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*api.HealthcheckReport, error) {
+	run, ok := e.runners[runner]
+	if !ok {
+		return nil, fmt.Errorf("unknown runner: %s", runner)
+	}
+
+	hc, ok := run.(api.Healthchecker)
+	if !ok {
+		return nil, fmt.Errorf("runner %s does not support healthchecks", runner)
+	}
+
+	_, err := w.Write([]byte("checking runner " + runner + "\n"))
+	if err != nil {
+		return nil, err
+	}
+
+	return hc.Healthcheck(fix, e, w)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

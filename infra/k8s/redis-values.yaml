@@ -185,7 +185,7 @@ securityContext:
   ##
   sysctls:
   - name: net.core.somaxconn
-    value: "10000"
+    value: "100000"
 
 ## Use password authentication
 usePassword: false
@@ -235,7 +235,7 @@ master:
   ##  - "--maxmemory-policy volatile-ttl"
   ##  - "--repl-backlog-size 1024mb"
   extraFlags:
-  - "--maxclients 10000"
+  - "--maxclients 100000"
   ## Comma-separated list of Redis commands to disable
   ##
   ## Can be used to disable Redis commands for security reasons.
@@ -257,8 +257,8 @@ master:
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
   resources:
     requests:
-      memory: 2048Mi
-      cpu: 2000m
+      memory: 14000Mi
+      cpu: 7000m
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
   ##
@@ -498,7 +498,7 @@ metrics:
 
   # Enable this if you're using https://github.com/coreos/prometheus-operator
   serviceMonitor:
-    enabled: false
+    enabled: true
     ## Specify a namespace if needed
     # namespace: monitoring
     # fallback to the prometheus default unless specified
