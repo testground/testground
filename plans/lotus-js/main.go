@@ -436,7 +436,7 @@ func run(runenv *runtime.RunEnv) error {
 			"run",
 			"nginx",
 		)
-		cmdNginx.Dir = "/plan/js-lotus-api-testground"
+		cmdNginx.Dir = "/plan/js-lotus-client-testground"
 		outfile, err = os.Create("/outputs/nginx.out")
 		if err != nil {
 			return err
@@ -456,7 +456,7 @@ func run(runenv *runtime.RunEnv) error {
 			"npm",
 			"test",
 		)
-		cmdNpmTest.Dir = "/plan/js-lotus-api-testground"
+		cmdNpmTest.Dir = "/plan/js-lotus-client-testground"
 		outfile, err = os.Create("/outputs/npm-test.out")
 		if err != nil {
 			return err

@@ -1,16 +1,13 @@
 #! /bin/bash
 
-# Proof-of-concept / playground
-git clone git@github.com:jimpick/lotus-api-playground.git
-
-# js-lotus-api
-# js-lotus-api-build
-# js-lotus-api-format
-# js-lotus-api-provider-browser
-# js-lotus-api-provider-mock
-# js-lotus-api-provider-nodejs
-# js-lotus-api-query
-# js-lotus-api-rpc
-# js-lotus-api-schema
-# js-lotus-api-testground
+# js-lotus-client
+# js-lotus-client-build
+# js-lotus-client-format
+# js-lotus-client-provider-browser
+# js-lotus-client-provider-mock
+# js-lotus-client-provider-nodejs
+# js-lotus-client-query
+# js-lotus-client-rpc
+# js-lotus-client-schema
+# js-lotus-client-testground
 

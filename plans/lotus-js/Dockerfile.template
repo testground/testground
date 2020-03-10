@@ -83,14 +83,11 @@ RUN cd /plan \
     && go mod download
 
 # Download npm deps
-COPY /plan/lotus-api-playground/package.json /plan/lotus-api-playground/
-RUN cd /plan/lotus-api-playground && yarn
+COPY /plan/js-lotus-client-rpc/package.json /plan/js-lotus-client-rpc/
+RUN cd /plan/js-lotus-client-rpc && yarn
 
-COPY /plan/js-lotus-api-rpc/package.json /plan/js-lotus-api-rpc/
-RUN cd /plan/js-lotus-api-rpc && yarn
-
-COPY /plan/js-lotus-api-testground/package.json /plan/js-lotus-api-testground/
-RUN cd /plan/js-lotus-api-testground && yarn
+COPY /plan/js-lotus-client-testground/package.json /plan/js-lotus-client-testground/
+RUN cd /plan/js-lotus-client-testground && yarn
 
 # Now copy the rest of the source and run the build.
 
@@ -98,15 +95,15 @@ COPY . /
 RUN rm -f /plan/checkout.sh
 RUN mv /plan/test-data /root
 
-RUN cd /plan/js-lotus-api-rpc && \
+RUN cd /plan/js-lotus-client-rpc && \
   rm -rf node_modules && \
 	yarn && \
 	yarn link
 
-RUN cd /plan/js-lotus-api-testground && \
+RUN cd /plan/js-lotus-client-testground && \
   rm -rf node_modules && \
   yarn && \
-	yarn link @filecoin-shipyard/lotus-api-rpc
+	yarn link @filecoin-shipyard/lotus-client-rpc
 
 # Testground
 
