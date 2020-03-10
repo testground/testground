@@ -76,11 +76,11 @@ kubectl create secret generic assets-s3-bucket --from-literal=access-key="$ASSET
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
-kubectl apply -f ./kops-weave/weave-service-monitor.yml \
-	            -f ./kops-weave/weave-metrics-service.yml -n kube-system \
+kubectl apply -f ./kops-weave/weave.yml \
               -f ./kops-weave/genie-plugin.yaml \
+	            -f ./kops-weave/weave-metrics-service.yml -n kube-system \
+              -f ./kops-weave/weave-service-monitor.yml \
               -f ./kops-weave/s3bucket.yml \
-              -f ./kops-weave/weave.yml \
               -f ./sidecar.yaml
 
 echo "Install Redis..."
