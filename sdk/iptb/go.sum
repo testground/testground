@@ -135,15 +135,8 @@ github.com/ipfs/go-log v0.0.1/go.mod h1:kL1d2/hzSpI0thNYjiKfjanbVNU+IIGA/WnNESY9
 github.com/ipfs/go-todocounter v0.0.1/go.mod h1:l5aErvQc8qKE2r7NDMjmq5UNAvuZy0rC8BHOplkWvZ4=
 github.com/ipfs/iptb v1.4.0 h1:YFYTrCkLMRwk/35IMyC6+yjoQSHTEcNcefBStLJzgvo=
 github.com/ipfs/iptb v1.4.0/go.mod h1:1rzHpCYtNp87/+hTxG5TfCVn/yMY3dKnLn8tBiMfdmg=
-<<<<<<< HEAD
-github.com/ipfs/iptb-plugins v0.2.0 h1:HJUvew9ZJweCW71YeblvNui07pZtyiZnuUzrk49ol9Q=
-github.com/ipfs/iptb-plugins v0.2.0/go.mod h1:J2wpKQKaLa9eQC8sQtSkjdjbUfdQEAHXqnbj86f55gI=
-github.com/ipfs/testground/sdk/runtime v0.1.0 h1:jGgDq4lxW9yTqY8A19ohUEnOCEvUrE97FvkXBmAbGcc=
-github.com/ipfs/testground/sdk/runtime v0.1.0/go.mod h1:06OVYVfN+k0iapQM45shQ+EVQmCtEwlZg7sH2Ya3C5o=
-=======
 github.com/ipfs/iptb-plugins v0.2.1 h1:au4HWn9/pRPbkxA08pDx2oRAs4cnbgQWgV0teYXuuGA=
 github.com/ipfs/iptb-plugins v0.2.1/go.mod h1:QXMbtIWZ+jRsW8a4h13qAKU7jcM7qaittO8wOsTP0Rs=
->>>>>>> a86f5504315de4c328d25430fe22c56ab0dd3f88
 github.com/jackpal/gateway v1.0.5 h1:qzXWUJfuMdlLMtt0a3Dgt+xkWQiA5itDEITVJtuSwMc=
 github.com/jackpal/gateway v1.0.5/go.mod h1:lTpwd4ACLXmpyiCTRtfiNyVnUmqT9RivzCDQetPfnjA=
 github.com/jackpal/go-nat-pmp v1.0.1 h1:i0LektDkO1QlrTm/cSuP+PyBCDnYvjPLGl4LdWEMiaA=
