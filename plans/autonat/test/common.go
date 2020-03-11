@@ -413,7 +413,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, h host.Host, toDial ..
 
 	// Dial to all the other peers.
 	for _, ai := range toDial {
-		if ai.ID == dht.Host().ID() {
+		if ai.ID == h.ID() {
 			continue
 		}
 		if err := tryConnect(ctx, ai, 5); err != nil {
