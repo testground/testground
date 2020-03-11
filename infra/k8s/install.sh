@@ -115,9 +115,13 @@ kubectl apply -f ./efs/rbac.yaml \
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
-kubectl apply -f ./kops-weave/genie-plugin.yaml \
-              -f ./kops-weave/weave.yml \
+
+kubectl apply -f f ./kops-weave/weave.yml \ 
+              -f ./kops-weave/genie-plugin.yaml \
+	            -f ./kops-weave/weave-metrics-service.yml -n kube-system \
+              -f ./kops-weave/weave-service-monitor.yml \
               -f ./kops-weave/dummy.yml \
+              -f ./kops-weave/s3bucket.yml \
               -f ./sidecar.yaml
 
 echo "Install Redis..."
