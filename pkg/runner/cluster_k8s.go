@@ -392,21 +392,32 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 }
 
 func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
-	report := &api.HealthcheckReport{
-		Checks: []api.HealthcheckItem{
+
+	// TODO: initialize the runner correctly.
+	// When the runner is unitialized, that is, when it has a nil pointer where one is needed.
+	// I considered changing DoHealthCheck to pass an input parameter, such as we do for DoRun and
+	// DoCollectOutputs, but there are already other TODO's in this file that makes me think
+	// initRunner needs to be overhauled. So until such time that there is better initialization,
+	// handle, I'll handle uninitialized runners by sending an empty report here.
+	// What this means is if the first thing you do is run the health check, you will get an empty
+	// report, but for subsequent times, the report is real.
+	report := api.HealthcheckReport{}
+
+	if c.pool != nil {
+		report.Checks = []api.HealthcheckItem{
 			c.healthcheckK8s(),
 			c.healthcheckEFS(),
 			c.healthcheckRedis(),
 			c.healthcheckSidecar(),
-		},
+		}
 	}
 
 	if !fix {
-		return report, nil
+		return &report, nil
 	}
 
 	// TODO: implement fix
-	return report, nil
+	return &report, nil
 }
 
 func (*ClusterK8sRunner) ConfigType() reflect.Type {
