@@ -10,20 +10,21 @@ import (
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {
-	opts := GetCommonOpts(runenv)
+	commonOpts := GetCommonOpts(runenv)
+	nFindPeers := runenv.IntParam("n_find_peers")
 
-	if opts.NFindPeers > runenv.TestInstanceCount {
+	if nFindPeers > runenv.TestInstanceCount {
 		return fmt.Errorf("NFindPeers greater than the number of test instances")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
 
-	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
+	node, peers, err := Setup(ctx, runenv, watcher, writer, commonOpts)
 	if err != nil {
 		return err
 	}
@@ -31,14 +32,14 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	defer outputGraph(node.dht, "end")
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
 		return err
 	}
 
-	if opts.RandomWalk {
+	if commonOpts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
 			return err
 		}
@@ -66,7 +67,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 
 	found := 0
 	for p, info := range peers {
-		if found >= opts.NFindPeers {
+		if found >= nFindPeers {
 			break
 		}
 		if len(node.host.Peerstore().Addrs(p)) > 0 {
@@ -75,7 +76,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			continue
 		}
 
-		if _, undialable := info.properties[Undialable]; undialable {
+		if _, undialable := info.Properties[Undialable]; undialable {
 			continue
 		}
 

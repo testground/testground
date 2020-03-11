@@ -43,7 +43,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
 
 	t := time.Now()
 
@@ -87,7 +87,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 		return out
 	}()
 
-	isFinder := node.info.seq < opts.NFindPeers
+	isFinder := node.info.Seq < opts.NFindPeers
 
 	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {
@@ -95,7 +95,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	}
 
 	runenv.RecordMessage("start gcp loop")
-	runenv.RecordMessage(fmt.Sprintf("isFinder: %v, seqNo: %v, numFPeers %d, numRecords: %d", isFinder, node.info.seq, opts.NFindPeers, len(cids)))
+	runenv.RecordMessage(fmt.Sprintf("isFinder: %v, seqNo: %v, numFPeers %d, numRecords: %d", isFinder, node.info.Seq, opts.NFindPeers, len(cids)))
 
 	if isFinder {
 		g := errgroup.Group{}
@@ -128,7 +128,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 						ImprovementDir: 1,
 					}, float64(len(pids)))
 
-					outputGCP(runenv, node.info.addrs.ID, c, peers)
+					outputGCP(runenv, node.info.Addrs.ID, c, peers)
 				} else {
 					runenv.RecordMessage("Error during GCP %w", err)
 				}

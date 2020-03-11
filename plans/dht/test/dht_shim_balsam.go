@@ -1,33 +1,50 @@
+// +build balsam
+
 package test
 
 import (
 	"context"
 	"github.com/ipfs/go-cid"
+	"github.com/ipfs/go-datastore"
+	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
 	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	kadopts "github.com/libp2p/go-libp2p-kad-dht/opts"
-	"reflect"
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
+
+func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error){
+	dhtOptions := []dhtopts.Option{
+		dhtopts.Datastore(ds),
+		dhtopts.BucketSize(opts.BucketSize),
+		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
+	}
+
+	if !opts.AutoRefresh {
+		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
+	}
+
+	if info.Properties.Undialable && opts.ClientMode {
+		dhtOptions = append(dhtOptions, dhtopts.Client(true))
+	}
+
+	if !info.Properties.Undialable {
+		if _, err := autonatsvc.NewAutoNATService(ctx, h); err != nil {
+			return nil, err
+		}
+	}
+
+	dht, err := kaddht.New(ctx, h, dhtOptions...)
+	if err != nil {
+		return nil, err
+	}
+	return dht, nil
+}
 
 type DHTShim struct {
 	dht *kaddht.IpfsDHT
-}
-
-func DisjointPathsOpt(d int) kadopts.Option {
-	return func(options *kadopts.Options) error {
-		if d == 0 {
-			return nil
-		}
-
-		paths := reflect.ValueOf(options).Elem().FieldByName("DisjointPaths")
-		if !paths.CanSet() {
-			return nil
-		}
-		paths.SetInt(int64(d))
-		return nil
-	}
 }
 
 func (s *DHTShim) PutValue(ctx context.Context, key string, val []byte, opts ...routing.Option) error {

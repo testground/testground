@@ -18,12 +18,21 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-func FindProviders(runenv *runtime.RunEnv) error {
-	opts := GetCommonOpts(runenv)
-	opts.NodesProviding = runenv.IntParam("n_providing")
-	opts.RecordCount = runenv.IntParam("record_count")
+type findProvsParams struct {
+	RecordSeed      int
+	RecordCount int
+	SearchRecords bool
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+func FindProviders(runenv *runtime.RunEnv) error {
+	commonOpts := GetCommonOpts(runenv)
+	fpOpts := findProvsParams{
+		RecordSeed: runenv.IntParam("record_seed"),
+		RecordCount: runenv.IntParam("record_count"),
+		SearchRecords: runenv.BooleanParam("search_records"),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
@@ -34,21 +43,21 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
 	}()
 
-	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
+	node, peers, err := Setup(ctx, runenv, watcher, writer, commonOpts)
 	if err != nil {
 		return err
 	}
 
 	defer Teardown(ctx, runenv, watcher, writer)
 
-	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
 		return err
 	}
 
-	if opts.RandomWalk {
+	if commonOpts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
 			return err
 		}
@@ -60,15 +69,12 @@ func FindProviders(runenv *runtime.RunEnv) error {
 
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {
-		for i := 0; i < opts.RecordCount; i++ {
-			c := fmt.Sprintf("CID %d", i)
+		for i := 0; i < fpOpts.RecordCount; i++ {
+			c := fmt.Sprintf("CID %d - seeded with %d", i, fpOpts.RecordSeed)
 			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
 		}
 		return out
 	}()
-
-	isProvider := node.info.seq < opts.NodesProviding
-	isFinder := (opts.NodesProviding >= node.info.seq) && (node.info.seq < (opts.NodesProviding + opts.NFindPeers))
 
 	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {
@@ -79,7 +85,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
-	if isProvider {
+	if fpOpts.RecordCount > 0 {
 		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index
@@ -118,7 +124,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	if isFinder {
+	if fpOpts.SearchRecords {
 		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index

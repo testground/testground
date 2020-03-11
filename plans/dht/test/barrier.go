@@ -50,7 +50,7 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 }
 
 func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, node *NodeParams) error {
-	stager := NewBatchStager(ctx, node.info.seq, runenv.TestInstanceCount, "barrier", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "barrier", watcher, writer, runenv)
 
 	for i := 0; i < 100; i++ {
 		stager.Begin()

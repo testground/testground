@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/go-datastore"
 	"math"
 	"math/rand"
 	"net"
@@ -19,16 +18,15 @@ import (
 
 	leveldb "github.com/ipfs/go-ds-leveldb"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/libp2p/go-libp2p"
 	autonat "github.com/libp2p/go-libp2p-autonat"
-	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
 	tcp "github.com/libp2p/go-tcp-transport"
@@ -47,34 +45,37 @@ const minTestInstances = 16
 
 type SetupOpts struct {
 	Timeout         time.Duration
-	RandomWalk      bool
-	NBootstrap      int
-	NFindPeers      int
-	BucketSize      int
 	AutoRefresh     bool
-	NodesProviding  int
-	RecordCount     int
-	FUndialable     float64
-	ClientMode      bool
+	RandomWalk      bool
+
+	BucketSize      int
 	NDisjointPaths  int
+
+	ClientMode      bool
 	Datastore       int
-	Debug           int
-	SupportsAutonat bool
+
+	PeerIDSeed      int
+	Bootstrapper    bool
+	BootstrapStrategy int
+	Undialable      bool
 }
 
 func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 	opts := &SetupOpts{
 		Timeout:         time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:      runenv.BooleanParam("random_walk"),
-		NBootstrap:      runenv.IntParam("n_bootstrap"),
-		NFindPeers:      runenv.IntParam("n_find_peers"),
-		BucketSize:      runenv.IntParam("bucket_size"),
 		AutoRefresh:     runenv.BooleanParam("auto_refresh"),
-		FUndialable:     runenv.FloatParam("f_undialable"),
-		ClientMode:      runenv.BooleanParam("client_mode"),
+		RandomWalk:      runenv.BooleanParam("random_walk"),
+
+		BucketSize:      runenv.IntParam("bucket_size"),
 		NDisjointPaths:  runenv.IntParam("n_paths"),
+
+		ClientMode:      runenv.BooleanParam("client_mode"),
 		Datastore:       runenv.IntParam("datastore"),
-		SupportsAutonat: runenv.BooleanParam("autonat_ok"),
+
+		PeerIDSeed: runenv.IntParam("peer_id_seed"),
+		Bootstrapper: runenv.BooleanParam("bootstrapper"),
+		BootstrapStrategy: runenv.IntParam("bs_strategy"),
+		Undialable: runenv.BooleanParam("undialable"),
 	}
 	return opts
 }
@@ -94,9 +95,14 @@ type NodeParams struct {
 }
 
 type NodeInfo struct {
-	seq        int
-	properties map[NodeProperty]struct{}
-	addrs      *peer.AddrInfo
+	Seq        int
+	Properties NodeProperties
+	Addrs      *peer.AddrInfo
+}
+
+type NodeProperties struct {
+	Bootstrapper bool
+	Undialable bool
 }
 
 // BootstrapSubtree represents a subtree under the test run's sync tree where
@@ -116,15 +122,12 @@ type ModeSwitcher interface {
 }
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
-func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, params *NodeParams) (host.Host, *kaddht.IpfsDHT, error) {
+func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, info *NodeInfo) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
-
-	_, undialable := params.info.properties[Undialable]
-	_, bootstrap := params.info.properties[Bootstrapper]
 
 	var min, max int
 
-	if bootstrap {
+	if info.Properties.Bootstrapper {
 		min = runenv.TestInstanceCount
 		max = runenv.TestInstanceCount
 	} else {
@@ -164,7 +167,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		libp2p.ConnectionManager(connmgr.NewConnManager(min, max, ConnManagerGracePeriod)),
 	}
 
-	if undialable {
+	if info.Properties.Undialable {
 		tcpAddr.Port = rand.Intn(1024) + 1024
 		bogusAddr, err := manet.FromNetAddr(tcpAddr)
 		if err != nil {
@@ -211,12 +214,6 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, err
 	}
 
-	if !undialable || (opts.Debug == 0) {
-		if _, err = autonatsvc.NewAutoNATService(ctx, node); err != nil {
-			return nil, nil, err
-		}
-	}
-
 	var ds datastore.Batching
 	switch opts.Datastore {
 	case 0:
@@ -230,22 +227,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, fmt.Errorf("invalid datastore type")
 	}
 
-	dhtOptions := []dhtopts.Option{
-		dhtopts.Datastore(ds),
-		dhtopts.BucketSize(opts.BucketSize),
-		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
-		DisjointPathsOpt(opts.NDisjointPaths),
-	}
-
-	if !opts.AutoRefresh {
-		dhtOptions = append(dhtOptions, dhtopts.DisableAutoRefresh())
-	}
-
-	if (undialable && opts.ClientMode) || opts.SupportsAutonat {
-		dhtOptions = append(dhtOptions, dhtopts.Client(true))
-	}
-
-	dht, err := kaddht.New(ctx, node, dhtOptions...)
+	dht, err := createDHT(ctx, node, ds, opts, info)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -317,9 +299,6 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return nil, nil, err
 	}
 
-	testNode := &NodeParams{info: &NodeInfo{}}
-	otherNodes := make(map[peer.ID]*NodeInfo)
-
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
 	if runenv.TestInstanceCount < minTestInstances {
 		return nil, nil, fmt.Errorf(
@@ -333,353 +312,192 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		return nil, nil, err
 	}
 
-	// Set a state barrier.
-	seqNumCh := watcher.Barrier(ctx, "seqNum", int64(runenv.TestInstanceCount))
+	testSeq, err := getNodeID(ctx, runenv, watcher, writer)
 
-	// Signal we're in the same state.
-	seqSeed, err := writer.SignalEntry(ctx, "seqNum")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Wait until all others have signalled.
-	if err := <-seqNumCh; err != nil {
-		return nil, nil, err
-	}
-
-	rng := rand.New(rand.NewSource(int64(seqSeed)))
+	rng := rand.New(rand.NewSource(int64(testSeq)))
 	priv, _, err := crypto.GenerateEd25519Key(rng)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	id, err := peer.IDFromPrivateKey(priv)
+	testNode := &NodeParams{
+		host: nil,
+		dht:  nil,
+		info: &NodeInfo{
+		Seq:        testSeq,
+		Properties: NodeProperties{
+			Bootstrapper: opts.Bootstrapper,
+			Undialable:   opts.Undialable,
+		},
+		Addrs:      nil,
+	},
+	}
+
+	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, testNode.info)
 	if err != nil {
 		return nil, nil, err
 	}
+	testNode.info.Addrs = host.InfoFromHost(testNode.host)
 
-	if _, err = writer.Write(ctx, PeerIDSubtree, &id); err != nil {
-		return nil, nil, fmt.Errorf("failed to write peer id subtree in sync service: %w", err)
-	}
-
-	peerIDCh := make(chan *peer.ID, 16)
-	sctx, cancelSub := context.WithCancel(ctx)
-	defer cancelSub()
-	if err := watcher.Subscribe(sctx, PeerIDSubtree, peerIDCh); err != nil {
-		return nil, nil, err
-	}
-
-	// TODO: remove this if it becomes too much coordination effort.
-	// Grab list of other peers that are available for this run.
-	allPeerIDs := make([]string, runenv.TestInstanceCount)
-	for i := 0; i < runenv.TestInstanceCount; i++ {
-		select {
-		case p := <-peerIDCh:
-			allPeerIDs[i] = string(*p)
-		case <-ctx.Done():
-			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
-		}
-	}
-
-	sort.Strings(allPeerIDs)
-	for i, p := range allPeerIDs {
-		if peer.ID(p) == id {
-			testNode.info.seq = i
-			testNode.info.properties = getNodeProperties(i, runenv.TestInstanceCount, opts)
-			continue
-		}
-		otherNodes[peer.ID(p)] = &NodeInfo{
-			seq:        i,
-			properties: getNodeProperties(i, runenv.TestInstanceCount, opts),
-		}
-	}
-
-	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, testNode)
+	otherNodes := make(map[peer.ID]*NodeInfo)
+	err = syncAll(ctx, watcher, writer,
+		runenv.TestInstanceCount, PeerAttribSubtree, testNode.info,
+		func(v interface{}) {
+			info := v.(*NodeInfo)
+			otherNodes[info.Addrs.ID] = info
+		})
 	if err != nil {
 		return nil, nil, err
 	}
-	testNode.info.addrs = host.InfoFromHost(testNode.host)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	runenv.Message("I am %s with addrs: %v", id, testNode.info.addrs)
-
-	if _, err = writer.Write(ctx, sync.PeerSubtree, testNode.info.addrs); err != nil {
-		return nil, nil, fmt.Errorf("failed to write peer subtree in sync service: %w", err)
-	}
-
-	peerCh := make(chan *peer.AddrInfo, 16)
-	sctx, cancelSub = context.WithCancel(ctx)
-	defer cancelSub()
-	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
-		return nil, nil, err
-	}
-
-	// TODO: remove this if it becomes too much coordination effort.
-	// Grab list of other peers that are available for this run.
-	for i := 0; i < runenv.TestInstanceCount; i++ {
-		select {
-		case ai := <-peerCh:
-			if ai.ID == id {
-				continue
-			}
-			otherNodes[ai.ID].addrs = ai
-		case <-ctx.Done():
-			return nil, nil, fmt.Errorf("no new peers in %d seconds", opts.Timeout/time.Second)
-		}
-	}
-
-	m := make(map[peer.ID]bool)
-	for _, info := range otherNodes {
-		_, undialable := info.properties[Undialable]
-		m[info.addrs.ID] = undialable
-	}
-
-	_, undialable := testNode.info.properties[Undialable]
-	m[testNode.info.addrs.ID] = undialable
-
-	runenv.RecordMessage("%v", m)
 
 	outputStart(testNode)
 
 	return testNode, otherNodes, nil
 }
 
-func getNodeProperties(seq, total int, opts *SetupOpts) map[NodeProperty]struct{} {
-	properties := make(map[NodeProperty]struct{})
-	nb := opts.NBootstrap
-	nb = 0
-	if seq < nb {
-		properties[Bootstrapper] = struct{}{}
-	} else {
-		numNonBootstrap := total
-		if nb > 0 {
-			numNonBootstrap -= nb
+// getNodeID returns the sequence number of this test instance within the test
+func getNodeID(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) (int, error) {
+	groups := make(map[string]int)
+	err := syncAll(ctx, watcher, writer,
+		runenv.TestInstanceCount, GroupIDSubtree, &GroupInfo{ID:runenv.TestGroupID, Size: runenv.TestGroupInstanceCount},
+		func(v interface{}) {
+			g := v.(*GroupInfo)
+			groups[g.ID] = g.Size
+		},
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	sortedGroups := make([]string, len(groups))
+	for g := range groups{
+		sortedGroups = append(sortedGroups, g)
+	}
+	sort.Strings(sortedGroups)
+
+	// Set a state barrier.
+	seqNumCh := watcher.Barrier(ctx, sync.State(runenv.TestGroupID), int64(runenv.TestGroupInstanceCount))
+
+	// Signal we're in the same state.
+	seq, err := writer.SignalEntry(ctx, sync.State(runenv.TestGroupID))
+	if err != nil {
+		return 0, err
+	}
+
+	// Wait until all others have signalled.
+	if err := <-seqNumCh; err != nil {
+		return 0, err
+	}
+
+	id := int(seq)
+	for _, g := range sortedGroups {
+		if g == runenv.TestGroupID {
+			break
 		}
-		if opts.FUndialable > 0 {
-			if int(float64(seq)/opts.FUndialable) < numNonBootstrap {
-				properties[Undialable] = struct{}{}
-			}
+		id += groups[g]
+	}
+
+	return id, nil
+}
+
+func syncAll(ctx context.Context, watcher *sync.Watcher, writer *sync.Writer, total int,
+	subtree *sync.Subtree, payload interface{}, process func(v interface{})) error {
+	if _, err := writer.Write(ctx, subtree, payload); err != nil {
+		return err
+	}
+
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	dataCh := make(chan interface{})
+	if err := watcher.Subscribe(subCtx, subtree, dataCh); err != nil {
+		return err
+	}
+
+	for i := 0; i < total; i++ {
+		select {
+		case p := <-dataCh:
+			process(p)
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 	}
-	return properties
+
+	return nil
 }
 
 func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) []peer.AddrInfo {
-	dht := node.dht
-	// Are we a bootstrap node?
-	_, isBootstrapper := node.info.properties[Bootstrapper]
-	_, isUndialable := node.info.properties[Undialable]
-	totalPeers := len(peers) + 1
-
 	var toDial []peer.AddrInfo
-	if opts.NBootstrap > 0 {
-		// List all the bootstrappers.
-		bootstrapPeers := make([]peer.AddrInfo, 0, opts.NBootstrap)
-		if isBootstrapper {
-			bootstrapPeers = append(bootstrapPeers, *node.info.addrs)
-		}
+	switch opts.BootstrapStrategy {
+	case 0: // Do nothing
+		return toDial
+	case 1: // Connect to all bootstrappers
 		for _, info := range peers {
-			if _, bootstrapper := info.properties[Bootstrapper]; bootstrapper {
-				bootstrapPeers = append(bootstrapPeers, *info.addrs)
+			if info.Properties.Bootstrapper {
+				toDial = append(toDial, *info.Addrs)
+			}
+		}
+	case 2: // Connect to a random bootstrapper
+		// List all the bootstrappers.
+		var bootstrappers []peer.AddrInfo
+		for _, info := range peers {
+			if info.Properties.Bootstrapper {
+				bootstrappers = append(bootstrappers, *info.Addrs)
 			}
 		}
 
-		if isBootstrapper {
-			// If we're a bootstrapper, connect to all of them with IDs lexicographically less than us
-			toDial = make([]peer.AddrInfo, 0, len(bootstrapPeers))
-			for _, b := range bootstrapPeers {
-				if b.ID < dht.Host().ID() {
-					toDial = append(toDial, b)
-				}
-			}
-		} else {
+		if len(bootstrappers) > 0 {
 			// Otherwise, connect to a random one (based on our sequence number).
-			toDial = append(toDial, bootstrapPeers[node.info.seq%len(bootstrapPeers)])
+			toDial = append(toDial, bootstrappers[node.info.Seq%len(bootstrappers)])
 		}
-	} else {
-		switch {
-		case opts.NBootstrap == 0:
-			// No bootstrappers, dial the _next_ peer in the ring
-
-			mySeqNo := node.info.seq
-			var targetSeqNo int
-			if mySeqNo == totalPeers-1 {
-				targetSeqNo = 0
-			} else {
-				targetSeqNo = mySeqNo + 1
-			}
-			// look for the node with sequence number 0
-			for _, info := range peers {
-				if info.seq == targetSeqNo {
-					toDial = append(toDial, *info.addrs)
-					break
-				}
-			}
-		case opts.NBootstrap == -1:
-			// Create mesh of peers
-			if _, undialable := node.info.properties[Undialable]; undialable {
-				toDial = make([]peer.AddrInfo, 0, len(peers))
-				for _, info := range peers {
-					if _, undialable := info.properties[Undialable]; !undialable {
-						toDial = append(toDial, *info.addrs)
-					}
-				}
-			} else {
-				toDial = make([]peer.AddrInfo, 0, len(peers))
-				for p, info := range peers {
-					if _, undialable := info.properties[Undialable]; !undialable && p < dht.Host().ID() {
-						toDial = append(toDial, *info.addrs)
-					}
-				}
-			}
-		case opts.NBootstrap == -2:
-			/*
-				Connect to log(n) of the network and then bootstrap
-			*/
-			targetSize := int(math.Log2(float64(totalPeers)) / 2)
-			plist := make([]*NodeInfo, totalPeers)
-			for _, info := range peers {
-				plist[info.seq] = info
-			}
-			plist[node.info.seq] = node.info
-
-			rng := rand.New(rand.NewSource(0))
-			rng.Shuffle(len(plist), func(i, j int) {
-				plist[i], plist[j] = plist[j], plist[i]
-			})
-
-			index := -1
-			for i, info := range plist {
-				if info.seq == node.info.seq {
-					index = i
-				}
-			}
-
-			minIndex := index - targetSize
-			maxIndex := index + targetSize
-
-			switch {
-			case minIndex < 0:
-				wrapIndex := len(plist) + minIndex
-				minIndex = 0
-
-				for _, info := range plist[wrapIndex:] {
-					if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
-						toDial = append(toDial, *info.addrs)
-					}
-				}
-			case maxIndex > len(plist):
-				wrapIndex := maxIndex - len(plist) + 1
-				maxIndex = len(plist)
-
-				for _, info := range plist[:wrapIndex] {
-					if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
-						toDial = append(toDial, *info.addrs)
-					}
-				}
-			}
-
-			for _, info := range plist[minIndex:index] {
-				if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
-					toDial = append(toDial, *info.addrs)
-				}
-			}
-
-			for _, info := range plist[index+1 : maxIndex] {
-				if _, undialable := info.properties[Undialable]; !undialable && info.addrs.ID < dht.Host().ID() {
-					toDial = append(toDial, *info.addrs)
-				}
-			}
-		case opts.NBootstrap == -3:
-			/*
-				Connect to log(n) of the network and then bootstrap
-			*/
-			plist := make([]*NodeInfo, len(peers)+1)
-			for _, info := range peers {
-				plist[info.seq] = info
-			}
-			plist[node.info.seq] = node.info
-			targetSize := int(math.Log2(float64(len(plist))))
-
-			getRandomNodes := func(info *NodeInfo) map[int]*NodeInfo {
-				nodeLst := make([]*NodeInfo, len(plist))
-				copy(nodeLst, plist)
-				rng := rand.New(rand.NewSource(0))
-				rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.seq)))
-				rng.Shuffle(len(nodeLst), func(i, j int) {
-					nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
-				})
-
-				foundSelf := false
-				nodes := make(map[int]*NodeInfo)
-				for _, n := range nodeLst[:targetSize] {
-					if n.seq == info.seq {
-						foundSelf = true
-						continue
-					}
-					nodes[n.seq] = n
-				}
-				if foundSelf {
-					replacement := nodeLst[targetSize]
-					nodes[replacement.seq] = replacement
-				}
-
-				return nodes
-			}
-
-			candidateNodes := getRandomNodes(node.info)
-
-			// Because of TCP simultaneous connect issues we need to figure out if anyone will be dialing us.
-			// If they are then deterministically only one of us should
-
-			if !isUndialable {
-				for _, info := range candidateNodes {
-					candidateDialList := getRandomNodes(info)
-					if _, ok := candidateDialList[node.info.seq]; ok && dht.Host().ID() < info.addrs.ID {
-						delete(candidateNodes, info.seq)
-					}
-				}
-			}
-
-			for _, info := range candidateNodes {
-				if _, undialable := info.properties[Undialable]; !undialable {
-					toDial = append(toDial, *info.addrs)
-				}
-			}
-		case opts.NBootstrap == -4:
-			/*
-				Connect to log(n) of the network and then bootstrap
-			*/
-			plist := make([]*NodeInfo, len(peers)+1)
-			for _, info := range peers {
-				plist[info.seq] = info
-			}
-			plist[node.info.seq] = node.info
-			targetSize := int(math.Log2(float64(len(plist)))/2) + 1
-
-			nodeLst := make([]*NodeInfo, len(plist))
-			copy(nodeLst, plist)
-			rng := rand.New(rand.NewSource(0))
-			rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.seq)))
-			rng.Shuffle(len(nodeLst), func(i, j int) {
-				nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
-			})
-
-			for _, info := range nodeLst {
-				if len(toDial) > targetSize {
-					break
-				}
-				if info.seq != node.info.seq {
-					if _, undialable := info.properties[Undialable]; !undialable {
-						toDial = append(toDial, *info.addrs)
-					}
-				}
-			}
-		default:
-			panic(fmt.Errorf("invalid number of bootstrappers %d", opts.NBootstrap))
+	case 3: // dial the _next_ peer in the ring
+		mySeqNo := node.info.Seq
+		var targetSeqNo int
+		if mySeqNo == len(peers) {
+			targetSeqNo = 0
+		} else {
+			targetSeqNo = mySeqNo + 1
 		}
+		// look for the node with sequence number 0
+		for _, info := range peers {
+			if info.Seq == targetSeqNo {
+				toDial = append(toDial, *info.Addrs)
+				break
+			}
+		}
+	case 4: // Connect to all dialable peers
+		toDial = make([]peer.AddrInfo, 0, len(peers))
+		for _, info := range peers {
+			if !info.Properties.Undialable {
+				toDial = append(toDial, *info.Addrs)
+			}
+		}
+		return toDial
+	case 5: // connect to log(n) of the network
+		plist := make([]*NodeInfo, len(peers)+1)
+		for _, info := range peers {
+			plist[info.Seq] = info
+		}
+		plist[node.info.Seq] = node.info
+		targetSize := int(math.Log2(float64(len(plist)))/2) + 1
+
+		nodeLst := make([]*NodeInfo, len(plist))
+		copy(nodeLst, plist)
+		rng := rand.New(rand.NewSource(0))
+		rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.Seq)))
+		rng.Shuffle(len(nodeLst), func(i, j int) {
+			nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
+		})
+
+		for _, info := range nodeLst {
+			if len(toDial) > targetSize {
+				break
+			}
+			if info.Seq != node.info.Seq && !info.Properties.Undialable {
+					toDial = append(toDial, *info.Addrs)
+			}
+		}
+	default:
+		panic(fmt.Errorf("invalid number of bootstrap strategy %d", opts.BootstrapStrategy))
 	}
 
 	return toDial
@@ -882,31 +700,6 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 
 	runenv.RecordMessage("bootstrap: done")
 	return nil
-}
-
-// get all bootstrap peers.
-func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, opts *SetupOpts) ([]peer.AddrInfo, error) {
-	// cancel the sub
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	peerCh := make(chan *peer.AddrInfo, opts.NBootstrap)
-	if err := watcher.Subscribe(ctx, BootstrapSubtree, peerCh); err != nil {
-		return nil, err
-	}
-
-	// TODO: remove this if it becomes too much coordination effort.
-	peers := make([]peer.AddrInfo, opts.NBootstrap)
-	// Grab list of other peers that are available for this run.
-	for i := 0; i < opts.NBootstrap; i++ {
-		ai, ok := <-peerCh
-		if !ok {
-			return peers, fmt.Errorf("timed out waiting for bootstrappers")
-		}
-		peers[i] = *ai
-	}
-	runenv.RecordMessage("got all bootstrappers: %d", len(peers))
-	return peers, nil
 }
 
 // Connect connects a host to a set of peers.
@@ -1185,12 +978,10 @@ func outputGraph(dht *kaddht.IpfsDHT, graphID string) {
 }
 
 func outputStart(node *NodeParams) {
-	_, undialable := node.info.properties[Undialable]
-
 	nodeLogger.Infow("nodeparams",
-		"seq", node.info.seq,
-		"dialable", !undialable,
-		"peerID", node.info.addrs.ID.Pretty(),
-		"addrs", node.info.addrs.Addrs,
+		"seq", node.info.Seq,
+		"dialable", !node.info.Properties.Undialable,
+		"peerID", node.info.Addrs.ID.Pretty(),
+		"addrs", node.info.Addrs.Addrs,
 	)
 }
