@@ -349,6 +349,13 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watche
 		h.Peerstore().AddAddrs(p.ID, p.Addrs, time.Hour)
 	}
 
+	// Connect to bootstrappers.
+	if !isBootstrapper {
+		if err := Connect(ctx, runenv, h, bootstrapPeers...); err != nil {
+			return nil, err
+		}
+	}
+
 	// Wait for everyone to finish.
 	if err := Sync(ctx, runenv, watcher, writer, "bootstrap-done"); err != nil {
 		return nil, err
@@ -380,6 +387,41 @@ func getBootstrappers(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 	}
 	runenv.RecordMessage("got all bootstrappers: %d", len(peers))
 	return peers, nil
+}
+
+// Connect connects a host to a set of peers.
+//
+// Automatically skips our own peer.
+func Connect(ctx context.Context, runenv *runtime.RunEnv, h host.Host, toDial ...peer.AddrInfo) error {
+	tryConnect := func(ctx context.Context, ai peer.AddrInfo, attempts int) error {
+		var err error
+		for i := 1; i <= attempts; i++ {
+			runenv.RecordMessage("dialling peer %s (attempt %d)", ai.ID, i)
+			select {
+			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			case <-ctx.Done():
+				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
+			}
+			if err = h.Connect(ctx, ai); err == nil {
+				return nil
+			} else {
+				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
+			}
+		}
+		return fmt.Errorf("failed while dialing peer %v, attempts: %d: %w", ai.Addrs, attempts, err)
+	}
+
+	// Dial to all the other peers.
+	for _, ai := range toDial {
+		if ai.ID == dht.Host().ID() {
+			continue
+		}
+		if err := tryConnect(ctx, ai, 5); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Sync synchronizes all test instances around a single sync point.
