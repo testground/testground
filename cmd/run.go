@@ -199,7 +199,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	collectFile := c.String("collect-file")
 	if collectFile == "" {
-		collectFile = fmt.Sprintf("%s.zip", rout.RunID)
+		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
 	}
 
 	or := &client.OutputsRequest{

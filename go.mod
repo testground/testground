@@ -22,11 +22,14 @@ require (
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/gosimple/slug v1.9.0
+	github.com/grafana-tools/sdk v0.0.0-20200305194735-ebfd6e29db74
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
