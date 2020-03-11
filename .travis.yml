@@ -52,10 +52,15 @@ jobs:
       script:
         - make test-build
 
-    - stage: linux_test
+    - stage: linux_test_quick
       os: linux
       script:
-        - make test
+        - make test-quick
+
+    - stage: linux_test_integration
+      os: linux
+      script:
+        - make test-integration
 
     - stage: lint_build_check_test_run
       os: windows

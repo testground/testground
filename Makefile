@@ -22,5 +22,8 @@ test-build:
 	$(call eachmod,go build -o /dev/null ./...)
 	docker build -t ipfs/testground .
 
-test:
-	$(call eachmod,go test -v $(GOTFLAGS) ./...)
+test-quick:
+	go list ./... | grep -v cmd | xargs go test
+
+test-integration:
+	go test ./cmd/...
