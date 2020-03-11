@@ -166,7 +166,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("Generating seed data of %d bytes", fileSize)
 	start = time.Now()
 
-	rootCid, err := setupSeed(ctx, bsnode, fileSize)
+	rootCid, err := setupSeed(ctx, runenv, bsnode, fileSize, int(seedIndex))
 	if err != nil {
 		return fmt.Errorf("Failed to set up seed: %w", err)
 	}
