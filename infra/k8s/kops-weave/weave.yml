@@ -190,7 +190,8 @@ items:
                       apiVersion: v1
                       fieldPath: spec.nodeName
               #image: 'docker.io/weaveworks/weave-kube:2.6.0'
-              image: 'nonsens3/weave-kube'
+              #image: 'nonsens3/weave-kube'
+              image: 'jimpick/weave-kube:jim5'
               readinessProbe:
                 httpGet:
                   host: 127.0.0.1
