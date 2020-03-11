@@ -29,6 +29,7 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-homedir v1.1.0 // indirect

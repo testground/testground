@@ -26,9 +26,10 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ## Requirements
 
-1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
-2. [AWS CLI](https://aws.amazon.com/cli)
-3. [helm](https://github.com/helm/helm)
+1. [kops](https://github.com/kubernetes/kops/releases) >= 1.17.0-alpha.1
+2. [terraform](https://terraform.io) >= 0.12.21
+3. [AWS CLI](https://aws.amazon.com/cli)
+4. [helm](https://github.com/helm/helm)
 
 ## Set up cloud credentials, cluster specification and repositories for dependencies
 
@@ -58,7 +59,8 @@ aws s3api create-bucket \
 
 4. Pick up
 - a cluster name,
-- set AWS zone
+- set AWS region
+- set AWS availability zone
 - set `kops` state store bucket
 - set number of worker nodes
 - set location for cluster spec to be generated
@@ -70,17 +72,10 @@ You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
 ```
 export NAME=<desired kubernetes cluster name>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
+export AWS_REGION=<aws region, for example eu-central-1>
 export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=~/.ssh/testground_rsa.pub
-
-# details for S3 bucket to be used for assets
-export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-
-# depends on region, for example "https://s3.eu-central-1.amazonaws.com:443"
-export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
 5. Set up Helm and add the `stable` Helm Charts repository
@@ -102,7 +97,7 @@ For example, to create a monitored cluster in the region specified in $ZONE with
 ## Destroy the cluster when you're done working on it
 
 ```
-kops delete cluster $NAME --yes
+./delete.sh
 ```
 
 
