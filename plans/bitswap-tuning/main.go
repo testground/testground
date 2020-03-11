@@ -7,6 +7,7 @@ import (
 
 var testCases = []func(*runtime.RunEnv) error{
 	test.Transfer,
+	test.Fuzz,
 }
 
 func main() {
