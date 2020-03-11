@@ -8,7 +8,7 @@ replace github.com/ipfs/testground/sdk/iptb => ../../sdk/iptb
 
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 
-replace github.com/libp2p/go-libp2p-autonat => github.com/willscott/go-libp2p-autonat v0.1.2-0.20200310184838-ce79942134d7
+replace github.com/libp2p/go-libp2p-autonat => github.com/willscott/go-libp2p-autonat v0.1.2-0.20200310204156-1134a3fbbb46
 
 require (
 	github.com/ipfs/go-cid v0.0.5
