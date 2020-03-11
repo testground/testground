@@ -3,27 +3,14 @@ package test
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	"log"
-	"net/http"
-	"time"
 )
 
 func BarrierTest(runenv *runtime.RunEnv) error {
-	opts := &SetupOpts{
-		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:     runenv.BooleanParam("random_walk"),
-		NFindPeers:     runenv.IntParam("n_find_peers"),
-		BucketSize:     runenv.IntParam("bucket_size"),
-		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
-		FUndialable:    runenv.FloatParam("f_undialable"),
-		ClientMode:     runenv.BooleanParam("client_mode"),
-		NDisjointPaths: runenv.IntParam("n_paths"),
-		Datastore:      runenv.IntParam("datastore"),
-		RecordCount:    runenv.IntParam("record_count"),
-		Debug:          runenv.IntParam("dbg"),
-	}
+	opts := GetCommonOpts(runenv)
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
@@ -31,10 +18,6 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
-
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
-	}()
 
 	node, _, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {

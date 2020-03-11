@@ -3,13 +3,13 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
+	"math/bits"
+	"reflect"
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
@@ -39,11 +39,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
-	}()
+	ri := &RunInfo{
+		runenv:  runenv,
+		watcher: watcher,
+		writer:  writer,
+	}
 
-	node, peers, err := Setup(ctx, runenv, watcher, writer, commonOpts)
+	node, peers, err := Setup(ctx, ri, commonOpts)
 	if err != nil {
 		return err
 	}
@@ -63,18 +65,9 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
 		return err
 	}
-
-	// Calculate the CIDs we're dealing with.
-	cids := func() (out []cid.Cid) {
-		for i := 0; i < fpOpts.RecordCount; i++ {
-			c := fmt.Sprintf("CID %d - seeded with %d", i, fpOpts.RecordSeed)
-			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
-		}
-		return out
-	}()
 
 	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {
@@ -167,4 +160,52 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	outputGraph(node.dht, "end")
 
 	return nil
+}
+
+func get(ctx context.Context, ri *RunInfo, info *NodeInfo, fpOpts findProvsParams) ([]cid.Cid, []cid.Cid, error) {
+	var emitRecords, searchRecords []cid.Cid
+	if fpOpts.RecordCount > 0 {
+		// Calculate the CIDs we're dealing with.
+		emitRecords = func() (out []cid.Cid) {
+			for i := 0; i < fpOpts.RecordCount; i++ {
+				c := fmt.Sprintf("CID %d - group %s - seeded with %d", i, ri.runenv.TestGroupID, fpOpts.RecordSeed)
+				out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
+			}
+			return out
+		}()
+	}
+	
+	var recordPayload *RecordSubmission
+	if info.GroupSeq == 0 {
+		recordPayload = &RecordSubmission{
+			RecordIDs: emitRecords,
+			GroupID:   ri.runenv.TestGroupID,
+		}
+	}
+
+	err := syncAll(ctx, ri, len(emitRecords), RecordsSubtree, recordPayload,
+		func(v interface{}) {
+			searchRecords = append(searchRecords, v.(*RecordSubmission).RecordIDs...)
+		},
+		)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return emitRecords, searchRecords, nil
+}
+
+// PeerAttribSubtree represents a subtree under the test run's sync tree where peers
+// participating in this distributed test advertise their attributes.
+var RecordsSubtree = &sync.Subtree{
+	GroupKey:    "records",
+	PayloadType: reflect.TypeOf((*RecordSubmission)(nil)),
+	KeyFunc: func(val interface{}) string {
+		return val.(*RecordSubmission).GroupID
+	},
+}
+
+type RecordSubmission struct {
+	RecordIDs []cid.Cid
+	GroupID string
 }

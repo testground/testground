@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"reflect"
 	"sort"
 	"strconv"
 	gosync "sync"
@@ -44,49 +43,50 @@ func init() {
 const minTestInstances = 16
 
 type SetupOpts struct {
-	Timeout         time.Duration
-	AutoRefresh     bool
-	RandomWalk      bool
+	Timeout     time.Duration
+	AutoRefresh bool
+	RandomWalk  bool
 
-	BucketSize      int
-	NDisjointPaths  int
+	BucketSize     int
+	NDisjointPaths int
 
-	ClientMode      bool
-	Datastore       int
+	ClientMode bool
+	Datastore  int
 
-	PeerIDSeed      int
-	Bootstrapper    bool
+	PeerIDSeed        int
+	Bootstrapper      bool
 	BootstrapStrategy int
-	Undialable      bool
+	Undialable        bool
+}
+
+type RunInfo struct {
+	runenv *runtime.RunEnv
+	watcher *sync.Watcher
+	writer *sync.Writer
+
+	groups []string
+	groupSizes map[string]int
 }
 
 func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 	opts := &SetupOpts{
-		Timeout:         time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		AutoRefresh:     runenv.BooleanParam("auto_refresh"),
-		RandomWalk:      runenv.BooleanParam("random_walk"),
+		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
+		AutoRefresh: runenv.BooleanParam("auto_refresh"),
+		RandomWalk:  runenv.BooleanParam("random_walk"),
 
-		BucketSize:      runenv.IntParam("bucket_size"),
-		NDisjointPaths:  runenv.IntParam("n_paths"),
+		BucketSize:     runenv.IntParam("bucket_size"),
+		NDisjointPaths: runenv.IntParam("n_paths"),
 
-		ClientMode:      runenv.BooleanParam("client_mode"),
-		Datastore:       runenv.IntParam("datastore"),
+		ClientMode: runenv.BooleanParam("client_mode"),
+		Datastore:  runenv.IntParam("datastore"),
 
-		PeerIDSeed: runenv.IntParam("peer_id_seed"),
-		Bootstrapper: runenv.BooleanParam("bootstrapper"),
+		PeerIDSeed:        runenv.IntParam("peer_id_seed"),
+		Bootstrapper:      runenv.BooleanParam("bootstrapper"),
 		BootstrapStrategy: runenv.IntParam("bs_strategy"),
-		Undialable: runenv.BooleanParam("undialable"),
+		Undialable:        runenv.BooleanParam("undialable"),
 	}
 	return opts
 }
-
-type NodeProperty int
-
-const (
-	Undefined NodeProperty = iota
-	Bootstrapper
-	Undialable
-)
 
 type NodeParams struct {
 	host host.Host
@@ -95,31 +95,18 @@ type NodeParams struct {
 }
 
 type NodeInfo struct {
-	Seq        int
+	Seq        int // sequence number within the test
+	GroupSeq   int // sequence number within the test group
 	Properties NodeProperties
 	Addrs      *peer.AddrInfo
 }
 
 type NodeProperties struct {
 	Bootstrapper bool
-	Undialable bool
-}
-
-// BootstrapSubtree represents a subtree under the test run's sync tree where
-// bootstrap peers advertise themselves.
-var BootstrapSubtree = &sync.Subtree{
-	GroupKey:    "bootstrap",
-	PayloadType: reflect.TypeOf(&peer.AddrInfo{}),
-	KeyFunc: func(val interface{}) string {
-		return val.(*peer.AddrInfo).ID.Pretty()
-	},
+	Undialable   bool
 }
 
 var ConnManagerGracePeriod = 1 * time.Second
-
-type ModeSwitcher interface {
-	SetMode(int) error
-}
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
 func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, info *NodeInfo) (host.Host, *kaddht.IpfsDHT, error) {
@@ -257,8 +244,8 @@ var networkSetupMx gosync.Mutex
 
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this
 // test case.
-func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, latency time.Duration) error {
-	if !runenv.TestSidecar {
+func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error {
+	if !ri.runenv.TestSidecar {
 		return nil
 	}
 
@@ -274,7 +261,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 
 	state := sync.State(fmt.Sprintf("network-configured-%d", networkSetupNum))
 
-	writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	ri.writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -284,9 +271,9 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 		State: state,
 	})
 
-	runenv.RecordMessage("finished resetting network latency")
+	ri.runenv.RecordMessage("finished resetting network latency")
 
-	err = <-watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
+	err = <-ri.watcher.Barrier(ctx, state, int64(ri.runenv.TestInstanceCount))
 	if err != nil {
 		return fmt.Errorf("failed to configure network: %w", err)
 	}
@@ -294,25 +281,28 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 }
 
 // Setup sets up the elements necessary for the test cases
-func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
-	if err := initAssets(runenv); err != nil {
+func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
+	if err := initAssets(ri.runenv); err != nil {
 		return nil, nil, err
 	}
 
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
-	if runenv.TestInstanceCount < minTestInstances {
+	if ri.runenv.TestInstanceCount < minTestInstances {
 		return nil, nil, fmt.Errorf(
 			"requires at least %d instances, only %d started",
-			minTestInstances, runenv.TestInstanceCount,
+			minTestInstances, ri.runenv.TestInstanceCount,
 		)
 	}
 
-	err := SetupNetwork(ctx, runenv, watcher, writer, 0)
+	err := SetupNetwork(ctx, ri, 0)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	testSeq, err := getNodeID(ctx, runenv, watcher, writer)
+	if err := setGroupInfo(ctx, ri); err != nil {
+		return nil, nil, err
+	}
+	groupSeq, testSeq, err := getNodeID(ctx, ri)
 
 	rng := rand.New(rand.NewSource(int64(testSeq)))
 	priv, _, err := crypto.GenerateEd25519Key(rng)
@@ -324,24 +314,25 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 		host: nil,
 		dht:  nil,
 		info: &NodeInfo{
-		Seq:        testSeq,
-		Properties: NodeProperties{
-			Bootstrapper: opts.Bootstrapper,
-			Undialable:   opts.Undialable,
+			Seq: testSeq,
+			GroupSeq: groupSeq,
+			Properties: NodeProperties{
+				Bootstrapper: opts.Bootstrapper,
+				Undialable:   opts.Undialable,
+			},
+			Addrs: nil,
 		},
-		Addrs:      nil,
-	},
 	}
 
-	testNode.host, testNode.dht, err = NewDHTNode(ctx, runenv, opts, priv, testNode.info)
+	testNode.host, testNode.dht, err = NewDHTNode(ctx, ri.runenv, opts, priv, testNode.info)
 	if err != nil {
 		return nil, nil, err
 	}
 	testNode.info.Addrs = host.InfoFromHost(testNode.host)
 
 	otherNodes := make(map[peer.ID]*NodeInfo)
-	err = syncAll(ctx, watcher, writer,
-		runenv.TestInstanceCount, PeerAttribSubtree, testNode.info,
+	err = syncAll(ctx, ri,
+		ri.runenv.TestInstanceCount, PeerAttribSubtree, testNode.info,
 		func(v interface{}) {
 			info := v.(*NodeInfo)
 			otherNodes[info.Addrs.ID] = info
@@ -355,70 +346,87 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, w
 	return testNode, otherNodes, nil
 }
 
-// getNodeID returns the sequence number of this test instance within the test
-func getNodeID(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) (int, error) {
+// setGroupInfo uses the sync service to determine which groups are part of the test and to get their sizes.
+// This information is set on the passed in RunInfo.
+func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 	groups := make(map[string]int)
-	err := syncAll(ctx, watcher, writer,
-		runenv.TestInstanceCount, GroupIDSubtree, &GroupInfo{ID:runenv.TestGroupID, Size: runenv.TestGroupInstanceCount},
+	err := syncAll(ctx, ri,
+		ri.runenv.TestInstanceCount, GroupIDSubtree, &GroupInfo{ID: ri.runenv.TestGroupID, Size: ri.runenv.TestGroupInstanceCount},
 		func(v interface{}) {
 			g := v.(*GroupInfo)
 			groups[g.ID] = g.Size
 		},
 	)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	sortedGroups := make([]string, len(groups))
-	for g := range groups{
+	for g := range groups {
 		sortedGroups = append(sortedGroups, g)
 	}
 	sort.Strings(sortedGroups)
 
+	ri.groups = sortedGroups
+	ri.groupSizes = groups
+
+	return nil
+}
+
+// getNodeID returns the sequence number of this test instance within its group and within the test
+func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
 	// Set a state barrier.
-	seqNumCh := watcher.Barrier(ctx, sync.State(runenv.TestGroupID), int64(runenv.TestGroupInstanceCount))
+	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
 
 	// Signal we're in the same state.
-	seq, err := writer.SignalEntry(ctx, sync.State(runenv.TestGroupID))
+	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
+
+	// make sequence number 0 indexed
+	seq--
 
 	// Wait until all others have signalled.
 	if err := <-seqNumCh; err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	id := int(seq)
-	for _, g := range sortedGroups {
-		if g == runenv.TestGroupID {
+	for _, g := range ri.groups {
+		if g == ri.runenv.TestGroupID {
 			break
 		}
-		id += groups[g]
+		id += ri.groupSizes[g]
 	}
 
-	return id, nil
+	return int(seq), id, nil
 }
 
-func syncAll(ctx context.Context, watcher *sync.Watcher, writer *sync.Writer, total int,
+func syncAll(ctx context.Context, ri *RunInfo, total int,
 	subtree *sync.Subtree, payload interface{}, process func(v interface{})) error {
-	if _, err := writer.Write(ctx, subtree, payload); err != nil {
-		return err
+
+	if payload != nil {
+		if _, err := ri.writer.Write(ctx, subtree, payload); err != nil {
+			return err
+		}
 	}
 
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	dataCh := make(chan interface{})
-	if err := watcher.Subscribe(subCtx, subtree, dataCh); err != nil {
-		return err
-	}
+	if total != 0 {
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		dataCh := make(chan interface{})
+		if err := ri.watcher.Subscribe(subCtx, subtree, dataCh); err != nil {
+			return err
+		}
 
-	for i := 0; i < total; i++ {
-		select {
-		case p := <-dataCh:
-			process(p)
-		case <-ctx.Done():
-			return ctx.Err()
+		for i := 0; i < total; i++ {
+			select {
+			case p := <-dataCh:
+				process(p)
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		}
 	}
 
@@ -436,7 +444,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 				toDial = append(toDial, *info.Addrs)
 			}
 		}
-	case 2: // Connect to a random bootstrapper
+	case 2: // Connect to a random bootstrapper (based on our sequence number)
 		// List all the bootstrappers.
 		var bootstrappers []peer.AddrInfo
 		for _, info := range peers {
@@ -446,10 +454,31 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 		}
 
 		if len(bootstrappers) > 0 {
-			// Otherwise, connect to a random one (based on our sequence number).
 			toDial = append(toDial, bootstrappers[node.info.Seq%len(bootstrappers)])
 		}
-	case 3: // dial the _next_ peer in the ring
+	case 3: // Connect to log(n) random bootstrappers (based on our sequence number)
+		// List all the bootstrappers.
+		var bootstrappers []peer.AddrInfo
+		for _, info := range peers {
+			if info.Properties.Bootstrapper {
+				bootstrappers = append(bootstrappers, *info.Addrs)
+			}
+		}
+
+		added := make(map[int]struct{})
+		if len(bootstrappers) > 0 {
+			targetSize := int(math.Log2(float64(len(bootstrappers)))/2) + 1
+			rng := rand.New(rand.NewSource(int64(node.info.Seq)))
+			for i := 0; i < targetSize; i++ {
+				bsIndex := rng.Int()%len(bootstrappers)
+				if _, found := added[bsIndex]; !found{
+					i--
+					continue
+				}
+				toDial = append(toDial, bootstrappers[bsIndex])
+			}
+		}
+	case 4: // dial the _next_ peer in the ring
 		mySeqNo := node.info.Seq
 		var targetSeqNo int
 		if mySeqNo == len(peers) {
@@ -464,7 +493,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 				break
 			}
 		}
-	case 4: // Connect to all dialable peers
+	case 5: // Connect to all dialable peers
 		toDial = make([]peer.AddrInfo, 0, len(peers))
 		for _, info := range peers {
 			if !info.Properties.Undialable {
@@ -472,7 +501,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			}
 		}
 		return toDial
-	case 5: // connect to log(n) of the network
+	case 6: // connect to log(n) of the network
 		plist := make([]*NodeInfo, len(peers)+1)
 		for _, info := range peers {
 			plist[info.Seq] = info
@@ -493,7 +522,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 				break
 			}
 			if info.Seq != node.info.Seq && !info.Properties.Undialable {
-					toDial = append(toDial, *info.Addrs)
+				toDial = append(toDial, *info.Addrs)
 			}
 		}
 	default:

@@ -6,9 +6,6 @@ import (
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
-	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -31,10 +28,6 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
-
-	go func() {
-		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
-	}()
 
 	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
 	if err != nil {

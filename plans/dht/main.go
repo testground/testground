@@ -1,6 +1,10 @@
 package main
 
 import (
+	"log"
+	"net/http"
+	_ "net/http/pprof"
+
 	test "github.com/ipfs/testground/plans/dht/test"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -15,6 +19,10 @@ var testCases = []func(*runtime.RunEnv) error{
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+
 	runtime.Invoke(run)
 }
 

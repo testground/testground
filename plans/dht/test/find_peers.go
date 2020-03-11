@@ -76,7 +76,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			continue
 		}
 
-		if _, undialable := info.Properties[Undialable]; undialable {
+		if info.Properties.Undialable {
 			continue
 		}
 
