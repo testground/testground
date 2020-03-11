@@ -4,6 +4,7 @@ metadata:
   labels:
     k8s-app: weave-net
   name: weave-net
+  namespace: kube-system
 spec:
   clusterIP: None
   ports:
