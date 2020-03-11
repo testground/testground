@@ -11,7 +11,9 @@ import (
 )
 
 func runSingle(t *testing.T, args ...string) error {
+	t.Log("running runSingle")
 	t.Helper()
+	t.Parallel()
 
 	srv, err := daemon.New("localhost:0")
 	if err != nil {

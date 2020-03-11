@@ -5,6 +5,7 @@ import (
 )
 
 func TestDescribeExistingPlan(t *testing.T) {
+	t.Log("running TestDescribeExistingPlan")
 	err := runSingle(t,
 		"describe",
 		"placebo",
@@ -16,6 +17,7 @@ func TestDescribeExistingPlan(t *testing.T) {
 }
 
 func TestDescribeInexistentPlan(t *testing.T) {
+	t.Log("running TestDescribeInexistentPlan")
 	err := runSingle(t,
 		"describe",
 		"i-do-not-exist",

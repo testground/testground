@@ -5,6 +5,7 @@ import (
 )
 
 func TestList(t *testing.T) {
+	t.Log("running TestList")
 	err := runSingle(t,
 		"list",
 	)
