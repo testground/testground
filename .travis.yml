@@ -33,13 +33,13 @@ before_install:
 # the testground logic, not the test plan itself. So it's fine.
 jobs:
   include:
-    - stage: linux_tidy
+    - name: linux_tidy
       os: linux
       script:
         - make tidy
         - git diff --exit-code
 
-    - stage: linux_lint
+    - name: linux_lint
       os: linux
       script:
         - pushd ..
@@ -47,22 +47,22 @@ jobs:
         - popd
         - make lint
 
-    - stage: linux_test_build
+    - name: linux_test_build
       os: linux
       script:
         - make test-build
 
-    - stage: linux_test_quick
+    - name: linux_test_quick
       os: linux
       script:
         - make test-quick
 
-    - stage: linux_test_integration
+    - name: linux_test_integration
       os: linux
       script:
         - make test-integration
 
-    - stage: lint_build_check_test_run
+    - name: lint_build_check_test_run
       os: windows
       script:
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
