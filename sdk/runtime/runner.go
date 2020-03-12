@@ -100,7 +100,6 @@ func Invoke(tc func(*RunEnv) error) {
 
 		if err = errfile.Sync(); err != nil {
 			runenv.RecordCrash(fmt.Errorf("stderr file tee sync failed failed: %w", err))
-			return
 		}
 	}()
 
@@ -141,7 +140,7 @@ func setupHTTPListener(runenv *RunEnv) {
 
 	HTTPListenAddr = l.Addr().String()
 
-	runenv.RecordMessage("registering default http handler at: http://%s/ (pprof: http://%s/debug/pprof/)", HTTPListenAddr)
+	runenv.RecordMessage("registering default http handler at: http://%s/ (pprof: http://%s/debug/pprof/)", HTTPListenAddr, HTTPListenAddr)
 
 	go http.Serve(l, nil)
 }

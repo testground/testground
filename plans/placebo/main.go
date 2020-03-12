@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +33,13 @@ func run(runenv *runtime.RunEnv) error {
 		}
 
 		time.Sleep(time.Second * 5)
+		return nil
+	case 3:
+		// panic
+		panic(errors.New("this is an intentional panic"))
+	case 4:
+		// stall
+		time.Sleep(24 * time.Hour)
 		return nil
 	default:
 		return fmt.Errorf("aborting")

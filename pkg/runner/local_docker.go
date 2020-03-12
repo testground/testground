@@ -364,7 +364,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 			}
 
 			hcfg := &container.HostConfig{
-				NetworkMode: container.NetworkMode(r.controlNetworkID),
+				// We no longer connect to the control network here. By default,
+				// this container will be connected to the host bridge network,
+				// which we need in order to expose the Prometheus/pprof HTTP
+				// port on the host. The control and data networks are attached
+				// explicitly below.
+				//
+				// NetworkMode:     container.NetworkMode(r.controlNetworkID),
+				PublishAllPorts: true,
 				Mounts: []mount.Mount{{
 					Type:   mount.TypeBind,
 					Source: odir,
@@ -379,13 +386,20 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 				break
 			}
 
-			containers = append(containers, res.ID)
+			// Attach to the control network.
+			err = attachContainerToNetwork(ctx, cli, res.ID, r.controlNetworkID)
+			if err != nil {
+				break
+			}
 
+			// Attach to the data network.
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
 			if err != nil {
 				break
 			}
+
+			containers = append(containers, res.ID)
 		}
 	}
 

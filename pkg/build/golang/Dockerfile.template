@@ -64,4 +64,5 @@ COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
 RUN rm -f /usr/local/bin/delete_me
 ENV PATH="/usr/local/bin:${PATH}"
 
+EXPOSE 6060
 ENTRYPOINT [ "/testplan", "--vv"]
