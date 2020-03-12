@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func NewCounter(runenv *RunEnv, name string, help string) prometheus.Counter {
@@ -49,24 +47,6 @@ func NewSummary(runenv *RunEnv, name string, help string) prometheus.Summary {
 	})
 	runenv.MetricsPusher.Collector(s)
 	return s
-}
-
-// MustExportPrometheus starts an HTTP server with the Prometheus handler.
-// It starts on a random open port and returns the listener. It is the caller
-// responsability to close the listener.
-func (re *RunEnv) MustExportPrometheus() net.Listener {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		panic(err)
-	}
-
-	go func() {
-		// avoid triggering golangci-lint for not checking
-		// the error.
-		_ = http.Serve(listener, promhttp.Handler())
-	}()
-
-	return listener
 }
 
 // HTTPPeriodicSnapshots periodically fetches the snapshots from the given address

@@ -3,10 +3,29 @@ package runtime
 import (
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strings"
 	"time"
+
+	"net/http"
+	_ "net/http/pprof"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+const (
+	// These ports are the HTTP ports we'll attempt to bind to. If this instance
+	// is running in a Docker container, binding to 6060 is safe. If it's a
+	// local:exec run, these ports belong to the host, so starting more than one
+	// instance will lead to a collision. Therefore we fallback to 0.
+	HTTPPort         = 6060
+	HTTPPortFallback = 0
+)
+
+// HTTPListenAddr will be set to the listener address _before_ the test case is
+// invoked. If we were unable to start the listener, this value will be "".
+var HTTPListenAddr string
 
 // Invoke runs the passed test-case and reports the result.
 func Invoke(tc func(*RunEnv) error) {
@@ -15,6 +34,8 @@ func Invoke(tc func(*RunEnv) error) {
 		start         = time.Now()
 		durationGauge = NewGauge(runenv, "plan_duration", "Run time (seconds)")
 	)
+
+	setupHTTPListener(runenv)
 
 	// The prometheus pushgateway has a customized scrape interval, which is used to hint to the
 	// prometheus operator at which interval the it should be scraped. This is currently set to 5s.
@@ -101,4 +122,26 @@ func Invoke(tc func(*RunEnv) error) {
 
 	_ = rd.Close()
 	<-doneCh
+}
+
+func setupHTTPListener(runenv *RunEnv) {
+	addr := fmt.Sprintf("localhost:%d", HTTPPort)
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		addr = fmt.Sprintf("localhost:%d", HTTPPortFallback)
+		if l, err = net.Listen("tcp", addr); err != nil {
+			runenv.RecordMessage("error registering default http handler at: %s: %s", addr, err)
+			return
+		}
+	}
+
+	// DefaultServeMux already includes the pprof handler, add the
+	// Prometheus handler.
+	http.DefaultServeMux.Handle("/metrics", promhttp.Handler())
+
+	HTTPListenAddr = l.Addr().String()
+
+	runenv.RecordMessage("registering default http handler at: http://%s/ (pprof: http://%s/debug/pprof/)", HTTPListenAddr)
+
+	go http.Serve(l, nil)
 }

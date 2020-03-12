@@ -11,6 +11,7 @@ import (
 func main() {
 	runtime.Invoke(run)
 }
+
 func run(runenv *runtime.RunEnv) error {
 	if runenv.TestCaseSeq < 0 {
 		panic("test case sequence number not set")
@@ -20,21 +21,17 @@ func run(runenv *runtime.RunEnv) error {
 	case 0:
 		return nil
 	case 2:
-		// expose prometheus endpoint
-		listener := runenv.MustExportPrometheus()
-		defer listener.Close()
-
 		// create context for cancelation
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
 		// snapshot metrics every second and save them into "metrics" directory
-		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+listener.Addr().String(), time.Second, "metrics")
+		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+runtime.HTTPListenAddr+"/metrics", time.Second, "metrics")
 		if err != nil {
 			return err
 		}
 
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 5)
 		return nil
 	default:
 		return fmt.Errorf("aborting")
