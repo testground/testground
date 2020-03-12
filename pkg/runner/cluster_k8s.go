@@ -418,7 +418,7 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Wr
 					fakeFixes = append(fakeFixes, api.HealthcheckItem{
 						Name:    chk.Name,
 						Status:  chk.Status,
-						Message: "Fix not implimented yet for this check.",
+						Message: "Fix not implemented yet for this check.",
 					})
 				}
 				report.Fixes = fakeFixes
