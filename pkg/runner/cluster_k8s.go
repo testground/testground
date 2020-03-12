@@ -311,18 +311,19 @@ func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
 		LabelSelector: "app=efs-provisioner",
 	})
 	if err != nil {
 		efsCheck.Message = err.Error()
 		return
 	}
-	if len(res.Items) != 1 {
+	if len(pods.Items) != 1 {
+		efsCheck.Message = fmt.Sprintf("expected 1 EFS provisioner pod. found %d.", len(pods.Items))
 		return
 	}
 
-	pod := res.Items[0]
+	pod := pods.Items[0]
 	if pod.Status.Phase != "Running" {
 		return
 	}
@@ -337,18 +338,19 @@ func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
 		LabelSelector: "app=redis",
 	})
 	if err != nil {
 		redisCheck.Message = err.Error()
 		return
 	}
-	if len(res.Items) != 1 {
+	if len(pods.Items) != 1 {
+		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
 		return
 	}
 
-	pod := res.Items[0]
+	pod := pods.Items[0]
 	if pod.Status.Phase != "Running" {
 		return
 	}
@@ -382,6 +384,7 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 		return
 	}
 	if len(pods.Items) != nodes {
+		sidecarCheck.Message = fmt.Sprintf("expected %d sidecar pods. found %d.", nodes, len(pods.Items))
 		return
 	}
 
