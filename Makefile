@@ -20,10 +20,10 @@ lint:
 
 test-build:
 	$(call eachmod,go build -o /dev/null ./...)
-	docker build -t ipfs/testground .
 
 test-quick:
 	go list ./... | grep -v cmd | xargs go test
 
 test-integration:
+	docker build -t ipfs/testground .
 	go test ./cmd/...
