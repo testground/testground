@@ -315,6 +315,7 @@ func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
 		LabelSelector: "app=efs-provisioner",
 	})
 	if err != nil {
+		efsCheck.Message = err.Error()
 		return
 	}
 	if len(res.Items) != 1 {
@@ -340,6 +341,7 @@ func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
 		LabelSelector: "app=redis",
 	})
 	if err != nil {
+		redisCheck.Message = err.Error()
 		return
 	}
 	if len(res.Items) != 1 {
@@ -366,6 +368,7 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 		LabelSelector: "kubernetes.io/role=node",
 	})
 	if err != nil {
+		sidecarCheck.Message = err.Error()
 		return
 	}
 
@@ -375,6 +378,7 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 		LabelSelector: "name=testground-sidecar",
 	})
 	if err != nil {
+		sidecarCheck.Message = err.Error()
 		return
 	}
 	if len(pods.Items) != nodes {
