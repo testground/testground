@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -236,30 +235,30 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		}
 	}
 
-	if sidecarContainerCheck.Status != api.HealthcheckStatusOK {
-		switch r.controlNetworkID {
-		case "":
-			msg := "omitted creation of sidecar container; no control network"
-			it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOmitted, Message: msg}
-			fixes = append(fixes, it)
-		default:
-			_, err := ensureSidecarContainer(ctx, cli, r.outputsDir, log, r.controlNetworkID)
-			if err == nil {
-				msg := "control network created successfully"
-				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOK, Message: msg}
-				fixes = append(fixes, it)
-			} else {
-				msg := fmt.Sprintf("failed to create control network: %s", err)
+	// if sidecarContainerCheck.Status != api.HealthcheckStatusOK {
+	// 	switch r.controlNetworkID {
+	// 	case "":
+	// 		msg := "omitted creation of sidecar container; no control network"
+	// 		it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+	// 		fixes = append(fixes, it)
+	// 	default:
+	// 		_, err := ensureSidecarContainer(ctx, cli, r.outputsDir, log, r.controlNetworkID)
+	// 		if err == nil {
+	// 			msg := "control network created successfully"
+	// 			it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOK, Message: msg}
+	// 			fixes = append(fixes, it)
+	// 		} else {
+	// 			msg := fmt.Sprintf("failed to create control network: %s", err)
 
-				if err == errors.New("image not found") {
-					msg += "; docker image ipfs/testground not found, run `make docker-ipfs-testground`"
-				}
+	// 			if err == errors.New("image not found") {
+	// 				msg += "; docker image ipfs/testground not found, run `make docker-ipfs-testground`"
+	// 			}
 
-				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
-				fixes = append(fixes, it)
-			}
-		}
-	}
+	// 			it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
+	// 			fixes = append(fixes, it)
+	// 		}
+	// 	}
+	// }
 
 	report.Fixes = fixes
 	return report, nil
@@ -365,10 +364,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 			hcfg := &container.HostConfig{
 				// We no longer connect to the control network here. By default,
-				// this container will be connected to the host bridge network,
-				// which we need in order to expose the Prometheus/pprof HTTP
-				// port on the host. The control and data networks are attached
-				// explicitly below.
+				// this container will be connected to the default bridge
+				// network, which we need in order to expose the
+				// Prometheus/pprof HTTP port on the host. The control and data
+				// networks are attached explicitly below.
 				//
 				// NetworkMode:     container.NetworkMode(r.controlNetworkID),
 				PublishAllPorts: true,

@@ -124,10 +124,10 @@ func Invoke(tc func(*RunEnv) error) {
 }
 
 func setupHTTPListener(runenv *RunEnv) {
-	addr := fmt.Sprintf("localhost:%d", HTTPPort)
+	addr := fmt.Sprintf("0.0.0.0:%d", HTTPPort)
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
-		addr = fmt.Sprintf("localhost:%d", HTTPPortFallback)
+		addr = fmt.Sprintf("0.0.0.0:%d", HTTPPortFallback)
 		if l, err = net.Listen("tcp", addr); err != nil {
 			runenv.RecordMessage("error registering default http handler at: %s: %s", addr, err)
 			return
