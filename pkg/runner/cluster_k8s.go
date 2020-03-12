@@ -410,13 +410,21 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Wr
 			c.healthcheckRedis(),
 			c.healthcheckSidecar(),
 		}
-	}
 
-	if !fix {
-		return &report, nil
+		if fix {
+			fakeFixes := []api.HealthcheckItem{}
+			for _, chk := range report.Checks {
+				if chk.Status != api.HealthcheckStatusOK {
+					fakeFixes = append(fakeFixes, api.HealthcheckItem{
+						Name:    chk.Name,
+						Status:  chk.Status,
+						Message: "Fix not implimented yet for this check.",
+					})
+				}
+				report.Fixes = fakeFixes
+			}
+		}
 	}
-
-	// TODO: implement fix
 	return &report, nil
 }
 
