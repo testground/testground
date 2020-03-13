@@ -16,6 +16,7 @@ travis-goproxy:
 	- docker network create -d bridge testground-build
 	- docker kill travis-goproxy
 	- docker container rm travis-goproxy
+	sleep 5
 	docker run -v $(HOME)/goproxy:/go --name travis-goproxy --network testground-build -d --rm  goproxy/goproxy
 
 tidy:
