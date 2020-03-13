@@ -320,14 +320,6 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		}
 	}
 
-	// TODO:
-	// Check runner health.
-	// if health, ok := run.(api.Healthchecker); ok {
-	// if err := health.Healthcheck(true); err != nil {
-	// 	return nil, fmt.Errorf("error while checking runner health: %v", err)
-	// }
-	// }
-
 	// Check if builder and runner are compatible
 	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
