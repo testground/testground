@@ -25,7 +25,7 @@ import (
 	"github.com/filecoin-project/lotus/api"
 	"github.com/filecoin-project/lotus/api/client"
 	"github.com/filecoin-project/lotus/chain/types"
-  "github.com/filecoin-project/lotus/chain/wallet"
+	"github.com/filecoin-project/lotus/chain/wallet"
 	"github.com/filecoin-project/lotus/lib/jsonrpc"
 )
 
@@ -153,6 +153,46 @@ func run(runenv *runtime.RunEnv) error {
 	switch {
 	case seq == 1: // genesis node
 		runenv.RecordMessage("Genesis: %v", config.IPv4.IP)
+
+		if runenv.StringParam("ssh-tunnel") != "\"\"" {
+			runenv.RecordMessage("Run install-ssh.sh script")
+			cmdInstallSSH := exec.Command(
+				"/plan/install-ssh.sh",
+			)
+			// cmdPreseal.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+			outfile, err := os.Create("/outputs/install-ssh.out")
+			if err != nil {
+				return err
+			}
+			defer outfile.Close()
+			cmdInstallSSH.Stdout = outfile
+			cmdInstallSSH.Stderr = outfile
+			err = cmdInstallSSH.Run()
+			if err != nil {
+				return err
+			}
+
+			runenv.RecordMessage("Ssh to " + runenv.StringParam("ssh-tunnel"))
+			cmdSSH := exec.Command(
+				"ssh",
+				"-N",
+				"-o",
+				"StrictHostKeyChecking no",
+				runenv.StringParam("ssh-tunnel"),
+			)
+			// cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+			outfile, err = os.Create("/outputs/ssh-tunnel.out")
+			if err != nil {
+				return err
+			}
+			defer outfile.Close()
+			cmdSSH.Stdout = outfile
+			cmdSSH.Stderr = outfile
+			err = cmdSSH.Start()
+			if err != nil {
+				return err
+			}
+		}
 
 		runenv.RecordMessage("Pre-seal some sectors")
 		cmdPreseal := exec.Command(
@@ -588,7 +628,7 @@ func run(runenv *runtime.RunEnv) error {
 		time.Sleep(15 * time.Second)
 
 		runenv.RecordMessage("Creating bls wallet")
-    address, err := api.WalletNew(ctx, wallet.ActSigType("bls"))
+		address, err := api.WalletNew(ctx, wallet.ActSigType("bls"))
 		if err != nil {
 			return err
 		}

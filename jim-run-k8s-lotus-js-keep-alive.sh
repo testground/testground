@@ -13,4 +13,5 @@ fi
     --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
     --test-param keep-alive=true \
+    --test-param ssh-tunnel=tg-lotus \
     --instances=$INSTANCES
