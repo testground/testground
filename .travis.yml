@@ -58,7 +58,6 @@ jobs:
         directories:
           - $HOME/goproxy
 
-      script: docker run -v $HOME/goproxy:/go goproxy/goproxy -t testground-goproxy
       script: make test-long
 
     - name: lint_build_check_test_run

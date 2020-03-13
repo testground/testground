@@ -12,6 +12,10 @@ pre-commit:
 docker-ipfs-testground:
 	docker build -t ipfs/testground .
 
+travis-goproxy:
+	docker network ls | grep testground-build || docker network create -d bridge testground-build
+	docker run -v $(HOME)/goproxy:/go --name travis-goproxy --network testground-build -d --rm  goproxy/goproxy
+
 tidy:
 	$(call eachmod,go mod tidy)
 
@@ -24,5 +28,5 @@ test-build:
 test-quick:
 	go test -short ./...
 
-test-long: docker-ipfs-testground
+test-long: docker-ipfs-testground travis-goproxy
 	go test ./cmd/...

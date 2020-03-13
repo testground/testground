@@ -14,10 +14,10 @@ func TestBuildExecGo(t *testing.T) {
 		"placebo",
 		"--builder",
 		"exec:go",
-		//		"--build-cfg",
-		//		"go_proxy_mode=remote",
-		//		"--build-cfg",
-		//		"go_proxy_url=https://proxy.golang.org",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=http://travis-goproxy:8081",
 	)
 
 	if err != nil {
@@ -38,6 +38,10 @@ func TestBuildDockerGo(t *testing.T) {
 		"placebo",
 		"--builder",
 		"docker:go",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=http://travis-goproxy:8081",
 	)
 
 	if err != nil {
