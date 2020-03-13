@@ -38,10 +38,6 @@ func TestBuildDockerGo(t *testing.T) {
 		"placebo",
 		"--builder",
 		"docker:go",
-		//		"--build-cfg",
-		//		"go_proxy_mode=remote",
-		//		"--build-cfg",
-		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {
