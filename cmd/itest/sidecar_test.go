@@ -5,7 +5,6 @@ import (
 )
 
 func TestSidecar(t *testing.T) {
-	t.Log("running TestSidecar")
 	err := runSingle(t,
 		"run",
 		"single",

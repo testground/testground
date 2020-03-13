@@ -5,7 +5,6 @@ import (
 )
 
 func TestBuildExecGo(t *testing.T) {
-	t.Log("running TestBuildExecGo")
 	err := runSingle(t,
 		"build",
 		"single",
@@ -23,7 +22,6 @@ func TestBuildDockerGo(t *testing.T) {
 	// TODO: this test assumes that docker is running locally, and that we can
 	// pick the .env.toml file this way, in case the user has defined a custom
 	// docker endpoint. I don't think those assumptions stand.
-	t.Log("running TestBuildDockerGo")
 	err := runSingle(t,
 		"build",
 		"single",

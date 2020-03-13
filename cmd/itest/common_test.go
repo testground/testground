@@ -11,7 +11,6 @@ import (
 )
 
 func runSingle(t *testing.T, args ...string) error {
-	t.Log("running runSingle")
 	t.Helper()
 	t.Parallel()
 

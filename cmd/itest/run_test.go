@@ -41,7 +41,6 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 }
 
 func TestIncompatibleRun(t *testing.T) {
-	t.Log("running TestIncompatibleRun")
 	err := runSingle(t,
 		"run",
 		"single",
@@ -60,7 +59,6 @@ func TestIncompatibleRun(t *testing.T) {
 }
 
 func TestCompatibleRunLocal(t *testing.T) {
-	t.Log("running TestCompatibleRunLocal")
 	err := runSingle(t,
 		"run",
 		"single",
@@ -79,7 +77,6 @@ func TestCompatibleRunLocal(t *testing.T) {
 }
 
 func TestCompatibleRunDocker(t *testing.T) {
-	t.Log("running TestCompatibleRunDocker")
 	err := runSingle(t,
 		"run",
 		"single",
