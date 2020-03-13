@@ -18,10 +18,10 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -43,10 +43,10 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -68,10 +68,10 @@ func TestIncompatibleRun(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -93,10 +93,10 @@ func TestCompatibleRunLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {
@@ -118,10 +118,10 @@ func TestCompatibleRunDocker(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {

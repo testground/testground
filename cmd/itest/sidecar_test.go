@@ -18,10 +18,10 @@ func TestSidecar(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"2",
-		"--build-cfg",
-		"go_proxy_mode=remote",
-		"--build-cfg",
-		"go_proxy_url=https://proxy.golang.org",
+		//		"--build-cfg",
+		//		"go_proxy_mode=remote",
+		//		"--build-cfg",
+		//		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {
