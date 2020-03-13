@@ -364,7 +364,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 			}
 
 			hcfg := &container.HostConfig{
-				NetworkMode: container.NetworkMode(r.controlNetworkID),
+				NetworkMode:     container.NetworkMode(r.controlNetworkID),
+				PublishAllPorts: true,
 				Mounts: []mount.Mount{{
 					Type:   mount.TypeBind,
 					Source: odir,

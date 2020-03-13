@@ -14,6 +14,14 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
+type InstanceHandler func(context.Context, *Instance) error
+
+type Reactor interface {
+	io.Closer
+
+	Handle(context.Context, InstanceHandler) error
+}
+
 // Instance is a test instance as seen by the sidecar.
 type Instance struct {
 	logging.Logging
@@ -30,15 +38,9 @@ type Instance struct {
 // Sidecar runners must implement this interface.
 type Network interface {
 	io.Closer
+
 	ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error
 	ListActive() []string
-}
-
-// Logs are logs from a test instance.
-type Logs interface {
-	io.Closer
-	Stderr() io.Reader
-	Stdout() io.Reader
 }
 
 // NewInstance constructs a new test instance handle.

@@ -4,12 +4,15 @@ package sidecar
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/ipfs/testground/pkg/docker"
+	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -17,11 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-
-	"github.com/ipfs/testground/pkg/dockermanager"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 )
 
 const (
@@ -34,12 +32,12 @@ var (
 	kubeDnsClusterIP = net.IPv4(100, 64, 0, 10)
 )
 
-type K8sInstanceManager struct {
+type K8sReactor struct {
 	redis   net.IP
-	manager *dockermanager.Manager
+	manager *docker.Manager
 }
 
-func NewK8sManager() (InstanceManager, error) {
+func NewK8sReactor() (Reactor, error) {
 	redisHost := os.Getenv(EnvRedisHost)
 
 	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
@@ -47,22 +45,19 @@ func NewK8sManager() (InstanceManager, error) {
 		return nil, fmt.Errorf("failed to resolve redis: %w", err)
 	}
 
-	docker, err := dockermanager.NewManager()
+	docker, err := docker.NewManager()
 	if err != nil {
 		return nil, err
 	}
 
-	return &K8sInstanceManager{
+	return &K8sReactor{
 		manager: docker,
 		redis:   redisIp.IP,
 	}, nil
 }
 
-func (d *K8sInstanceManager) Manage(
-	ctx context.Context,
-	worker func(context.Context, *Instance) error,
-) error {
-	return d.manager.Manage(ctx, func(cctx context.Context, container *dockermanager.Container) error {
+func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error {
+	return d.manager.Watch(ctx, func(cctx context.Context, container *docker.ContainerRef) error {
 		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(cctx, container)
 		if err != nil {
@@ -73,7 +68,7 @@ func (d *K8sInstanceManager) Manage(
 			return nil
 		}
 		logging.S().Debugw("managing container", "container", container.ID)
-		err = worker(cctx, inst)
+		err = handler(cctx, inst)
 		if err != nil {
 			return fmt.Errorf("container worker failed: %w", err)
 		}
@@ -81,11 +76,11 @@ func (d *K8sInstanceManager) Manage(
 	})
 }
 
-func (d *K8sInstanceManager) Close() error {
+func (d *K8sReactor) Close() error {
 	return d.manager.Close()
 }
 
-func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *dockermanager.Container) (inst *Instance, err error) {
+func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.ContainerRef) (inst *Instance, err error) {
 	// Get the state/config of the cluster
 	info, err := container.Inspect(ctx)
 	if err != nil {
@@ -250,214 +245,6 @@ func (d *K8sInstanceManager) manageContainer(ctx context.Context, container *doc
 	}
 
 	return NewInstance(ctx, runenv, info.Config.Hostname, network)
-}
-
-type k8sLink struct {
-	*NetlinkLink
-	IPv4, IPv6 *net.IPNet
-
-	rt      *libcni.RuntimeConf
-	netconf *libcni.NetworkConfigList
-}
-
-type K8sNetwork struct {
-	container   *dockermanager.Container
-	activeLinks map[string]*k8sLink
-	nl          *netlink.Handle
-	cninet      *libcni.CNIConfig
-	subnet      string
-	netnsPath   string
-}
-
-func (n *K8sNetwork) Close() error {
-	n.nl.Delete()
-	return nil
-}
-
-func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
-	if cfg.Network != "default" {
-		return errors.New("configured network is not default")
-	}
-
-	link, online := n.activeLinks[cfg.Network]
-
-	// Are we _disabling_ the network?
-	if !cfg.Enable {
-		// Yes, is it already disabled?
-		if online {
-			// No. Disconnect.
-			if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-				return fmt.Errorf("when 6: %w", err)
-			}
-			delete(n.activeLinks, cfg.Network)
-		}
-		return nil
-	}
-
-	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
-		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
-		// Disconnect and reconnect to change the IP addresses.
-		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
-		//
-		// NOTE: We probably don't need to do this on local docker.
-		// However, we probably do with swarm.
-		online = false
-		if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-			return fmt.Errorf("when 5: %w", err)
-		}
-		delete(n.activeLinks, cfg.Network)
-	}
-
-	// Are we _connected_ to the network.
-	if !online {
-		// No, we're not.
-		// Connect.
-		if cfg.IPv6 != nil {
-			return errors.New("ipv6 not supported")
-		}
-
-		var (
-			netconf *libcni.NetworkConfigList
-			err     error
-		)
-		if cfg.IPv4 == nil {
-			netconf, err = newNetworkConfigList("net", n.subnet)
-		} else {
-			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
-		}
-		if err != nil {
-			return fmt.Errorf("failed to generate new network config list: %w", err)
-		}
-
-		cniArgs := [][2]string{}                   // empty
-		capabilityArgs := map[string]interface{}{} // empty
-
-		rt := &libcni.RuntimeConf{
-			ContainerID:    n.container.ID,
-			NetNS:          n.netnsPath,
-			IfName:         dataNetworkIfname,
-			Args:           cniArgs,
-			CapabilityArgs: capabilityArgs,
-		}
-
-		_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
-		if err != nil {
-			return fmt.Errorf("failed to add network through cni plugin: %w", err)
-		}
-
-		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
-		if err != nil {
-			return fmt.Errorf("failed to get link by name: %w", err)
-		}
-
-		// Register an active link.
-		handle, err := NewNetlinkLink(n.nl, netlinkByName)
-		if err != nil {
-			return fmt.Errorf("failed to register new netlink: %w", err)
-		}
-		v4addrs, err := handle.ListV4()
-		if err != nil {
-			return fmt.Errorf("failed to list v4 addrs: %w", err)
-		}
-		if len(v4addrs) != 1 {
-			return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
-		}
-
-		link = &k8sLink{
-			NetlinkLink: handle,
-			IPv4:        v4addrs[0],
-			IPv6:        nil,
-			rt:          rt,
-			netconf:     netconf,
-		}
-
-		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
-
-		n.activeLinks[cfg.Network] = link
-	}
-
-	// We don't yet support applying per-subnet rules.
-	if len(cfg.Rules) != 0 {
-		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
-	}
-
-	if err := link.Shape(cfg.Default); err != nil {
-		return fmt.Errorf("failed to shape link: %w", err)
-	}
-	return nil
-}
-
-func (n *K8sNetwork) ListActive() []string {
-	networks := make([]string, 0, len(n.activeLinks))
-	for name := range n.activeLinks {
-		networks = append(networks, name)
-	}
-	return networks
-}
-
-func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, error) {
-	switch t {
-	case "net":
-		bytes := []byte(`
-{
-		"cniVersion": "0.3.0",
-		"name": "weave",
-		"plugins": [
-				{
-						"name": "weave",
-						"type": "weave-net",
-						"ipam": {
-								"subnet": "` + addr + `"
-						},
-						"hairpinMode": true
-				}
-		]
-}
-`)
-		return libcni.ConfListFromBytes(bytes)
-
-	case "ip":
-		bytes := []byte(`
-{
-		"cniVersion": "0.3.0",
-		"name": "weave",
-		"plugins": [
-				{
-						"name": "weave",
-						"type": "weave-net",
-						"ipam": {
-								"ips": [
-								  {
-									  "version": "4",
-										"address": "` + addr + `"
-								  }
-								]
-						},
-						"hairpinMode": true
-				}
-		]
-}
-`)
-		return libcni.ConfListFromBytes(bytes)
-
-	default:
-		return nil, errors.New("unknown type")
-	}
-}
-
-func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, error) {
-	redisRoutes, err := handle.RouteGet(redisIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
-	}
-
-	if len(redisRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
-	}
-
-	redisRoute := redisRoutes[0]
-
-	return &redisRoute, nil
 }
 
 func waitForPodRunningPhase(ctx context.Context, podName string) error {
