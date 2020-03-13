@@ -24,6 +24,5 @@ test-build:
 test-quick:
 	go test -short ./...
 
-test-long:
-	docker build -t ipfs/testground .
+test-long: docker-ipfs-testground
 	go test ./cmd/...
