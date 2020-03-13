@@ -13,14 +13,16 @@ docker-ipfs-testground:
 	docker build -t ipfs/testground .
 
 travis-goproxy:
-	docker network ls | grep testground-build || docker network create -d bridge testground-build
+	- docker network create -d bridge testground-build
+	- docker kill travis-goproxy
+	- docker container rm travis-goproxy
 	docker run -v $(HOME)/goproxy:/go --name travis-goproxy --network testground-build -d --rm  goproxy/goproxy
 
 tidy:
 	$(call eachmod,go mod tidy)
 
 lint:
-	$(call eachmod,golangci-lint run ./...)
+	$(call eachmod,golangci-lint --timeout=10m run ./...)
 
 test-build:
 	$(call eachmod,go build -o /dev/null ./...)
