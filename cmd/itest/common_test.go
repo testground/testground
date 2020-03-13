@@ -28,6 +28,9 @@ func runSingle(t *testing.T, args ...string) error {
 	app.Flags = cmd.Flags
 	app.HideVersion = true
 
+	// Try to speed up travis ci by using a go proxy...
+	args = append(args, "--build-cfg", "go_proxy_mode=remote", "--build-cfg", "go_proxy_url=https://proxy.golang.org")
+
 	args = append([]string{"testground", "--endpoint", srv.Addr()}, args...)
 	return app.Run(args)
 }
