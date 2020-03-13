@@ -56,7 +56,7 @@ jobs:
       script:
         - make test-quick
 
-    -stage:
+    - stage:
       os: linux
       script: docker run -v $HOME/goproxy:/go goproxy/goproxy
       script: make test-long
