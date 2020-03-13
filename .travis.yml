@@ -61,9 +61,11 @@ jobs:
       cache:
         directories:
           - $HOME/goproxy
-      script: sudo chown -R root: $HOME/goproxy
-      script: make test-long
-      script: sudo chown -R $USER $HOME/goproxy
+
+      script: 
+        - sudo chown -R root $HOME/goproxy
+        - make test-long
+        - sudo chown -R $USER $HOME/goproxy
 
     - name: lint_build_check_test_run
       os: windows
