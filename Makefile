@@ -22,8 +22,8 @@ test-build:
 	$(call eachmod,go build -o /dev/null ./...)
 
 test-quick:
-	go list ./... | grep -v cmd | xargs go test
+	go test -short ./...
 
-test-integration:
+test-long:
 	docker build -t ipfs/testground .
 	go test ./cmd/...

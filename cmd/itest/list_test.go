@@ -5,6 +5,9 @@ import (
 )
 
 func TestList(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"list",
 	)

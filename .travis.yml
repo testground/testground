@@ -57,10 +57,10 @@ jobs:
       script:
         - make test-quick
 
-    - name: linux_test_integration
+    - name: linux_test_long
       os: linux
       script:
-        - make test-integration
+        - make test-long
 
     - name: lint_build_check_test_run
       os: windows

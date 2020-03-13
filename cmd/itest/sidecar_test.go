@@ -5,6 +5,9 @@ import (
 )
 
 func TestSidecar(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -15,6 +18,10 @@ func TestSidecar(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"2",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {

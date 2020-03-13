@@ -5,6 +5,9 @@ import (
 )
 
 func TestAbortedTestShouldFailLocal(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -15,6 +18,10 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -23,6 +30,9 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 }
 
 func TestAbortedTestShouldFailDocker(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -33,6 +43,10 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -41,6 +55,9 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 }
 
 func TestIncompatibleRun(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -51,6 +68,10 @@ func TestIncompatibleRun(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err == nil {
@@ -59,6 +80,9 @@ func TestIncompatibleRun(t *testing.T) {
 }
 
 func TestCompatibleRunLocal(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -69,6 +93,10 @@ func TestCompatibleRunLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {
@@ -77,6 +105,9 @@ func TestCompatibleRunLocal(t *testing.T) {
 }
 
 func TestCompatibleRunDocker(t *testing.T) {
+	if testing.Short() {
+		return
+	}
 	err := runSingle(t,
 		"run",
 		"single",
@@ -87,6 +118,10 @@ func TestCompatibleRunDocker(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
+		"--build-cfg",
+		"go_proxy_mode=remote",
+		"--build-cfg",
+		"go_proxy_url=https://proxy.golang.org",
 	)
 
 	if err != nil {
