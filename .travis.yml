@@ -8,10 +8,6 @@ env:
     - GOTFLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
     - GO111MODULE=on
 
-cache:
-  directories:
-    - $HOME/goproxy
-
 go:
   - 1.13.x
 
@@ -58,6 +54,10 @@ jobs:
 
     - name: linux_test_long
       os: linux
+      cache:
+        directories:
+          - $HOME/goproxy
+
       script: docker run -v $HOME/goproxy:/go goproxy/goproxy -t testground-goproxy
       script: make test-long
 
