@@ -10,8 +10,7 @@ env:
 
 cache:
   directories:
-    - $HOME/.cache/go-build
-    - $HOME/gopath/pkg/mod
+    - $HOME/goproxy
 
 go:
   - 1.13.x
@@ -60,6 +59,7 @@ jobs:
     - name: linux_test_long
       os: linux
       script:
+        - docker run -v $HOME/goproxy:/go goproxy/goproxy
         - make test-long
 
     - name: lint_build_check_test_run
