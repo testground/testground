@@ -10,7 +10,7 @@ env:
 
 cache:
   directories:
-    - $HOME/go
+    - $GOPATH
 
 go:
   - 1.13.x
@@ -63,9 +63,9 @@ jobs:
           - $HOME/goproxy
 
       script: 
-        - sudo chown -R root $HOME/goproxy
+        - sudo chown -R "root:" $HOME/goproxy
         - make test-long
-        - sudo chown -R $USER $HOME/goproxy
+        - sudo chown -R "$USER:" $HOME/goproxy
 
     - name: lint_build_check_test_run
       os: windows
