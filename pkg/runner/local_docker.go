@@ -223,7 +223,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := ensureRedisContainer(ctx, cli, log, r.controlNetworkID)
+			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis", "redis", r.controlNetworkID)
 			if err == nil {
 				msg := "redis container created successfully"
 				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -542,16 +542,15 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 	return id, subnet, err
 }
 
-// ensureRedisContainer ensures there's a testground-redis container started.
-func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+// ensure container is started
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, NetworkID string) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
-		ContainerName: "testground-redis",
+		ContainerName: containerName,
 		ContainerConfig: &container.Config{
-			Image:      "redis",
-			Entrypoint: []string{"redis-server"},
+			Image: imageName,
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
+			NetworkMode: container.NetworkMode(NetworkID),
 		},
 		PullImageIfMissing: true,
 	})
@@ -560,6 +559,7 @@ func ensureRedisContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 	}
 
 	return container.ID, err
+
 }
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
