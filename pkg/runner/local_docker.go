@@ -102,10 +102,11 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	}
 
 	var (
-		ctrlNetCheck          api.HealthcheckItem
-		outputsDirCheck       api.HealthcheckItem
-		redisContainerCheck   api.HealthcheckItem
-		sidecarContainerCheck api.HealthcheckItem
+		ctrlNetCheck             api.HealthcheckItem
+		outputsDirCheck          api.HealthcheckItem
+		redisContainerCheck      api.HealthcheckItem
+		prometheusContainerCheck api.HealthcheckItem
+		sidecarContainerCheck    api.HealthcheckItem
 	)
 
 	networks, err := docker.CheckBridgeNetwork(ctx, log, cli, "testground-control")
@@ -124,7 +125,25 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
-	ci, err := docker.CheckContainer(ctx, log, cli, "testground-redis")
+	ci, err := docker.CheckContainer(ctx, log, cli, "testground-prometheus")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "prometheus container: non-existent"
+			prometheusContainerCheck = api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "prometheus container: running"
+			prometheusContainerCheck = api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("prometheus container: status %s", ci.State.Status)
+			prometheusContainerCheck = api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("prometheus container errored: %s", err)
+		prometheusContainerCheck = api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	ci, err = docker.CheckContainer(ctx, log, cli, "testground-redis")
 	if err == nil {
 		switch {
 		case ci == nil:
@@ -177,6 +196,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		Checks: []api.HealthcheckItem{
 			ctrlNetCheck,
 			outputsDirCheck,
+			prometheusContainerCheck,
 			redisContainerCheck,
 			sidecarContainerCheck,
 		},
@@ -216,6 +236,40 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		}
 	}
 
+	if prometheusContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of prometheus container; no control network"
+			it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			_, err := docker.EnsureImage(ctx, log, cli, &docker.EnsureImageOpts{
+				Name: "testground-prometheus",
+				// the Source dir is available as a BuildInput, but I don't have access to this very easily
+				// in the health check
+				// Find the location of infra somehow.
+				// TODO:
+				BuildCtx: "/home/cory/code/testground/infra/docker/testground-prometheus",
+			})
+			if err == nil {
+				_, err := ensureInfraContainer(ctx, cli, log, "testground-prometheus", "testground-prometheus:latest", r.controlNetworkID, false)
+				if err == nil {
+					msg := "prometheus container created successfully"
+					it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOK, Message: msg}
+					fixes = append(fixes, it)
+				} else {
+					msg := fmt.Sprintf("failed to create prometheus container: %s", err)
+					it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusFailed, Message: msg}
+					fixes = append(fixes, it)
+				}
+			} else {
+				msg := fmt.Sprintf("failed to create prometheus image: %s", err)
+				it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
+		}
+	}
+
 	if redisContainerCheck.Status != api.HealthcheckStatusOK {
 		switch r.controlNetworkID {
 		case "":
@@ -223,7 +277,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis", "redis", r.controlNetworkID)
+			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis", "redis", r.controlNetworkID, true)
 			if err == nil {
 				msg := "redis container created successfully"
 				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -543,7 +597,7 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, NetworkID string) (id string, err error) {
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, NetworkID string, pull bool) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
@@ -552,7 +606,7 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 		HostConfig: &container.HostConfig{
 			NetworkMode: container.NetworkMode(NetworkID),
 		},
-		PullImageIfMissing: true,
+		PullImageIfMissing: pull,
 	})
 	if err != nil {
 		return "", err
