@@ -102,11 +102,12 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	}
 
 	var (
-		ctrlNetCheck             api.HealthcheckItem
-		outputsDirCheck          api.HealthcheckItem
-		redisContainerCheck      api.HealthcheckItem
-		prometheusContainerCheck api.HealthcheckItem
-		sidecarContainerCheck    api.HealthcheckItem
+		ctrlNetCheck              api.HealthcheckItem
+		outputsDirCheck           api.HealthcheckItem
+		redisContainerCheck       api.HealthcheckItem
+		prometheusContainerCheck  api.HealthcheckItem
+		pushgatewayContainerCheck api.HealthcheckItem
+		sidecarContainerCheck     api.HealthcheckItem
 	)
 
 	networks, err := docker.CheckBridgeNetwork(ctx, log, cli, "testground-control")
@@ -141,6 +142,24 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	} else {
 		msg := fmt.Sprintf("prometheus container errored: %s", err)
 		prometheusContainerCheck = api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	ci, err = docker.CheckContainer(ctx, log, cli, "prometheus-pushgateway")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "pushgateway container: non-existent"
+			pushgatewayContainerCheck = api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "pushgateway container: running"
+			pushgatewayContainerCheck = api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("pushgateway container: status %s", ci.State.Status)
+			pushgatewayContainerCheck = api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("pushgateway container errored: %s", err)
+		pushgatewayContainerCheck = api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
 	ci, err = docker.CheckContainer(ctx, log, cli, "testground-redis")
@@ -197,6 +216,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			ctrlNetCheck,
 			outputsDirCheck,
 			prometheusContainerCheck,
+			pushgatewayContainerCheck,
 			redisContainerCheck,
 			sidecarContainerCheck,
 		},
@@ -265,6 +285,26 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			} else {
 				msg := fmt.Sprintf("failed to create prometheus image: %s", err)
 				it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
+		}
+	}
+
+	if pushgatewayContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of pushgateway container; no control network"
+			it := api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			_, err := ensureInfraContainer(ctx, cli, log, "prometheus-pushgateway", "prom/pushgateway", r.controlNetworkID, true)
+			if err == nil {
+				msg := "pushgateway container created successfully"
+				it := api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusOK, Message: msg}
+				fixes = append(fixes, it)
+			} else {
+				msg := fmt.Sprintf("failed to create pushgateway container: %s", err)
+				it := api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusFailed, Message: msg}
 				fixes = append(fixes, it)
 			}
 		}
