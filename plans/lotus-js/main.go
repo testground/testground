@@ -150,6 +150,26 @@ func run(runenv *runtime.RunEnv) error {
 	nodeReadyState := sync.State("nodeReady")
 	doneState := sync.State("done")
 
+	runenv.RecordMessage("Start up nginx")
+	cmdNginx := exec.Command(
+		"npm",
+		"run",
+		"nginx",
+	)
+	cmdNginx.Dir = "/plan/js-lotus-client-testground"
+	outfile, err := os.Create("/outputs/nginx.out")
+	if err != nil {
+		return err
+	}
+	defer outfile.Close()
+	cmdNginx.Stdout = outfile
+	cmdNginx.Stderr = outfile
+	err = cmdNginx.Start()
+	if err != nil {
+		return err
+	}
+	time.Sleep(2 * time.Second) // Give nginx time to start
+
 	switch {
 	case seq == 1: // genesis node
 		runenv.RecordMessage("Genesis: %v", config.IPv4.IP)
@@ -172,14 +192,38 @@ func run(runenv *runtime.RunEnv) error {
 				return err
 			}
 
+			tunnelArgs := make([]string, 0)
+			tunnelArgs = append(tunnelArgs, "-N")
+			for i := 1; i <= runenv.TestInstanceCount; i++ {
+				ipC := byte((i >> 8) + 1)
+				ipD := byte(i)
+
+				subnet := runenv.TestSubnet.IPNet
+				nodeIPv4 := &subnet
+				nodeIPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
+				nodeForwardArg := fmt.Sprintf(
+					"RemoteForward %v %v:8001",
+					11234+i-1,
+					nodeIPv4.IP.String(),
+				)
+				tunnelArgs = append(tunnelArgs, "-o", nodeForwardArg)
+				minerForwardArg := fmt.Sprintf(
+					"RemoteForward %v %v:8002",
+					12345+i-1,
+					nodeIPv4.IP.String(),
+				)
+				tunnelArgs = append(tunnelArgs, "-o", minerForwardArg)
+			}
+			tunnelArgs = append(tunnelArgs, "-o", "StrictHostKeyChecking no")
+			tunnelArgs = append(tunnelArgs, runenv.StringParam("ssh-tunnel"))
+			/*
+				for _, arg := range tunnelArgs {
+					runenv.RecordMessage("ssh arg", arg)
+				}
+			*/
+
 			runenv.RecordMessage("Ssh to " + runenv.StringParam("ssh-tunnel"))
-			cmdSSH := exec.Command(
-				"ssh",
-				"-N",
-				"-o",
-				"StrictHostKeyChecking no",
-				runenv.StringParam("ssh-tunnel"),
-			)
+			cmdSSH := exec.Command("ssh", tunnelArgs...)
 			// cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
 			outfile, err = os.Create("/outputs/ssh-tunnel.out")
 			if err != nil {
@@ -470,27 +514,6 @@ func run(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("State: nodeReady from other nodes")
 
 		// Run Javascript tests from Genesis node
-		runenv.RecordMessage("Start up nginx")
-		cmdNginx := exec.Command(
-			"npm",
-			"run",
-			"nginx",
-		)
-		cmdNginx.Dir = "/plan/js-lotus-client-testground"
-		outfile, err = os.Create("/outputs/nginx.out")
-		if err != nil {
-			return err
-		}
-		defer outfile.Close()
-		cmdNginx.Stdout = outfile
-		cmdNginx.Stderr = outfile
-		err = cmdNginx.Start()
-		if err != nil {
-			return err
-		}
-		time.Sleep(2 * time.Second) // Give nginx time to start
-
-		// Run Javascript test suite
 		runenv.RecordMessage("Run npm test")
 		cmdNpmTest := exec.Command(
 			"npm",
