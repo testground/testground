@@ -86,7 +86,6 @@ github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f h1:5YWFnInM4qyKQFT
 github.com/docker/docker v1.4.2-0.20191127125652-7c3d53ed640f/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
 github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde h1:xtjCZeAaT6ywXdjmvJMdbOESh8buEkoTnsLViZAjI8U=
 github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde/go.mod h1:eEKB0N0r5NX/I1kEveEz05bcu8tLC/8azJZsviup8Sk=
-github.com/docker/docker v1.13.1 h1:IkZjBSIc8hBjLpqeAbeE5mca5mNgeatLHBy3GO78BWo=
 github.com/docker/go-connections v0.4.0 h1:El9xVISelRB7BuFusrZozjnkIM5YnzCViNKohAFqRJQ=
 github.com/docker/go-connections v0.4.0/go.mod h1:Gbd7IOopHjR8Iph03tsViu4nIes5XhDvyHbTtUxmeec=
 github.com/docker/go-units v0.4.0 h1:3uh0PgVws3nIA0Q+MwDC8yjEPf9zjRfZZWXZYDct3Tw=
