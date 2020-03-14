@@ -223,7 +223,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		BuildOpts: &opts,
 	}
 
-	err := docker.BuildImage(ctx, cli, &imageOpts)
+	err = docker.BuildImage(ctx, cli, &imageOpts)
 	if err != nil {
 		return nil, err
 	}
