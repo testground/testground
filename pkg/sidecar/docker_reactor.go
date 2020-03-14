@@ -19,17 +19,24 @@ import (
 )
 
 type DockerReactor struct {
-	redis   net.IP
+	routes  []net.IP
 	manager *docker.Manager
 }
 
 func NewDockerReactor() (Reactor, error) {
 	// TODO: Generalize this to a list of services.
-	redisHost := os.Getenv(EnvRedisHost)
+	wantedRoutes := []string{
+		os.Getenv(EnvRedisHost),
+		"prometheus-pushgateway",
+	}
 
-	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve redis host: %w", err)
+	var resolvedRoutes []net.IP
+	for _, route := range wantedRoutes {
+		ip, err := net.ResolveIPAddr("ip4", route)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve host %s: %w", route, err)
+		}
+		resolvedRoutes = append(resolvedRoutes, ip.IP)
 	}
 
 	docker, err := docker.NewManager()
@@ -38,8 +45,8 @@ func NewDockerReactor() (Reactor, error) {
 	}
 
 	return &DockerReactor{
+		routes:  resolvedRoutes,
 		manager: docker,
-		redis:   redisIp.IP,
 	}, nil
 }
 
@@ -156,9 +163,14 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// TODO: Some of this code could be factored out into helpers.
 
 	// Get the routes to redis. We need to keep these.
-	redisRoutes, err := netlinkHandle.RouteGet(d.redis)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+
+	var controlRoutes []netlink.Route
+	for _, route := range d.routes {
+		nlroutes, err := netlinkHandle.RouteGet(route)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve route: %w", err)
+		}
+		controlRoutes = append(controlRoutes, nlroutes...)
 	}
 
 	for id, link := range links {
@@ -190,7 +202,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		}
 
 		// Add specific routes to redis if redis uses this link.
-		for _, route := range redisRoutes {
+		for _, route := range controlRoutes {
 			if route.LinkIndex != link.Attrs().Index {
 				continue
 			}
