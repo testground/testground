@@ -15,7 +15,7 @@ import (
 )
 
 type EnsureImageOpts struct {
-	Name      string                   // reuired
+	Name      string                   // reuired for EnsureImage
 	BuildCtx  string                   // required
 	BuildOpts *types.ImageBuildOptions // optional
 }
@@ -27,7 +27,7 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 		ForceRemove:    true,
 		PullParent:     true,
 		Dockerfile:     "/Dockerfile",
-		Tags:           []string{opts.Name},
+		Tags:           []string{name},
 	}
 }
 
@@ -41,13 +41,14 @@ func BuildImage(ctx context.Context, client *client.Client, opts *EnsureImageOpt
 	}
 	defer buildCtx.Close()
 
+	var buildOpts *types.ImageBuildOptions
 	if opts.BuildOpts == nil {
-		buildOpts := defaultBuildOptsFor(opts.Name)
+		buildOpts = defaultBuildOptsFor(opts.Name)
 	} else {
-		buildOpts := opts.BuildOpts
+		buildOpts = opts.BuildOpts
 	}
 
-	buildResponse, err := client.ImageBuild(ctx, buildCtx, buildOpts)
+	buildResponse, err := client.ImageBuild(ctx, buildCtx, *buildOpts)
 	if err != nil {
 		return err
 	}
