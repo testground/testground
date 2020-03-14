@@ -42,8 +42,7 @@ func BuildImage(ctx context.Context, client *client.Client, opts *EnsureImageOpt
 		return err
 	}
 	defer buildResponse.Body.Close()
-	PipeOutput(buildResponse.Body, os.Stdout)
-	return nil
+	return PipeOutput(buildResponse.Body, os.Stdout)
 }
 
 // EnsureImage
