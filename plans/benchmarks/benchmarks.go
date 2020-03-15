@@ -194,7 +194,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func SubtreePublishBench(runenv *runtime.RunEnv) error {
+func SubtreeBench(runenv *runtime.RunEnv) error {
 	rand.Seed(time.Now().UnixNano())
 
 	iterations := runenv.IntParam("iterations")
