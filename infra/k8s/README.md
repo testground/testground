@@ -26,9 +26,10 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 ## Requirements
 
-1. [kops](https://github.com/kubernetes/kops/releases). >= 1.17.0-alpha.1
-2. [AWS CLI](https://aws.amazon.com/cli)
-3. [helm](https://github.com/helm/helm)
+1. [kops](https://github.com/kubernetes/kops/releases) >= 1.17.0-alpha.1
+2. [terraform](https://terraform.io) >= 0.12.21
+3. [AWS CLI](https://aws.amazon.com/cli)
+4. [helm](https://github.com/helm/helm)
 
 ## Set up cloud credentials, cluster specification and repositories for dependencies
 
@@ -36,48 +37,62 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 
 2. Download shared key for `kops`. We use a shared key, so that everyone on the team can log into any cluster and have full access.
 
-```
-aws s3 cp s3://kops-shared-key-bucket/testground_rsa ~/.ssh/
-aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/
-chmod 700 ~/.ssh/testground_rsa
+```sh
+$ aws s3 cp s3://kops-shared-key-bucket/testground_rsa ~/.ssh/
+$ aws s3 cp s3://kops-shared-key-bucket/testground_rsa.pub ~/.ssh/
+$ chmod 700 ~/.ssh/testground_rsa
 ```
 
 Or generate your own key, for example
 
-```
-ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
+```sh
+$ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
 ```
 
 3. Create a bucket for `kops` state. This is similar to Terraform state bucket.
 
-```
-aws s3api create-bucket \
-    --bucket kops-backend-bucket \
-    --region eu-central-1 --create-bucket-configuration LocationConstraint=eu-central-1
+```sh
+$ aws s3api create-bucket \
+      --bucket <bucket_name> \
+      --region <region> --create-bucket-configuration LocationConstraint=<region>
 ```
 
-4. Pick up
+Where:
+
+* `<bucket_name>` is a unique AWS account-wide unique bucket name to store this cluster's kops state, e.g. `kops-backend-bucket-<your_username>`.
+* `<region>` is an AWS region like `eu-central-1` or `us-west-2`.
+
+4. Pick:
+
 - a cluster name,
-- set AWS zone
+- set AWS region
+- set AWS availability zone (not region; this is something like `us-west-2a` [availability zone], not `us-west-2` \[region])
 - set `kops` state store bucket
 - set number of worker nodes
 - set location for cluster spec to be generated
 - set location of your cluster SSH public key
 - set credentials and locations for `outputs` S3 bucket
 
-You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.)
+You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.), or to an `.env.sh` file that you source.
 
-```
-export NAME=<desired kubernetes cluster name>
+```sh
+# NAME needs be a subdomain of an existing Route53 domain name. The testground team uses .testground.ipfs.team, which is set up by our Terraform configs.
+export NAME=<desired kubernetes cluster name (cluster name must be a fully-qualified DNS name (e.g. mycluster.myzone.com)>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
+export AWS_REGION=<aws region, for example eu-central-1>
 export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
-export PUBKEY=~/.ssh/testground_rsa.pub
+export PUBKEY=$HOME/.ssh/testground_rsa.pub
 
 # details for S3 bucket to be used for assets
 export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
 export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
 export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
+
+# for fish shell
+#export ASSETS_BUCKET_NAME=(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
+#export ASSETS_ACCESS_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
+#export ASSETS_SECRET_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
 
 # depends on region, for example "https://s3.eu-central-1.amazonaws.com:443"
 export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
@@ -85,33 +100,43 @@ export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s
 
 5. Set up Helm and add the `stable` Helm Charts repository
 
-```
-helm repo add stable https://kubernetes-charts.storage.googleapis.com/
-helm repo update
-```
+If you haven't, [install helm now](https://helm.sh/docs/intro/install/).
 
-## Install the kuberntes cluster
-
-For example, to create a monitored cluster in the region specified in $ZONE with $WORKER_NODES number of workers:
-
-```
-./install.sh ./cluster.yaml
+```sh
+$ helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+$ helm repo update
 ```
 
+## Install the Kubernetes cluster
+
+To create a monitored cluster in the region specified in `$ZONE` with
+`$WORKER_NODES` number of workers:
+
+```sh
+$ cd <testground_repo>/infra/k8s
+$ ./install.sh ./cluster.yaml
+```
+
+If you're using the fish shell, you will want to summon bash:
+
+```sh
+$ cd <testground_repo>/infra/k8s
+$ bash -c './install.sh ./cluster.yaml'
+```
 
 ## Destroy the cluster when you're done working on it
 
+```sh
+$ ./delete.sh
 ```
-kops delete cluster $NAME --yes
-```
-
 
 ## Configure and run your Testground daemon
 
+```sh
+$ cd <testground_repo>
+$ go build .
+$ ./testground --vv daemon
 ```
-testground --vv daemon
-```
-
 
 ## Run a Testground testplan
 
@@ -119,98 +144,99 @@ Use compositions: [/docs/COMPOSITIONS.md](../../docs/COMPOSITIONS.md).
 
 or
 
-```
-testground --vv run single network/ping-pong \
-    --builder=docker:go \
-    --runner=cluster:k8s \
-    --build-cfg bypass_cache=true \
-    --build-cfg push_registry=true \
-    --build-cfg registry_type=aws \
-    --run-cfg keep_service=true \
-    --instances=2
+```sh
+$ ./testground --vv run single network/ping-pong \
+      --builder=docker:go \
+      --runner=cluster:k8s \
+      --build-cfg bypass_cache=true \
+      --build-cfg push_registry=true \
+      --build-cfg registry_type=aws \
+      --run-cfg keep_service=true \
+      --instances=2
 ```
 
 or
 
-```
-testground --vv run single dht/find-peers \
-    --builder=docker:go \
-    --runner=cluster:k8s \
-    --build-cfg push_registry=true \
-    --build-cfg registry_type=aws \
-    --run-cfg keep_service=true \
-    --instances=16
+```sh
+$ ./testground --vv run single dht/find-peers \
+      --builder=docker:go \
+      --runner=cluster:k8s \
+      --build-cfg push_registry=true \
+      --build-cfg registry_type=aws \
+      --run-cfg keep_service=true \
+      --instances=16
 ```
 
 ## Resizing the cluster
 
 1. Edit the cluster state and change number of nodes.
 
-```
-kops edit ig nodes
+```sh
+$ kops edit ig nodes
 ```
 
 2. Apply the new configuration
-```
-kops update cluster $NAME --yes
+
+```sh
+$ kops update cluster $NAME --yes
 ```
 
 3. Wait for nodes to come up and for DaemonSets to be Running on all new nodes
-```
-watch 'kubectl get pods'
+
+```sh
+$ watch 'kubectl get pods'
 ```
 
 ## Destroying the cluster
 
 Do not forget to delete the cluster once you are done running test plans.
 
-
 ## Cleanup after Testground and other useful commands
 
 Testground is still in very early stage of development. It is possible that it crashes, or doesn't properly clean-up after a testplan run. Here are a few commands that could be helpful for you to inspect the state of your Kubernetes cluster and clean up after Testground.
 
 1. Delete all pods that have the `testground.plan=dht` label (in case you used the `--run-cfg keep_service=true` setting on Testground.
-```
-kubectl delete pods -l testground.plan=dht --grace-period=0 --force
+
+```sh
+$ kubectl delete pods -l testground.plan=dht --grace-period=0 --force
 ```
 
 2. Restart the `sidecar` daemon which manages networks for all testplans
-```
-kubectl delete pods -l name=testground-sidecar --grace-period=0 --force
+
+```sh
+$ kubectl delete pods -l name=testground-sidecar --grace-period=0 --force
 ```
 
 3. Review all running pods
-```
-kubectl get pods -o wide
+
+```sh
+$ kubectl get pods -o wide
 ```
 
 4. Get logs from a given pod
-```
-kubectl logs <pod-id, e.g. tg-dht-c95b5>
+
+```sh
+$ kubectl logs <pod-id, e.g. tg-dht-c95b5>
 ```
 
 5. Check on the monitoring infrastructure (it runs in the monitoring namespace)
-```
-kubectl get pods --namespace monitoring
+
+```sh
+$ kubectl get pods --namespace monitoring
 ```
 
 6. Get access to the Redis shell
-```
-kubectl port-forward svc/redis-master 6379:6379 &
-redis-cli -h localhost -p 6379
+
+```sh
+$ kubectl port-forward svc/redis-master 6379:6379 &
+$ redis-cli -h localhost -p 6379
 ```
 
 7. Get access to Grafana (initial credentials are admin/admin):
-```
-kubectl -n monitoring port-forward service/grafana 3000:3000
-```
 
-8. Get access to the Kubernetes dashboard
+```sh
+$ kubectl -n monitoring port-forward service/grafana 3000:3000
 ```
-kubectl proxy
-```
-and then, direct your browser to `http://localhost:8001/ui`
-
 
 ## Use a Kubernetes context for another cluster
 
@@ -218,15 +244,17 @@ and then, direct your browser to `http://localhost:8001/ui`
 
 If you want to let other people on your team connect to your Kubernetes cluster, you need to give them the information.
 
-```
-kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
+```sh
+$ kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
 ```
 
 ## How to access the prometheus web UI (for metrics observability)
+
+```sh
+$ kubectl -n monitoring port-forward service/prometheus-k8s 9090:9090
 ```
-kubectl -n monitoring port-forward service/prometheus-k8s 9090:9090
-```
-Direct your web browser to `http://localhost:9090`
+
+Direct your web browser to [http://localhost:9090](http://localhost:9090).
 
 ## Known issues and future improvements
 

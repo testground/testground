@@ -1,26 +1,29 @@
-package dockermanager
+package docker
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io"
 	"time"
 
-	"errors"
+	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
-
-	"github.com/ipfs/testground/pkg/logging"
 )
 
-const workerShutdownTimeout = 1 * time.Minute
-const workerShutdownTick = 5 * time.Second
+type WorkerFn func(context.Context, *ContainerRef) error
+
+const (
+	workerShutdownTimeout = 1 * time.Minute
+	workerShutdownTick    = 5 * time.Second
+)
 
 // Manager is a convenient wrapper around the docker client.
 type Manager struct {
 	logging.Logging
+
 	*client.Client
 }
 
@@ -39,34 +42,35 @@ func NewManager() (*Manager, error) {
 }
 
 // Close closes the docker client.
-func (dm *Manager) Close() error {
-	return dm.Client.Close()
+func (m *Manager) Close() error {
+	return m.Client.Close()
 }
 
 // Container is a convenient handle for a docker container.
-type Container struct {
+type ContainerRef struct {
 	logging.Logging
+
 	ID      string
 	Manager *Manager
 }
 
-// Inspect inspects this docker container.
-func (dc *Container) Inspect(ctx context.Context) (types.ContainerJSON, error) {
-	return dc.Manager.ContainerInspect(ctx, dc.ID)
+// NewContainerRef constructs a reference to a given container.
+func (m *Manager) NewContainerRef(id string) *ContainerRef {
+	return &ContainerRef{
+		Logging: logging.NewLogging(m.S().With("container", id).Desugar()),
+		ID:      id,
+		Manager: m,
+	}
 }
 
-// Logs returns the logs for this docker container.
-func (dc *Container) Logs(ctx context.Context) (io.ReadCloser, error) {
-	return dc.Manager.ContainerLogs(ctx, dc.ID, types.ContainerLogsOptions{
-		ShowStderr: true,
-		ShowStdout: true,
-		Follow:     true,
-	})
+// Inspect inspects this docker container.
+func (c *ContainerRef) Inspect(ctx context.Context) (types.ContainerJSON, error) {
+	return c.Manager.ContainerInspect(ctx, c.ID)
 }
 
 // IsOnline returns whether or not the container is online.
-func (dc *Container) IsOnline(ctx context.Context) (bool, error) {
-	info, err := dc.Inspect(ctx)
+func (c *ContainerRef) IsOnline(ctx context.Context) (bool, error) {
+	info, err := c.Inspect(ctx)
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			err = nil
@@ -80,8 +84,8 @@ func (dc *Container) IsOnline(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
-func (dc *Container) Exec(ctx context.Context, cmd ...string) error {
-	resp, err := dc.Manager.ContainerExecCreate(ctx, dc.ID, types.ExecConfig{
+func (c *ContainerRef) Exec(ctx context.Context, cmd ...string) error {
+	resp, err := c.Manager.ContainerExecCreate(ctx, c.ID, types.ExecConfig{
 		User:       "root",
 		Privileged: true,
 		Cmd:        cmd,
@@ -89,19 +93,15 @@ func (dc *Container) Exec(ctx context.Context, cmd ...string) error {
 	if err != nil {
 		return err
 	}
-	return dc.Manager.ContainerExecStart(ctx, resp.ID, types.ExecStartCheck{})
+	return c.Manager.ContainerExecStart(ctx, resp.ID, types.ExecStartCheck{})
 }
 
-// Manage runs and stops workers as containers start and stop.
+// Watch monitors container status, and runs the provider worker for each
+// container that starts.
 //
 // If you pass labels, only containers labeled with at least one of the given
 // labels will be managed.
-func (dm *Manager) Manage(
-	ctx context.Context,
-	worker func(context.Context, *Container) error,
-	labels ...string,
-) error {
-
+func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) error {
 	type workerHandle struct {
 		done   chan struct{}
 		cancel context.CancelFunc
@@ -114,38 +114,42 @@ func (dm *Manager) Manage(
 		// wait for the running managers to exit
 		// They'll get canceled when we close the main context (deferred
 		// below).
-		for _, m := range managers {
-			<-m.done
+		for _, mg := range managers {
+			<-mg.done
 		}
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	stop := func(container string) {
-		if m, ok := managers[container]; ok {
-			m.cancel()
-			delete(managers, container)
+	stop := func(containerID string) {
+		wh, ok := managers[containerID]
+		if !ok {
+			return
+		}
 
-			timeout := time.NewTimer(workerShutdownTimeout)
-			defer timeout.Stop()
+		wh.cancel()
+		delete(managers, containerID)
 
-			ticker := time.NewTicker(workerShutdownTick)
-			defer ticker.Stop()
+		timeout := time.NewTimer(workerShutdownTimeout)
+		defer timeout.Stop()
 
-			for {
-				select {
-				case <-m.done:
-					return
-				case <-timeout.C:
-					dm.S().Panicw("timed out waiting for container worker to stop", "container", container)
-					return
-				case <-ticker.C:
-					dm.S().Errorw("waiting for container worker to stop", "container", container)
-				}
+		ticker := time.NewTicker(workerShutdownTick)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-wh.done:
+				return
+			case <-timeout.C:
+				m.S().Panicw("timed out waiting for container worker to stop", "container", containerID)
+				return
+			case <-ticker.C:
+				m.S().Errorw("waiting for container worker to stop", "container", containerID)
 			}
 		}
 	}
+
 	start := func(containerID string) {
 		if _, ok := managers[containerID]; ok {
 			return
@@ -157,9 +161,10 @@ func (dm *Manager) Manage(
 			done:   done,
 			cancel: cancel,
 		}
+
 		go func() {
 			defer close(done)
-			handle := dm.NewHandle(containerID)
+			handle := m.NewContainerRef(containerID)
 			err := worker(cctx, handle)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {
@@ -178,7 +183,7 @@ func (dm *Manager) Manage(
 	for _, l := range labels {
 		listFilter.Add("label", l)
 	}
-	nodes, err := dm.Client.ContainerList(ctx, types.ContainerListOptions{
+	nodes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{
 		Quiet:   true,
 		Limit:   -1,
 		Filters: listFilter,
@@ -200,7 +205,7 @@ func (dm *Manager) Manage(
 	eventFilter.Add("event", "die")
 
 	// Manage new containers.
-	eventCh, errs := dm.Client.Events(ctx, types.EventsOptions{
+	eventCh, errs := m.Client.Events(ctx, types.EventsOptions{
 		Filters: eventFilter,
 		Since:   now.Format(time.RFC3339Nano),
 	})
@@ -219,14 +224,5 @@ func (dm *Manager) Manage(
 		case err := <-errs:
 			return err
 		}
-	}
-}
-
-// NewHandle constructs a handle for the given container.
-func (dm *Manager) NewHandle(container string) *Container {
-	return &Container{
-		Logging: logging.NewLogging(dm.S().With("container", container).Desugar()),
-		ID:      container,
-		Manager: dm,
 	}
 }
