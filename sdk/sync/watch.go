@@ -130,6 +130,51 @@ func (w *Watcher) Subscribe(ctx context.Context, subtree *Subtree, ch interface{
 	return nil
 }
 
+type Bogus struct {
+	S string
+}
+
+func (w *Watcher) FBarrier(ctx context.Context, state State, required int64) <-chan error {
+	barrierTree := &Subtree{
+		GroupKey:    string(state),
+		PayloadType: reflect.TypeOf(&Bogus{}),
+		KeyFunc: func(val interface{}) string {
+			return val.(*Bogus).S
+		},
+	}
+
+	doneCh := make(chan error,1)
+
+	barCh := make(chan *Bogus)
+	barrierCtx, cancel := context.WithCancel(ctx)
+	if err := w.Subscribe(barrierCtx, barrierTree, barCh); err != nil {
+		doneCh <- err
+		close(doneCh)
+		return doneCh
+	}
+
+	go func() {
+		defer cancel()
+		for i := 0; i < int(required); i++ {
+			select {
+			case <-barCh:
+			case <-ctx.Done():
+				doneCh <- ctx.Err()
+				close(doneCh)
+				return
+			}
+		}
+		cancel()
+		select {
+			case <-time.After(time.Millisecond*300):
+			case <-ctx.Done():
+		}
+		doneCh <- nil
+	}()
+
+	return doneCh
+}
+
 // Barrier awaits until the specified amount of items are advertising to be in
 // the provided state. It returns a channel on which two things can happen:
 //

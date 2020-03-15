@@ -16,6 +16,7 @@ import (
 
 func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error){
 	dhtOptions := []kaddht.Option{
+		kaddht.ProtocolPrefix("/testground"),
 		kaddht.Datastore(ds),
 		kaddht.BucketSize(opts.BucketSize),
 		kaddht.RoutingTableRefreshQueryTimeout(opts.Timeout),

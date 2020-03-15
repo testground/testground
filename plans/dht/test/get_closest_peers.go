@@ -19,8 +19,8 @@ import (
 
 func GetClosestPeers(runenv *runtime.RunEnv) error {
 	opts := GetCommonOpts(runenv)
-	opts.RecordCount = runenv.IntParam("record_count")
-	opts.Debug = runenv.IntParam("dbg")
+	recordCount := runenv.IntParam("record_count")
+	finder := runenv.BooleanParam("search_records")
 
 	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 	defer cancel()
@@ -29,14 +29,20 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	node, peers, err := Setup(ctx, runenv, watcher, writer, opts)
+	ri := &RunInfo{
+		runenv:  runenv,
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	node, peers, err := Setup(ctx, ri, opts)
 	if err != nil {
 		return err
 	}
 
-	defer Teardown(ctx, runenv, watcher, writer)
+	defer Teardown(ctx, ri)
 
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	t := time.Now()
 
@@ -59,7 +65,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	t = time.Now()
 
-	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -73,14 +79,12 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {
-		for i := 0; i < opts.RecordCount; i++ {
+		for i := 0; i < recordCount; i++ {
 			c := fmt.Sprintf("CID %d", i)
 			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
 		}
 		return out
 	}()
-
-	isFinder := node.info.Seq < opts.NFindPeers
 
 	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {
@@ -88,9 +92,9 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	}
 
 	runenv.RecordMessage("start gcp loop")
-	runenv.RecordMessage(fmt.Sprintf("isFinder: %v, seqNo: %v, numFPeers %d, numRecords: %d", isFinder, node.info.Seq, opts.NFindPeers, len(cids)))
+	runenv.RecordMessage(fmt.Sprintf("isFinder: %v, seqNo: %v, numFPeers %d, numRecords: %d", finder, node.info.Seq, recordCount, len(cids)))
 
-	if isFinder {
+	if finder {
 		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index

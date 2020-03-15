@@ -24,15 +24,21 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	node, peers, err := Setup(ctx, runenv, watcher, writer, commonOpts)
+	ri := &RunInfo{
+		runenv:  runenv,
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	node, peers, err := Setup(ctx, ri, commonOpts)
 	if err != nil {
 		return err
 	}
 
 	defer outputGraph(node.dht, "end")
-	defer Teardown(ctx, runenv, watcher, writer)
+	defer Teardown(ctx, ri)
 
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	// Bring the network into a nice, stable, bootstrapped state.
 	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
@@ -45,7 +51,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork(ctx, runenv, watcher, writer, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
 		return err
 	}
 
@@ -80,7 +86,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 			continue
 		}
 
-		runenv.Message("start find peer number %d", found+1)
+		runenv.RecordMessage("start find peer number %d", found+1)
 
 		ectx, cancel := context.WithCancel(ctx)
 		ectx = TraceQuery(ectx, runenv, node, p.Pretty())

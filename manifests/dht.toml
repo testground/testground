@@ -122,13 +122,18 @@ name = "barrier"
 instances = { min = 16, max = 10000, default = 16 }
 
 [testcases.params]
-bucket_size = { type = "int", desc = "bucket size", unit = "peers", default = 2 }
-auto_refresh = { type = "bool", desc = "", unit = "bool", default = true }
-random_walk = { type = "bool", desc = "", unit = "bool", default = false }
-timeout_secs  = { type = "int", desc = "test timeout", unit = "seconds", default = 60 }
-f_undialable  = { type = "float", desc = "fraction of undialable (non-bootstrap) nodes", unit = "peer fraction", default = 0.01 }
-n_find_peers = { type = "int", desc = "number of peers to find", unit = "int", default = 1 }
-client_mode   = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
-n_paths = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
-datastore = { type = "int", desc = "datastore type", unit = "int", default = 0 }
-dbg = {type = "int", desc = "debug autonat", unit = "int", default = 0}
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  auto_refresh = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
+  random_walk  = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
+  bucket_size  = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
+  n_paths      = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
+  client_mode  = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
+  datastore    = { type = "int", desc = "datastore type", unit = "int", default = 0 }
+  peer_id_seed = { type = "int", desc = "seed used to generate all peer IDs - must be smaller than MaxInt-instances", default = 0 }
+  bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
+  bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
+  undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+
+  record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
+  record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
+  search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }

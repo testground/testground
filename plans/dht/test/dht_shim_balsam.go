@@ -6,7 +6,6 @@ import (
 	"context"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-datastore"
-	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -17,6 +16,7 @@ import (
 
 func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error){
 	dhtOptions := []dhtopts.Option{
+		dhtopts.Protocols("/testground/kad/1.0.0"),
 		dhtopts.Datastore(ds),
 		dhtopts.BucketSize(opts.BucketSize),
 		dhtopts.RoutingTableRefreshQueryTimeout(opts.Timeout),
@@ -28,12 +28,6 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 
 	if info.Properties.Undialable && opts.ClientMode {
 		dhtOptions = append(dhtOptions, dhtopts.Client(true))
-	}
-
-	if !info.Properties.Undialable {
-		if _, err := autonatsvc.NewAutoNATService(ctx, h); err != nil {
-			return nil, err
-		}
 	}
 
 	dht, err := kaddht.New(ctx, h, dhtOptions...)

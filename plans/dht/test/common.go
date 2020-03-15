@@ -115,8 +115,8 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 	var min, max int
 
 	if info.Properties.Bootstrapper {
-		min = runenv.TestInstanceCount
-		max = runenv.TestInstanceCount
+		min = runenv.TestInstanceCount * 10
+		max = min * 2
 	} else {
 		//min = int(math.Ceil(math.Log2(float64(runenv.TestInstanceCount))) * 5)
 		//max = int(float64(min) * 1.1)
@@ -299,10 +299,17 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 		return nil, nil, err
 	}
 
+	ri.runenv.RecordMessage("past the setup network barrier")
+
 	if err := setGroupInfo(ctx, ri); err != nil {
 		return nil, nil, err
 	}
+
+	ri.runenv.RecordMessage("past group info")
+
 	groupSeq, testSeq, err := getNodeID(ctx, ri)
+
+	ri.runenv.RecordMessage("past nodeid")
 
 	rng := rand.New(rand.NewSource(int64(testSeq)))
 	priv, _, err := crypto.GenerateEd25519Key(rng)
@@ -331,14 +338,25 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 	testNode.info.Addrs = host.InfoFromHost(testNode.host)
 
 	otherNodes := make(map[peer.ID]*NodeInfo)
-	err = syncAll(ctx, ri,
-		ri.runenv.TestInstanceCount, PeerAttribSubtree, testNode.info,
-		func(v interface{}) {
-			info := v.(*NodeInfo)
-			otherNodes[info.Addrs.ID] = info
-		})
-	if err != nil {
+
+	if _, err := ri.writer.Write(ctx, PeerAttribSubtree, testNode.info); err != nil {
 		return nil, nil, err
+	}
+
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	attribCh := make(chan *NodeInfo)
+	if err := ri.watcher.Subscribe(subCtx, PeerAttribSubtree, attribCh); err != nil {
+		return nil, nil, err
+	}
+
+	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
+		select {
+		case info := <-attribCh:
+			otherNodes[info.Addrs.ID] = info
+		case <-ctx.Done():
+			return nil, nil, ctx.Err()
+		}
 	}
 
 	outputStart(testNode)
@@ -349,16 +367,29 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 // setGroupInfo uses the sync service to determine which groups are part of the test and to get their sizes.
 // This information is set on the passed in RunInfo.
 func setGroupInfo(ctx context.Context, ri *RunInfo) error {
-	groups := make(map[string]int)
-	err := syncAll(ctx, ri,
-		ri.runenv.TestInstanceCount, GroupIDSubtree, &GroupInfo{ID: ri.runenv.TestGroupID, Size: ri.runenv.TestGroupInstanceCount},
-		func(v interface{}) {
-			g := v.(*GroupInfo)
-			groups[g.ID] = g.Size
-		},
-	)
-	if err != nil {
+	if _, err := ri.writer.Write(ctx, GroupIDSubtree,
+		&GroupInfo{ID: ri.runenv.TestGroupID, Size: ri.runenv.TestGroupInstanceCount}); err != nil {
+			return err
+		}
+
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	groupInfoCh := make(chan *GroupInfo)
+	if err := ri.watcher.Subscribe(subCtx, GroupIDSubtree, groupInfoCh); err != nil {
 		return err
+	}
+
+	groups := make(map[string]int)
+	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
+		select {
+		case g, more := <-groupInfoCh:
+			if !more {
+				break
+			}
+			groups[g.ID] = g.Size
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 
 	sortedGroups := make([]string, len(groups))
@@ -376,10 +407,10 @@ func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 // getNodeID returns the sequence number of this test instance within its group and within the test
 func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
 	// Set a state barrier.
-	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
+	seqNumCh := ri.watcher.FBarrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount-10))
 
 	// Signal we're in the same state.
-	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
+	seq, err := ri.writer.FSignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -401,36 +432,6 @@ func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
 	}
 
 	return int(seq), id, nil
-}
-
-func syncAll(ctx context.Context, ri *RunInfo, total int,
-	subtree *sync.Subtree, payload interface{}, process func(v interface{})) error {
-
-	if payload != nil {
-		if _, err := ri.writer.Write(ctx, subtree, payload); err != nil {
-			return err
-		}
-	}
-
-	if total != 0 {
-		subCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
-		dataCh := make(chan interface{})
-		if err := ri.watcher.Subscribe(subCtx, subtree, dataCh); err != nil {
-			return err
-		}
-
-		for i := 0; i < total; i++ {
-			select {
-			case p := <-dataCh:
-				process(p)
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-	}
-
-	return nil
 }
 
 func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) []peer.AddrInfo {
@@ -471,7 +472,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			rng := rand.New(rand.NewSource(int64(node.info.Seq)))
 			for i := 0; i < targetSize; i++ {
 				bsIndex := rng.Int()%len(bootstrappers)
-				if _, found := added[bsIndex]; !found{
+				if _, found := added[bsIndex]; found{
 					i--
 					continue
 				}
@@ -779,16 +780,14 @@ func RandomWalk(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT
 // Sync synchronizes all test instances around a single sync point.
 func Sync(
 	ctx context.Context,
-	runenv *runtime.RunEnv,
-	watcher *sync.Watcher,
-	writer *sync.Writer,
+	ri *RunInfo,
 	state sync.State,
 ) error {
 	// Set a state barrier.
-	doneCh := watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
+	doneCh := ri.watcher.Barrier(ctx, state, int64(ri.runenv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	_, err := writer.SignalEntry(ctx, state)
+	_, err := ri.writer.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}
@@ -821,16 +820,16 @@ func (s *stager) Reset(name string) {
 	s.stage = 0
 }
 
-func NewBatchStager(ctx context.Context, seq int, total int, name string, watcher *sync.Watcher, writer *sync.Writer, runenv *runtime.RunEnv) *BatchStager {
+func NewBatchStager(ctx context.Context, seq int, total int, name string, ri *RunInfo) *BatchStager {
 	return &BatchStager{stager{
 		ctx:     ctx,
 		seq:     seq,
 		total:   total,
 		name:    name,
 		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-		re:      runenv,
+		watcher: ri.watcher,
+		writer:  ri.writer,
+		re:      ri.runenv,
 		t:       time.Now(),
 	}}
 }
@@ -852,30 +851,26 @@ func (s *BatchStager) End() error {
 		return err
 	}
 
-	if s.re != nil {
-		s.re.RecordMetric(&runtime.MetricDefinition{
-			Name:           "signal " + string(stage),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(t).Nanoseconds()))
-	}
+	s.re.RecordMetric(&runtime.MetricDefinition{
+		Name:           "signal " + string(stage),
+		Unit:           "ns",
+		ImprovementDir: -1,
+	}, float64(time.Since(t).Nanoseconds()))
 
 	t = time.Now()
 
 	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
-	if s.re != nil {
-		s.re.RecordMetric(&runtime.MetricDefinition{
-			Name:           "barrier" + string(stage),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(t).Nanoseconds()))
+	s.re.RecordMetric(&runtime.MetricDefinition{
+		Name:           "barrier" + string(stage),
+		Unit:           "ns",
+		ImprovementDir: -1,
+	}, float64(time.Since(t).Nanoseconds()))
 
-		s.re.RecordMetric(&runtime.MetricDefinition{
-			Name:           "full " + string(stage),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(s.t).Nanoseconds()))
-	}
+	s.re.RecordMetric(&runtime.MetricDefinition{
+		Name:           "full " + string(stage),
+		Unit:           "ns",
+		ImprovementDir: -1,
+	}, float64(time.Since(s.t).Nanoseconds()))
 	return err
 }
 func (s *BatchStager) Reset(name string) { s.stager.Reset(name) }
@@ -936,16 +931,20 @@ func WaitMyTurn(
 
 // WaitRoutingTable waits until the routing table is not empty.
 func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT) error {
-	ctxt, cancel := context.WithTimeout(ctx, time.Second*10)
-	defer cancel()
+	//ctxt, cancel := context.WithTimeout(ctx, time.Second*10)
+	//defer cancel()
 	for {
 		if dht.RoutingTable().Size() > 0 {
 			return nil
 		}
 
+		t := time.NewTimer(time.Second * 10)
+
 		select {
 		case <-time.After(200 * time.Millisecond):
-		case <-ctxt.Done():
+		case <-t.C:
+			runenv.RecordMessage("waiting on routing table")
+		case <-ctx.Done():
 			peers := dht.Host().Network().Peers()
 			errStr := fmt.Sprintf("empty rt. %d peer conns. they are %v", len(peers), peers)
 			runenv.RecordMessage(errStr)
@@ -957,10 +956,11 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 
 // Teardown concludes this test case, waiting for all other instances to reach
 // the 'end' state first.
-func Teardown(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) {
-	err := Sync(ctx, runenv, watcher, writer, "end")
+func Teardown(ctx context.Context, ri *RunInfo) {
+	err := Sync(ctx, ri, "end")
 	if err != nil {
-		runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
+		ri.runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
+		panic(err)
 	}
 }
 
@@ -999,10 +999,8 @@ func outputGraph(dht *kaddht.IpfsDHT, graphID string) {
 		}
 	}
 
-	for i, b := range dht.RoutingTable().Buckets {
-		for _, p := range b.Peers() {
-			rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
-		}
+	for i, p := range dht.RoutingTable().ListPeers() {
+		rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
 	}
 }
 

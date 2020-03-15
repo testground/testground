@@ -19,21 +19,31 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
-	node, _, err := Setup(ctx, runenv, watcher, writer, opts)
+	ri := &RunInfo{
+		runenv:  runenv,
+		watcher: watcher,
+		writer:  writer,
+	}
+
+	node, _, err := Setup(ctx, ri, opts)
 	if err != nil {
 		return err
 	}
 
-	defer Teardown(ctx, runenv, watcher, writer)
+	//defer Teardown(ctx, ri)
 
-	if err := testBarrier(ctx, runenv, watcher, writer, node); err != nil {
+	if err := testSync(ctx, ri, node); err != nil {
+		//Teardown(ctx, ri)
 		return err
 	}
+
+	//Teardown(ctx, ri)
+
 	return nil
 }
 
-func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer, node *NodeParams) error {
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "barrier", watcher, writer, runenv)
+func testBarrier(ctx context.Context, ri *RunInfo, node *NodeParams) error {
+	stager := NewBatchStager(ctx, node.info.Seq, ri.runenv.TestInstanceCount, "barrier", ri)
 
 	for i := 0; i < 100; i++ {
 		stager.Begin()
@@ -42,8 +52,23 @@ func testBarrier(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watc
 		if err != nil {
 			return err
 		}
-		runenv.RecordMetric(&runtime.MetricDefinition{
-			Name:           fmt.Sprintf("stage-time"),
+		ri.runenv.RecordMetric(&runtime.MetricDefinition{
+			Name:           fmt.Sprintf("stage-time %d", i),
+			Unit:           "ns",
+			ImprovementDir: -1,
+		}, float64(time.Since(t).Nanoseconds()))
+	}
+	return nil
+}
+
+func testSync(ctx context.Context, ri *RunInfo, node *NodeParams) error {
+	for i := 0; i < 100; i++ {
+		t := time.Now()
+		if err := Sync(ctx, ri, sync.State(fmt.Sprintf("synctest %d",i))) ; err != nil {
+			panic(err)
+		}
+		ri.runenv.RecordMetric(&runtime.MetricDefinition{
+			Name:           fmt.Sprintf("stage-time: %d", i),
 			Unit:           "ns",
 			ImprovementDir: -1,
 		}, float64(time.Since(t).Nanoseconds()))

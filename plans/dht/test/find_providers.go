@@ -3,7 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"math/bits"
+	u "github.com/ipfs/go-ipfs-util"
 	"reflect"
 	"time"
 
@@ -12,8 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/ipfs/go-cid"
-	u "github.com/ipfs/go-ipfs-util"
-
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -50,9 +48,9 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	defer Teardown(ctx, runenv, watcher, writer)
+	defer Teardown(ctx, ri)
 
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", watcher, writer, runenv)
+	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	// Bring the network into a nice, stable, bootstrapped state.
 	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
@@ -74,13 +72,28 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	runenv.RecordMessage("start get records")
+
+	emitRecords, searchRecords, err := getRecords(ctx, ri, node.info, fpOpts)
+	if err != nil {
+		return err
+	}
+
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
 	runenv.RecordMessage("start provide loop")
 
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
 	if fpOpts.RecordCount > 0 {
 		g := errgroup.Group{}
-		for index, cid := range cids {
+		for index, cid := range emitRecords {
 			i := index
 			c := cid
 			g.Go(func() error {
@@ -119,32 +132,35 @@ func FindProviders(runenv *runtime.RunEnv) error {
 
 	if fpOpts.SearchRecords {
 		g := errgroup.Group{}
-		for index, cid := range cids {
-			i := index
-			c := cid
-			g.Go(func() error {
-				p := peer.ID(c.Bytes())
-				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, node, p.Pretty())
-				t := time.Now()
-				pids, err := node.dht.FindProviders(ectx, c)
-				cancel()
-				if err == nil {
-					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find-%d", i),
-						Unit:           "ns",
-						ImprovementDir: -1,
-					}, float64(time.Since(t).Nanoseconds()))
+		for _, record := range searchRecords {
+			for index, cid := range record.RecordIDs {
+				i := index
+				c := cid
+				groupID := record.GroupID
+				g.Go(func() error {
+					p := peer.ID(c.Bytes())
+					ectx, cancel := context.WithCancel(ctx)
+					ectx = TraceQuery(ctx, runenv, node, p.Pretty())
+					t := time.Now()
+					pids, err := node.dht.FindProviders(ectx, c)
+					cancel()
+					if err == nil {
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("time-to-find|%s|%d", groupID, i),
+							Unit:           "ns",
+							ImprovementDir: -1,
+						}, float64(time.Since(t).Nanoseconds()))
 
-					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found-%d", i),
-						Unit:           "peers",
-						ImprovementDir: 1,
-					}, float64(len(pids)))
-				}
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("peers-found|%s|%d", groupID, i),
+							Unit:           "peers",
+							ImprovementDir: 1,
+						}, float64(len(pids)))
+					}
 
-				return err
-			})
+					return err
+				})
+			}
 		}
 
 		if err := g.Wait(); err != nil {
@@ -162,44 +178,69 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func get(ctx context.Context, ri *RunInfo, info *NodeInfo, fpOpts findProvsParams) ([]cid.Cid, []cid.Cid, error) {
-	var emitRecords, searchRecords []cid.Cid
+// getRecords returns the records we plan to store and those we plan to search for. It also tells other nodes via the
+// sync service which nodes our group plans on advertising
+func getRecords(ctx context.Context, ri *RunInfo, info *NodeInfo, fpOpts findProvsParams) ([]cid.Cid, []*RecordSubmission, error) {
+	recGen := func(group string) (out []cid.Cid) {
+		for i := 0; i < fpOpts.RecordCount; i++ {
+			c := fmt.Sprintf("CID %d - group %s - seeded with %d", i, group, fpOpts.RecordSeed)
+			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
+		}
+		return out
+	}
+
+	var emitRecords []cid.Cid
 	if fpOpts.RecordCount > 0 {
 		// Calculate the CIDs we're dealing with.
-		emitRecords = func() (out []cid.Cid) {
-			for i := 0; i < fpOpts.RecordCount; i++ {
-				c := fmt.Sprintf("CID %d - group %s - seeded with %d", i, ri.runenv.TestGroupID, fpOpts.RecordSeed)
-				out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
-			}
-			return out
-		}()
+		emitRecords = recGen(ri.runenv.TestGroupID)
 	}
-	
-	var recordPayload *RecordSubmission
+
 	if info.GroupSeq == 0 {
-		recordPayload = &RecordSubmission{
+		ri.runenv.RecordMessage("writing records")
+		record := &RecordSubmission{
 			RecordIDs: emitRecords,
 			GroupID:   ri.runenv.TestGroupID,
 		}
+		if _, err := ri.writer.Write(ctx, RecordsSubtree, record); err != nil {
+			return nil, nil, err
+		}
 	}
 
-	err := syncAll(ctx, ri, len(emitRecords), RecordsSubtree, recordPayload,
-		func(v interface{}) {
-			searchRecords = append(searchRecords, v.(*RecordSubmission).RecordIDs...)
-		},
-		)
-	if err != nil {
-		return nil, nil, err
+	var searchRecords []*RecordSubmission
+	if fpOpts.SearchRecords {
+		ri.runenv.RecordMessage("getting records")
+
+		subCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		recordCh := make(chan *RecordSubmission)
+		if err := ri.watcher.Subscribe(subCtx, RecordsSubtree, recordCh); err != nil {
+			return nil, nil, err
+		}
+
+		for i := 0; i < len(ri.groups); i++ {
+			select {
+			case rec := <-recordCh:
+				if len(rec.RecordIDs) > 0 {
+					searchRecords = append(searchRecords, rec)
+				}
+			case <-time.After(time.Second*5):
+				ri.runenv.RecordMessage("haaaallp")
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+		}
 	}
+
+	ri.runenv.RecordMessage("finished recfn")
 
 	return emitRecords, searchRecords, nil
 }
 
-// PeerAttribSubtree represents a subtree under the test run's sync tree where peers
-// participating in this distributed test advertise their attributes.
+// RecordsSubtree represents a subtree under the test run's sync tree where peers
+// participating in this distributed test advertise the records their group will put into the DHT.
 var RecordsSubtree = &sync.Subtree{
 	GroupKey:    "records",
-	PayloadType: reflect.TypeOf((*RecordSubmission)(nil)),
+	PayloadType: reflect.TypeOf(&RecordSubmission{}),
 	KeyFunc: func(val interface{}) string {
 		return val.(*RecordSubmission).GroupID
 	},

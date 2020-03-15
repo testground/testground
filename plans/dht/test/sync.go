@@ -9,7 +9,7 @@ import (
 // participating in this distributed test advertise their groups.
 var GroupIDSubtree = &sync.Subtree{
 	GroupKey:    "groupIDs",
-	PayloadType: reflect.TypeOf((*GroupInfo)(nil)),
+	PayloadType: reflect.TypeOf(&GroupInfo{}),
 	KeyFunc: func(val interface{}) string {
 		return val.(*GroupInfo).ID
 	},
@@ -24,7 +24,7 @@ type GroupInfo struct {
 // participating in this distributed test advertise their attributes.
 var PeerAttribSubtree = &sync.Subtree{
 	GroupKey:    "attribs",
-	PayloadType: reflect.TypeOf((*NodeInfo)(nil)),
+	PayloadType: reflect.TypeOf(&NodeInfo{}),
 	KeyFunc: func(val interface{}) string {
 		return val.(*NodeInfo).Addrs.ID.Pretty()
 	},
