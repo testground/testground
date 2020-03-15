@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -13,12 +14,6 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 	"github.com/prometheus/client_golang/prometheus"
 )
-
-type subtreeBenchCfg struct {
-	Name  string
-	Gauge prometheus.Gauge
-	Data  []byte
-}
 
 // This method emits the time as output. It does *not* emit a prometheus metric.
 func emitTime(runenv *runtime.RunEnv, name string, duration time.Duration) {
@@ -200,8 +195,13 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 }
 
 func SubtreePublishBench(runenv *runtime.RunEnv) error {
+	rand.Seed(time.Now().UnixNano())
+
+	iterations := runenv.IntParam("iterations")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
+
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
@@ -210,89 +210,89 @@ func SubtreePublishBench(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	var msg []byte
-	st := sync.Subtree{
-		GroupKey:    "messages",
-		PayloadType: reflect.TypeOf(&msg),
+	st := &sync.Subtree{
+		GroupKey:    "instances",
+		PayloadType: reflect.TypeOf((*string)(nil)),
 		KeyFunc: func(val interface{}) string {
-			return string(*val.(*[]byte))
-		}}
+			return string(*val.(*string))
+		},
+	}
 
-	seq, err := writer.Write(ctx, &st, runenv.TestRun)
+	seq, err := writer.Write(ctx, st, &runenv.TestRun)
 	if err != nil {
 		return err
 	}
 
-	// Create several tests up to 1MB
-	// Anything over 1500 is likely to have ethernet fragmentation
-	// Do these sizes make any sense at all? I really don't know.
-	var tests []*subtreeBenchCfg
-	for size := 64; size <= 1024*1024; size = size << 1 {
-		buf := make([]byte, size)
-		name := fmt.Sprintf("subtree_bench_%s_bytes", string(size))
-		t := subtreeBenchCfg{
-			Name:  name,
-			Gauge: runtime.NewGauge(runenv, name, fmt.Sprintf("Time to transmmit %d bytes", size)),
-			Data:  buf,
-		}
-		tests = append(tests, &t)
-
-	}
-
+	mode := "receive"
 	if seq == 1 {
-		// Publish information to the subtree and wait for all to receive it.
-		return subtreePublisher(ctx, runenv, writer, watcher, &st, tests)
-	} else {
-		// Subscribe to the subtree as quickly as quickly as possible.
-		return subtreeSubscriber(ctx, runenv, writer, watcher, &st, tests)
+		mode = "publish"
 	}
-}
 
-func subtreePublisher(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer, watcher *sync.Watcher, st *sync.Subtree, tests []*subtreeBenchCfg) error {
+	type testSpec struct {
+		Name    string
+		Data    []byte
+		Subtree *sync.Subtree
+		Summary prometheus.Summary
+	}
 
-	rand.Seed(time.Now().UnixNano())
+	// Create tests ranging from 64B to 64KiB.
+	// Note: anything over 1500 is likely to have ethernet fragmentation.
+	var tests []*testSpec
+	for size := 64; size <= 64*1024; size = size << 1 {
+		name := fmt.Sprintf("subtree_time_%s_%d_bytes", mode, size)
+		desc := fmt.Sprintf("time to %s %d bytes", mode, size)
+		data := make([]byte, 0, size)
+		rand.Read(data)
 
-	// The sender doesn't publish metrics.
-	// Just keep everyone on the same page, and publsh fresh data.
-	// Wait until all are ready,
-	// publish
-	// begin the test
-	// Repeat.
+		ts := &testSpec{
+			Name: name,
+			Data: data,
+			Subtree: &sync.Subtree{
+				GroupKey:    name,
+				PayloadType: reflect.TypeOf((*string)(nil)),
+			},
+			Summary: runtime.NewSummary(runenv, name, desc, prometheus.SummaryOpts{
+				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+			}),
+		}
+		tests = append(tests, ts)
+	}
 
-	for i := 0; i <= 100000; i++ {
+	handoff := sync.State("handoff")
+
+	switch mode {
+	case "publish":
+		runenv.RecordMessage("i am the publisher")
+
 		for _, tst := range tests {
-			readyState := sync.State(fmt.Sprintf("ready_%d_%s", i, tst.Name))
-			testState := sync.State(fmt.Sprintf("test_%d_%s", i, tst.Name))
-			rand.Read(tst.Data)
-			_, err := writer.SignalEntry(ctx, readyState)
-			if err != nil {
-				return err
+			for i := 1; i <= iterations; i++ {
+				t := prometheus.NewTimer(tst.Summary)
+				writer.Write(ctx, tst.Subtree, tst.Data)
+				t.ObserveDuration()
 			}
-			<-watcher.Barrier(ctx, readyState, int64(runenv.TestInstanceCount))
-			writer.SignalEntry(ctx, testState)
-			writer.Write(ctx, st, tst.Data)
 		}
-	}
-	return nil
-}
+		// signal to subscribers they can start.
+		writer.SignalEntry(ctx, handoff)
 
-// Subscribers signal they are ready, and then wait until there is one test signal.
-// Once they see that signal, measure the time between the test signal entry and data
-// is retrieved from the subscription channel.
-func subtreeSubscriber(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer, watcher *sync.Watcher, st *sync.Subtree, tests []*subtreeBenchCfg) error {
+	case "receive":
+		runenv.RecordMessage("i am a subscriber")
 
-	for i := 0; i <= 100000; i++ {
+		// if we are receiving, wait for the publisher to be done.
+		<-watcher.Barrier(ctx, handoff, int64(1))
+
 		for _, tst := range tests {
-			readyState := sync.State(fmt.Sprintf("ready_%d_%s", i, tst.Name))
-			testState := sync.State(fmt.Sprintf("test_%d_%s", i, tst.Name))
-			writer.SignalEntry(ctx, readyState)
-			_ = <-watcher.Barrier(ctx, testState, int64(1))
 			ch := make(chan []byte, 1)
-			timeStart := time.Now()
-			watcher.Subscribe(ctx, st, ch)
-			<-ch
-			tst.Gauge.Set(float64(time.Since(timeStart).Milliseconds()))
+			watcher.Subscribe(ctx, tst.Subtree, ch)
+			for i := 1; i <= iterations; i++ {
+				t := prometheus.NewTimer(tst.Summary)
+				b := <-ch
+				t.ObserveDuration()
+				if bytes.Compare(tst.Data, b) != 0 {
+					return fmt.Errorf("received unexpected value")
+				}
+			}
 		}
 	}
+
 	return nil
 }

@@ -119,9 +119,6 @@ func NewRunEnv(params RunParams) *RunEnv {
 			Grouping("TestCase", params.TestCase).
 			Grouping("TestRun", params.TestRun).
 			Grouping("TestGroupID", params.TestGroupID).
-			Grouping("TestCaseSeq", string(params.TestCaseSeq)).
-			Grouping("TestCommit", params.TestCommit).
-			Grouping("TestTag", params.TestTag).
 			Grouping("ContainerName", containerName),
 		structured:   make(chan *zap.Logger, 32),
 		unstructured: make(chan *os.File, 32),
