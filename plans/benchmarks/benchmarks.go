@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
+	"math/rand"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -185,6 +188,109 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 			// The reason I did this is so the rate will drop to zero after the end of the test
 			// Use rate(barrier_time_XX_percent) in prometheus graphs.
 			tst.Gauge.Add(float64(duration))
+		}
+	}
+
+	return nil
+}
+
+func SubtreeBench(runenv *runtime.RunEnv) error {
+	rand.Seed(time.Now().UnixNano())
+
+	iterations := runenv.IntParam("iterations")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
+
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	defer watcher.Close()
+	defer writer.Close()
+
+	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+		return err
+	}
+
+	st := &sync.Subtree{
+		GroupKey:    "instances",
+		PayloadType: reflect.TypeOf((*string)(nil)),
+		KeyFunc: func(val interface{}) string {
+			return string(*val.(*string))
+		},
+	}
+
+	seq, err := writer.Write(ctx, st, &runenv.TestRun)
+	if err != nil {
+		return err
+	}
+
+	mode := "receive"
+	if seq == 1 {
+		mode = "publish"
+	}
+
+	type testSpec struct {
+		Name    string
+		Data    []byte
+		Subtree *sync.Subtree
+		Summary prometheus.Summary
+	}
+
+	// Create tests ranging from 64B to 64KiB.
+	// Note: anything over 1500 is likely to have ethernet fragmentation.
+	var tests []*testSpec
+	for size := 64; size <= 64*1024; size = size << 1 {
+		name := fmt.Sprintf("subtree_time_%s_%d_bytes", mode, size)
+		desc := fmt.Sprintf("time to %s %d bytes", mode, size)
+		data := make([]byte, 0, size)
+		rand.Read(data)
+
+		ts := &testSpec{
+			Name: name,
+			Data: data,
+			Subtree: &sync.Subtree{
+				GroupKey:    name,
+				PayloadType: reflect.TypeOf((*string)(nil)),
+			},
+			Summary: runtime.NewSummary(runenv, name, desc, prometheus.SummaryOpts{
+				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+			}),
+		}
+		tests = append(tests, ts)
+	}
+
+	handoff := sync.State("handoff")
+
+	switch mode {
+	case "publish":
+		runenv.RecordMessage("i am the publisher")
+
+		for _, tst := range tests {
+			for i := 1; i <= iterations; i++ {
+				t := prometheus.NewTimer(tst.Summary)
+				writer.Write(ctx, tst.Subtree, tst.Data)
+				t.ObserveDuration()
+			}
+		}
+		// signal to subscribers they can start.
+		writer.SignalEntry(ctx, handoff)
+
+	case "receive":
+		runenv.RecordMessage("i am a subscriber")
+
+		// if we are receiving, wait for the publisher to be done.
+		<-watcher.Barrier(ctx, handoff, int64(1))
+
+		for _, tst := range tests {
+			ch := make(chan []byte, 1)
+			watcher.Subscribe(ctx, tst.Subtree, ch)
+			for i := 1; i <= iterations; i++ {
+				t := prometheus.NewTimer(tst.Summary)
+				b := <-ch
+				t.ObserveDuration()
+				if bytes.Compare(tst.Data, b) != 0 {
+					return fmt.Errorf("received unexpected value")
+				}
+			}
 		}
 	}
 
