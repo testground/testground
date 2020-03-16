@@ -1,6 +1,6 @@
 module github.com/ipfs/testground/plans/network
 
-go 1.14
+go 1.13
 
 require (
 	github.com/gogo/protobuf v1.3.1 // indirect
