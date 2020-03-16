@@ -31,9 +31,12 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 	}
 }
 
-// buildImage
-// Use a Dockerfile and supporting files to build a docker image.
-// Think `docker build /path/to/build`
+// BuildImage builds a docker image from provided BuildImageOpts or a set of default options.
+// If BuildImageOpts.BuildOpts is filled, these options will be passed to the docker client
+// un-edited. In this case, BuildImageOpts.Name is unused when the image is created.
+// When BuildImageOpts.BuildOpts has nil value, a default set of options will be constructed using
+// the Name, and the constructed options are sent to the docker client.
+// The build output is directed to stdout via PipeOutput.
 func BuildImage(ctx context.Context, client *client.Client, opts *BuildImageOpts) error {
 	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
 	if err != nil {
@@ -56,9 +59,10 @@ func BuildImage(ctx context.Context, client *client.Client, opts *BuildImageOpts
 	return PipeOutput(buildResponse.Body, os.Stdout)
 }
 
-// EnsureImage
-// Create a docker image from build context.
-// If an image with the requested tag already exists, don't re-create it.
+// EnsureImage builds an image only of one does not yet exist.
+// This is a thin wrapper around BuildImage, and the same comments regarding the passed
+// BuildImageOpts applies here. Returns a bool depending on whether the image had to be created and
+// any errors that were encountered.
 func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Client, opts *BuildImageOpts) (created bool, err error) {
 	// Unfortunately we can't filter for RepoTags
 	// Find out if we have any images with a RepoTag which matches the name of the image.
