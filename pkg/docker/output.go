@@ -16,7 +16,7 @@ Loop:
 	for dec := json.NewDecoder(r); ; {
 		switch err := dec.Decode(&msg); err {
 		case nil:
-			_ = msg.Display(w, true)
+			_ = msg.Display(w, false)
 			if msg.Error != nil {
 				return msg.Error
 			}
