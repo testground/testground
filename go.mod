@@ -1,6 +1,6 @@
 module github.com/ipfs/testground
 
-go 1.13
+go 1.14
 
 replace (
 	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb

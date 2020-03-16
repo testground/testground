@@ -1,6 +1,6 @@
 module github.com/ipfs/testround/plans/benchmarks
 
-go 1.13
+go 1.14
 
 replace (
 	github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
