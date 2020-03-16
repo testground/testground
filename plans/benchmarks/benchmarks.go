@@ -65,6 +65,7 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	return nil
 }
 
+// NetworkLinkShapeBench benchmarks the time required to change the link shape
 func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	// FIX(cory/raulk) this test will not work with local:exec, because it
 	// doesn't support the sidecar yet. We should probably skip it
@@ -194,6 +195,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	return nil
 }
 
+// SubtreeBench benchmarks publish and subsciptions to a subtree
 func SubtreeBench(runenv *runtime.RunEnv) error {
 	rand.Seed(time.Now().UnixNano())
 
@@ -267,12 +269,18 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
-				writer.Write(ctx, tst.Subtree, tst.Data)
+				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
+				if err != nil {
+					return err
+				}
 				t.ObserveDuration()
 			}
 		}
 		// signal to subscribers they can start.
-		writer.SignalEntry(ctx, handoff)
+		_, err = writer.SignalEntry(ctx, handoff)
+		if err != nil {
+			return err
+		}
 
 	case "receive":
 		runenv.RecordMessage("i am a subscriber")
@@ -282,12 +290,15 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for _, tst := range tests {
 			ch := make(chan []byte, 1)
-			watcher.Subscribe(ctx, tst.Subtree, ch)
+			err = watcher.Subscribe(ctx, tst.Subtree, ch)
+			if err != nil {
+				return err
+			}
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
 				b := <-ch
 				t.ObserveDuration()
-				if bytes.Compare(tst.Data, b) != 0 {
+				if !bytes.Equal(tst.Data, b) {
 					return fmt.Errorf("received unexpected value")
 				}
 			}
