@@ -251,6 +251,14 @@ func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error
 
 	networkSetupMx.Lock()
 	defer networkSetupMx.Unlock()
+
+	if networkSetupNum == 0 {
+		// Wait for the network to be initialized.
+		if err := sync.WaitNetworkInitialized(ctx, ri.runenv, ri.watcher); err != nil {
+			return err
+		}
+	}
+
 	networkSetupNum++
 
 	// TODO: just put the unique testplan id inside the runenv?
