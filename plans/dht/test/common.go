@@ -359,6 +359,8 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 		}
 	}
 
+	ri.runenv.RecordMessage("othernodes: %v", otherNodes)
+
 	outputStart(testNode)
 
 	return testNode, otherNodes, nil
@@ -407,10 +409,10 @@ func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 // getNodeID returns the sequence number of this test instance within its group and within the test
 func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
 	// Set a state barrier.
-	seqNumCh := ri.watcher.FBarrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount-10))
+	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
 
 	// Signal we're in the same state.
-	seq, err := ri.writer.FSignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
+	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
 	if err != nil {
 		return 0, 0, err
 	}

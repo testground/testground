@@ -192,20 +192,6 @@ func (w *Writer) Write(ctx context.Context, subtree *Subtree, payload interface{
 	return seq, err
 }
 
-func (w *Writer) FSignalEntry(ctx context.Context, s State) (current int64, err error) {
-	barrierTree := &Subtree{
-		GroupKey:    string(s),
-		PayloadType: reflect.TypeOf(&Bogus{}),
-		KeyFunc: func(val interface{}) string {
-			return val.(*Bogus).S
-		},
-	}
-
-	val := &Bogus{ S: "fsignal"}
-
-	return w.Write(ctx, barrierTree, val)
-}
-
 // SignalEntry signals entry into the specified state, and returns how many
 // instances are currently in this state, including the caller.
 func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err error) {
