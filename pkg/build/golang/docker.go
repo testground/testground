@@ -218,7 +218,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		BuildArgs:   args,
 	}
 
-	imageOpts := docker.EnsureImageOpts{
+	imageOpts := docker.BuildImageOpts{
 		BuildCtx:  tmp,
 		BuildOpts: &opts,
 	}

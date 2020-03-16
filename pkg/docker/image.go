@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type EnsureImageOpts struct {
+type BuildImageOpts struct {
 	Name      string                   // reuired for EnsureImage
 	BuildCtx  string                   // required
 	BuildOpts *types.ImageBuildOptions // optional
@@ -34,7 +34,7 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 // buildImage
 // Use a Dockerfile and supporting files to build a docker image.
 // Think `docker build /path/to/build`
-func BuildImage(ctx context.Context, client *client.Client, opts *EnsureImageOpts) error {
+func BuildImage(ctx context.Context, client *client.Client, opts *BuildImageOpts) error {
 	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
 	if err != nil {
 		return err
@@ -59,7 +59,7 @@ func BuildImage(ctx context.Context, client *client.Client, opts *EnsureImageOpt
 // EnsureImage
 // Create a docker image from build context.
 // If an image with the requested tag already exists, don't re-create it.
-func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Client, opts *EnsureImageOpts) (created bool, err error) {
+func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Client, opts *BuildImageOpts) (created bool, err error) {
 	// Unfortunately we can't filter for RepoTags
 	// Find out if we have any images with a RepoTag which matches the name of the image.
 	// the RepoTag will be something like "name:latest" and I want to match any that have "name"
