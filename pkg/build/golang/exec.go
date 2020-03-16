@@ -104,10 +104,9 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
-		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb",
-		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime",
-	)
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync"),
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb"),
+		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
 
 	// Write replace directives.
 	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)

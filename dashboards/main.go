@@ -88,7 +88,7 @@ func ImportDatasources(c *sdk.Client) {
 				}
 			}
 			if status, err = c.CreateDatasource(newDS); err != nil {
-				fmt.Fprintf(os.Stderr, "error on importing datasource %s with %s (%s)", newDS.Name, err, *status.Message)
+				fmt.Fprint(os.Stderr, fmt.Sprintf("error on importing datasource %s with %s (%s)", newDS.Name, err, *status.Message))
 			}
 		}
 	}
