@@ -101,12 +101,6 @@ type ClusterK8sRunnerConfig struct {
 
 	KeepService bool `toml:"keep_service"`
 
-	// Name of the S3 bucket used for `outputs` from test plans
-	OutputsBucket string `toml:"outputs_bucket"`
-
-	// Region of the S3 bucket used for `outputs` from test plans
-	OutputsBucketRegion string `toml:"outputs_bucket_region"`
-
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
