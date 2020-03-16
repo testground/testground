@@ -1,6 +1,6 @@
 module github.com/ipfs/testground
 
-go 1.13
+go 1.14
 
 replace (
 	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb
@@ -20,6 +20,7 @@ require (
 	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/go-playground/validator/v10 v10.1.0
+	github.com/golangci/golangci-lint v1.24.0 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/gosimple/slug v1.9.0
