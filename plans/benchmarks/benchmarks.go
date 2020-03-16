@@ -267,12 +267,18 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
-				writer.Write(ctx, tst.Subtree, tst.Data)
+				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
+				if err != nil {
+					return err
+				}
 				t.ObserveDuration()
 			}
 		}
 		// signal to subscribers they can start.
-		writer.SignalEntry(ctx, handoff)
+		_, err = writer.SignalEntry(ctx, handoff)
+		if err != nil {
+			return err
+		}
 
 	case "receive":
 		runenv.RecordMessage("i am a subscriber")
@@ -282,12 +288,15 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for _, tst := range tests {
 			ch := make(chan []byte, 1)
-			watcher.Subscribe(ctx, tst.Subtree, ch)
+			err = watcher.Subscribe(ctx, tst.Subtree, ch)
+			if err != nil {
+				return err
+			}
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
 				b := <-ch
 				t.ObserveDuration()
-				if bytes.Compare(tst.Data, b) != 0 {
+				if !bytes.Equal(tst.Data, b) {
 					return fmt.Errorf("received unexpected value")
 				}
 			}
