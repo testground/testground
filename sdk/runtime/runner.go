@@ -23,6 +23,7 @@ func Invoke(tc func(*RunEnv) error) {
 	// interval. When this "push_interval" is changed, you may want to change the scrape interval
 	// on the pushgateway
 	pushStopCh := make(chan struct{})
+	pushAllowedFailures := 3
 	go func() {
 		pushInterval := 5 * time.Second
 		for {
@@ -30,7 +31,10 @@ func Invoke(tc func(*RunEnv) error) {
 			case <-time.After(pushInterval):
 				err := runenv.MetricsPusher.Add()
 				if err != nil {
-					runenv.RecordMessage("error during periodic metric push: %w", err)
+					pushAllowedFailures -= 1
+					if pushAllowedFailures == 0 {
+						runenv.RecordMessage("cannot reach the pushgateway. prometheus metrics won't be available.")
+					}
 				}
 			case <-pushStopCh:
 				return
@@ -42,10 +46,12 @@ func Invoke(tc func(*RunEnv) error) {
 	defer func() {
 		defer close(pushStopCh)
 
-		durationGauge.Set(time.Since(start).Seconds())
-		err := runenv.MetricsPusher.Add()
-		if err != nil {
-			runenv.RecordMessage("error during end metric push: %w", err)
+		if pushAllowedFailures > 0 {
+			durationGauge.Set(time.Since(start).Seconds())
+			err := runenv.MetricsPusher.Add()
+			if err != nil {
+				runenv.RecordMessage("error during end metric push: %w", err)
+			}
 		}
 	}()
 
