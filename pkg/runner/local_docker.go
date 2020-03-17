@@ -588,6 +588,11 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 		ctx,
 		log, cli,
 		"testground-control",
+		// making internal=false enables us to expose ports to the host (e.g.
+		// pprof and prometheus). by itself, it would allow the container to
+		// access the Internet, and therefore would break isolation, but since
+		// we have sidecar overriding the default Docker ip routes, and
+		// suppressing such traffic, we're safe.
 		false,
 		network.IPAMConfig{
 			Subnet:  controlSubnet,
@@ -635,14 +640,14 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, NetworkID string, pull bool) (id string, err error) {
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
 			Image: imageName,
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode:     container.NetworkMode(NetworkID),
+			NetworkMode:     container.NetworkMode(networkID),
 			PublishAllPorts: true,
 		},
 		PullImageIfMissing: pull,

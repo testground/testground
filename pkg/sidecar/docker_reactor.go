@@ -174,6 +174,25 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		controlRoutes = append(controlRoutes, nlroutes...)
 	}
 
+	// Allow traffic from the host machine (acting as the gateway).
+	var (
+		gwIPs    = make(map[string]struct{})
+		gwRoutes []netlink.Route
+	)
+	for _, route := range controlRoutes {
+		if _, ok := gwIPs[route.Gw.String()]; ok {
+			continue
+		}
+		nlroutes, err := netlinkHandle.RouteGet(route.Gw)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve route: %w", err)
+		}
+		gwIPs[route.Gw.String()] = struct{}{}
+		gwRoutes = append(gwRoutes, nlroutes...)
+	}
+
+	controlRoutes = append(controlRoutes, gwRoutes...)
+
 	for id, link := range links {
 		if name, ok := reverseIndex[id]; ok {
 			// manage this network

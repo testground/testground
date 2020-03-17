@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"github.com/docker/docker/api/types"
@@ -127,13 +128,15 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 	log.Infow("starting new container", "id", res.ID)
 
 	err = cli.ContainerStart(ctx, res.ID, types.ContainerStartOptions{})
-	if err == nil {
-		log.Infow("started container", "id", res.ID)
+	if err != nil {
+		return nil, false, err
 	}
 
+	log.Infow("started container", "id", res.ID)
+
 	c, err := cli.ContainerInspect(ctx, res.ID)
-	if err == nil {
-		log.Infow("started container", "id", res.ID)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to inspect container: %w", err)
 	}
 
 	return &c, true, err

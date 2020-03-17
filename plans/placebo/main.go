@@ -41,9 +41,6 @@ func run(runenv *runtime.RunEnv) error {
 		// stall
 		time.Sleep(24 * time.Hour)
 		return nil
-	case 3:
-		// panic
-		panic(errors.New("this is an intentional panic"))
 	default:
 		return fmt.Errorf("aborting")
 	}
