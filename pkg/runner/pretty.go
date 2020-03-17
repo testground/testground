@@ -71,13 +71,16 @@ func NewPrettyPrinter() *PrettyPrinter {
 
 // Wait waits for all running tests to finish and returns an error if any of
 // them failed.
-func (c *PrettyPrinter) Wait() error {
-	c.wg.Wait()
-
-	if f := atomic.LoadUint32(&c.failed); f > 0 {
-		return fmt.Errorf("%d nodes failed", f)
-	}
-	return nil
+func (c *PrettyPrinter) Wait() <-chan error {
+	ch := make(chan error)
+	go func() {
+		c.wg.Wait()
+		if f := atomic.LoadUint32(&c.failed); f > 0 {
+			ch <- fmt.Errorf("%d nodes failed", f)
+		}
+		ch <- nil
+	}()
+	return ch
 }
 
 // FailStart should be used to report that an instance failed to start.
