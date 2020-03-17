@@ -26,7 +26,6 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 		Remove:         true,
 		ForceRemove:    true,
 		PullParent:     true,
-		Dockerfile:     "/Dockerfile",
 		Tags:           []string{name},
 	}
 }
