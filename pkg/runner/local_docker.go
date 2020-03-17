@@ -14,6 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/go-connections/nat"
+	"github.com/docker/go-units"
+
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
@@ -33,6 +36,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
+
+const InfraMaxFilesUlimit int64 = 1048576
 
 var (
 	_ api.Runner        = (*LocalDockerRunner)(nil)
@@ -510,6 +515,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	)
 
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	log.Infow("starting containers", "count", len(containers))
 
@@ -525,7 +531,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 			err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
 			if err == nil {
 				log.Debugw("started container", "id", id)
-				started <- id
+				select {
+				case started <- id:
+				default:
+				}
 			}
 			return err
 		}
@@ -599,13 +608,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 	select {
 	case err = <-doneCh:
-		fmt.Println("done ch: ", err)
 	case <-ctx.Done():
-		fmt.Println("context done: ", ctx.Err())
 		err = ctx.Err()
 	}
 
-	cancel()
 	return &api.RunOutput{RunID: input.RunID}, err
 }
 
@@ -702,6 +708,11 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 		HostConfig: &container.HostConfig{
 			NetworkMode:     container.NetworkMode(networkID),
 			PublishAllPorts: true,
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+				},
+			},
 		},
 		PullImageIfMissing: pull,
 	})
@@ -726,11 +737,13 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
-			Cmd:        []string{"sidecar", "--runner", "docker"},
-			Env:        []string{"REDIS_HOST=testground-redis"},
+			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
+			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
+			PublishAllPorts: true,
+			PortBindings:    nat.PortMap{"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
+			NetworkMode:     container.NetworkMode(controlNetworkID),
 			// To lookup namespaces. Can't use SandboxKey for some reason.
 			PidMode: "host",
 			// We need _both_ to actually get a network namespace handle.
@@ -743,6 +756,11 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 				Source: dockerSock,
 				Target: "/var/run/docker.sock",
 			}},
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+				},
+			},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
 	})

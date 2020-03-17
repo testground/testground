@@ -25,8 +25,8 @@ func init() {
 
 // Check if there's a running instance of redis, or start it otherwise. If we
 // start an ad-hoc instance, the close function will terminate it.
-func ensureRedis(t *testing.T) (close func()) {
-	t.Helper()
+func ensureRedis(tb testing.TB) (close func()) {
+	tb.Helper()
 
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
@@ -38,20 +38,20 @@ func ensureRedis(t *testing.T) (close func()) {
 
 	cmd := exec.Command("redis-server", "-")
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("failed to start redis: %s", err)
+		tb.Fatalf("failed to start redis: %s", err)
 	}
 
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
 	if client, err = redisClient(context.Background()); err != nil {
-		t.Fatalf("failed to obtain redis client despite starting instance: %v", err)
+		tb.Fatalf("failed to obtain redis client despite starting instance: %v", err)
 	}
 	defer client.Close()
 
 	return func() {
 		if err := cmd.Process.Kill(); err != nil {
-			t.Fatalf("failed while stopping test-scoped redis: %s", err)
+			tb.Fatalf("failed while stopping test-scoped redis: %s", err)
 		}
 	}
 }
