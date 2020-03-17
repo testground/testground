@@ -265,12 +265,10 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		default:
 			_, err := docker.EnsureImage(ctx, log, cli, &docker.BuildImageOpts{
 				Name: "testground-prometheus",
-				// the Source dir is available as a BuildInput, but I don't have access to this very easily
-				// in the health check
-				// Find the location of infra somehow.
-				// TODO:
-				BuildCtx: "/home/cory/go/src/github.com/ipfs/testground/infra/docker/testground-prometheus",
+				// This is the location of the pre-configured prometheus used by the local docker runner.
+				BuildCtx: strings.Join([]string{engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"}, "/"),
 			})
+
 			if err == nil {
 				_, err := ensureInfraContainer(ctx, cli, log, "testground-prometheus", "testground-prometheus:latest", r.controlNetworkID, false)
 				if err == nil {
