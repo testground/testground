@@ -1,0 +1,168 @@
+[metadata]
+  name = "find-provs"
+  author = "adin"
+
+[global]
+  plan = "dht"
+  case = "find-providers"
+  total_instances = 100
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "balsam-undialable-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "c3a9b94016f8"
+    [groups.run.test_params]
+      bs_strategy = "1"
+      bucket_size = "4"
+      record_count = "1"
+      search_records = "true"
+      timeout_secs = "200"
+      undialable = "true"
+
+[[groups]]
+  id = "balsam-undialable-searcher"
+  [groups.instances]
+    count = 35
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "f9fbd02c5eb2"
+    [groups.run.test_params]
+      bs_strategy = "1"
+      bucket_size = "4"
+      search_records = "true"
+      timeout_secs = "200"
+      undialable = "true"
+
+[[groups]]
+  id = "balsam-dialable-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "13beab2504cf"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "4"
+      record_count = "1"
+      timeout_secs = "200"
+      undialable = "false"
+
+[[groups]]
+  id = "balsam-dialable-searcher"
+  [groups.instances]
+    count = 35
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "f59117af4a1e"
+    [groups.run.test_params]
+      bs_strategy = "1"
+      bucket_size = "4"
+      search_records = "true"
+      timeout_secs = "200"
+      undialable = "false"
+
+[[groups]]
+  id = "cypress-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "v0.5.2-0.20200313220425-e42ee9421469"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat"
+      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat-svc"
+      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+  [groups.run]
+    artifact = "e8c92077407d"
+    [groups.run.test_params]
+      bs_strategy = "1"
+      bucket_size = "4"
+      record_count = "1"
+      timeout_secs = "200"
+
+[[groups]]
+  id = "cypress-searcher"
+  [groups.instances]
+    count = 10
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "v0.5.2-0.20200313220425-e42ee9421469"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat"
+      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat-svc"
+      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+  [groups.run]
+    artifact = "d7dbeb0be4f8"
+    [groups.run.test_params]
+      bs_strategy = "1"
+      bucket_size = "4"
+      search_records = "true"
+      timeout_secs = "200"
+
+[[groups]]
+  id = "cypress-bs"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "v0.5.2-0.20200313220425-e42ee9421469"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat"
+      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-autonat-svc"
+      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+  [groups.run]
+    artifact = "1c9ea81534f2"
+    [groups.run.test_params]
+      bootstrapper = "true"
+      bs_strategy = "1"
+      bucket_size = "4"
+      timeout_secs = "200"
