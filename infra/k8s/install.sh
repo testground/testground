@@ -56,7 +56,7 @@ echo
 
 echo "Install EFS..."
 
-vpcId=`aws ec2 describe-vpcs --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
+vpcId=`aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
 
 if [[ -z ${vpcId} ]]; then
   echo "Couldn't detect AWS VPC created by `kops`"
