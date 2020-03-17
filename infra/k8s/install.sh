@@ -65,7 +65,7 @@ fi
 
 echo "Detected VPC: $vpcId"
 
-securityGroupId=`aws ec2 describe-security-groups --output text | awk '/nodes.'$NAME'/ && /SECURITYGROUPS/ { print $6 };'`
+securityGroupId=`aws ec2 describe-security-groups --region=$AWS_REGION --output text | awk '/nodes.'$NAME'/ && /SECURITYGROUPS/ { print $6 };'`
 
 if [[ -z ${securityGroupId} ]]; then
   echo "Couldn't detect AWS Security Group created by `kops`"
@@ -74,7 +74,7 @@ fi
 
 echo "Detected Security Group ID: $securityGroupId"
 
-subnetId=`aws ec2 describe-subnets --output text | awk '/'$vpcId'/ { print $12 }'`
+subnetId=`aws ec2 describe-subnets --region=$AWS_REGION --output text | awk '/'$vpcId'/ { print $12 }'`
 
 if [[ -z ${subnetId} ]]; then
   echo "Couldn't detect AWS Subnet created by `kops`"
