@@ -1,6 +1,6 @@
 module github.com/ipfs/testground/plans/placebo
 
-go 1.13
+go 1.14
 
 require github.com/ipfs/testground/sdk/runtime v0.2.0
 
