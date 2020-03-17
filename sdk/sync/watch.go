@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -104,46 +103,70 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 	log.Debugw("setting barrier for state", "state", state, "required", required)
 
-	resCh := make(chan error, 1)
+	var (
+		client      = w.client.WithContext(ctx)
+		stateKey    = state.Key(w.root)
+		barrierChan = state.BarrierChannel(w.root, required)
+		resCh       = make(chan error, 1)
+	)
+
+	// Subscribe to receive barrier advisory signals.
+	//
+	// Each call INCRing the key will also PUBLISH a message to a channel with format:
+	//
+	//   <root>/states/<state>/barriers/<value>, where <value> is the new value post-increment.
+	//
+	// Waiters will park waiting to receive a message on their corresponding channel, where <value> is their target.
+	ps := client.Subscribe(barrierChan)
+	iface, err := ps.Receive()
+	if err != nil {
+		resCh <- fmt.Errorf("failed to subscribe to barrier channel: %w", err)
+		close(resCh)
+		return resCh
+	}
+
+	// Wait until we receive the subscription confirmation.
+	if _, ok := iface.(*redis.Subscription); !ok {
+		resCh <- fmt.Errorf("expected first message on barrier subscription to be of type *Subscription; was: %T", iface)
+		close(resCh)
+		return resCh
+	}
+
+	// checkValue is a function that checks the current value of the state, and
+	// if we're on a terminal state (error, or satisfied), it publishes the
+	// right value on resCh, and returns done=true.
+	checkValue := func() (curr int64, done bool) {
+		curr, err := client.Get(stateKey).Int64()
+		switch {
+		case err != nil && err != redis.Nil:
+			resCh <- fmt.Errorf("failed to get value of state: %w", err)
+			return 0, true
+		case curr >= required:
+			resCh <- nil
+			return curr, true
+		}
+		return curr, false
+	}
+
+	if _, done := checkValue(); done {
+		_ = ps.Close()
+		close(resCh)
+		return resCh
+	}
+
 	go func() {
 		defer close(resCh)
 
-		var (
-			last   int64
-			err    error
-			ticker = time.NewTicker(250 * time.Millisecond)
-			k      = state.Key(w.root)
-			client = w.client.WithContext(ctx)
-		)
-
-		defer ticker.Stop()
-
-		for last < required {
-			select {
-			case <-ticker.C:
-				last, err = client.Get(k).Int64()
-				if err != nil && err != redis.Nil {
-					err = fmt.Errorf("error occured in barrier: %w", err)
-					resCh <- err
-					return
-				}
-				// loop over
-				log.Debugw("insufficient instances in state; looping", "state", state, "required", required, "current", last)
-
-			case <-ctx.Done():
-				// Context fired before we got enough elements.
-				err := fmt.Errorf("%s waiting on %s; not enough elements, required %d, got %d", err, state, required, last)
-				resCh <- err
-				return
-			case <-w.close:
-				resCh <- fmt.Errorf("closed")
-				return
+		select {
+		case <-ps.Channel():
+			if curr, done := checkValue(); !done {
+				resCh <- fmt.Errorf("barrier advisory signal for state %s received, but assertion failed; current value (%d) below target (%d)", state, curr, required)
 			}
-		}
-		if last > required {
-			resCh <- fmt.Errorf("when waiting on %s; too many elements, required %d, got %d", state, required, last)
-		} else {
-			resCh <- nil
+		case <-ctx.Done():
+			resCh <- fmt.Errorf("context closed waiting on %s; required: %d", state, required)
+
+		case <-w.close:
+			resCh <- fmt.Errorf("closed")
 		}
 	}()
 
