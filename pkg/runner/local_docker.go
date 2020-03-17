@@ -588,7 +588,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 		ctx,
 		log, cli,
 		"testground-control",
-		true,
+		false,
 		network.IPAMConfig{
 			Subnet:  controlSubnet,
 			Gateway: controlGateway,
@@ -642,7 +642,8 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 			Image: imageName,
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(NetworkID),
+			NetworkMode:     container.NetworkMode(NetworkID),
+			PublishAllPorts: true,
 		},
 		PullImageIfMissing: pull,
 	})
