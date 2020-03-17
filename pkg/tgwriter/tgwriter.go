@@ -44,6 +44,10 @@ type Error struct {
 }
 
 func (tgw *TgWriter) Write(p []byte) (n int, err error) {
+	if p == nil {
+		return 0, nil
+	}
+
 	pld := Msg{
 		Type:    "progress",
 		Payload: p,
