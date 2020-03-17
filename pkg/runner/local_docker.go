@@ -263,7 +263,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := docker.EnsureImage(ctx, log, cli, &docker.EnsureImageOpts{
+			_, err := docker.EnsureImage(ctx, log, cli, &docker.BuildImageOpts{
 				Name: "testground-prometheus",
 				// the Source dir is available as a BuildInput, but I don't have access to this very easily
 				// in the health check
