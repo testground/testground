@@ -25,6 +25,7 @@ type DockerReactor struct {
 
 func NewDockerReactor() (Reactor, error) {
 	// TODO: Generalize this to a list of services.
+	// TODO(cory): prometheus-pushgateway could be added as an env variable as well.
 	wantedRoutes := []string{
 		os.Getenv(EnvRedisHost),
 		"prometheus-pushgateway",
@@ -201,7 +202,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 			return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
 		}
 
-		// Add specific routes to redis if redis uses this link.
+		// Add learned routes plan containers so they can reach  the testground infra on the control network.
 		for _, route := range controlRoutes {
 			if route.LinkIndex != link.Attrs().Index {
 				continue
@@ -209,7 +210,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 			if err := netlinkHandle.RouteAdd(&route); err != nil {
 				return nil, fmt.Errorf("failed to add new route: %w", err)
 			}
-			break
 		}
 
 		// Remove the original routes
