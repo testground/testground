@@ -23,11 +23,14 @@ func run(runenv *runtime.RunEnv) error {
 		return NetworkLinkShapeBench(runenv)
 	case "barrier":
 		return BarrierBench(runenv)
+	case "subtree":
+		return SubtreeBench(runenv)
 	case "all":
 		_ = StartTimeBench(runenv)
 		_ = NetworkInitBench(runenv)
 		_ = NetworkLinkShapeBench(runenv)
 		_ = BarrierBench(runenv)
+		_ = SubtreeBench(runenv)
 		return nil
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)

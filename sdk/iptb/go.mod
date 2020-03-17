@@ -1,6 +1,6 @@
 module github.com/ipfs/testground/sdk/iptb
 
-go 1.13
+go 1.14
 
 require (
 	github.com/ipfs/go-ipfs-api v0.0.3

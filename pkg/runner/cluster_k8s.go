@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -38,9 +39,10 @@ import (
 )
 
 var (
-	_    api.Runner       = (*ClusterK8sRunner)(nil)
-	_    api.Terminatable = (*ClusterK8sRunner)(nil)
-	once                  = sync.Once{}
+	_    api.Runner        = (*ClusterK8sRunner)(nil)
+	_    api.Terminatable  = (*ClusterK8sRunner)(nil)
+	_    api.Healthchecker = (*ClusterK8sRunner)(nil)
+	once                   = sync.Once{}
 )
 
 const (
@@ -98,12 +100,6 @@ type ClusterK8sRunnerConfig struct {
 	LogLevel string `toml:"log_level"`
 
 	KeepService bool `toml:"keep_service"`
-
-	// Name of the S3 bucket used for `outputs` from test plans
-	OutputsBucket string `toml:"outputs_bucket"`
-
-	// Region of the S3 bucket used for `outputs` from test plans
-	OutputsBucketRegion string `toml:"outputs_bucket_region"`
 
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
@@ -291,6 +287,146 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 func (*ClusterK8sRunner) ID() string {
 	return "cluster:k8s"
+}
+
+func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
+	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
+	err := exec.Command("sh", "-c", "kops validate cluster").Run()
+	if err != nil {
+		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s", err)}
+		return
+	}
+	return
+}
+
+func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
+	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusFailed, Message: "efs provisioner is not running"}
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+		LabelSelector: "app=efs-provisioner",
+	})
+	if err != nil {
+		efsCheck.Message = err.Error()
+		return
+	}
+	if len(pods.Items) != 1 {
+		efsCheck.Message = fmt.Sprintf("expected 1 EFS provisioner pod. found %d.", len(pods.Items))
+		return
+	}
+
+	pod := pods.Items[0]
+	if pod.Status.Phase != "Running" {
+		return
+	}
+
+	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusOK, Message: "efs provisioner is running"}
+	return
+}
+
+func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
+	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusFailed, Message: "redis service is not running"}
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+		LabelSelector: "app=redis",
+	})
+	if err != nil {
+		redisCheck.Message = err.Error()
+		return
+	}
+	if len(pods.Items) != 1 {
+		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
+		return
+	}
+
+	pod := pods.Items[0]
+	if pod.Status.Phase != "Running" {
+		return
+	}
+
+	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusOK, Message: "redis service is running"}
+	return
+}
+
+func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckItem) {
+	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusFailed, Message: "sidecar service is not reachable"}
+
+	// get number of worker nodes
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "kubernetes.io/role=node",
+	})
+	if err != nil {
+		sidecarCheck.Message = err.Error()
+		return
+	}
+
+	nodes := len(res.Items)
+
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+		LabelSelector: "name=testground-sidecar",
+	})
+	if err != nil {
+		sidecarCheck.Message = err.Error()
+		return
+	}
+	if len(pods.Items) != nodes {
+		sidecarCheck.Message = fmt.Sprintf("expected %d sidecar pods. found %d.", nodes, len(pods.Items))
+		return
+	}
+
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != "Running" {
+			return
+		}
+	}
+
+	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusOK, Message: "sidecar service is running"}
+	return
+}
+
+func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+
+	// TODO: initialize the runner correctly.
+	// When the runner is unitialized, that is, when it has a nil pointer where one is needed.
+	// I considered changing DoHealthCheck to pass an input parameter, such as we do for DoRun and
+	// DoCollectOutputs, but there are already other TODO's in this file that makes me think
+	// initRunner needs to be overhauled. So until such time that there is better initialization,
+	// handle, I'll handle uninitialized runners by sending an empty report here.
+	// What this means is if the first thing you do is run the health check, you will get an empty
+	// report, but for subsequent times, the report is real.
+	report := api.HealthcheckReport{}
+
+	if c.pool != nil {
+		report.Checks = []api.HealthcheckItem{
+			c.healthcheckK8s(),
+			c.healthcheckEFS(),
+			c.healthcheckRedis(),
+			c.healthcheckSidecar(),
+		}
+
+		if fix {
+			fakeFixes := []api.HealthcheckItem{}
+			for _, chk := range report.Checks {
+				if chk.Status != api.HealthcheckStatusOK {
+					fakeFixes = append(fakeFixes, api.HealthcheckItem{
+						Name:    chk.Name,
+						Status:  chk.Status,
+						Message: "Fix not implemented yet for this check.",
+					})
+				}
+				report.Fixes = fakeFixes
+			}
+		}
+	}
+	return &report, nil
 }
 
 func (*ClusterK8sRunner) ConfigType() reflect.Type {

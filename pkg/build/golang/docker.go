@@ -24,7 +24,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
 
 	"github.com/hashicorp/go-getter"
 	"github.com/otiai10/copy"
@@ -183,9 +182,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
-		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync"),
-		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb"),
-		fmt.Sprintf("-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime"))
+		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
+		"-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb",
+		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
 
 	// Write replace directives.
 	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
@@ -211,26 +210,21 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		args["BUILD_TAGS"] = &s
 	}
 
+	// Make sure we are attached to the testground-build network
+	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
 		Tags:        []string{id, in.BuildID},
 		NetworkMode: "testground-build",
 		BuildArgs:   args,
 	}
 
-	tar, err := archive.TarWithOptions(tmp, &archive.TarOptions{})
-	if err != nil {
-		return nil, err
+	imageOpts := docker.BuildImageOpts{
+		BuildCtx:  tmp,
+		BuildOpts: &opts,
 	}
 
-	// Build the image.
-	resp, err := cli.ImageBuild(ctx, tar, opts)
+	err = docker.BuildImage(ctx, cli, &imageOpts)
 	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Pipe the docker output to stdout.
-	if err := docker.PipeOutput(resp.Body, output); err != nil {
 		return nil, err
 	}
 

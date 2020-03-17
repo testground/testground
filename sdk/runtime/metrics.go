@@ -40,11 +40,10 @@ func NewHistogram(runenv *RunEnv, name string, help string, buckets ...float64) 
 	return h
 }
 
-func NewSummary(runenv *RunEnv, name string, help string) prometheus.Summary {
-	s := prometheus.NewSummary(prometheus.SummaryOpts{
-		Name: name,
-		Help: help,
-	})
+func NewSummary(runenv *RunEnv, name string, help string, opts prometheus.SummaryOpts) prometheus.Summary {
+	opts.Name = name
+	opts.Help = help
+	s := prometheus.NewSummary(opts)
 	runenv.MetricsPusher.Collector(s)
 	return s
 }

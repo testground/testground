@@ -3,7 +3,7 @@
 #:::
 
 # GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.13.4
+ARG GO_VERSION=1.14
 
 # Dynamically select the golang version.
 # TODO: Not sure how this interplays with image caching.

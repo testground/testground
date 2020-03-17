@@ -62,3 +62,7 @@ instances = { min = 1, max = 200, default = 5 }
 [[testcases]]
 name = "prometheus2"
 instances = { min = 1, max = 200, default = 5 }
+
+[[testcases]]
+name = "prometheus3"
+instances = { min = 1, max = 200, default = 5 }

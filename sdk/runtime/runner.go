@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -106,8 +107,12 @@ func Invoke(tc func(*RunEnv) error) {
 	// Prepare the event.
 	defer func() {
 		if err := recover(); err != nil {
-			// Handle panics.
+			// Handle panics by recording them in the runenv output.
 			runenv.RecordCrash(err)
+
+			// Developers expect panics to be recorded in run.err too.
+			fmt.Fprintln(os.Stderr, err)
+			debug.PrintStack()
 		}
 	}()
 

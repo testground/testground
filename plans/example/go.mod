@@ -1,6 +1,6 @@
 module github.com/ipfs/testround/plans/example
 
-go 1.13
+go 1.14
 
 replace (
 	github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
@@ -8,6 +8,7 @@ replace (
 )
 
 require (
-	github.com/ipfs/testground/sdk/runtime v0.2.0
-	github.com/ipfs/testground/sdk/sync v0.2.0
+	github.com/ipfs/testground/sdk/runtime v0.1.0
+	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/prometheus/client_golang v1.4.1
 )
