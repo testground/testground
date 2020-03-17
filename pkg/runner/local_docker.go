@@ -269,7 +269,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 				// in the health check
 				// Find the location of infra somehow.
 				// TODO:
-				BuildCtx: "/home/cory/code/testground/infra/docker/testground-prometheus",
+				BuildCtx: "/home/cory/go/src/github.com/ipfs/testground/infra/docker/testground-prometheus",
 			})
 			if err == nil {
 				_, err := ensureInfraContainer(ctx, cli, log, "testground-prometheus", "testground-prometheus:latest", r.controlNetworkID, false)
