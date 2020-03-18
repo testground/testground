@@ -86,19 +86,6 @@ export AWS_REGION=<aws region, for example eu-central-1>
 export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=$HOME/.ssh/testground_rsa.pub
-
-# details for S3 bucket to be used for assets
-export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-
-# for fish shell
-#export ASSETS_BUCKET_NAME=(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-#export ASSETS_ACCESS_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-#export ASSETS_SECRET_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-
-# depends on region, for example "https://s3.eu-central-1.amazonaws.com:443"
-export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
 5. Set up Helm and add the `stable` Helm Charts repository
