@@ -6,3 +6,4 @@
 **/.gitkeep
 **/.gitmodules
 **/Dockerfile
+**/infra
