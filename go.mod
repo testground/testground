@@ -18,7 +18,8 @@ require (
 	github.com/containernetworking/cni v0.7.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-connections v0.4.0
+	github.com/docker/go-units v0.4.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
