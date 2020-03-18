@@ -194,10 +194,10 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 			if route.LinkIndex != link.Attrs().Index {
 				continue
 			}
-			if err := netlinkHandle.RouteAdd(&route); err != nil {
+			err := netlinkHandle.RouteAdd(&route)
+			if err != nil && !os.IsExist(err) {
 				return nil, fmt.Errorf("failed to add new route: %w", err)
 			}
-			break
 		}
 
 		// Remove the original routes
