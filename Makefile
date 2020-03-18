@@ -11,7 +11,10 @@ pre-commit:
 	pre-commit install --install-hooks
 
 docker-ipfs-testground:
-	docker build -t ipfs/testground .
+	docker build --ulimit memlock=-1 -t ipfs/testground .
+
+goproxy:
+	docker container run --ulimit memlock=-1 --name goproxy goproxy/goproxy
 
 tidy:
 	$(call eachmod,go mod tidy)
