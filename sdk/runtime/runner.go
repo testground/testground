@@ -146,26 +146,27 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 		var endpoint string
 	Outer:
 		for b := make([]byte, 2); ; {
+			for _, endpoint = range PushgatewayEndpoints {
+				resp, err := http.Get(fmt.Sprintf("http://%s/-/ready", endpoint))
+				if err != nil {
+					continue
+				}
+				resp.Body.Read(b)
+				if string(b) == "OK" {
+					break Outer
+				}
+			}
+
 			select {
 			case <-tick.C:
-				for _, endpoint = range PushgatewayEndpoints {
-					resp, err := http.Get(fmt.Sprintf("http://%s/-/ready", endpoint))
-					if err != nil {
-						continue
-					}
-					resp.Body.Read(b)
-					if string(b) == "OK" {
-						break Outer
-					}
-				}
-
+				// loop over
 			case <-ctx.Done():
 				// pushgateway was never ready.
 				return
 			}
 		}
 
-		runenv.RecordMessage("pushgateway is up; pushing metrics every %d seconds.", MetricsPushInterval)
+		runenv.RecordMessage("pushgateway is up at %s; pushing metrics every %s.", endpoint, MetricsPushInterval)
 
 		hostname, _ := os.Hostname()
 
@@ -179,7 +180,7 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 
 		push := func() {
 			if err := pusher.Add(); err != nil {
-				runenv.RecordMessage("error during periodic metric push: %w", err)
+				runenv.RecordMessage("error during periodic metric push: %s", err)
 			}
 		}
 
