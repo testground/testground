@@ -1,5 +1,5 @@
 GOTFLATS ?=
-SHELL = "/bin/bash"
+SHELL = /bin/bash
 
 define eachmod
 	@echo '$(1)'
@@ -17,7 +17,7 @@ tidy:
 	$(call eachmod,go mod tidy)
 
 lint:
-	$(call eachmod,GOGC=75 golangci-lint run --concurrency 16 --deadline 4m ./...)
+	$(call eachmod,GOGC=75 golangci-lint run --concurrency 32 --deadline 4m ./...)
 
 test-build:
 	$(call eachmod,go build -o /dev/null ./...)
