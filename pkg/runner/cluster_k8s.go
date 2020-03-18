@@ -496,17 +496,16 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		VersionedParams(&v1.PodExecOptions{
 			Container: "collect-outputs",
 			Command: []string{
-				"tar",
-				"-czf",
-				"-",
-				outputPath,
+				"sh",
+				"-c",
+				"cd /outputs && tar -czf - " + input.RunID,
 			},
 			Stdin:  false,
 			Stderr: false,
 			Stdout: true,
 		}, scheme.ParameterCodec)
 
-	log.Info("Sending command to remote server: ", req.URL())
+	log.Debug("sending command to remote server: ", req.URL())
 	exec, err := remotecommand.NewSPDYExecutor(k8sCfg, "POST", req.URL())
 	if err != nil {
 		log.Warnf("failed to send remote collection command: %v", err)
