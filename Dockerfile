@@ -33,4 +33,6 @@ RUN mkdir -p /usr/local/bin
 COPY --from=0 /testground /usr/local/bin/testground
 ENV PATH="/usr/local/bin:${PATH}"
 
+EXPOSE 6060
+
 ENTRYPOINT [ "/usr/local/bin/testground" ]
