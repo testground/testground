@@ -20,7 +20,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "c3a9b94016f8"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
     [groups.run.test_params]
       bs_strategy = "1"
       bucket_size = "4"
@@ -37,7 +37,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "f9fbd02c5eb2"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
     [groups.run.test_params]
       bs_strategy = "1"
       bucket_size = "4"
@@ -53,7 +53,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "13beab2504cf"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
@@ -69,7 +69,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "f59117af4a1e"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
     [groups.run.test_params]
       bs_strategy = "1"
       bucket_size = "4"
@@ -101,7 +101,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "e8c92077407d"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
     [groups.run.test_params]
       bs_strategy = "1"
       bucket_size = "4"
@@ -132,7 +132,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "d7dbeb0be4f8"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
     [groups.run.test_params]
       bs_strategy = "1"
       bucket_size = "4"
@@ -163,7 +163,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "1c9ea81534f2"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
     [groups.run.test_params]
       bootstrapper = "true"
       bs_strategy = "1"
