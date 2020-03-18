@@ -18,6 +18,16 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// PublicAddr points to an IP address in the public range. It helps us discover
+// the IP address of the gateway (i.e. the Docker host) on the control network
+// (the learned route will be via the control network because, at this point,
+// the only network that's attached to the container is the control network).
+//
+// Sidecar doesn't whitelist traffic to public addresses, but it special-cases
+// traffic between the container and the host, so that pprof, metrics and other
+// ports can be exposed to the Docker host.
+var PublicAddr = net.ParseIP("1.1.1.1")
+
 type DockerReactor struct {
 	routes  []net.IP
 	manager *docker.Manager
@@ -163,8 +173,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 
 	// TODO: Some of this code could be factored out into helpers.
 
-	// Get the routes to redis. We need to keep these.
-
 	var controlRoutes []netlink.Route
 	for _, route := range d.routes {
 		nlroutes, err := netlinkHandle.RouteGet(route)
@@ -172,6 +180,30 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 			return nil, fmt.Errorf("failed to resolve route: %w", err)
 		}
 		controlRoutes = append(controlRoutes, nlroutes...)
+	}
+
+	// Get the route to a public address. We will NOT be whitelisting traffic to
+	// public IPs, but this helps us discover the IP address of the Docker host
+	// on the control network. See the godoc on the PublicAddr var for more
+	// info.
+	pub, err := netlinkHandle.RouteGet(PublicAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve route for %s: %w", PublicAddr, err)
+	}
+
+	switch {
+	case len(pub) == 0:
+		logging.S().Warnw("failed to discover gateway/host address; no routes to public IPs", "container_id", container.ID)
+	case pub[0].Gw == nil:
+		logging.S().Warnw("failed to discover gateway/host address; gateway is nil", "route", pub[0], "container_id", container.ID)
+	default:
+		hostRoutes, err := netlinkHandle.RouteGet(pub[0].Gw)
+		if err != nil {
+			logging.S().Warnw("failed to add route for gateway/host address", "error", err, "route", pub[0], "container_id", container.ID)
+			break
+		}
+		logging.S().Infow("successfully resolved route to host", "container_id", container.ID)
+		controlRoutes = append(controlRoutes, hostRoutes...)
 	}
 
 	for id, link := range links {
