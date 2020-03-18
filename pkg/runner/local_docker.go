@@ -519,7 +519,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 	log.Infow("starting containers", "count", len(containers))
 
-	g, _ := errgroup.WithContext(ctx)
+	g, gctx := errgroup.WithContext(ctx)
 	for _, id := range containers {
 		id := id
 		f := func() error {
@@ -532,8 +532,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 			if err == nil {
 				log.Debugw("started container", "id", id)
 				select {
-				case started <- id:
+				case <-gctx.Done():
 				default:
+					started <- id
 				}
 			}
 			return err
