@@ -499,75 +499,128 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	// Start the containers.
-	if !cfg.Unstarted {
-		log.Infow("starting containers", "count", len(containers))
-		g, ctx := errgroup.WithContext(ctx)
-
-		for _, id := range containers {
-			g.Go(func(id string) func() error {
-				return func() error {
-					log.Debugw("starting container", "id", id)
-					err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
-					if err == nil {
-						log.Debugw("started container", "id", id)
-					}
-					return err
-				}
-			}(id))
-		}
-
-		// If an error occurred, delete all containers, and abort.
-		if err := g.Wait(); err != nil {
-			log.Error(err)
-			return nil, deleteContainers(cli, log, containers)
-		}
-
-		log.Infow("started containers", "count", len(containers))
+	if cfg.Unstarted {
+		return &api.RunOutput{RunID: input.RunID}, nil
 	}
+
+	var (
+		doneCh    = make(chan error, 2)
+		started   = make(chan string, len(containers))
+		ratelimit = make(chan struct{}, 16)
+	)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	log.Infow("starting containers", "count", len(containers))
+
+	g, _ := errgroup.WithContext(ctx)
+	for _, id := range containers {
+		id := id
+		f := func() error {
+			ratelimit <- struct{}{}
+			defer func() { <-ratelimit }()
+
+			log.Infow("starting container", "id", id)
+
+			err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
+			if err == nil {
+				log.Debugw("started container", "id", id)
+				started <- id
+			}
+			return err
+		}
+		g.Go(f)
+	}
+
+	// Wait until we're done to close the started channel.
+	go func() {
+		err := g.Wait()
+		close(started)
+
+		if err != nil {
+			log.Error(err)
+			doneCh <- err
+		} else {
+			log.Infow("started containers", "count", len(containers))
+		}
+	}()
 
 	if !cfg.Background {
 		pretty := NewPrettyPrinter()
 
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		// This goroutine takes started containers and attaches them to the pretty printer.
+		go func() {
+		Outer:
+			for {
+				select {
+				case id, more := <-started:
+					if !more {
+						break Outer
+					}
 
-		for _, id := range containers {
-			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
-				ShowStdout: true,
-				ShowStderr: true,
-				Since:      "2019-01-01T00:00:00",
-				Follow:     true,
-			})
+					stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
+						ShowStdout: true,
+						ShowStderr: true,
+						Since:      "2019-01-01T00:00:00",
+						Follow:     true,
+					})
 
-			if err != nil {
-				log.Error(err)
-				return nil, deleteContainers(cli, log, containers)
+					if err != nil {
+						doneCh <- err
+						return
+					}
+
+					rstdout, wstdout := io.Pipe()
+					rstderr, wstderr := io.Pipe()
+					go func() {
+						_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
+						_ = wstdout.CloseWithError(err)
+						_ = wstderr.CloseWithError(err)
+					}()
+
+					pretty.Manage(id[0:12], rstdout, rstderr)
+
+				case <-ctx.Done():
+					// yield if we're been cancelled.
+					doneCh <- ctx.Err()
+					return
+				}
 			}
 
-			rstdout, wstdout := io.Pipe()
-			rstderr, wstderr := io.Pipe()
-			go func() {
-				_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
-				_ = wstdout.CloseWithError(err)
-				_ = wstderr.CloseWithError(err)
-			}()
-
-			pretty.Manage(id[0:12], rstdout, rstderr)
-		}
-		return &api.RunOutput{RunID: input.RunID}, pretty.Wait()
+			select {
+			case err := <-pretty.Wait():
+				doneCh <- err
+			case <-ctx.Done():
+				log.Error(ctx) // yield if we're been cancelled.
+				doneCh <- ctx.Err()
+			}
+		}()
 	}
 
-	return &api.RunOutput{RunID: input.RunID}, nil
+	select {
+	case err = <-doneCh:
+		fmt.Println("done ch: ", err)
+	case <-ctx.Done():
+		fmt.Println("context done: ", ctx.Err())
+		err = ctx.Err()
+	}
+
+	cancel()
+	return &api.RunOutput{RunID: input.RunID}, err
 }
 
 func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
 	log.Infow("deleting containers", "ids", ids)
 
+	ratelimit := make(chan struct{}, 16)
+
 	errs := make(chan error)
 	for _, id := range ids {
 		go func(id string) {
-			log.Debugw("deleting container", "id", id)
+			ratelimit <- struct{}{}
+			defer func() { <-ratelimit }()
+
+			log.Infow("deleting container", "id", id)
 			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
 		}(id)
 	}
