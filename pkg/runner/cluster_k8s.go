@@ -481,8 +481,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	// tar, compress, and write to stdout.
 	// stdout will remain connected so we can read it later.
 
-	outputPath := "/outputs/" + input.RunID
-	log.Info("collecting outputs from ", outputPath)
+	log.Info("collecting outputs")
 
 	req := client.
 		CoreV1().
