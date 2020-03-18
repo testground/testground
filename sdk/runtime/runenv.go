@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/push"
 	"go.uber.org/zap"
 )
 
@@ -103,23 +101,15 @@ type RunEnv struct {
 	RunParams
 	*logger
 
-	MetricsPusher *push.Pusher
-	unstructured  chan *os.File
-	structured    chan *zap.Logger
+	unstructured chan *os.File
+	structured   chan *zap.Logger
 }
 
 // NewRunEnv constructs a runtime environment from the given runtime parameters.
 func NewRunEnv(params RunParams) *RunEnv {
-	containerName, _ := os.Hostname()
 	re := &RunEnv{
 		RunParams: params,
-		MetricsPusher: push.New("http://prometheus-pushgateway:9091", "testground/plan").
-			Gatherer(prometheus.NewRegistry()).
-			Grouping("TestPlan", params.TestPlan).
-			Grouping("TestCase", params.TestCase).
-			Grouping("TestRun", params.TestRun).
-			Grouping("TestGroupID", params.TestGroupID).
-			Grouping("ContainerName", containerName),
+
 		structured:   make(chan *zap.Logger, 32),
 		unstructured: make(chan *os.File, 32),
 	}

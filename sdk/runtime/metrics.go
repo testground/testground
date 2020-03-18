@@ -17,7 +17,7 @@ func NewCounter(runenv *RunEnv, name string, help string) prometheus.Counter {
 		Name: name,
 		Help: help,
 	})
-	runenv.MetricsPusher.Collector(c)
+	prometheus.MustRegister(c)
 	return c
 }
 
@@ -26,7 +26,7 @@ func NewGauge(runenv *RunEnv, name string, help string) prometheus.Gauge {
 		Name: name,
 		Help: help,
 	})
-	runenv.MetricsPusher.Collector(g)
+	prometheus.MustRegister(g)
 	return g
 }
 
@@ -36,7 +36,7 @@ func NewHistogram(runenv *RunEnv, name string, help string, buckets ...float64) 
 		Help:    help,
 		Buckets: buckets,
 	})
-	runenv.MetricsPusher.Collector(h)
+	prometheus.MustRegister(h)
 	return h
 }
 
@@ -44,7 +44,7 @@ func NewSummary(runenv *RunEnv, name string, help string, opts prometheus.Summar
 	opts.Name = name
 	opts.Help = help
 	s := prometheus.NewSummary(opts)
-	runenv.MetricsPusher.Collector(s)
+	prometheus.MustRegister(s)
 	return s
 }
 
