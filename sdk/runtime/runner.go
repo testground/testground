@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"strings"
@@ -20,11 +21,33 @@ func Invoke(tc func(*RunEnv) error) {
 	// The prometheus pushgateway has a customized scrape interval, which is used to hint to the
 	// prometheus operator at which interval the it should be scraped. This is currently set to 5s.
 	// To provide an updated metric in every scrape, jobs will push to the pushgateway at the same
-	// interval. When this "push_interval" is changed, you may want to change the scrape interval
+	// interval. When this "pushInterval" is changed, you may want to change the scrape interval
 	// on the pushgateway
 	pushStopCh := make(chan struct{})
 	go func() {
 		pushInterval := 5 * time.Second
+
+		// Wait until the pushgateway is ready.
+		runenv.RecordMessage("Waiting for pushgateway to become accessible.")
+		var resbuf []byte
+		for {
+			select {
+			case <-time.After(pushInterval):
+				resp, err := http.Get("http://prometheus-pushgateway:9091/-/ready")
+				if err != nil {
+					continue
+				}
+				resp.Body.Read(resbuf)
+				if string(resbuf) == "OK" {
+					break
+				}
+			case <-pushStopCh:
+				return
+			}
+		}
+
+		runenv.RecordMessage("pushgateway is up. Pushing metrics every %d seconds.", pushInterval)
+
 		for {
 			select {
 			case <-time.After(pushInterval):
