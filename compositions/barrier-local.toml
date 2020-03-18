@@ -1,0 +1,34 @@
+[metadata]
+  name = "barrier"
+  author = "adin"
+
+[global]
+  plan = "dht"
+  case = "barrier"
+  total_instances = 32
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "balsam"
+  [groups.instances]
+    count = 16
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "ef2bac8934b8"
+    [groups.run.test_params]
+      timeout_secs = "600"
+
+[[groups]]
+  id = "balsam2"
+  [groups.instances]
+    count = 16
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "619c9717053c"
+    [groups.run.test_params]
+      timeout_secs = "600"

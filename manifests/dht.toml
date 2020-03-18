@@ -83,3 +83,11 @@ roles = ["storer", "fetcher"]
 
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
+
+# seq 4
+[[testcases]]
+name = "barrier"
+instances = { min = 16, max = 250, default = 16 }
+
+  [testcases.params]
+  bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
