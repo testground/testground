@@ -36,7 +36,7 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 1. [Generate your AWS IAM credentials](https://console.aws.amazon.com/iam/home#/security_credentials).
    
     * [Configure the aws-cli tool with your credentials](https://docs.aws.amazon.com/cli/).
-    * Create a `.env.toml` file (copying over the [`env-example.toml`](https://github.com/ipfs/testground/blob/master/env-example.toml) at the root of this repo as a template), and add your credentials and region to the `[aws]` section.
+    * Create a `.env.toml` file (copying over the [`env-example.toml`](https://github.com/ipfs/testground/blob/master/env-example.toml) at the root of this repo as a template), and add your region to the `[aws]` section.
 
 2. Download shared key for `kops`. We use a shared key, so that everyone on the team can log into any cluster and have full access.
 
