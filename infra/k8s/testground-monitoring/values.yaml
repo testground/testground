@@ -11,30 +11,30 @@
 prometheus-operator:
   alertmanager:
     enabled: false
-    grafana:
-      adminPassword: testground
-    kubeProxy:
-      serviceMonitor:
-        https: false
-    kubelet:
-      serviceMonitor:
-        https: false
-    kubeApiServer:
-      tlsConfig:
-        insecureSkipVerify: true
-    kubeControllerManager:
-      serviceMonitor:
-        insecureSkipVerify: true
-    kubeEtcd:
-      serviceMonitor:
-        insecureSkipVerify: true
-    prometheusOperator:
-      createCustomResource: false
-    prometheus:
-      prometheusSpec:
-        spec:
-          serviceMonitorNamespaceSelector:
-            any: true
+  grafana:
+    adminPassword: testground
+  kubeProxy:
+    serviceMonitor:
+      https: false
+  kubelet:
+    serviceMonitor:
+      https: false
+  kubeApiServer:
+    tlsConfig:
+      insecureSkipVerify: true
+  kubeControllerManager:
+    serviceMonitor:
+      insecureSkipVerify: true
+  kubeEtcd:
+    serviceMonitor:
+      insecureSkipVerify: true
+  prometheusOperator:
+    createCustomResource: false
+  prometheus:
+    prometheusSpec:
+      spec:
+        serviceMonitorNamespaceSelector:
+          any: true
 
 # Changes from defaults:
 # * override "fullname" so it is resolves with http://prometheus-pushgateway
