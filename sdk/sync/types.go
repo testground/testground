@@ -3,6 +3,7 @@ package sync
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,12 @@ type State string
 // Key gets the key, contextualized to the parent.
 func (s State) Key(parent string) string {
 	return strings.Join([]string{parent, "states", string(s)}, ":")
+}
+
+// BarrierChannel gets the pubsub channel to subscribe to receive relevant
+// barrier advisory signals.
+func (s State) BarrierChannel(parent string, target int64) string {
+	return strings.Join([]string{parent, "states", string(s), "barriers", strconv.Itoa(int(target))}, ":")
 }
 
 // AssertType errors if the value doesn't match the expected type.

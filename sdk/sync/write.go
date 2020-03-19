@@ -3,8 +3,8 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -55,7 +55,10 @@ func NewWriter(ctx context.Context, runenv *runtime.RunEnv) (w *Writer, err erro
 	if err != nil {
 		return nil, err
 	}
+	return NewWriterWithClient(ctx, client, runenv)
+}
 
+func NewWriterWithClient(ctx context.Context, client *redis.Client, runenv *runtime.RunEnv) (w *Writer, err error) {
 	exitCtx, cancel := context.WithCancel(context.Background())
 	w = &Writer{
 		client:       client,
@@ -172,18 +175,28 @@ func (w *Writer) Write(ctx context.Context, subtree *Subtree, payload interface{
 // SignalEntry signals entry into the specified state, and returns how many
 // instances are currently in this state, including the caller.
 func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err error) {
-	log := w.re.SLogger()
+	var (
+		log    = w.re.SLogger()
+		key    = s.Key(w.root)
+		client = w.client.WithContext(ctx)
+	)
 
 	log.Debugw("signalling entry to state", "state", s)
 
-	// Increment a counter on the state key.
-	key := strings.Join([]string{w.root, "states", string(s)}, ":")
-	seq, err := w.client.WithContext(ctx).Incr(key).Result()
+	// Increment the counter on the state key.
+	seq, err := client.Incr(key).Result()
 	if err != nil {
 		return -1, err
 	}
 
 	log.Debugw("instances in state", "state", s, "count", seq)
+
+	notified, err := client.Publish(s.BarrierChannel(w.root, seq), "").Result()
+	if err != nil {
+		return seq, fmt.Errorf("failed while publishing barrier advisory signal: %w", err)
+	}
+
+	log.Debugw("barrier advisory signal notification sent", "clients_notified", notified)
 
 	// If we're within the first 5 instances to write to this state key, we're a
 	// supervisor and responsible for keeping it alive. See comment on the

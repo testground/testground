@@ -15,33 +15,30 @@ func BenchmarkBarrier(b *testing.B) {
 
 	runenv := randomRunEnv()
 
-	watcher, writer := MustWatcherWriter(context.Background(), runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	target := 1000000
-	workers := 10
-	each := target / workers
-
 	for n := 0; n < b.N; n++ {
-		ctx, cancel := context.WithCancel(context.Background())
 		state := State(fmt.Sprintf("yoda-%d", n))
 
+		// simulate 1000 instances, each signalling entry, and waiting for all others
+		total := 1000
+
 		var wg sync.WaitGroup
-		for i := 0; i < workers; i++ {
+		for i := 0; i < total; i++ {
 			wg.Add(1)
-			go func(start, end int) {
+
+			go func() {
 				defer wg.Done()
 
-				for i := start; i < end; i++ {
-					writer.SignalEntry(ctx, state)
-				}
-			}(i*each, (i+1)*each)
-		}
+				watcher, writer := MustWatcherWriter(context.Background(), runenv)
+				defer watcher.Close()
+				defer writer.Close()
 
-		b.ResetTimer()
-		ch := watcher.Barrier(ctx, state, int64(target))
-		<-ch
-		cancel()
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				writer.SignalEntry(ctx, state)
+				<-watcher.Barrier(ctx, state, int64(total))
+			}()
+		}
+		wg.Wait()
 	}
 }
