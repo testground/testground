@@ -55,7 +55,10 @@ func NewWriter(ctx context.Context, runenv *runtime.RunEnv) (w *Writer, err erro
 	if err != nil {
 		return nil, err
 	}
+	return NewWriterWithClient(ctx, client, runenv)
+}
 
+func NewWriterWithClient(ctx context.Context, client *redis.Client, runenv *runtime.RunEnv) (w *Writer, err error) {
 	exitCtx, cancel := context.WithCancel(context.Background())
 	w = &Writer{
 		client:       client,

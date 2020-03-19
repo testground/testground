@@ -18,8 +18,8 @@ func BenchmarkBarrier(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		state := State(fmt.Sprintf("yoda-%d", n))
 
-		// simulate 50000 instances, each signalling entry, and waiting for all others
-		total := 50000
+		// simulate 1000 instances, each signalling entry, and waiting for all others
+		total := 1000
 
 		var wg sync.WaitGroup
 		for i := 0; i < total; i++ {

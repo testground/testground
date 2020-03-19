@@ -30,7 +30,10 @@ func NewWatcher(ctx context.Context, runenv *runtime.RunEnv) (w *Watcher, err er
 	if err != nil {
 		return nil, fmt.Errorf("during redisClient: %w", err)
 	}
+	return NewWatcherWithClient(ctx, client, runenv)
+}
 
+func NewWatcherWithClient(ctx context.Context, client *redis.Client, runenv *runtime.RunEnv) (w *Watcher, err error) {
 	prefix := basePrefix(runenv)
 	w = &Watcher{
 		re:     runenv,
@@ -140,7 +143,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 		switch {
 		case err != nil && err != redis.Nil:
 			resCh <- fmt.Errorf("failed to get value of state: %w", err)
-			return 0, true
+			return 0, false
 		case curr >= required:
 			resCh <- nil
 			return curr, true
