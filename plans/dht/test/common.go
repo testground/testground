@@ -42,6 +42,13 @@ func init() {
 
 const minTestInstances = 16
 
+type OptDatastore int
+
+const (
+	OptDatastoreMemory OptDatastore = iota
+	OptDatastoreLeveldb
+)
+
 type SetupOpts struct {
 	Timeout     time.Duration
 	AutoRefresh bool
@@ -51,7 +58,7 @@ type SetupOpts struct {
 	NDisjointPaths int
 
 	ClientMode bool
-	Datastore  int
+	Datastore  OptDatastore
 
 	PeerIDSeed        int
 	Bootstrapper      bool
@@ -78,7 +85,7 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 		NDisjointPaths: runenv.IntParam("n_paths"),
 
 		ClientMode: runenv.BooleanParam("client_mode"),
-		Datastore:  runenv.IntParam("datastore"),
+		Datastore:  OptDatastore(runenv.IntParam("datastore")),
 
 		PeerIDSeed:        runenv.IntParam("peer_id_seed"),
 		Bootstrapper:      runenv.BooleanParam("bootstrapper"),
@@ -203,9 +210,9 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 
 	var ds datastore.Batching
 	switch opts.Datastore {
-	case 0:
+	case OptDatastoreMemory:
 		ds = datastore.NewMapDatastore()
-	case 1:
+	case OptDatastoreLeveldb:
 		ds, err = leveldb.NewDatastore("", nil)
 		if err != nil {
 			return nil, nil, err
