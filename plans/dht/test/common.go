@@ -288,11 +288,10 @@ func SetupNetworkOrig(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 	return nil
 }
 
-
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this
 // test case.
 func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error {
-	return SetupNetworkOrig(ctx, ri.runenv, ri.watcher, ri.writer)
+	//return SetupNetworkOrig(ctx, ri.runenv, ri.watcher, ri.writer)
 
 	if !ri.runenv.TestSidecar {
 		return nil

@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	u "github.com/ipfs/go-ipfs-util"
 	"reflect"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/ipfs/go-cid"
+	u "github.com/ipfs/go-ipfs-util"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -37,19 +37,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	//defer watcher.Close()
 	//defer writer.Close()
 
-	runenv.RecordMessage("New test1")
+	runenv.RecordMessage("New test2")
 
 	ri := &RunInfo{
 		runenv:  runenv,
 		watcher: watcher,
 		writer:  writer,
 	}
-	
-	z := SetupNetwork(ctx, ri, 0)
-	if z != nil {
-		return z
-	}
-	return nil
 
 	node, peers, err := Setup(ctx, ri, commonOpts)
 	if err != nil {
