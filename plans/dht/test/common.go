@@ -18,6 +18,7 @@ import (
 	leveldb "github.com/ipfs/go-ds-leveldb"
 
 	"github.com/ipfs/go-datastore"
+	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/libp2p/go-libp2p"
 	autonat "github.com/libp2p/go-libp2p-autonat"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
@@ -211,7 +212,7 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 	var ds datastore.Batching
 	switch opts.Datastore {
 	case OptDatastoreMemory:
-		ds = datastore.NewMapDatastore()
+		ds = dssync.MutexWrap(datastore.NewMapDatastore())
 	case OptDatastoreLeveldb:
 		ds, err = leveldb.NewDatastore("", nil)
 		if err != nil {
