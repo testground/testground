@@ -125,7 +125,6 @@ kubectl apply -f ./kops-weave/weave.yml \
               -f ./kops-weave/weave-metrics-service.yml \
               -f ./kops-weave/weave-service-monitor.yml \
               -f ./kops-weave/dummy.yml \
-              -f ./kops-weave/s3bucket.yml \
               -f ./sidecar.yaml
 
 echo "Install Redis..."
