@@ -64,7 +64,7 @@ func testBarrier(ctx context.Context, ri *RunInfo, node *NodeParams) error {
 func testSync(ctx context.Context, ri *RunInfo, node *NodeParams) error {
 	for i := 0; i < 100; i++ {
 		t := time.Now()
-		if err := Sync(ctx, ri, sync.State(fmt.Sprintf("synctest %d",i))) ; err != nil {
+		if err := Sync(ctx, ri, sync.State(fmt.Sprintf("synctest %d", i))); err != nil {
 			panic(err)
 		}
 		ri.runenv.RecordMetric(&runtime.MetricDefinition{

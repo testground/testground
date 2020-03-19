@@ -17,16 +17,16 @@ import (
 )
 
 type findProvsParams struct {
-	RecordSeed      int
-	RecordCount int
+	RecordSeed    int
+	RecordCount   int
 	SearchRecords bool
 }
 
 func FindProviders(runenv *runtime.RunEnv) error {
 	commonOpts := GetCommonOpts(runenv)
 	fpOpts := findProvsParams{
-		RecordSeed: runenv.IntParam("record_seed"),
-		RecordCount: runenv.IntParam("record_count"),
+		RecordSeed:    runenv.IntParam("record_seed"),
+		RecordCount:   runenv.IntParam("record_count"),
 		SearchRecords: runenv.BooleanParam("search_records"),
 	}
 
@@ -223,7 +223,7 @@ func getRecords(ctx context.Context, ri *RunInfo, info *NodeInfo, fpOpts findPro
 				if len(rec.RecordIDs) > 0 {
 					searchRecords = append(searchRecords, rec)
 				}
-			case <-time.After(time.Second*5):
+			case <-time.After(time.Second * 5):
 				ri.runenv.RecordMessage("haaaallp")
 			case <-ctx.Done():
 				return nil, nil, ctx.Err()
@@ -248,5 +248,5 @@ var RecordsSubtree = &sync.Subtree{
 
 type RecordSubmission struct {
 	RecordIDs []cid.Cid
-	GroupID string
+	GroupID   string
 }

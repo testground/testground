@@ -14,7 +14,7 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
 
-func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error){
+func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error) {
 	dhtOptions := []dhtopts.Option{
 		dhtopts.Protocols("/testground/kad/1.0.0"),
 		dhtopts.Datastore(ds),

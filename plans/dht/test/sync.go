@@ -16,7 +16,7 @@ var GroupIDSubtree = &sync.Subtree{
 }
 
 type GroupInfo struct {
-	ID string
+	ID   string
 	Size int
 }
 

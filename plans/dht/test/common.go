@@ -60,11 +60,11 @@ type SetupOpts struct {
 }
 
 type RunInfo struct {
-	runenv *runtime.RunEnv
+	runenv  *runtime.RunEnv
 	watcher *sync.Watcher
-	writer *sync.Writer
+	writer  *sync.Writer
 
-	groups []string
+	groups     []string
 	groupSizes map[string]int
 }
 
@@ -329,7 +329,7 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 		host: nil,
 		dht:  nil,
 		info: &NodeInfo{
-			Seq: testSeq,
+			Seq:      testSeq,
 			GroupSeq: groupSeq,
 			Properties: NodeProperties{
 				Bootstrapper: opts.Bootstrapper,
@@ -379,8 +379,8 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 	if _, err := ri.writer.Write(ctx, GroupIDSubtree,
 		&GroupInfo{ID: ri.runenv.TestGroupID, Size: ri.runenv.TestGroupInstanceCount}); err != nil {
-			return err
-		}
+		return err
+	}
 
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -481,8 +481,8 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			targetSize := int(math.Log2(float64(len(bootstrappers)))/2) + 1
 			rng := rand.New(rand.NewSource(int64(node.info.Seq)))
 			for i := 0; i < targetSize; i++ {
-				bsIndex := rng.Int()%len(bootstrappers)
-				if _, found := added[bsIndex]; found{
+				bsIndex := rng.Int() % len(bootstrappers)
+				if _, found := added[bsIndex]; found {
 					i--
 					continue
 				}
