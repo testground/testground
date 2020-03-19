@@ -1,0 +1,55 @@
+# Testground values overrides:
+
+# Changes from defaults:
+# * Disabled the alertmanager.
+# * We do not manage certificates. In order to prevent scrape errors caused by
+#   certificate malfunction, skip TLS checks or disable https.
+# * The grafana username and password are stored in a kubernetes secret called
+#   <RELEASE>-grafana. Changed from the default (prom-operator) to testground.
+# * I configured the scraper to look for ServiceMonitors in any namespace. This
+#   allows a single prometheus to scrape plan as well as kube-system metrics.
+prometheus-operator:
+  alertmanager:
+    enabled: false
+    grafana:
+      adminPassword: testground
+    kubeProxy:
+      serviceMonitor:
+        https: false
+    kubelet:
+      serviceMonitor:
+        https: false
+    kubeApiServer:
+      tlsConfig:
+        insecureSkipVerify: true
+    kubeControllerManager:
+      serviceMonitor:
+        insecureSkipVerify: true
+    kubeEtcd:
+      serviceMonitor:
+        insecureSkipVerify: true
+    prometheusOperator:
+      createCustomResource: false
+    prometheus:
+      prometheusSpec:
+        spec:
+          serviceMonitorNamespaceSelector:
+            any: true
+
+# Changes from defaults:
+# * override "fullname" so it is resolves with http://prometheus-pushgateway
+#   This matches the behavior from the kops addon, but we don't need to do this
+#   once we make this a configurable option.
+# * enable the serviceMonitor, so it will be picked up by the prometheus 
+#   operator. Move the serviceMonitor to the default namespace.
+# * Change the scrape interval to a short value. This should be set to the same
+#   value with which plans push to the pushgatway. See the runner sdk.
+# * Permissive network policy.
+prometheus-pushgateway:
+  fullnameOverride: prometheus-pushgateway
+  serviceMonitor:
+    enabled: true
+    interval: 5s
+    namespace: default
+  networkPolicy:
+    allowAll: true
