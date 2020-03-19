@@ -499,6 +499,7 @@ metrics:
   # Enable this if you're using https://github.com/coreos/prometheus-operator
   serviceMonitor:
     enabled: true
+    namespace: default
     ## Specify a namespace if needed
     # namespace: monitoring
     # fallback to the prometheus default unless specified
@@ -506,8 +507,8 @@ metrics:
     ## Defaults to what's used if you follow CoreOS [Prometheus Install Instructions](https://github.com/helm/charts/tree/master/stable/prometheus-operator#tldr)
     ## [Prometheus Selector Label](https://github.com/helm/charts/tree/master/stable/prometheus-operator#prometheus-operator-1)
     ## [Kube Prometheus Selector Label](https://github.com/helm/charts/tree/master/stable/prometheus-operator#exporters)
-    selector:
-      prometheus: kube-prometheus
+    #selector:
+    #  prometheus: kube-prometheus
       #      prometheus: prometheus-k8s
 
   ## Metrics exporter pod priorityClassName
