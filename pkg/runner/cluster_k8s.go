@@ -495,9 +495,12 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		VersionedParams(&v1.PodExecOptions{
 			Container: "collect-outputs",
 			Command: []string{
-				"sh",
-				"-c",
-				"cd /outputs && tar -czf - " + input.RunID,
+				"tar",
+				"-C",
+				"/outputs",
+				"-czf",
+				"-",
+				input.RunID,
 			},
 			Stdin:  false,
 			Stderr: false,
