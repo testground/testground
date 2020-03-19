@@ -217,6 +217,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		}
 		for i := 0; i < g.Instances; i++ {
 			i := i
+			g := g
 			sem <- struct{}{}
 
 			podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
@@ -259,6 +260,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	for _, g := range input.Groups {
 		for i := 0; i < g.Instances; i++ {
 			i := i
+			g := g
 			sem <- struct{}{}
 
 			gg.Go(func() error {
