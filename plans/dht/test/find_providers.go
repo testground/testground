@@ -34,14 +34,22 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	//defer watcher.Close()
+	//defer writer.Close()
+
+	runenv.RecordMessage("New test1")
 
 	ri := &RunInfo{
 		runenv:  runenv,
 		watcher: watcher,
 		writer:  writer,
 	}
+	
+	z := SetupNetwork(ctx, ri, 0)
+	if z != nil {
+		return z
+	}
+	return nil
 
 	node, peers, err := Setup(ctx, ri, commonOpts)
 	if err != nil {

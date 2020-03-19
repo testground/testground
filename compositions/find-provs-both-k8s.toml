@@ -9,8 +9,10 @@
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
-     push_registry = true
-     registry_type = "aws"
+    push_registry = true
+    registry_type = "aws"
+  [global.run_config]
+    keep_service = true
 
 [[groups]]
   id = "balsam-undialable-provider"
@@ -20,9 +22,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:b40b3e74684f"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
       search_records = "true"
@@ -37,9 +39,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:337d6d32837a"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -53,7 +55,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:6a550c1098e6"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
@@ -69,9 +71,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4bbdde53866c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:75f6df08d8ca"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -101,9 +103,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:fbb54cf68859"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
       timeout_secs = "200"
@@ -132,9 +134,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:627b4b7dd7e6"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -163,7 +165,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8508e57ae919"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:38fd7a90fb28"
     [groups.run.test_params]
       bootstrapper = "true"
       bs_strategy = "1"

@@ -17,9 +17,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "c3a9b94016f8"
+    artifact = "35593afa57c4"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
       search_records = "true"
@@ -34,9 +34,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "f9fbd02c5eb2"
+    artifact = "4ab6bf748666"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -50,7 +50,7 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "13beab2504cf"
+    artifact = "7ff67a8f5168"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
@@ -66,9 +66,9 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "f59117af4a1e"
+    artifact = "17bfb52ad099"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -98,9 +98,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "e8c92077407d"
+    artifact = "286339fb9fc3"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
       timeout_secs = "200"
@@ -129,9 +129,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "d7dbeb0be4f8"
+    artifact = "d42e1f32cc57"
     [groups.run.test_params]
-      bs_strategy = "1"
+      bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
       timeout_secs = "200"
@@ -160,7 +160,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "1c9ea81534f2"
+    artifact = "ec9eb9d6a857"
     [groups.run.test_params]
       bootstrapper = "true"
       bs_strategy = "1"
