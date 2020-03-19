@@ -111,7 +111,7 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 		var (
 			last   int64
 			err    error
-			ticker = time.NewTicker(250 * time.Millisecond)
+			ticker = time.NewTicker(1 * time.Second)
 			k      = state.Key(w.root)
 			client = w.client.WithContext(ctx)
 		)
