@@ -5,7 +5,6 @@ package test
 import (
 	"context"
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/go-datastore"
 	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -27,7 +26,9 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 		dhtOptions = append(dhtOptions, kaddht.DisableAutoRefresh())
 	}
 
-	if info.Properties.Undialable && opts.ClientMode {
+	if info.Properties.Bootstrapper {
+		dhtOptions = append(dhtOptions, kaddht.Mode(kaddht.ModeServer))
+	} else if info.Properties.Undialable && opts.ClientMode {
 		dhtOptions = append(dhtOptions, kaddht.Mode(kaddht.ModeClient))
 	}
 
