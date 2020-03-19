@@ -481,8 +481,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	// tar, compress, and write to stdout.
 	// stdout will remain connected so we can read it later.
 
-	outputPath := "/outputs/" + input.RunID
-	log.Info("collecting outputs from ", outputPath)
+	log.Info("collecting outputs")
 
 	req := client.
 		CoreV1().
@@ -497,16 +496,18 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 			Container: "collect-outputs",
 			Command: []string{
 				"tar",
+				"-C",
+				"/outputs",
 				"-czf",
 				"-",
-				outputPath,
+				input.RunID,
 			},
 			Stdin:  false,
 			Stderr: false,
 			Stdout: true,
 		}, scheme.ParameterCodec)
 
-	log.Info("Sending command to remote server: ", req.URL())
+	log.Debug("sending command to remote server: ", req.URL())
 	exec, err := remotecommand.NewSPDYExecutor(k8sCfg, "POST", req.URL())
 	if err != nil {
 		log.Warnf("failed to send remote collection command: %v", err)
