@@ -111,11 +111,6 @@ type ClusterK8sRunnerConfig struct {
 type ClusterK8sRunner struct {
 	config KubernetesConfig
 	pool   *pool
-
-	podResourceCPU    resource.Quantity
-	podResourceMemory resource.Quantity
-
-	maxAllowedPods int
 }
 
 type KubernetesConfig struct {
@@ -136,12 +131,15 @@ func defaultKubernetesConfig() KubernetesConfig {
 }
 
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+	c.initPool()
+
 	var (
 		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 	)
 
-	c.initRunner(cfg)
+	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
+	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
 	// Sanity check.
 	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
@@ -171,13 +169,13 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	c.maxAllowedPods, err = c.maxPods() // TODO: maybe move to the `init` / runner constructor at some point
+	maxAllowedPods, err := c.maxPods(podResourceCPU)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
 	}
 
-	if c.maxAllowedPods < input.TotalInstances {
-		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", c.maxAllowedPods)
+	if maxAllowedPods < input.TotalInstances {
+		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", maxAllowedPods)
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -244,7 +242,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
-				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i)
+				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podResourceMemory, podResourceCPU)
 			})
 		}
 	}
@@ -393,37 +391,28 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 }
 
 func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+	c.initPool()
 
-	// TODO: initialize the runner correctly.
-	// When the runner is unitialized, that is, when it has a nil pointer where one is needed.
-	// I considered changing DoHealthCheck to pass an input parameter, such as we do for DoRun and
-	// DoCollectOutputs, but there are already other TODO's in this file that makes me think
-	// initRunner needs to be overhauled. So until such time that there is better initialization,
-	// handle, I'll handle uninitialized runners by sending an empty report here.
-	// What this means is if the first thing you do is run the health check, you will get an empty
-	// report, but for subsequent times, the report is real.
 	report := api.HealthcheckReport{}
 
-	if c.pool != nil {
-		report.Checks = []api.HealthcheckItem{
-			c.healthcheckK8s(),
-			c.healthcheckEFS(),
-			c.healthcheckRedis(),
-			c.healthcheckSidecar(),
-		}
+	report.Checks = []api.HealthcheckItem{
+		c.healthcheckK8s(),
+		c.healthcheckEFS(),
+		c.healthcheckRedis(),
+		c.healthcheckSidecar(),
+	}
 
-		if fix {
-			fakeFixes := []api.HealthcheckItem{}
-			for _, chk := range report.Checks {
-				if chk.Status != api.HealthcheckStatusOK {
-					fakeFixes = append(fakeFixes, api.HealthcheckItem{
-						Name:    chk.Name,
-						Status:  chk.Status,
-						Message: "Fix not implemented yet for this check.",
-					})
-				}
-				report.Fixes = fakeFixes
+	if fix {
+		fakeFixes := []api.HealthcheckItem{}
+		for _, chk := range report.Checks {
+			if chk.Status != api.HealthcheckStatusOK {
+				fakeFixes = append(fakeFixes, api.HealthcheckItem{
+					Name:    chk.Name,
+					Status:  chk.Status,
+					Message: "Fix not implemented yet for this check.",
+				})
 			}
+			report.Fixes = fakeFixes
 		}
 	}
 	return &report, nil
@@ -437,7 +426,7 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go"}
 }
 
-func (c *ClusterK8sRunner) initRunner(cfg ClusterK8sRunnerConfig) {
+func (c *ClusterK8sRunner) initPool() {
 	once.Do(func() {
 		log := logging.S().With("runner", "cluster:k8s")
 
@@ -449,22 +438,17 @@ func (c *ClusterK8sRunner) initRunner(cfg ClusterK8sRunnerConfig) {
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		c.podResourceCPU = resource.MustParse(cfg.PodResourceCPU)
-		c.podResourceMemory = resource.MustParse(cfg.PodResourceMemory)
 	})
 }
 
 func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+	c.initPool()
+
 	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
 	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
 		return err
 	}
-
-	//TODO: we shouldn't have to init the runner in every handler
-	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-	c.initRunner(cfg)
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
@@ -767,7 +751,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, log *zap
 	}
 }
 
-func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int) error {
+func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -838,8 +822,8 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: c.podResourceMemory,
-							v1.ResourceCPU:    c.podResourceCPU,
+							v1.ResourceMemory: podResourceMemory,
+							v1.ResourceCPU:    podResourceCPU,
 						},
 					},
 				},
@@ -864,8 +848,8 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 
 // maxPods returns the max allowed pods for the current cluster size
 // at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
-func (c *ClusterK8sRunner) maxPods() (int, error) {
-	podCPU, err := strconv.ParseFloat(c.podResourceCPU.AsDec().String(), 64)
+func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error) {
+	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
 	if err != nil {
 		return 0, err
 	}
@@ -897,25 +881,17 @@ func (c *ClusterK8sRunner) maxPods() (int, error) {
 // Terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
 func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
-	log := logging.S()
-	// Until the first Run, pool is a null pointer.
-	// We expect TerminateAll to be able to remove plans inadvertently left behind from previous runs,
-	// even if the daemon is freshly started. For that reason, TerminateAll will use a separate pool,
-	// rather than the one that can be found at c.pool.
-	pool, err := newPool(20, defaultKubernetesConfig())
-	if err != nil {
-		log.Fatal(err)
-	}
+	c.initPool()
 
-	client := pool.Acquire()
-	defer pool.Release(client)
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	planPods := metav1.ListOptions{
 		LabelSelector: "testground.purpose=plan",
 	}
-	err = client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	err := client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
-		log.Errorw("could not terminate all pods", "err", err)
+		logging.S().Errorw("could not terminate all pods", "err", err)
 		return err
 	}
 	return nil
