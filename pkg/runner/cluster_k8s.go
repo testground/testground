@@ -169,6 +169,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
+	// currently we are CPU-bound, so we pass only the CPU requirements for an individiual testplan instance.
+	// in the future we might want to update `maxPods` to also take `podResourceMemory` and
+	// calculate `maxAllowedPods` based on it.
 	maxAllowedPods, err := c.maxPods(podResourceCPU)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
