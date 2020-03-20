@@ -10,3 +10,6 @@ dependencies:
 
   - name: testground-dashboards
     version: "0.0.*"
+
+  - name: redis
+    version: "10.5.*"

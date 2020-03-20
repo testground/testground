@@ -113,9 +113,9 @@ envsubst <./efs/manifest.yaml.spec >$EFS_MANIFEST_SPEC
 kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
-# install the monitoring first. This creates the serviceMonitor CID which is needed for weave and redis
-echo "installing the monitoring system"
-helm install testground-monitoring ./testground-monitoring
+# monitoring and redis.
+echo "installing helm infrastructure"
+helm install testground-infra ./testground-infra
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
@@ -127,9 +127,6 @@ kubectl apply -f ./kops-weave/weave.yml \
               -f ./kops-weave/dummy.yml \
               -f ./sidecar.yaml
 
-echo "Install Redis..."
-echo
-helm install redis stable/redis --values ./redis-values.yaml
 
 echo "Wait for Sidecar to be Ready..."
 echo

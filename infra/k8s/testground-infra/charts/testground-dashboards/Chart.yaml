@@ -3,6 +3,6 @@ appVersion: 0.0.1
 description: Testground Dashboards
 engine: gotpl
 home: https://github.com/ipfs/testground
-name: testground-team
+name: testground-dashboards
 sources:
 version: 0.0.1

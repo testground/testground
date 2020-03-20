@@ -61,3 +61,15 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+
+
+# Changes from defaults:
+# * enable redis exporter
+# * enable the serviceMonitor so it will be picked up by prometheus
+redis:
+  metrics:
+    enabled: true
+    serviceMonitor: 
+      enabled: true
+      namespace: default
+
