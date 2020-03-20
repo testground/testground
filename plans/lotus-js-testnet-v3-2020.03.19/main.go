@@ -170,6 +170,19 @@ func run(runenv *runtime.RunEnv) error {
 	}
 	time.Sleep(2 * time.Second) // Give nginx time to start
 
+	go func() {
+		log.Fatal(http.ListenAndServe(":9999", nil))
+	}()
+
+	// Serve token files
+	http.HandleFunc("/.lotus/token", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "/root/.lotus/token")
+	})
+
+	http.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "/root/.lotusstorage/token")
+	})
+
 	switch {
 	case seq == 1: // genesis node
 		runenv.RecordMessage("Genesis: %v", config.IPv4.IP)
@@ -213,6 +226,12 @@ func run(runenv *runtime.RunEnv) error {
 					nodeIPv4.IP.String(),
 				)
 				tunnelArgs = append(tunnelArgs, "-o", minerForwardArg)
+				testplanForwardArg := fmt.Sprintf(
+					"RemoteForward %v %v:9999",
+					30000+i-1,
+					nodeIPv4.IP.String(),
+				)
+				tunnelArgs = append(tunnelArgs, "-o", testplanForwardArg)
 			}
 			tunnelArgs = append(tunnelArgs, "-o", "StrictHostKeyChecking no")
 			tunnelArgs = append(tunnelArgs, runenv.StringParam("ssh-tunnel"))
@@ -393,13 +412,9 @@ func run(runenv *runtime.RunEnv) error {
 		time.Sleep(15 * time.Second)
 
 		// Serve /root/dev.gen file for other nodes to use as genesis
-		go func() {
-			http.HandleFunc("/dev.gen", func(w http.ResponseWriter, r *http.Request) {
-				http.ServeFile(w, r, "/root/dev.gen")
-			})
-
-			log.Fatal(http.ListenAndServe(":9999", nil))
-		}()
+		http.HandleFunc("/dev.gen", func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFile(w, r, "/root/dev.gen")
+		})
 
 		api, closer, err := connectToAPI()
 		if err != nil {
