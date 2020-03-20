@@ -205,7 +205,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{
 			Name:  "REDIS_HOST",
-			Value: "redis-headless",
+			Value: "testground-infra-redis-headless",
 		})
 
 		// Set the log level if provided in cfg.
