@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"time"
 
@@ -144,23 +145,46 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					ectx, cancel := context.WithCancel(ctx)
 					ectx = TraceQuery(ctx, runenv, node, p.Pretty())
 					t := time.Now()
-					pids, err := node.dht.FindProviders(ectx, c)
-					cancel()
-					if err == nil {
-						runenv.RecordMetric(&runtime.MetricDefinition{
-							Name:           fmt.Sprintf("time-to-find|%s|%d", groupID, i),
-							Unit:           "ns",
-							ImprovementDir: -1,
-						}, float64(time.Since(t).Nanoseconds()))
 
-						runenv.RecordMetric(&runtime.MetricDefinition{
-							Name:           fmt.Sprintf("peers-found|%s|%d", groupID, i),
-							Unit:           "peers",
-							ImprovementDir: 1,
-						}, float64(len(pids)))
+					numProvs := 0
+					provsCh := node.dht.FindProvidersAsync(ectx, c, math.MaxInt32)
+					incomplete := "done"
+					provLoop:
+					for {
+						select {
+						case _, ok := <-provsCh:
+							if !ok {
+								break provLoop
+							}
+							if numProvs == 0 {
+								runenv.RecordMetric(&runtime.MetricDefinition{
+									Name:           fmt.Sprintf("time-to-find-first|%s|%d", groupID, i),
+									Unit:           "ns",
+									ImprovementDir: -1,
+								}, float64(time.Since(t).Nanoseconds()))
+							}
+
+							numProvs++
+						case <-ctx.Done():
+							incomplete = "incomplete"
+							break provLoop
+						}
 					}
+					cancel()
 
-					return err
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", incomplete, groupID, i),
+						Unit:           "ns",
+						ImprovementDir: -1,
+					}, float64(time.Since(t).Nanoseconds()))
+
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("peers-found|%s|%s|%d", incomplete, groupID, i, ),
+						Unit:           "peers",
+						ImprovementDir: 1,
+					}, float64(numProvs))
+
+					return nil
 				})
 			}
 		}
