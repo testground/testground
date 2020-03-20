@@ -6,6 +6,9 @@
 #   certificate malfunction, skip TLS checks or disable https.
 # * The grafana username and password are stored in a kubernetes secret called
 #   <RELEASE>-grafana. Changed from the default (prom-operator) to testground.
+# * Enable the grafana sidecar. This will watch for secrets or configmaps which
+#   have the label grafana_dashboard or grafana_datasource, and adds them
+#   automatically to the grafana dashboard.
 # * I configured the scraper to look for ServiceMonitors in any namespace. This
 #   allows a single prometheus to scrape plan as well as kube-system metrics.
 prometheus-operator:
@@ -13,6 +16,11 @@ prometheus-operator:
     enabled: false
   grafana:
     adminPassword: testground
+    sidecar:
+      dashboards:
+        enabled: true
+      datasources:
+        enabled: true
   kubeProxy:
     serviceMonitor:
       https: false

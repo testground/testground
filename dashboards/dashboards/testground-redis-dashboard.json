@@ -15,7 +15,7 @@
     "sharedCrosshair": false,
     "panels": [
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -96,7 +96,7 @@
             "valueName": "current"
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -178,7 +178,7 @@
             "valueName": "current"
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -260,7 +260,7 @@
             "valueName": "current"
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -338,7 +338,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -424,7 +424,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -511,7 +511,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -596,7 +596,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -672,7 +672,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -756,7 +756,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -850,8 +850,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 7,
@@ -932,7 +932,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -1010,7 +1010,7 @@
             ]
         },
         {
-            "datasource": "prometheus",
+            "datasource": "Prometheus",
             "editable": true,
             "error": false,
             "gridPos": {
@@ -1094,7 +1094,7 @@
             {
                 "name": "instance",
                 "type": "query",
-                "datasource": "prometheus",
+                "datasource": "Prometheus",
                 "refresh": 2,
                 "options": [],
                 "includeAll": false,

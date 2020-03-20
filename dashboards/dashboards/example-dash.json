@@ -41,8 +41,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 5,
@@ -120,8 +120,8 @@
             "valueName": "avg"
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -194,8 +194,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -271,8 +271,8 @@
                         "yBucketNumber": null,
                         "yBucketSize": null
                     },
-                    "datasource": "prometheus",
-                    "editable": false,
+                    "datasource": "Prometheus",
+                    "editable": true,
                     "error": false,
                     "gridPos": {
                         "h": 9,
@@ -287,8 +287,8 @@
                     "transparent": false,
                     "type": "heatmap"
                 },
-                "datasource": "prometheus",
-                "editable": false,
+                "datasource": "Prometheus",
+                "editable": true,
                 "error": false,
                 "gridPos": {
                     "h": 9,
@@ -305,8 +305,8 @@
             }
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -397,8 +397,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -471,8 +471,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -545,8 +545,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -657,8 +657,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -731,8 +731,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
