@@ -34,7 +34,7 @@ func BenchmarkBarrier(b *testing.B) {
 				defer wg.Done()
 
 				for i := start; i < end; i++ {
-					writer.SignalEntry(ctx, state)
+					_, _ = writer.SignalEntry(ctx, state)
 				}
 			}(i*each, (i+1)*each)
 		}
