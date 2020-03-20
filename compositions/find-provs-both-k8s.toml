@@ -20,10 +20,10 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:f68664f06c60"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2cc01df70b75"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       record_count = "1"
       search_records = "true"
       timeout_secs = "600"
@@ -37,10 +37,10 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:69746d403c77"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:d1ad4b4f7c57"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       search_records = "true"
       timeout_secs = "600"
       undialable = "true"
@@ -53,10 +53,10 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c44042903ef2"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:01a394b36346"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       record_count = "1"
       timeout_secs = "600"
       undialable = "false"
@@ -69,10 +69,10 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:f7a4b91e3882"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:0339829d8284"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       search_records = "true"
       timeout_secs = "600"
       undialable = "false"
@@ -101,10 +101,10 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:3deb5dee8d43"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:95dbdedc01f6"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       record_count = "1"
       timeout_secs = "600"
 
@@ -132,10 +132,10 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:62777849d2a6"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:fa6083d5e893"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
       search_records = "true"
       timeout_secs = "600"
 
@@ -163,9 +163,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:17e38e7914f5"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:86f1d4d95f0f"
     [groups.run.test_params]
       bootstrapper = "true"
       bs_strategy = "1"
-      bucket_size = "4"
+      bucket_size = "10"
       timeout_secs = "600"

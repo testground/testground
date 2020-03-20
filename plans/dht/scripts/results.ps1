@@ -2,25 +2,19 @@ param($runID)
 
 $ErrorActionPreference = "Stop"
 
-$local = $true
-$graphs = $false
-$runID = "23514b549e2f"
+$runID = "caee926a4e16"
 
-$env:TESTGROUND_SRCDIR="C:\Users\adin\go\src\github.com\ipfs\testground"
+$env:TESTGROUND_SRCDIR="~/go/src/github.com/ipfs/testground"
+$outputDir = "~/workspace/testground/stats"
+$runner = "cluster:k8s"
+#$runner = "local:docker"
 
-if ([System.IO.Directory]::Exists((Join-Path (Get-Location) ../stats/$runID))) {
-	$groupDirs = gci ../stats/$runID
-} else {
-	if ($local -and -not [System.IO.File]::Exists("$runID.zip")) {
-		#testground.exe collect $runID --runner cluster:k8s
-		$outname = "../stats/$runID.zip"
-		testground.exe collect $runID --runner local:docker -o $outname
-		$groupDirs = Expand-Archive -Path $outname -Force -PassThru -DestinationPath "../stats"
-	} else {
-		aws s3 cp s3://assets-s3-bucket-adin/$runID ../stats/$runID --recursive
-		$groupDirs = gci ../stats/$runID
-	}
+if (-not [System.IO.Directory]::Exists((Join-Path (Get-Location) $outputDir/$runID))) {
+	$outname = "$outputDir/$runID.tar.gz"
+	testground collect $runID --runner $runner -o $outname
+	tar -C $outputDir -zxvf $outname
 }
+$groupDirs = gci $outputDir/$runID
 
 $allFiles = $groupDirs | gci -Recurse -File
 $connGraphs = $allFiles | ?{$_.Name -eq "dht_graphs.out"}
@@ -50,9 +44,9 @@ function basicStats ($values) {
 	}
 }
 
-function groupStats ($metrics) {
+function groupStats ($metrics, $groupIndex) {
 	$fields = @{}
-	$grouped = $metrics | Group-Object -Property {$_.Name.Split("|")[1]}
+	$grouped = $metrics | Group-Object -Property {$_.Name.Split("|")[$groupIndex]}
 	foreach ($g in $grouped) {
 		$v = basicStats($g.Group | %{$_.Value})
 		$fields.Add($g.Name, $v)
@@ -73,6 +67,10 @@ foreach ($groupDir in $groupDirs) {
 	$provs = $metrics |
 	?{$_.name -and $_.name.StartsWith("time-to-provide") -and $_.value -gt 0} |
 	%{$_.value/$ns}
+
+	$find = $metrics |
+	?{$_.name -and $_.name.StartsWith("time-to-find-first")} |
+	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
 	$find = $metrics |
 	?{$_.name -and $_.name.StartsWith("time-to-find")} |
@@ -100,14 +98,17 @@ foreach ($groupDir in $groupDirs) {
 	}
 
 	if ($null -ne $find) {
+		echo "Time-to-Find-First"
+		groupStats($find,1) | Format-Table
+
 		echo "Time-to-Find"
-		groupStats($find) | Format-Table
+		groupStats($find,2) | Format-Table
 
 		echo "Peers Found"
-		groupStats($found) | Format-Table
+		groupStats($found,2) | Format-Table
 	
 		echo "Peers Failures"
-		groupStats($failures) | Format-Table
+		groupStats($failures,2) | Format-Table
 	}
 
 	echo "Total number of dials"

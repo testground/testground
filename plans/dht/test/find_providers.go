@@ -3,7 +3,6 @@ package test
 import (
 	"context"
 	"fmt"
-	"math"
 	"reflect"
 	"time"
 
@@ -147,7 +146,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					t := time.Now()
 
 					numProvs := 0
-					provsCh := node.dht.FindProvidersAsync(ectx, c, math.MaxInt32)
+					provsCh := node.dht.FindProvidersAsync(ectx, c, 100)
 					incomplete := "done"
 					provLoop:
 					for {
