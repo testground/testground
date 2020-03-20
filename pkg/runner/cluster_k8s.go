@@ -342,8 +342,9 @@ func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
 		redisCheck.Message = err.Error()
 		return
 	}
-	if len(pods.Items) != 2 {
-		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
+	// one master, and slaves.
+	if len(pods.Items) <= 1 {
+		redisCheck.Message = fmt.Sprintf("expected >1 redis pod. found %d.", len(pods.Items))
 		return
 	}
 
