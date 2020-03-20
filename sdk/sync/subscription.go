@@ -4,6 +4,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/go-redis/redis/v7"
 )
 
@@ -30,6 +32,13 @@ func (s *subscription) process() {
 		sendFn = reflect.Value(s.outCh).Send // shorthand
 		typ    = s.subtree.PayloadType.Elem()
 	)
+
+	o1 := s.w.metrics.subtreeReceivedCount.WithLabelValues(s.subtree.GroupKey)
+	o2 := s.w.metrics.subtreeSubscriptionDur.WithLabelValues(s.subtree.GroupKey)
+	o3 := s.w.metrics.subtreeEntryWait.WithLabelValues(s.subtree.GroupKey)
+
+	t := prometheus.NewTimer(o2)
+	defer t.ObserveDuration()
 
 	startSeq, err := s.client.XLen(key).Result()
 	if err != nil {
@@ -93,12 +102,19 @@ func (s *subscription) process() {
 
 		if len(streams) > 0 {
 			stream := streams[0]
+
+			t := prometheus.NewTimer(o3)
 			for _, last = range stream.Messages {
 				payload, ok := last.Values[RedisStreamPayloadKey]
 				if !ok {
 					log.Warnw("received stream entry without payload entry", "payload", last)
 					continue
 				}
+
+				t.ObserveDuration()
+				t = prometheus.NewTimer(o3)
+
+				o1.Inc()
 
 				p, err := decodePayload(payload, typ)
 				if err != nil {
