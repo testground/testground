@@ -10,21 +10,21 @@ import (
 )
 
 var (
-	counter  prometheus.Counter
-	counter2 prometheus.Counter
-	stage1   prometheus.Histogram
-	stage2   prometheus.Histogram
-	stage3   prometheus.Histogram
+	counter  runtime.Counter
+	counter2 runtime.Counter
+	stage1   runtime.Histogram
+	stage2   runtime.Histogram
+	stage3   runtime.Histogram
 )
 
 func ExamplePrometheus3(runenv *runtime.RunEnv) error {
 	rand.Seed(time.Now().UnixNano())
 
-	counter = runtime.NewCounter(runenv, "anton_counter", "")
-	counter2 = runtime.NewCounter(runenv, "anton_counter2", "")
-	stage1 = runtime.NewHistogram(runenv, "anton_stage1_timer", "")
-	stage2 = runtime.NewHistogram(runenv, "anton_stage2_timer", "")
-	stage3 = runtime.NewHistogram(runenv, "anton_stage3_timer", "")
+	counter = runenv.M().NewCounter(runtime.CounterOpts{Name: "anton_counter"})
+	counter2 = runenv.M().NewCounter(runtime.CounterOpts{Name: "anton_counter2"})
+	stage1 = runenv.M().NewHistogram(runtime.HistogramOpts{Name: "anton_stage1_timer"})
+	stage2 = runenv.M().NewHistogram(runtime.HistogramOpts{Name: "anton_stage2_timer"})
+	stage3 = runenv.M().NewHistogram(runtime.HistogramOpts{Name: "anton_stage3_timer"})
 
 	// run test
 

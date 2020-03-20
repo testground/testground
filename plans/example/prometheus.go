@@ -7,25 +7,25 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-// the testrgound-ified version of this example:
+// the testground-ified version of this example:
 // https://godoc.org/github.com/prometheus/client_golang/prometheus/push#example-Pusher-Add
 func ExamplePrometheus(runenv *runtime.RunEnv) error {
-	completionTime := runtime.NewGauge(
-		runenv,
-		"db_backup_last_completion_time_seconds",
-		"The timestamp of the last completion of a DB backup, successful or not.")
-	successTime := runtime.NewGauge(
-		runenv,
-		"db_backup_last_success_timestamp_seconds",
-		"The timestamp of the last successful completion of a DB backup.")
-	duration := runtime.NewGauge(
-		runenv,
-		"db_backup_duration_seconds",
-		"The duration of the last DB backup in seconds.")
-	records := runtime.NewGauge(
-		runenv,
-		"db_backup_records_processed",
-		"The number of records processed in the last DB backup.")
+	completionTime := runenv.M().NewGauge(runtime.GaugeOpts{
+		Name: "db_backup_last_completion_time_seconds",
+		Help: "The timestamp of the last completion of a DB backup, successful or not.",
+	})
+	successTime := runenv.M().NewGauge(runtime.GaugeOpts{
+		Name: "db_backup_last_success_timestamp_seconds",
+		Help: "The timestamp of the last successful completion of a DB backup.",
+	})
+	duration := runenv.M().NewGauge(runtime.GaugeOpts{
+		Name: "db_backup_duration_seconds",
+		Help: "The duration of the last DB backup in seconds.",
+	})
+	records := runenv.M().NewGauge(runtime.GaugeOpts{
+		Name: "db_backup_records_processed",
+		Help: "The number of records processed in the last DB backup.",
+	})
 
 	// Notice, you don't have to instantiate the pusher or push data yourself.
 	// This is handled for you by runtime.Invoke()
@@ -75,12 +75,12 @@ func ExamplePrometheus(runenv *runtime.RunEnv) error {
 //
 // For more examples, see https://prometheus.io/docs/prometheus/latest/querying/basics/
 func ExamplePrometheus2(runenv *runtime.RunEnv) error {
-	counter := runtime.NewCounter(runenv, "example_counter", "I count how many times something happens")
-	counter2 := runtime.NewCounter(runenv, "example_counter2", "I count how many times something happens")
-	histogram := runtime.NewHistogram(runenv, "example_histogram", "information in buckets")
-	histogram2 := runtime.NewHistogram(runenv, "example_histogram2", "histogram with non-default buckets", 1.0, 5.0, 6.0)
-	gauge := runtime.NewGauge(runenv, "example_gauge", "values, can go up and down")
-	gauge2 := runtime.NewGauge(runenv, "example_gauge2", "values, can go up and down")
+	counter := runenv.M().NewCounter(runtime.CounterOpts{Name: "example_counter", Help: "I count how many times something happens"})
+	counter2 := runenv.M().NewCounter(runtime.CounterOpts{Name: "example_counter2", Help: "I count how many times something happens"})
+	histogram := runenv.M().NewHistogram(runtime.HistogramOpts{Name: "example_histogram", Help: "information in buckets"})
+	histogram2 := runenv.M().NewHistogram(runtime.HistogramOpts{Name: "example_histogram2", Help: "histogram with non-default buckets", Buckets: []float64{1.0, 5.0, 6.0}})
+	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "example_gauge", Help: "values, can go up and down"})
+	gauge2 := runenv.M().NewGauge(runtime.GaugeOpts{Name: "example_gauge2", Help: "values, can go up and down"})
 	rand.Seed(time.Now().UnixNano())
 
 	// increment the counter once per second

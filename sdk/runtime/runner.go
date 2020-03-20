@@ -111,7 +111,10 @@ func Invoke(tc func(*RunEnv) error) {
 // setupMetrics tracks the test duration, and sets up Prometheus metrics push.
 func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 	doneCh = make(chan error)
-	testDuration := NewGauge(runenv, "plan_duration", "run time (seconds)")
+	testDuration := runenv.M().NewGauge(prometheus.GaugeOpts{
+		Name: "tg_plan_duration",
+		Help: "test plan run time (seconds)",
+	})
 
 	durationCh := make(chan struct{})
 	// Keep reporting the test duration every second.
