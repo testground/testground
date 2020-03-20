@@ -61,7 +61,7 @@ instances = { min = 16, max = 10000, default = 16 }
   auto_refresh = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
   random_walk  = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
   bucket_size  = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
-  n_paths      = { type = "int", desc = "number of disjoint paths", unit = "int", default = 0 }
+  n_paths      = { type = "int", desc = "number of disjoint paths", unit = "int", default = 1 }
   client_mode  = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
   datastore    = { type = "int", desc = "datastore type", unit = "int", default = 0 }
   peer_id_seed = { type = "int", desc = "seed used to generate all peer IDs - must be smaller than MaxInt-instances", default = 0 }

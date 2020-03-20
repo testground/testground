@@ -5,14 +5,12 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 100
+  total_instances = 1000
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
     push_registry = true
     registry_type = "aws"
-  [global.run_config]
-    keep_service = true
 
 [[groups]]
   id = "balsam-undialable-provider"
@@ -22,27 +20,29 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:f68664f06c60"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "true"
 
 [[groups]]
   id = "balsam-undialable-searcher"
   [groups.instances]
-    count = 35
+    count = 395
     percentage = 0.0
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:69746d403c77"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "true"
 
 [[groups]]
@@ -53,26 +53,28 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c44042903ef2"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "false"
 
 [[groups]]
   id = "balsam-dialable-searcher"
   [groups.instances]
-    count = 35
+    count = 395
     percentage = 0.0
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:f7a4b91e3882"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "false"
 
 [[groups]]
@@ -99,16 +101,17 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:3deb5dee8d43"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       record_count = "1"
-      timeout_secs = "200"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-searcher"
   [groups.instances]
-    count = 10
+    count = 190
     percentage = 0.0
   [groups.build]
     Selectors = ["cypress"]
@@ -129,11 +132,12 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:62777849d2a6"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "4"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-bs"
@@ -159,8 +163,9 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.6.1-0.20200310185355-89c193e0ca37"
   [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:17e38e7914f5"
     [groups.run.test_params]
       bootstrapper = "true"
       bs_strategy = "1"
       bucket_size = "4"
-      timeout_secs = "200"
+      timeout_secs = "600"

@@ -37,7 +37,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	//defer watcher.Close()
 	//defer writer.Close()
 
-	runenv.RecordMessage("New test2")
+	runenv.RecordMessage("Test4")
 
 	ri := &RunInfo{
 		runenv:  runenv,
