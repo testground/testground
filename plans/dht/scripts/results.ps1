@@ -2,14 +2,15 @@ param($runID)
 
 $ErrorActionPreference = "Stop"
 
-$runID = "caee926a4e16"
+#$runID = 
+#$runID = "caee926a4e16"
 
-$env:TESTGROUND_SRCDIR="~/go/src/github.com/ipfs/testground"
-$outputDir = "~/workspace/testground/stats"
+$env:TESTGROUND_SRCDIR="$env:HOME/go/src/github.com/ipfs/testground"
+$outputDir = "$env:HOME/workspace/testground/stats"
 $runner = "cluster:k8s"
 #$runner = "local:docker"
 
-if (-not [System.IO.Directory]::Exists((Join-Path (Get-Location) $outputDir/$runID))) {
+if (-not [System.IO.Directory]::Exists("$outputDir/$runID")) {
 	$outname = "$outputDir/$runID.tar.gz"
 	testground collect $runID --runner $runner -o $outname
 	tar -C $outputDir -zxvf $outname
@@ -68,12 +69,12 @@ foreach ($groupDir in $groupDirs) {
 	?{$_.name -and $_.name.StartsWith("time-to-provide") -and $_.value -gt 0} |
 	%{$_.value/$ns}
 
-	$find = $metrics |
+	$findfirst = $metrics |
 	?{$_.name -and $_.name.StartsWith("time-to-find-first")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
-	$find = $metrics |
-	?{$_.name -and $_.name.StartsWith("time-to-find")} |
+	$findall = $metrics |
+	?{$_.name -and $_.name.StartsWith("time-to-find|")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
 	$found = $metrics |
@@ -97,24 +98,24 @@ foreach ($groupDir in $groupDirs) {
 		basicStats($provs) | Format-Table
 	}
 
-	if ($null -ne $find) {
+	if ($null -ne $findfirst) {
 		echo "Time-to-Find-First"
-		groupStats($find,1) | Format-Table
+		groupStats $findfirst 1 | Format-Table
 
 		echo "Time-to-Find"
-		groupStats($find,2) | Format-Table
+		groupStats $findall 2 | Format-Table
 
 		echo "Peers Found"
-		groupStats($found,2) | Format-Table
+		groupStats $found 2 | Format-Table
 	
 		echo "Peers Failures"
-		groupStats($failures,2) | Format-Table
+		groupStats $failures 2 | Format-Table
 	}
 
-	echo "Total number of dials"
+	#echo "Total number of dials"
 	basicStats($dials) | Format-Table
 
-	echo "Total number of messages sent"
+	#echo "Total number of messages sent"
 	basicStats($msgs) | Format-Table
 }
 

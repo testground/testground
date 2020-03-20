@@ -5,7 +5,7 @@ package test
 import (
 	"context"
 	"github.com/ipfs/go-datastore"
-	autonatsvc "github.com/libp2p/go-libp2p-autonat-svc"
+	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 )
@@ -29,15 +29,17 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 		dhtOptions = append(dhtOptions, kaddht.Mode(kaddht.ModeClient))
 	}
 
-	if !info.Properties.Undialable {
-		if _, err := autonatsvc.NewAutoNATService(ctx, h, true); err != nil {
-			return nil, err
-		}
-	}
-
 	dht, err := kaddht.New(ctx, h, dhtOptions...)
 	if err != nil {
 		return nil, err
 	}
 	return dht, nil
+}
+
+func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {
+	if info.Properties.Bootstrapper {
+		return []libp2p.Option{libp2p.EnableNATService(), libp2p.WithReachability(true)}
+	} else {
+		return []libp2p.Option{libp2p.EnableNATService()}
+	}
 }

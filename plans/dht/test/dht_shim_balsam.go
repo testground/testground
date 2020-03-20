@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"github.com/ipfs/go-datastore"
+	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -32,3 +33,5 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 	}
 	return dht, nil
 }
+
+func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {return nil}

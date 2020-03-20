@@ -20,7 +20,6 @@ import (
 	"github.com/ipfs/go-datastore"
 	dssync "github.com/ipfs/go-datastore/sync"
 	"github.com/libp2p/go-libp2p"
-	autonat "github.com/libp2p/go-libp2p-autonat"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -204,6 +203,8 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 			libp2p.ListenAddrs(addr))
 	}
 
+	libp2pOpts = append(libp2pOpts, getTaggedLibp2pOpts(opts, info)...)
+
 	node, err := libp2p.New(ctx, libp2pOpts...)
 	if err != nil {
 		return nil, nil, err
@@ -282,7 +283,7 @@ func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error
 		Enable:  true,
 		Default: sync.LinkShape{
 			Latency:   latency,
-			Bandwidth: 1 << 20, // 1Mib
+			Bandwidth: 10 << 20, // 10Mib
 		},
 		State: state,
 	})
@@ -374,8 +375,6 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 			return nil, nil, ctx.Err()
 		}
 	}
-
-	ri.runenv.RecordMessage("othernodes: %v", otherNodes)
 
 	outputStart(testNode)
 
@@ -583,11 +582,6 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 
 	runenv.RecordMessage("bootstrap: dialing %v", bootstrapNodes)
 
-	autonat.AutoNATBootDelay = 0
-	autonat.AutoNATRetryInterval = time.Second
-	autonat.AutoNATIdentifyDelay = time.Second
-	_ = autonat.NewAutoNAT(ctx, node.host, nil)
-
 	// Connect to our peers.
 	if err := Connect(ctx, runenv, dht, bootstrapNodes...); err != nil {
 		return err
@@ -599,7 +593,9 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 		return err
 	}
 
-	time.Sleep(time.Second * 3)
+	// TODO: Use an updated autonat that doesn't require this
+	// Wait for Autonat to kick in
+	time.Sleep(time.Second * 30)
 
 	////////////////
 	// 2: ROUTING //
