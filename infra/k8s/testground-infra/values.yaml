@@ -30,12 +30,16 @@ prometheus-operator:
   kubeApiServer:
     tlsConfig:
       insecureSkipVerify: true
+    serviceMonitor:
+      https: false
   kubeControllerManager:
     serviceMonitor:
       insecureSkipVerify: true
+      https: false
   kubeEtcd:
     serviceMonitor:
       insecureSkipVerify: true
+      https: false
   prometheusOperator:
     createCustomResource: false
   prometheus:
