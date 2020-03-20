@@ -342,14 +342,15 @@ func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
 		redisCheck.Message = err.Error()
 		return
 	}
-	if len(pods.Items) != 1 {
+	if len(pods.Items) != 2 {
 		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
 		return
 	}
 
-	pod := pods.Items[0]
-	if pod.Status.Phase != "Running" {
-		return
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != "Running" {
+			return
+		}
 	}
 
 	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusOK, Message: "redis service is running"}
