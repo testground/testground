@@ -3,6 +3,6 @@ appVersion: 0.0.1
 description: Testground Monitoring
 engine: gotpl
 home: https://github.com/ipfs/testground
-name: testground-team
+name: testground-infra
 sources:
 version: 0.0.1
