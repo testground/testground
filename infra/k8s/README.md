@@ -78,6 +78,9 @@ Where:
 
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.), or to an `.env.sh` file that you source.
 
+In addition to the initial cluster setup, these variables should be accessible to the daemon. If these variables are
+manually set or you source them manually, you should make sure to do so before starting the testground daemon.
+
 ```sh
 # NAME needs be a subdomain of an existing Route53 domain name. The testground team uses .testground.ipfs.team, which is set up by our Terraform configs.
 export NAME=<desired kubernetes cluster name (cluster name must be a fully-qualified DNS name (e.g. mycluster.myzone.com)>

@@ -223,10 +223,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 		BuildOpts: &opts,
 	}
 
+	buildStart := time.Now()
+
 	err = docker.BuildImage(ctx, cli, &imageOpts)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Infow("build completed", "took", time.Since(buildStart))
 
 	deps, err := parseDependenciesFromDocker(ctx, log, cli, in.BuildID)
 	if err != nil {
@@ -239,6 +243,8 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	}
 
 	if cfg.PushRegistry {
+		pushStart := time.Now()
+		defer func() { log.Infow("image push completed", "took", time.Since(pushStart)) }()
 		if cfg.RegistryType == "aws" {
 			err := pushToAWSRegistry(ctx, log, cli, in, out)
 			return out, err
