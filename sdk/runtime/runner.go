@@ -178,11 +178,11 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 
 		pusher := push.New(endpoint, "testground/plan").
 			Gatherer(prometheus.DefaultGatherer).
-			Grouping("TestPlan", runenv.TestPlan).
-			Grouping("TestCase", runenv.TestCase).
-			Grouping("TestRun", runenv.TestRun).
-			Grouping("TestGroupID", runenv.TestGroupID).
-			Grouping("ContainerName", hostname)
+			Grouping("plan", runenv.TestPlan).
+			Grouping("case", runenv.TestCase).
+			Grouping("run_id", runenv.TestRun).
+			Grouping("group_id", runenv.TestGroupID).
+			Grouping("container_name", hostname)
 
 		push := func() {
 			if err := pusher.Add(); err != nil {
