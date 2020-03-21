@@ -10,6 +10,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.3.0
 	github.com/multiformats/go-multiaddr v0.2.0
 	github.com/multiformats/go-multiaddr-net v0.1.2
+	github.com/rs/cors v1.7.0
 )
 
 replace (

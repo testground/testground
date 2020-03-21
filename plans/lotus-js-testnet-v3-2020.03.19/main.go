@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/cors"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
@@ -170,16 +172,19 @@ func run(runenv *runtime.RunEnv) error {
 	}
 	time.Sleep(2 * time.Second) // Give nginx time to start
 
+	mux := http.NewServeMux()
+
 	go func() {
-		log.Fatal(http.ListenAndServe(":9999", nil))
+		handler := cors.Default().Handler(mux)
+		log.Fatal(http.ListenAndServe(":9999", handler))
 	}()
 
 	// Serve token files
-	http.HandleFunc("/.lotus/token", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.lotus/token", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "/root/.lotus/token")
 	})
 
-	http.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "/root/.lotusstorage/token")
 	})
 
@@ -412,7 +417,7 @@ func run(runenv *runtime.RunEnv) error {
 		time.Sleep(15 * time.Second)
 
 		// Serve /root/dev.gen file for other nodes to use as genesis
-		http.HandleFunc("/dev.gen", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("/dev.gen", func(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, "/root/dev.gen")
 		})
 
