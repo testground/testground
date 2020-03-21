@@ -14,6 +14,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/go-connections/nat"
+	"github.com/docker/go-units"
+
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
@@ -33,6 +36,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
+
+const InfraMaxFilesUlimit int64 = 1048576
 
 var (
 	_ api.Runner        = (*LocalDockerRunner)(nil)
@@ -499,75 +504,130 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		return nil, err
 	}
 
-	// Start the containers.
-	if !cfg.Unstarted {
-		log.Infow("starting containers", "count", len(containers))
-		g, ctx := errgroup.WithContext(ctx)
-
-		for _, id := range containers {
-			g.Go(func(id string) func() error {
-				return func() error {
-					log.Debugw("starting container", "id", id)
-					err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
-					if err == nil {
-						log.Debugw("started container", "id", id)
-					}
-					return err
-				}
-			}(id))
-		}
-
-		// If an error occurred, delete all containers, and abort.
-		if err := g.Wait(); err != nil {
-			log.Error(err)
-			return nil, deleteContainers(cli, log, containers)
-		}
-
-		log.Infow("started containers", "count", len(containers))
+	if cfg.Unstarted {
+		return &api.RunOutput{RunID: input.RunID}, nil
 	}
+
+	var (
+		doneCh    = make(chan error, 2)
+		started   = make(chan string, len(containers))
+		ratelimit = make(chan struct{}, 16)
+	)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	log.Infow("starting containers", "count", len(containers))
+
+	g, gctx := errgroup.WithContext(ctx)
+	for _, id := range containers {
+		id := id
+		f := func() error {
+			ratelimit <- struct{}{}
+			defer func() { <-ratelimit }()
+
+			log.Infow("starting container", "id", id)
+
+			err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
+			if err == nil {
+				log.Debugw("started container", "id", id)
+				select {
+				case <-gctx.Done():
+				default:
+					started <- id
+				}
+			}
+			return err
+		}
+		g.Go(f)
+	}
+
+	// Wait until we're done to close the started channel.
+	go func() {
+		err := g.Wait()
+		close(started)
+
+		if err != nil {
+			log.Error(err)
+			doneCh <- err
+		} else {
+			log.Infow("started containers", "count", len(containers))
+		}
+	}()
 
 	if !cfg.Background {
 		pretty := NewPrettyPrinter()
 
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
+		// This goroutine takes started containers and attaches them to the pretty printer.
+		go func() {
+		Outer:
+			for {
+				select {
+				case id, more := <-started:
+					if !more {
+						break Outer
+					}
 
-		for _, id := range containers {
-			stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
-				ShowStdout: true,
-				ShowStderr: true,
-				Since:      "2019-01-01T00:00:00",
-				Follow:     true,
-			})
+					stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
+						ShowStdout: true,
+						ShowStderr: true,
+						Since:      "2019-01-01T00:00:00",
+						Follow:     true,
+					})
 
-			if err != nil {
-				log.Error(err)
-				return nil, deleteContainers(cli, log, containers)
+					if err != nil {
+						doneCh <- err
+						return
+					}
+
+					rstdout, wstdout := io.Pipe()
+					rstderr, wstderr := io.Pipe()
+					go func() {
+						_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
+						_ = wstdout.CloseWithError(err)
+						_ = wstderr.CloseWithError(err)
+					}()
+
+					pretty.Manage(id[0:12], rstdout, rstderr)
+
+				case <-ctx.Done():
+					// yield if we're been cancelled.
+					doneCh <- ctx.Err()
+					return
+				}
 			}
 
-			rstdout, wstdout := io.Pipe()
-			rstderr, wstderr := io.Pipe()
-			go func() {
-				_, err := stdcopy.StdCopy(wstdout, wstderr, stream)
-				_ = wstdout.CloseWithError(err)
-				_ = wstderr.CloseWithError(err)
-			}()
-
-			pretty.Manage(id[0:12], rstdout, rstderr)
-		}
-		return &api.RunOutput{RunID: input.RunID}, pretty.Wait()
+			select {
+			case err := <-pretty.Wait():
+				doneCh <- err
+			case <-ctx.Done():
+				log.Error(ctx) // yield if we're been cancelled.
+				doneCh <- ctx.Err()
+			}
+		}()
 	}
 
-	return &api.RunOutput{RunID: input.RunID}, nil
+	select {
+	case err = <-doneCh:
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
+
+	return &api.RunOutput{RunID: input.RunID}, err
 }
 
 func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
 	log.Infow("deleting containers", "ids", ids)
 
+	ratelimit := make(chan struct{}, 16)
+
 	errs := make(chan error)
 	for _, id := range ids {
 		go func(id string) {
-			log.Debugw("deleting container", "id", id)
+			ratelimit <- struct{}{}
+			defer func() { <-ratelimit }()
+
+			log.Infow("deleting container", "id", id)
 			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
 		}(id)
 	}
@@ -588,6 +648,11 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 		ctx,
 		log, cli,
 		"testground-control",
+		// making internal=false enables us to expose ports to the host (e.g.
+		// pprof and prometheus). by itself, it would allow the container to
+		// access the Internet, and therefore would break isolation, but since
+		// we have sidecar overriding the default Docker ip routes, and
+		// suppressing such traffic, we're safe.
 		false,
 		network.IPAMConfig{
 			Subnet:  controlSubnet,
@@ -635,15 +700,20 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, NetworkID string, pull bool) (id string, err error) {
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
 			Image: imageName,
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode:     container.NetworkMode(NetworkID),
+			NetworkMode:     container.NetworkMode(networkID),
 			PublishAllPorts: true,
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+				},
+			},
 		},
 		PullImageIfMissing: pull,
 	})
@@ -668,11 +738,13 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",
 			Entrypoint: []string{"testground"},
-			Cmd:        []string{"sidecar", "--runner", "docker"},
-			Env:        []string{"REDIS_HOST=testground-redis"},
+			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
+			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
-			NetworkMode: container.NetworkMode(controlNetworkID),
+			PublishAllPorts: true,
+			PortBindings:    nat.PortMap{"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
+			NetworkMode:     container.NetworkMode(controlNetworkID),
 			// To lookup namespaces. Can't use SandboxKey for some reason.
 			PidMode: "host",
 			// We need _both_ to actually get a network namespace handle.
@@ -685,6 +757,11 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 				Source: dockerSock,
 				Target: "/var/run/docker.sock",
 			}},
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+				},
+			},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
 	})

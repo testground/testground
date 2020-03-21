@@ -18,7 +18,8 @@ require (
 	github.com/containernetworking/cni v0.7.1
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-connections v0.4.0
+	github.com/docker/go-units v0.4.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
@@ -27,8 +28,8 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk/runtime v0.1.0
-	github.com/ipfs/testground/sdk/sync v0.1.0
+	github.com/ipfs/testground/sdk/runtime v0.3.0
+	github.com/ipfs/testground/sdk/sync v0.3.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434

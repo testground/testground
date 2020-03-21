@@ -12,8 +12,8 @@ require (
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.3.1
 	github.com/ipfs/go-ipfs-util v0.0.1
-	github.com/ipfs/testground/sdk/runtime v0.2.0
-	github.com/ipfs/testground/sdk/sync v0.2.0
+	github.com/ipfs/testground/sdk/runtime v0.3.0
+	github.com/ipfs/testground/sdk/sync v0.3.0
 	github.com/libp2p/go-libp2p v0.4.2
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.3.0

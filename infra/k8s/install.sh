@@ -56,7 +56,7 @@ echo
 
 echo "Install EFS..."
 
-vpcId=`aws ec2 describe-vpcs --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
+vpcId=`aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
 
 if [[ -z ${vpcId} ]]; then
   echo "Couldn't detect AWS VPC created by `kops`"
@@ -65,7 +65,7 @@ fi
 
 echo "Detected VPC: $vpcId"
 
-securityGroupId=`aws ec2 describe-security-groups --output text | awk '/nodes.'$NAME'/ && /SECURITYGROUPS/ { print $6 };'`
+securityGroupId=`aws ec2 describe-security-groups --region=$AWS_REGION --output text | awk '/nodes.'$NAME'/ && /SECURITYGROUPS/ { print $6 };'`
 
 if [[ -z ${securityGroupId} ]]; then
   echo "Couldn't detect AWS Security Group created by `kops`"
@@ -74,7 +74,7 @@ fi
 
 echo "Detected Security Group ID: $securityGroupId"
 
-subnetId=`aws ec2 describe-subnets --output text | awk '/'$vpcId'/ { print $12 }'`
+subnetId=`aws ec2 describe-subnets --region=$AWS_REGION --output text | awk '/'$vpcId'/ { print $12 }'`
 
 if [[ -z ${subnetId} ]]; then
   echo "Couldn't detect AWS Subnet created by `kops`"
@@ -121,7 +121,6 @@ kubectl apply -f ./kops-weave/weave.yml \
               -f ./kops-weave/weave-metrics-service.yml \
               -f ./kops-weave/weave-service-monitor.yml \
               -f ./kops-weave/dummy.yml \
-              -f ./kops-weave/s3bucket.yml \
               -f ./sidecar.yaml
 
 echo "Install Redis..."

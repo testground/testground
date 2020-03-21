@@ -37,7 +37,7 @@ func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 
 	for _, v := range volumes.Volumes {
 		if v.Name == opts.Name { // We found a match, volume exists.
-			log.Infof("found existing volume")
+			log.Info("found existing volume")
 			return v, false, nil
 		}
 	}

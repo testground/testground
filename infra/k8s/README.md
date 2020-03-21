@@ -36,7 +36,7 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 1. [Generate your AWS IAM credentials](https://console.aws.amazon.com/iam/home#/security_credentials).
    
     * [Configure the aws-cli tool with your credentials](https://docs.aws.amazon.com/cli/).
-    * Create a `.env.toml` file (copying over the [`env-example.toml`](https://github.com/ipfs/testground/blob/master/env-example.toml) at the root of this repo as a template), and add your credentials and region to the `[aws]` section.
+    * Create a `.env.toml` file (copying over the [`env-example.toml`](https://github.com/ipfs/testground/blob/master/env-example.toml) at the root of this repo as a template), and add your region to the `[aws]` section.
 
 2. Download shared key for `kops`. We use a shared key, so that everyone on the team can log into any cluster and have full access.
 
@@ -78,6 +78,9 @@ Where:
 
 You might want to add them to your `rc` file (`.zshrc`, `.bashrc`, etc.), or to an `.env.sh` file that you source.
 
+In addition to the initial cluster setup, these variables should be accessible to the daemon. If these variables are
+manually set or you source them manually, you should make sure to do so before starting the testground daemon.
+
 ```sh
 # NAME needs be a subdomain of an existing Route53 domain name. The testground team uses .testground.ipfs.team, which is set up by our Terraform configs.
 export NAME=<desired kubernetes cluster name (cluster name must be a fully-qualified DNS name (e.g. mycluster.myzone.com)>
@@ -86,19 +89,6 @@ export AWS_REGION=<aws region, for example eu-central-1>
 export ZONE=<aws availability zone, for example eu-central-1a>
 export WORKER_NODES=4
 export PUBKEY=$HOME/.ssh/testground_rsa.pub
-
-# details for S3 bucket to be used for assets
-export ASSETS_BUCKET_NAME=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-export ASSETS_ACCESS_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-export ASSETS_SECRET_KEY=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-
-# for fish shell
-#export ASSETS_BUCKET_NAME=(aws s3 cp s3://assets-s3-bucket-credentials/assets_bucket_name -)
-#export ASSETS_ACCESS_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_access_key -)
-#export ASSETS_SECRET_KEY=(aws s3 cp s3://assets-s3-bucket-credentials/assets_secret_key -)
-
-# depends on region, for example "https://s3.eu-central-1.amazonaws.com:443"
-export ASSETS_S3_ENDPOINT=$(aws s3 cp s3://assets-s3-bucket-credentials/assets_s3_endpoint -)
 ```
 
 5. Set up Helm and add the `stable` Helm Charts repository

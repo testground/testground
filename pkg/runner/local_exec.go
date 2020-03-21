@@ -263,7 +263,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		}
 	}
 
-	if err := pretty.Wait(); err != nil {
+	if err := <-pretty.Wait(); err != nil {
 		return nil, err
 	}
 

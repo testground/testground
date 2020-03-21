@@ -95,11 +95,14 @@ func redisClient(ctx context.Context) (client *redis.Client, err error) {
 
 	// TODO: will need to populate opts from an env variable.
 	opts := redis.Options{
-		MaxRetries:      5,
-		MinRetryBackoff: 1 * time.Second,
-		MaxRetryBackoff: 3 * time.Second,
-		DialTimeout:     10 * time.Second,
-		ReadTimeout:     10 * time.Second,
+		PoolSize:           8192,
+		MaxRetries:         5,
+		MinRetryBackoff:    1 * time.Second,
+		MaxRetryBackoff:    3 * time.Second,
+		DialTimeout:        10 * time.Second,
+		ReadTimeout:        10 * time.Second,
+		IdleCheckFrequency: 30 * time.Second,
+		MaxConnAge:         1 * time.Minute,
 	}
 
 	for _, h := range tryHosts {
