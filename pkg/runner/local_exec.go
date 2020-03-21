@@ -126,19 +126,19 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 			}
 			// Checker failed, try to fix.
 			err := hcp.Fixer()
-			if err == nil {
-				// Fix succeeded.
-				hcp.HealthcheckItem.Status = api.HealthcheckStatusOK
-				hcp.HealthcheckItem.Message = hcp.Success
+			if err != nil {
+				// Oh no! the fix failed.
+				hcp.HealthcheckItem.Status = api.HealthcheckStatusFailed
+				hcp.HealthcheckItem.Message = hcp.Failure
 				report.Checks = append(report.Checks, hcp.HealthcheckItem)
-				report.Fixes = append(report.Fixes, hcp.HealthcheckItem)
+				// just because the fixer failed, doesn't mean *this* procedure failed.
 				return nil
 			}
-			// Oh no! the fix failed.
-			hcp.HealthcheckItem.Status = api.HealthcheckStatusFailed
-			hcp.HealthcheckItem.Message = hcp.Failure
+			// Fix succeeded.
+			hcp.HealthcheckItem.Status = api.HealthcheckStatusOK
+			hcp.HealthcheckItem.Message = hcp.Success
 			report.Checks = append(report.Checks, hcp.HealthcheckItem)
-			// just because the fixer failed, doesn't mean *this* procedure failed.
+			report.Fixes = append(report.Fixes, hcp.HealthcheckItem)
 			return nil
 		})
 		err := eg.Wait()
