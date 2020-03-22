@@ -66,10 +66,7 @@ func newhealthcheckedProcess(ctx context.Context, name string, address string, c
 func tcpChecker(address string) func() bool {
 	return func() bool {
 		_, err := net.Dial("tcp", address)
-		if err == nil {
-			return true
-		}
-		return false
+		return err == nil
 	}
 }
 
@@ -112,7 +109,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 			"pushgateway"),
 	}
 
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, _ := errgroup.WithContext(ctx)
 
 	for _, li := range localInfra {
 		hcp := *li
