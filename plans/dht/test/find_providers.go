@@ -146,6 +146,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					numProvs := 0
 					provsCh := node.dht.FindProvidersAsync(ectx, c, 100)
 					incomplete := "done"
+
+					var tLastFound time.Time
 					provLoop:
 					for {
 						select {
@@ -153,12 +155,15 @@ func FindProviders(runenv *runtime.RunEnv) error {
 							if !ok {
 								break provLoop
 							}
+
+							tLastFound = time.Now()
+
 							if numProvs == 0 {
 								runenv.RecordMetric(&runtime.MetricDefinition{
 									Name:           fmt.Sprintf("time-to-find-first|%s|%d", groupID, i),
 									Unit:           "ns",
 									ImprovementDir: -1,
-								}, float64(time.Since(t).Nanoseconds()))
+								}, float64(tLastFound.Sub(t).Nanoseconds()))
 							}
 
 							numProvs++
@@ -168,6 +173,12 @@ func FindProviders(runenv *runtime.RunEnv) error {
 						}
 					}
 					cancel()
+
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("time-to-find-last|%s|%s|%d", incomplete, groupID, i),
+						Unit:           "ns",
+						ImprovementDir: -1,
+					}, float64(tLastFound.Sub(t).Nanoseconds()))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
 						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", incomplete, groupID, i),
@@ -180,6 +191,13 @@ func FindProviders(runenv *runtime.RunEnv) error {
 						Unit:           "peers",
 						ImprovementDir: 1,
 					}, float64(numProvs))
+
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", incomplete,
+							groupID, i),
+						Unit:           "peers",
+						ImprovementDir: -1,
+					}, float64(ri.groupSizes[groupID] - numProvs))
 
 					return nil
 				})

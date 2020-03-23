@@ -2,9 +2,6 @@ param($runID)
 
 $ErrorActionPreference = "Stop"
 
-#$runID = 
-#$runID = "caee926a4e16"
-
 $env:TESTGROUND_SRCDIR="$env:HOME/go/src/github.com/ipfs/testground"
 $outputDir = "$env:HOME/workspace/testground/stats"
 $runner = "cluster:k8s"
@@ -24,7 +21,7 @@ $errs = $allFiles | ?{$_.Name -eq "run.err"}
 
 $ns = 1000000000
 
-function basicStats ($values) {
+function basicStats ($values, $reverse) {
 	if ($null -eq $values) {
 		return [PSCustomObject]@{
 			Average = 0
@@ -32,7 +29,11 @@ function basicStats ($values) {
 		}
 	}
 	$obj = $values | measure-object -Average -Sum -Maximum -Minimum -StandardDeviation
-	$sorted = $values | Sort-Object
+	if ($null -eq $reverse || $false -eq $reverse) {
+		$sorted = $values | Sort-Object 
+	} else {
+		$sorted = $values | Sort-Object -Descending
+	}
 	$95percentile = $sorted[[math]::Ceiling(95 / 100 * ($sorted.Count - 1))]
 
 	if ($null -eq $95percentile) {
@@ -40,16 +41,16 @@ function basicStats ($values) {
 	} 
 
 	return [PSCustomObject]@{
-		Average = $obj.Average
-		Percentile95 = $95percentile
+		Average = [math]::Round($obj.Average,2)
+		Percentile95 = [math]::Round($95percentile, 2)
 	}
 }
 
-function groupStats ($metrics, $groupIndex) {
+function groupStats ($metrics, $groupIndex, $reverse) {
 	$fields = @{}
 	$grouped = $metrics | Group-Object -Property {$_.Name.Split("|")[$groupIndex]}
 	foreach ($g in $grouped) {
-		$v = basicStats($g.Group | %{$_.Value})
+		$v = basicStats ($g.Group | %{$_.Value}) $reverse
 		$fields.Add($g.Name, $v)
 	}
 	$ret = New-Object -TypeName psobject -Property $fields
@@ -73,12 +74,20 @@ foreach ($groupDir in $groupDirs) {
 	?{$_.name -and $_.name.StartsWith("time-to-find-first")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
+	$findlast = $metrics |
+	?{$_.name -and $_.name.StartsWith("time-to-find-last")} |
+	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
+
 	$findall = $metrics |
 	?{$_.name -and $_.name.StartsWith("time-to-find|")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
 	$found = $metrics |
 	?{$_.name -and $_.name.StartsWith("peers-found") -and $_.value -gt 0} |
+	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value; }}
+
+	$missing = $metrics |
+	?{$_.name -and $_.name.StartsWith("peers-missing")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value; }}
 
 	$failures = $metrics |
@@ -102,21 +111,39 @@ foreach ($groupDir in $groupDirs) {
 		echo "Time-to-Find-First"
 		groupStats $findfirst 1 | Format-Table
 
+		echo "Time-to-Find-Last"
+		groupStats $findlast 2 | Format-Table
+
 		echo "Time-to-Find"
 		groupStats $findall 2 | Format-Table
 
 		echo "Peers Found"
-		groupStats $found 2 | Format-Table
+		groupStats $found 2 $true | Format-Table
+
+		echo "Peers Missing"
+		groupStats $missing 2 | Format-Table
 	
-		echo "Peers Failures"
-		groupStats $failures 2 | Format-Table
+		#if ($failures -ne $null) {
+		#	echo "Peers Failures"
+		#	groupStats $failures 2 | Format-Table
+		#} else {
+		#	echo "No Peer Failures"
+		#}
 	}
 
-	#echo "Total number of dials"
-	basicStats($dials) | Format-Table
+	if ($dials -ne $null) {
+		echo "Total number of dials"
+		basicStats($dials) | Format-Table
+	} else {
+		echo "No DHT query dials performed"
+	}
 
-	#echo "Total number of messages sent"
-	basicStats($msgs) | Format-Table
+	if ($msgs -ne $null) {
+		echo "Total number of messages sent"
+		basicStats($msgs) | Format-Table
+	} else {
+		echo "No DHT query messages sent"
+	}
 }
 
 if (-not $graphs) {

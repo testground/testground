@@ -16,6 +16,8 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 		kaddht.Datastore(ds),
 		kaddht.BucketSize(opts.BucketSize),
 		kaddht.RoutingTableRefreshQueryTimeout(opts.Timeout),
+		kaddht.Concurrency(opts.Alpha),
+		kaddht.Resiliency(opts.Beta),
 		kaddht.DisjointPaths(opts.NDisjointPaths),
 	}
 

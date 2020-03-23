@@ -55,6 +55,8 @@ type SetupOpts struct {
 	RandomWalk  bool
 
 	BucketSize     int
+	Alpha          int
+	Beta           int
 	NDisjointPaths int
 
 	ClientMode bool
@@ -82,6 +84,8 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 		RandomWalk:  runenv.BooleanParam("random_walk"),
 
 		BucketSize:     runenv.IntParam("bucket_size"),
+		Alpha:          runenv.IntParam("alpha"),
+		Beta:           runenv.IntParam("beta"),
 		NDisjointPaths: runenv.IntParam("n_paths"),
 
 		ClientMode: runenv.BooleanParam("client_mode"),
@@ -760,7 +764,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
 			}
 			select {
-			case <-time.After(time.Duration(rand.Intn(500))*time.Millisecond + 6*time.Second):
+			case <-time.After(time.Duration(rand.Intn(3000))*time.Millisecond + 6*time.Second):
 			case <-ctx.Done():
 				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
@@ -773,7 +777,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 		if ai.ID == dht.Host().ID() {
 			continue
 		}
-		if err := tryConnect(ctx, ai, 5); err != nil {
+		if err := tryConnect(ctx, ai, 10); err != nil {
 			return err
 		}
 	}
