@@ -111,7 +111,10 @@ func Invoke(tc func(*RunEnv) error) {
 // setupMetrics tracks the test duration, and sets up Prometheus metrics push.
 func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 	doneCh = make(chan error)
-	testDuration := NewGauge(runenv, "plan_duration", "run time (seconds)")
+	testDuration := runenv.M().NewGauge(prometheus.GaugeOpts{
+		Name: "tg_plan_duration",
+		Help: "test plan run time (seconds)",
+	})
 
 	durationCh := make(chan struct{})
 	// Keep reporting the test duration every second.
@@ -151,10 +154,7 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 				if err != nil {
 					continue
 				}
-				_, err = resp.Body.Read(b)
-				if err != nil {
-					continue
-				}
+				_, _ = resp.Body.Read(b)
 				if string(b) == "OK" {
 					break Outer
 				}
@@ -175,11 +175,11 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 
 		pusher := push.New(endpoint, "testground/plan").
 			Gatherer(prometheus.DefaultGatherer).
-			Grouping("TestPlan", runenv.TestPlan).
-			Grouping("TestCase", runenv.TestCase).
-			Grouping("TestRun", runenv.TestRun).
-			Grouping("TestGroupID", runenv.TestGroupID).
-			Grouping("ContainerName", hostname)
+			Grouping("plan", runenv.TestPlan).
+			Grouping("case", runenv.TestCase).
+			Grouping("run_id", runenv.TestRun).
+			Grouping("group_id", runenv.TestGroupID).
+			Grouping("container_name", hostname)
 
 		push := func() {
 			if err := pusher.Add(); err != nil {

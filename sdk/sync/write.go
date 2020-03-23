@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
@@ -43,6 +44,12 @@ type Writer struct {
 	// keepAliveSet are the keys we are responsible for keeping alive. This is a
 	// superset of ownset + special keys we are responsible for keeping alive.
 	keepAliveSet map[string]struct{}
+
+	// metrics
+	metrics struct {
+		writeDuration        *runtime.SummaryVec
+		barrierEntryDuration *runtime.SummaryVec
+	}
 }
 
 // NewWriter creates a new Writer for a specific test run, as defined by the
@@ -64,6 +71,18 @@ func NewWriter(ctx context.Context, runenv *runtime.RunEnv) (w *Writer, err erro
 		cancel:       cancel,
 		keepAliveSet: make(map[string]struct{}),
 	}
+
+	w.metrics.writeDuration = runenv.M().NewSummaryVec(runtime.SummaryOpts{
+		Name:       "sync_writer_subtree_write",
+		Help:       "sync service: subtree write duration (seconds)",
+		Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+	}, "key")
+
+	w.metrics.barrierEntryDuration = runenv.M().NewSummaryVec(runtime.SummaryOpts{
+		Name:       "sync_writer_barrier_entry",
+		Help:       "sync service: barrier entry duration (seconds)",
+		Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+	}, "state")
 
 	// Start a background worker that keeps alive the keeys
 	go w.keepAliveWorker(exitCtx)
@@ -127,6 +146,10 @@ func (w *Writer) Write(ctx context.Context, subtree *Subtree, payload interface{
 	// Calculate the stream key.
 	key := w.root + ":" + subtree.GroupKey
 
+	o := w.metrics.writeDuration.WithLabelValues(subtree.GroupKey)
+	t := prometheus.NewTimer(o)
+	defer t.ObserveDuration()
+
 	// Perform a Redis transaction, adding the item to the stream and fetching
 	// the XLEN of the stream.
 	var xlen *redis.IntCmd
@@ -175,6 +198,10 @@ func (w *Writer) SignalEntry(ctx context.Context, s State) (current int64, err e
 	log := w.re.SLogger()
 
 	log.Debugw("signalling entry to state", "state", s)
+
+	o := w.metrics.barrierEntryDuration.WithLabelValues((string)(s))
+	t := prometheus.NewTimer(o)
+	defer t.ObserveDuration()
 
 	// Increment a counter on the state key.
 	key := strings.Join([]string{w.root, "states", string(s)}, ":")

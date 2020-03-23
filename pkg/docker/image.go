@@ -74,13 +74,13 @@ func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Cli
 	for _, image := range images {
 		for _, rt := range image.RepoTags {
 			if strings.HasPrefix(rt, opts.Name) {
-				log.Info("found existing image: %s. continuing.", rt)
+				log.Infof("found existing image: %s; continuing", rt)
 				return false, nil
 			}
 		}
 	}
 
-	log.Info("image %s not found. creating new image.", opts.Name)
+	log.Infof("image %s not found; building", opts.Name)
 	err = BuildImage(ctx, client, opts)
 	if err != nil {
 		log.Warn(err)

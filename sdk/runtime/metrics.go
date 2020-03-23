@@ -12,40 +12,106 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-func NewCounter(runenv *RunEnv, name string, help string) prometheus.Counter {
-	c := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: name,
-		Help: help,
-	})
-	prometheus.MustRegister(c)
-	return c
+// Type aliases to hide implementation details in the APIs.
+type (
+	Counter   = prometheus.Counter
+	Gauge     = prometheus.Gauge
+	Histogram = prometheus.Histogram
+	Summary   = prometheus.Summary
+
+	CounterOpts   = prometheus.CounterOpts
+	GaugeOpts     = prometheus.GaugeOpts
+	HistogramOpts = prometheus.HistogramOpts
+	SummaryOpts   = prometheus.SummaryOpts
+
+	CounterVec   = prometheus.CounterVec
+	GaugeVec     = prometheus.GaugeVec
+	HistogramVec = prometheus.HistogramVec
+	SummaryVec   = prometheus.SummaryVec
+)
+
+type Metrics struct {
+	runenv *RunEnv
 }
 
-func NewGauge(runenv *RunEnv, name string, help string) prometheus.Gauge {
-	g := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: name,
-		Help: help,
-	})
-	prometheus.MustRegister(g)
-	return g
+func (*Metrics) NewCounter(o CounterOpts) Counter {
+	m := prometheus.NewCounter(o)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
 }
 
-func NewHistogram(runenv *RunEnv, name string, help string, buckets ...float64) prometheus.Histogram {
-	h := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    name,
-		Help:    help,
-		Buckets: buckets,
-	})
-	prometheus.MustRegister(h)
-	return h
+func (*Metrics) NewGauge(o GaugeOpts) Gauge {
+	m := prometheus.NewGauge(o)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
 }
 
-func NewSummary(runenv *RunEnv, name string, help string, opts prometheus.SummaryOpts) prometheus.Summary {
-	opts.Name = name
-	opts.Help = help
-	s := prometheus.NewSummary(opts)
-	prometheus.MustRegister(s)
-	return s
+func (*Metrics) NewHistogram(o HistogramOpts) Histogram {
+	m := prometheus.NewHistogram(o)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
+}
+
+func (*Metrics) NewSummary(o SummaryOpts) Summary {
+	m := prometheus.NewSummary(o)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
+}
+
+func (*Metrics) NewCounterVec(o CounterOpts, labels ...string) *CounterVec {
+	m := prometheus.NewCounterVec(o, labels)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
+}
+
+func (*Metrics) NewGaugeVec(o GaugeOpts, labels ...string) *GaugeVec {
+	m := prometheus.NewGaugeVec(o, labels)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
+}
+
+func (*Metrics) NewHistogramVec(o HistogramOpts, labels ...string) *HistogramVec {
+	m := prometheus.NewHistogramVec(o, labels)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
+}
+
+func (*Metrics) NewSummaryVec(o SummaryOpts, labels ...string) *SummaryVec {
+	m := prometheus.NewSummaryVec(o, labels)
+	switch err := prometheus.Register(m); err.(type) {
+	case nil, prometheus.AlreadyRegisteredError:
+	default:
+		panic(err)
+	}
+	return m
 }
 
 // HTTPPeriodicSnapshots periodically fetches the snapshots from the given address
