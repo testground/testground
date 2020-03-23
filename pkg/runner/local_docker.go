@@ -271,7 +271,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			_, err := docker.EnsureImage(ctx, log, cli, &docker.BuildImageOpts{
 				Name: "testground-prometheus",
 				// This is the location of the pre-configured prometheus used by the local docker runner.
-				BuildCtx: strings.Join([]string{engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"}, "/"),
+				BuildCtx: filepath.Join(engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"),
 			})
 
 			if err == nil {

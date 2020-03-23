@@ -33,6 +33,7 @@ spec:
     maxPods: 200
     allowedUnsafeSysctls:
       - net.core.somaxconn
+      - net.netfilter.nf_conntrack_max
   kubernetesApiAccess:
   - 0.0.0.0/0
   kubernetesVersion: 1.17.3

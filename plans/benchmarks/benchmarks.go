@@ -31,7 +31,7 @@ func StartTimeBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(runenv.TestStartTime)
 	emitTime(runenv, "Time to start", elapsed)
 
-	gauge := runtime.NewGauge(runenv, "start_time", "time from plan scheduled to plan booted")
+	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "start_time", Help: "time from plan scheduled to plan booted"})
 	gauge.Set(float64(elapsed))
 	return nil
 }
@@ -60,7 +60,7 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(startupTime)
 	emitTime(runenv, "Time to network init", elapsed)
 
-	gauge := runtime.NewGauge(runenv, "net_init_time", "Time waiting for network initialization")
+	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "net_init_time", Help: "Time waiting for network initialization"})
 	gauge.Set(float64(elapsed))
 	return nil
 }
@@ -117,7 +117,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	}
 	duration := time.Since(beforeNetConfig)
 	emitTime(runenv, "Time to configure link shape", duration)
-	gauge := runtime.NewGauge(runenv, "link_shape_time", "time waiting for change in network link shape")
+	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "link_shape_time", Help: "time waiting for change in network link shape"})
 	gauge.Set(float64(duration))
 
 	return nil
@@ -150,7 +150,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 		name := fmt.Sprintf("barrier_time_%d_percent", int(percent*100))
 		t := cfg{
 			Name:    name,
-			Gauge:   runtime.NewGauge(runenv, name, fmt.Sprintf("time waiting for %f barrier", percent)),
+			Gauge:   runenv.M().NewGauge(runtime.GaugeOpts{Name: name, Help: fmt.Sprintf("time waiting for %f barrier", percent)}),
 			Percent: percent,
 		}
 		tests = append(tests, &t)
@@ -234,7 +234,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		Name    string
 		Data    []byte
 		Subtree *sync.Subtree
-		Summary prometheus.Summary
+		Summary runtime.Summary
 	}
 
 	// Create tests ranging from 64B to 64KiB.
@@ -253,7 +253,9 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				GroupKey:    name,
 				PayloadType: reflect.TypeOf((*string)(nil)),
 			},
-			Summary: runtime.NewSummary(runenv, name, desc, prometheus.SummaryOpts{
+			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
+				Name:       name,
+				Help:       desc,
 				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
 			}),
 		}

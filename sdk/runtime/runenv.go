@@ -101,6 +101,7 @@ type RunEnv struct {
 	RunParams
 	*logger
 
+	metrics      *Metrics
 	unstructured chan *os.File
 	structured   chan *zap.Logger
 }
@@ -114,8 +115,14 @@ func NewRunEnv(params RunParams) *RunEnv {
 		unstructured: make(chan *os.File, 32),
 	}
 
+	re.metrics = &Metrics{re}
 	re.logger = newLogger(&re.RunParams)
 	return re
+}
+
+// M returns an object that groups the metrics facilities.
+func (re *RunEnv) M() *Metrics {
+	return re.metrics
 }
 
 func (re *RunEnv) Close() error {
