@@ -69,7 +69,7 @@ func ImportDatasources(c *sdk.Client) {
 	}
 	for _, file := range filesInDir {
 		if strings.HasSuffix(file.Name(), ".json") {
-			if rawDS, err = ioutil.ReadFile(file.Name()); err != nil {
+			if rawDS, err = ioutil.ReadFile("./datasources/" + file.Name()); err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				continue
 			}
