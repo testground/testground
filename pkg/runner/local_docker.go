@@ -107,12 +107,14 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	}
 
 	var (
-		ctrlNetCheck              api.HealthcheckItem
-		outputsDirCheck           api.HealthcheckItem
-		redisContainerCheck       api.HealthcheckItem
-		prometheusContainerCheck  api.HealthcheckItem
-		pushgatewayContainerCheck api.HealthcheckItem
-		sidecarContainerCheck     api.HealthcheckItem
+		ctrlNetCheck                api.HealthcheckItem
+		grafanaContainerCheck       api.HealthcheckItem
+		outputsDirCheck             api.HealthcheckItem
+		prometheusContainerCheck    api.HealthcheckItem
+		pushgatewayContainerCheck   api.HealthcheckItem
+		redisContainerCheck         api.HealthcheckItem
+		redisExporterContainerCheck api.HealthcheckItem
+		sidecarContainerCheck       api.HealthcheckItem
 	)
 
 	networks, err := docker.CheckBridgeNetwork(ctx, log, cli, "testground-control")
@@ -131,7 +133,38 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
-	ci, err := docker.CheckContainer(ctx, log, cli, "testground-prometheus")
+	ci, err := docker.CheckContainer(ctx, log, cli, "testground-grafana")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "grafana container: non-existent"
+			grafanaContainerCheck = api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "grafana container: running"
+			grafanaContainerCheck = api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("grafana container: status %s", ci.State.Status)
+			grafanaContainerCheck = api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("grafana container errored: %s", err)
+		grafanaContainerCheck = api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	// Ensure the outputs dir exists.
+	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
+	if _, err := os.Stat(r.outputsDir); err == nil {
+		msg := "outputs directory exists"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
+	} else if os.IsNotExist(err) {
+		msg := "outputs directory does not exist"
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
+	} else {
+		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
+		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
+	ci, err = docker.CheckContainer(ctx, log, cli, "testground-prometheus")
 	if err == nil {
 		switch {
 		case ci == nil:
@@ -185,6 +218,24 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		redisContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
+	ci, err = docker.CheckContainer(ctx, log, cli, "testground-redis-exporter")
+	if err == nil {
+		switch {
+		case ci == nil:
+			msg := "redis-exporter container: non-existent"
+			redisExporterContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		case ci.State.Running:
+			msg := "redis-exporter container: running"
+			redisExporterContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
+		default:
+			msg := fmt.Sprintf("redis-exporter container: status %s", ci.State.Status)
+			redisExporterContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+		}
+	} else {
+		msg := fmt.Sprintf("redis-exporter container errored: %s", err)
+		redisExporterContainerCheck = api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusAborted, Message: msg}
+	}
+
 	ci, err = docker.CheckContainer(ctx, log, cli, "testground-sidecar")
 	if err == nil {
 		switch {
@@ -203,26 +254,15 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		sidecarContainerCheck = api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusAborted, Message: msg}
 	}
 
-	// Ensure the outputs dir exists.
-	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
-	if _, err := os.Stat(r.outputsDir); err == nil {
-		msg := "outputs directory exists"
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
-	} else if os.IsNotExist(err) {
-		msg := "outputs directory does not exist"
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
-	} else {
-		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
-	}
-
 	report := &api.HealthcheckReport{
 		Checks: []api.HealthcheckItem{
 			ctrlNetCheck,
+			grafanaContainerCheck,
 			outputsDirCheck,
 			prometheusContainerCheck,
 			pushgatewayContainerCheck,
 			redisContainerCheck,
+			redisExporterContainerCheck,
 			sidecarContainerCheck,
 		},
 	}
@@ -246,6 +286,32 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			msg := fmt.Sprintf("failed to create control network: %s", err)
 			it := api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusFailed, Message: msg}
 			fixes = append(fixes, it)
+		}
+	}
+
+	if grafanaContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of grafana container; no control network"
+			it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			if err == nil {
+				_, err := ensureInfraContainer(ctx, cli, log, "testground-grafana", "bitnami/grafana", r.controlNetworkID, true)
+				if err == nil {
+					msg := "grafana container created successfully"
+					it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOK, Message: msg}
+					fixes = append(fixes, it)
+				} else {
+					msg := fmt.Sprintf("failed to create grafana container: %s", err)
+					it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusFailed, Message: msg}
+					fixes = append(fixes, it)
+				}
+			} else {
+				msg := fmt.Sprintf("failed to create grafana image: %s", err)
+				it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
 		}
 	}
 
@@ -328,6 +394,31 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			} else {
 				msg := fmt.Sprintf("failed to create redis container: %s", err)
 				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusFailed, Message: msg}
+				fixes = append(fixes, it)
+			}
+		}
+	}
+
+	if redisExporterContainerCheck.Status != api.HealthcheckStatusOK {
+		switch r.controlNetworkID {
+		case "":
+			msg := "omitted creation of redis-exporter container; no control network"
+			it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusOmitted, Message: msg}
+			fixes = append(fixes, it)
+		default:
+			// Redis exporter arguments
+			args := []string{
+				"--redis.addr",
+				"redis://testground-redis:6379",
+			}
+			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis-exporter", "bitnami/redis-exporter", r.controlNetworkID, true, args...)
+			if err == nil {
+				msg := "redis-exporter container created successfully"
+				it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusOK, Message: msg}
+				fixes = append(fixes, it)
+			} else {
+				msg := fmt.Sprintf("failed to create redis-exporter container: %s", err)
+				it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusFailed, Message: msg}
 				fixes = append(fixes, it)
 			}
 		}
@@ -700,11 +791,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool) (id string, err error) {
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool, cmds ...string) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
 			Image: imageName,
+			Cmd:   cmds,
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode:     container.NetworkMode(networkID),
