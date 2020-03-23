@@ -107,6 +107,16 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 			"local-pushgateway",
 			"localhost:9091",
 			"pushgateway"),
+		newhealthcheckedProcess(ctx,
+			"local-redis-exporter",
+			"localhost:9121",
+			"redis_exporter",
+		),
+		newhealthcheckedProcess(ctx,
+			"local-grafana",
+			"localhost:3000",
+			"grafana_server",
+		),
 	}
 
 	eg, _ := errgroup.WithContext(ctx)
