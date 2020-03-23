@@ -5,6 +5,8 @@ import (
 )
 
 func TestSidecar(t *testing.T) {
+	t.Skip("Skipping flaky test")
+
 	err := runSingle(t,
 		"run",
 		"single",
