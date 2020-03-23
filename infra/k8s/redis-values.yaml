@@ -186,6 +186,8 @@ securityContext:
   sysctls:
   - name: net.core.somaxconn
     value: "100000"
+  - name: net.netfilter.nf_conntrack_max
+    value: "100000"
 
 ## Use password authentication
 usePassword: false
@@ -560,7 +562,8 @@ sysctlImage:
   - /bin/sh
   - -c
   - |
-    sysctl -w net.core.somaxconn=10000
+    sysctl -w net.core.somaxconn=100000 &&
+    sysctl -w net.netfilter.nf_conntrack_max=100000
   registry: docker.io
   repository: busybox
   tag: latest
