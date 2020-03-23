@@ -138,6 +138,17 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
 
+
+In order to run the tests with the local:exec runner, there are a few things that must be taken care of first.
+1. install required test software
+  * redis (redis.io)
+  * prometheus (prometheus.io)
+  * prometheus-pushgateway (prometheus.io)
+
+(bug) the address of the promethus pushgateway is hard-coded to http://prometheus-pushgateway.
+This works fine on the docker and k8s runners, but you will need to make this address resolvable on your local system.
+Consider adding a line into /etc/hosts so metrics collection works with the local:exec runner.
+
 ## Running a composition
 
 
