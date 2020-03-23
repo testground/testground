@@ -1,5 +1,5 @@
 global:
-  scrape_interval:     5s
+  scrape_interval: 5s
 
 scrape_configs:
   - job_name: 'prometheus'
@@ -8,7 +8,7 @@ scrape_configs:
 
   - job_name: 'prometheus-pushgateway'
     static_configs:
-      - targets: ['prometheus-pushgateway:9090']
+      - targets: ['prometheus-pushgateway:9091']
 
   - job_name: 'redis'
     static_configs:

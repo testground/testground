@@ -10,6 +10,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Watcher exposes methods to watch subtrees within the sync tree of this test.
@@ -20,6 +21,16 @@ type Watcher struct {
 	subs      sync.WaitGroup
 	close     chan struct{}
 	closeOnce sync.Once
+
+	// metrics
+	metrics struct {
+		barrierTotalWait  *runtime.SummaryVec
+		barrierPollsCount *runtime.CounterVec
+
+		subtreeSubscriptionDur *runtime.SummaryVec
+		subtreeEntryWait       *runtime.SummaryVec
+		subtreeReceivedCount   *runtime.CounterVec
+	}
 }
 
 // NewWatcher begins watching the subtree underneath this path.
@@ -39,6 +50,35 @@ func NewWatcher(ctx context.Context, runenv *runtime.RunEnv) (w *Watcher, err er
 		root:   prefix,
 		close:  make(chan struct{}),
 	}
+
+	w.metrics.barrierTotalWait = runenv.M().NewSummaryVec(runtime.SummaryOpts{
+		Name:       "sync_watcher_barrier_total_wait_seconds",
+		Help:       "sync service: watcher total barrier wait time (seconds)",
+		Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+	}, "state")
+
+	w.metrics.barrierPollsCount = runenv.M().NewCounterVec(runtime.CounterOpts{
+		Name: "sync_watcher_barrier_polls_count",
+		Help: "sync service: watcher barrier polls count",
+	}, "state")
+
+	w.metrics.subtreeReceivedCount = runenv.M().NewCounterVec(runtime.CounterOpts{
+		Name: "sync_watcher_subtree_received_count",
+		Help: "sync service: watcher subtree entries received count",
+	}, "key")
+
+	w.metrics.subtreeSubscriptionDur = runenv.M().NewSummaryVec(runtime.SummaryOpts{
+		Name:       "sync_watcher_barrier_total_subscription_duration_seconds",
+		Help:       "sync service: watcher total subscription duration (seconds)",
+		Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+	}, "key")
+
+	w.metrics.subtreeEntryWait = runenv.M().NewSummaryVec(runtime.SummaryOpts{
+		Name:       "sync_watcher_barrier_entry_wait_time_seconds",
+		Help:       "sync service: watcher entry wait time (seconds)",
+		Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
+	}, "key")
+
 	return w, nil
 }
 
@@ -118,9 +158,16 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 
 		defer ticker.Stop()
 
+		o1 := w.metrics.barrierPollsCount.WithLabelValues((string)(state))
+		o2 := w.metrics.barrierTotalWait.WithLabelValues((string)(state))
+		t := prometheus.NewTimer(o2)
+		defer t.ObserveDuration()
+
 		for last < required {
 			select {
 			case <-ticker.C:
+				o1.Inc()
+
 				last, err = client.Get(k).Int64()
 				if err != nil && err != redis.Nil {
 					err = fmt.Errorf("error occured in barrier: %w", err)
