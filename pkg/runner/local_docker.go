@@ -296,14 +296,8 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := docker.EnsureImage(ctx, log, cli, &docker.BuildImageOpts{
-				Name: "testground-grafana",
-				// This is the location of the pre-configured grafana used by the local docker runner.
-				BuildCtx: strings.Join([]string{engine.EnvConfig().SrcDir, "infra/docker/testground-grafana"}, "/"),
-			})
-
 			if err == nil {
-				_, err := ensureInfraContainer(ctx, cli, log, "testground-grafana", "bitnami/grafana", r.controlNetworkID, false)
+				_, err := ensureInfraContainer(ctx, cli, log, "testground-grafana", "bitnami/grafana", r.controlNetworkID, true)
 				if err == nil {
 					msg := "grafana container created successfully"
 					it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -412,7 +406,12 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis-exporter", "bitnami/redis-exporter", r.controlNetworkID, true)
+			// Redis exporter arguments
+			args := []string{
+				"--redis.addr",
+				"redis://testground-redis:6379",
+			}
+			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis-exporter", "bitnami/redis-exporter", r.controlNetworkID, true, args...)
 			if err == nil {
 				msg := "redis-exporter container created successfully"
 				it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -792,11 +791,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool) (id string, err error) {
+func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool, cmds ...string) (id string, err error) {
 	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
 			Image: imageName,
+			Cmd:   cmds,
 		},
 		HostConfig: &container.HostConfig{
 			NetworkMode:     container.NetworkMode(networkID),
