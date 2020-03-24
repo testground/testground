@@ -283,13 +283,14 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		testcase = comp.Global.Case
 		builder  = comp.Global.Builder
 		runner   = comp.Global.Runner
+		plan     = comp.Definition
 	)
 
 	// Find the test plan.
-	plan := e.TestCensus().PlanByName(testplan)
-	if plan == nil {
-		return nil, fmt.Errorf("unrecognized test plan: %s", testplan)
-	}
+	//plan := e.TestCensus().PlanByName(testplan)
+	//if plan == nil {
+	//return nil, fmt.Errorf("unrecognized test plan: %s", testplan)
+	//}
 
 	// Find the test case.
 	seq, tcase, ok := plan.TestCaseByName(testcase)
@@ -297,17 +298,17 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
 	}
 
-	if runner == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		runner = plan.Defaults.Runner
-	}
+	//if runner == "" {
+	//// TODO remove plan-specified runners and builders. Now that we have
+	//// compositions, everything must be explicit.
+	//runner = plan.Defaults.Runner
+	//}
 
-	if builder == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		runner = plan.Defaults.Builder
-	}
+	//if builder == "" {
+	//// TODO remove plan-specified runners and builders. Now that we have
+	//// compositions, everything must be explicit.
+	//runner = plan.Defaults.Builder
+	//}
 
 	// Get the runner.
 	run, ok := e.runners[runner]
@@ -389,7 +390,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		EnvConfig:      *e.envcfg,
 		RunnerConfig:   obj,
 		Directories:    e.envcfg,
-		TestPlan:       plan,
+		TestPlan:       &plan,
 		Seq:            seq,
 		TotalInstances: int(comp.Global.TotalInstances),
 		Groups:         make([]api.RunGroup, 0, len(comp.Groups)),

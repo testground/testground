@@ -98,15 +98,15 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	// The testground-build network is used to connect build services (like the
 	// GOPROXY) to the build container.
 	b.proxyLk.Lock()
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
-	if err != nil {
-		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
-		cfg.GoProxyMode = "direct"
-	}
+	//buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
+	//if err != nil {
+	//log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+	//cfg.GoProxyMode = "direct"
+	//}
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
+	proxyURL, warn := setupGoProxy(ctx, log, cli, cfg)
 	if warn != nil {
 		log.Warnf("warning while setting up the go proxy: %s", warn)
 	}
@@ -213,9 +213,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
-		NetworkMode: "testground-build",
-		BuildArgs:   args,
+		Tags: []string{id, in.BuildID},
+		//NetworkMode: "testground-build",
+		BuildArgs: args,
 	}
 
 	imageOpts := docker.BuildImageOpts{
@@ -373,7 +373,7 @@ func setupLocalGoProxyVol(ctx context.Context, log *zap.SugaredLogger, cli *clie
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
-func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
 	var mnt *mount.Mount
 
 	switch strings.TrimSpace(cfg.GoProxyMode) {
@@ -408,8 +408,8 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 				Image: "goproxy/goproxy",
 			},
 			HostConfig: &container.HostConfig{
-				Mounts:      []mount.Mount{*mnt},
-				NetworkMode: container.NetworkMode(buildNetworkID),
+				Mounts: []mount.Mount{*mnt},
+				//NetworkMode: container.NetworkMode(buildNetworkID),
 			},
 			PullImageIfMissing: true,
 		}

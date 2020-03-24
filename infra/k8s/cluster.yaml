@@ -10,6 +10,15 @@ spec:
   api:
     loadBalancer:
       type: Public
+  additionalPolicies:
+    node: |
+      [
+        {
+          "Effect": "Allow",
+          "Action": ["ecr:*"],
+          "Resource": ["*"]
+        }
+      ]
   authorization:
     rbac: {}
   channel: stable

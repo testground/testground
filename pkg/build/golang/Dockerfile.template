@@ -54,8 +54,8 @@ FROM debian
 COPY --from=0 /testground_dep_list /
 COPY --from=0 /plan/testplan /
 RUN mkdir -p /usr/local/bin
-COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
-RUN rm -f /usr/local/bin/delete_me
+#COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
+#RUN rm -f /usr/local/bin/delete_me
 ENV PATH="/usr/local/bin:${PATH}"
 
 EXPOSE 6060
