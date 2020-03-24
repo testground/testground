@@ -65,13 +65,13 @@ func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) {
 					fixhc.Status = api.HealthcheckStatusOK
 					fixhc.Message = fmt.Sprintf("%s RECOVERED", li.Name)
 				}
-				// Fill the report with fix information.
-				hh.Report.Fixes = append(hh.Report.Fixes, fixhc)
-				return nil
+			} else {
+				// don't attempt to fix.
+				fixhc.Status = api.HealthcheckStatusOmitted
+				fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
 			}
-			// don't attempt to fix.
-			fixhc.Status = api.HealthcheckStatusOmitted
-			fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
+			// Fill the report with fix information.
+			hh.Report.Fixes = append(hh.Report.Fixes, fixhc)
 			return nil
 		})
 		eg.Wait()
