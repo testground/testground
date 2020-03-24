@@ -14,6 +14,9 @@ var compositionValidator = func() *validator.Validate {
 }()
 
 type Composition struct {
+	// Testplan definition
+	Definition TestPlanDefinition `toml:"definition" json:"definition"`
+
 	// Metadata expresses optional metadata about this composition.
 	Metadata Metadata `toml:"metadata" json:"metadata"`
 

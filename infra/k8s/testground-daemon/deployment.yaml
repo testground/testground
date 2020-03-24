@@ -17,5 +17,15 @@ spec:
       containers:
       - name: testground-daemon
         image: nonsens3/testground:daemon
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
         ports:
         - containerPort: 8042
+        volumeMounts:
+          - name: dockersock
+            mountPath: "/var/run/docker.sock"
+      volumes:
+      - name: dockersock
+        hostPath:
+          path: /var/run/docker.sock

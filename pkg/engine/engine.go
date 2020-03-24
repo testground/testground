@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
@@ -159,18 +160,19 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	var (
 		testplan = comp.Global.Plan
 		builder  = comp.Global.Builder
+		plan     = comp.Definition
 	)
 
-	plan := e.TestCensus().PlanByName(testplan)
-	if plan == nil {
-		return nil, fmt.Errorf("unknown test plan: %s", testplan)
-	}
+	//plan := e.TestCensus().PlanByName(testplan)
+	//if plan == nil {
+	//return nil, fmt.Errorf("unknown test plan: %s", testplan)
+	//}
 
-	if builder == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		builder = plan.Defaults.Builder
-	}
+	//if builder == "" {
+	//// TODO remove plan-specified runners and builders. Now that we have
+	//// compositions, everything must be explicit.
+	//builder = plan.Defaults.Builder
+	//}
 
 	// Find the builder.
 	bm, ok := e.builders[builder]
@@ -197,6 +199,8 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	//  4. Builder defaults (applied by the builder itself, nothing to do here).
 	//
 	var cfg config.CoalescedConfig
+
+	spew.Dump(plan)
 
 	// 3. Add the base configuration of the build strategy.
 	if c, ok := plan.BuildStrategies[builder]; !ok {
@@ -243,7 +247,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				BuildConfig:  obj,
 				EnvConfig:    *e.envcfg,
 				Directories:  e.envcfg,
-				TestPlan:     plan,
+				TestPlan:     &plan,
 				Selectors:    grp.Build.Selectors,
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}

@@ -9,8 +9,6 @@ ARG GO_VERSION=1.14
 # TODO: Not sure how this interplays with image caching.
 FROM golang:${GO_VERSION}-buster
 
-# GO_IPFS_VERSION is the go-ipfs version to include in this image.
-ARG GO_IPFS_VERSION
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
 ARG TESTPLAN_EXEC_PKG
@@ -22,10 +20,6 @@ ARG BUILD_TAGS
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 # PLAN_DIR is the location containing the plan source inside the container.
 ENV PLAN_DIR /plan/
-
-# Optionally install IPFS
-RUN if [ -n "${GO_IPFS_VERSION}" ]; then echo Install IPFS ${GO_IPFS_VERSION} && cd /tmp && wget https://dist.ipfs.io/go-ipfs/v${GO_IPFS_VERSION}/go-ipfs_v${GO_IPFS_VERSION}_linux-amd64.tar.gz && tar xf go-ipfs_v${GO_IPFS_VERSION}_linux-amd64.tar.gz; fi
-RUN touch /tmp/delete_me
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
 COPY /plan/go.mod ${PLAN_DIR}

@@ -26,9 +26,9 @@ RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
 #::: RUNTIME CONTAINER
 #:::
 
-FROM debian:buster
+FROM golang:${GO_VERSION}-buster
 
-RUN apt update && apt install -y iptables
+RUN apt update && apt install -y iptables git
 RUN mkdir -p /usr/local/bin
 
 # Copy testground binary
@@ -36,6 +36,14 @@ COPY --from=0 /testground /usr/local/bin/testground
 
 # Add config
 COPY /env-k8s.toml /root/.env.toml
+
+# Copy dockerfile for testplan builds
+COPY /pkg/build/golang/Dockerfile.template /root/pkg/build/golang/Dockerfile.template
+
+# Copy SDK
+COPY /sdk /sdk
+
+# build failed    {"plan": "network", "group": "smth", "builder": "docker:go", "error": "unable to add replace directives to go.mod; exec: \"go\": executable file not found in $PATH"}
 
 WORKDIR /root
 

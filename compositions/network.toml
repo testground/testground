@@ -1,0 +1,40 @@
+[definition]
+name = "network"
+source_path = "git://github.com/nonsense/network-ping-pong"
+
+[definition.build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/network"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+[definition.run_strategies."cluster:k8s"]
+enabled = true
+
+[[definition.testcases]]
+name = "ping-pong"
+instances = { min = 2, max = 2, default = 2 }
+
+[metadata]
+name    = "network"
+author  = "nonsense"
+
+[global]
+plan    = "network"
+case    = "ping-pong"
+builder = "docker:go"
+runner  = "cluster:k8s"
+
+total_instances = 2
+
+[global.build_config]
+  go_proxy_mode = "direct"
+  push_registry = true
+  registry_type = "aws"
+
+[[groups]]
+  id = "smth"
+  [groups.instances]
+    count = 2
+    percentage = 0.0
