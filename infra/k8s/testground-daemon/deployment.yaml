@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: testground-daemon
+  labels:
+    app: testground-daemon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testground-daemon
+  template:
+    metadata:
+      labels:
+        app: testground-daemon
+    spec:
+      containers:
+      - name: testground-daemon
+        image: nonsens3/testground:daemon
+        ports:
+        - containerPort: 8042

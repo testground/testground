@@ -1,0 +1,12 @@
+["aws"]
+region = "eu-central-1"
+
+[run_strategies."cluster:k8s"]
+pod_resource_cpu      = "100m"
+pod_resource_memory   = "100Mi"
+
+[daemon]
+listen = "0.0.0.0:8042"
+
+[client]
+endpoint = "localhost:8080"

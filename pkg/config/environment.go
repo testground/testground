@@ -70,10 +70,10 @@ type ConfigMap map[string]interface{}
 func GetEnvConfig() (*EnvConfig, error) {
 	ec := &EnvConfig{}
 
-	srcdir, err := locateSrcDir()
-	if err != nil {
-		return nil, err
-	}
+	srcdir, _ := locateSrcDir()
+	//if err != nil {
+	//return nil, err
+	//}
 
 	workdir, err := locateWorkDir()
 	if err != nil {
