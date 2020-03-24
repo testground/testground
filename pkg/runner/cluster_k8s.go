@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -292,16 +291,6 @@ func (*ClusterK8sRunner) ID() string {
 	return "cluster:k8s"
 }
 
-func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
-	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
-	err := exec.Command("kops", "validate", "cluster").Run()
-	if err != nil {
-		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s", err)}
-		return
-	}
-	return
-}
-
 func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
 	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusFailed, Message: "efs provisioner is not running"}
 
@@ -401,7 +390,6 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Wr
 	report := api.HealthcheckReport{}
 
 	report.Checks = []api.HealthcheckItem{
-		c.healthcheckK8s(),
 		c.healthcheckEFS(),
 		c.healthcheckRedis(),
 		c.healthcheckSidecar(),
