@@ -141,9 +141,13 @@ You should see a bunch of logs that describe the steps of the test, from:
 
 In order to run the tests with the local:exec runner, there are a few things that must be taken care of first.
 1. install required test software
-  * redis (redis.io)
-  * prometheus (prometheus.io)
-  * prometheus-pushgateway (prometheus.io)
+  * redis (https://redis.io/download)
+  * redis_exporter (https://github.com/oliver006/redis_exporter/releases)
+  * prometheus (https://prometheus.io/download/)
+  * prometheus-pushgateway (https://prometheus.io/download/)
+  * grafana (https://grafana.com/grafana/download)
+
+2. If not installed using your system's package manager, make sure your PATH is adjusted on the testground daemon so the software can be properly started.
 
 (bug) the address of the promethus pushgateway is hard-coded to http://prometheus-pushgateway.
 This works fine on the docker and k8s runners, but you will need to make this address resolvable on your local system.
