@@ -565,8 +565,10 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 //   a. Forget the addresses of all peers we've disconnected from. Otherwise, FindPeer is useless.
 //   b. Re-connect to at least one node if we've disconnected from _all_ nodes.
 //      We may want to make this an error in the future?
-func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
+func Bootstrap(ctx context.Context, ri *RunInfo,
 	opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo, stager Stager, bootstrapNodes []peer.AddrInfo) error {
+	runenv := ri.runenv
+
 	defer runenv.RecordMessage("bootstrap phase ended")
 	stager.Reset("bootstrapping")
 
@@ -580,7 +582,14 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 
 	// Wait until it's our turn to bootstrap
 
-	if err := stager.Begin(); err != nil {
+	gradualBsStager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "boostrap-gradual", ri,
+		func(seq int) int {
+			if seq == 0 {
+				return 0
+			}
+			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))+1
+		})
+	if err :=  gradualBsStager.Begin(); err != nil {
 		return err
 	}
 
@@ -593,10 +602,6 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 
 	runenv.RecordMessage("bootstrap: dialed %d other peers", len(bootstrapNodes))
 
-	if err := stager.End(); err != nil {
-		return err
-	}
-
 	// TODO: Use an updated autonat that doesn't require this
 	// Wait for Autonat to kick in
 	time.Sleep(time.Second * 30)
@@ -604,10 +609,6 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 	////////////////
 	// 2: ROUTING //
 	////////////////
-
-	if err := stager.Begin(); err != nil {
-		return err
-	}
 
 	// Wait for these peers to be added to the routing table.
 	if err := WaitRoutingTable(ctx, runenv, dht); err != nil {
@@ -639,29 +640,7 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 	// TODO: Repeat this a few times until our tables have stabilized? That
 	// _shouldn't_ be necessary.
 
-	if err := stager.End(); err != nil {
-		return err
-	}
-
 	runenv.RecordMessage("bootstrap: everyone table ready")
-
-	for i := 0; i < 0; i++ {
-		if err := stager.Begin(); err != nil {
-			return err
-		}
-
-		runenv.RecordMessage("boostrap: start refresh - %d", i+1)
-
-		if err := rrt(); err != nil {
-			return err
-		}
-
-		runenv.RecordMessage("boostrap: done refresh - %d", i+1)
-
-		if err := stager.End(); err != nil {
-			return err
-		}
-	}
 
 	outputGraph(node.dht, "ar")
 
@@ -674,17 +653,13 @@ func Bootstrap(ctx context.Context, runenv *runtime.RunEnv,
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
 
-	if err := stager.Begin(); err != nil {
-		return err
-	}
-
 	runenv.Message("bootstrap: begin trim")
 
 	// Force the connection manager to do it's dirty work. DIE CONNECTIONS
 	// DIE!
 	dht.Host().ConnManager().TrimOpenConns(ctx)
 
-	if err := stager.End(); err != nil {
+	if err := gradualBsStager.End(); err != nil {
 		return err
 	}
 
@@ -893,16 +868,16 @@ func (s *BatchStager) End() error {
 }
 func (s *BatchStager) Reset(name string) { s.stager.Reset(name) }
 
-func NewSinglePeerStager(ctx context.Context, seq int, total int, name string, watcher *sync.Watcher, writer *sync.Writer, runenv *runtime.RunEnv) *SinglePeerStager {
+func NewSinglePeerStager(ctx context.Context, seq int, total int, name string, ri *RunInfo) *SinglePeerStager {
 	return &SinglePeerStager{BatchStager{stager{
 		ctx:     ctx,
 		seq:     seq,
 		total:   total,
 		name:    name,
 		stage:   0,
-		watcher: watcher,
-		writer:  writer,
-		re:      runenv,
+		watcher: ri.watcher,
+		writer:  ri.writer,
+		re:      ri.runenv,
 		t:       time.Now(),
 	}}}
 }
@@ -922,6 +897,43 @@ func (s *SinglePeerStager) End() error {
 	return s.BatchStager.End()
 }
 func (s *SinglePeerStager) Reset(name string) { s.stager.Reset(name) }
+
+func NewGradualStager(ctx context.Context, seq int, total int, name string, ri *RunInfo, gradFn gradualFn) *GradualStager {
+	return &GradualStager{BatchStager{stager{
+		ctx:     ctx,
+		seq:     seq,
+		total:   total,
+		name:    name,
+		stage:   0,
+		watcher: ri.watcher,
+		writer:  ri.writer,
+		re:      ri.runenv,
+		t:       time.Now(),
+	}}, gradFn}
+}
+
+type gradualFn func(seq int) int
+
+type GradualStager struct{
+	BatchStager
+	gradualFn
+}
+
+func (s *GradualStager) Begin() error {
+	if err := s.BatchStager.Begin(); err != nil {
+		return err
+	}
+
+	// Wait until it's out turn
+	stage := sync.State(s.name + string(s.stage))
+	ourTurn := s.gradualFn(s.seq)
+	return <-s.watcher.Barrier(s.ctx, stage, int64(ourTurn))
+}
+func (s *GradualStager) End() error {
+	return s.BatchStager.End()
+}
+func (s *GradualStager) Reset(name string) { s.stager.Reset(name) }
+
 
 type NoStager struct{}
 
@@ -1017,8 +1029,8 @@ func outputGraph(dht *kaddht.IpfsDHT, graphID string) {
 		}
 	}
 
-	for i, p := range dht.RoutingTable().ListPeers() {
-		rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Bucket", strconv.Itoa(i), "Peer", p.Pretty())
+	for _, p := range dht.RoutingTable().ListPeers() {
+		rtLogger.Infow(graphID, "Node", dht.PeerID().Pretty(), "Peer", p.Pretty())
 	}
 }
 

@@ -53,7 +53,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, ri, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
 		return err
 	}
 
@@ -63,9 +63,9 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	//if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
-	//	return err
-	//}
+	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
+		return err
+	}
 
 	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {

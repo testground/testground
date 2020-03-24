@@ -22,18 +22,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:bd2069e733a9"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8ce7f1f3210a"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
       timeout_secs = "600"
@@ -48,18 +45,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4fd2c9091e12"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ef517e157422"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
       record_count = "1"
@@ -75,18 +69,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:14ea4974007c"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:82fdb8a5210d"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
       record_count = "1"
@@ -102,18 +93,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c9ca8709673a"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:e6bab5ebb2cb"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
       record_count = "1"
@@ -129,18 +117,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:4953c658ebdd"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c10ec14f3d56"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
       search_records = "true"
@@ -156,18 +141,15 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "ff9820533c9a0b04dd401203a23a9276b9551aae"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "901286ad641d8eb313fa9766c0c2a2050afbe12f "
+      version = "99716d16b459e63db6b58038d20a7537e1949d38"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "685ba00833c3436be748c60962331582b15192f7"
+      version = "v0.6.2-0.20200323213923-1425d551c298"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:351fdf2c70fd"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c0cb701ed2dd"
     [groups.run.test_params]
+      alpha = "6"
       bootstrapper = "true"
       bs_strategy = "1"
       bucket_size = "10"

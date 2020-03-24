@@ -41,7 +41,7 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, ri, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
 		return err
 	}
 

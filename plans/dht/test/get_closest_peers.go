@@ -47,7 +47,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	t := time.Now()
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, ri, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
 		return err
 	}
 
