@@ -3,7 +3,7 @@
 # Updates sub-charts not managed by the testground team.
 
 thirdparty=("stable/prometheus-pushgateway"
-	    "bitnami/prometheus-operator"
+	    "stable/prometheus-operator"
 	    "bitnami/redis")
 
 for repo in "${thirdparty[@]}"
