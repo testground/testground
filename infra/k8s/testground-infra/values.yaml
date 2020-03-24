@@ -76,4 +76,5 @@ redis:
     serviceMonitor: 
       enabled: true
       namespace: default
-
+  cluster:
+    enabled: false
