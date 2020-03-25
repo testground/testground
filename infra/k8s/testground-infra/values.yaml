@@ -55,6 +55,7 @@ prometheus-operator:
         serviceMonitorNamespaceSelector:
           any: true
 
+
 # Changes from defaults:
 # * override "fullname" so it is resolves with http://prometheus-pushgateway
 #   This matches the behavior from the kops addon, but we don't need to do this
@@ -77,6 +78,12 @@ prometheus-pushgateway:
 # Changes from defaults:
 # * enable redis exporter
 # * enable the serviceMonitor so it will be picked up by prometheus
+# * Disable cluster mode -- there are failure modes which could result in
+#   dataloss after acknowledgement.
+# * SecurityContext and sysctlImage provides tuning for redis to provide for 10k
+# * Master resources is setup to be a large value so redis will be mostly
+#   singele-tenant.
+# * podAnnotations is set to flannel to force it to be on the control network.
 redis:
   metrics:
     enabled: true
@@ -85,3 +92,26 @@ redis:
       namespace: default
   cluster:
     enabled: false
+  usePassword: false
+  securityContext:
+    - name: net.core.somaxconn
+      value: 100000
+    - name: net.netfilter.nf_conntrack_max
+      value: 100000
+  master:
+    extraFlags:
+    - "--maxclients 100000"
+    podAnnotations:
+       cni: flannel
+    resources:
+      requests:
+        memory: 13000Mi
+        cpu: 6500m
+  sysctlImage:
+    enabled: true
+    command:
+    - /bin/sh
+    - -c
+    - |
+      sysctl -w net.core.somaxconn=100000 &&
+      sysctl -w net.netfilter.nf_conntrack_max=100000
