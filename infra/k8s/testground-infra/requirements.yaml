@@ -1,0 +1,15 @@
+dependencies:
+
+  - name: prometheus-operator
+    version: "*"
+
+  - name: prometheus-pushgateway
+    version: "*"
+
+  - name: redis
+    version: "*"
+
+  - name: testground-dashboards
+    version: "0.0.*"
+
+

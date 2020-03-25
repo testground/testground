@@ -4,7 +4,7 @@ metadata:
   name: weave-net
   labels:
     k8s-app: weave-net
-  namespace: monitoring
+  namespace: default
 spec:
   jobLabel: k8s-app
   selector:

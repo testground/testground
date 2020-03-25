@@ -1,0 +1,87 @@
+# Testground values overrides:
+
+# Changes from defaults:
+# * Disabled the alertmanager.
+# * We do not manage certificates. In order to prevent scrape errors caused by
+#   certificate malfunction, skip TLS checks or disable https.
+# * The grafana username and password are stored in a kubernetes secret called
+#   <RELEASE>-grafana. Changed from the default (prom-operator) to testground.
+# * Enable the grafana sidecar. This will watch for secrets or configmaps which
+#   have the label grafana_dashboard or grafana_datasource, and adds them
+#   automatically to the grafana dashboard.
+# * I configured the scraper to look for ServiceMonitors in any namespace. This
+#   allows a single prometheus to scrape plan as well as kube-system metrics.
+# * createCustomResource is configured to false. For helm v3, custom resources
+#   are still created. By including this option, users won't see a confusing
+#   error message about CRDs not being created.
+#   See https://github.com/helm/charts/blob/master/stable/prometheus-operator/README.md#L193
+#   for an explanation of this option.
+prometheus-operator:
+  alertmanager:
+    enabled: false
+  grafana:
+    adminPassword: testground
+    sidecar:
+      dashboards:
+        enabled: true
+      datasources:
+        enabled: true
+  kubeProxy:
+    serviceMonitor:
+      https: false
+  kubelet:
+    serviceMonitor:
+      https: false
+  kubeApiServer:
+    tlsConfig:
+      insecureSkipVerify: true
+    serviceMonitor:
+      https: false
+  kubeControllerManager:
+    serviceMonitor:
+      insecureSkipVerify: true
+      https: false
+  kubeEtcd:
+    serviceMonitor:
+      insecureSkipVerify: true
+      https: false
+  operator:
+    createCustomResource: false
+  prometheusOperator:
+    createCustomResource: false
+  prometheus:
+    prometheusSpec:
+      spec:
+        serviceMonitorNamespaceSelector:
+          any: true
+
+# Changes from defaults:
+# * override "fullname" so it is resolves with http://prometheus-pushgateway
+#   This matches the behavior from the kops addon, but we don't need to do this
+#   once we make this a configurable option.
+# * enable the serviceMonitor, so it will be picked up by the prometheus 
+#   operator. Move the serviceMonitor to the default namespace.
+# * Change the scrape interval to a short value. This should be set to the same
+#   value with which plans push to the pushgatway. See the runner sdk.
+# * Permissive network policy.
+prometheus-pushgateway:
+  fullnameOverride: prometheus-pushgateway
+  serviceMonitor:
+    enabled: true
+    interval: 5s
+    namespace: default
+  networkPolicy:
+    allowAll: true
+
+
+# Changes from defaults:
+# * enable redis exporter
+# * enable the serviceMonitor so it will be picked up by prometheus
+redis:
+  metrics:
+    enabled: true
+    serviceMonitor: 
+      enabled: true
+      namespace: default
+  cluster:
+    enabled: false

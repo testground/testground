@@ -18,7 +18,7 @@ image:
   ## Bitnami Redis image tag
   ## ref: https://github.com/bitnami/bitnami-docker-redis#supported-tags-and-respective-dockerfile-links
   ##
-  tag: 5.0.7-debian-9-r12
+  tag: 5.0.7-debian-10-r48
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
   ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -41,7 +41,7 @@ image:
 
 ## Cluster settings
 cluster:
-  enabled: false
+  enabled: true
   slaveCount: 2
 
 ## Use redis sentinel in the redis pod. This will disable the master and slave services and
@@ -60,7 +60,7 @@ sentinel:
     ## Bitnami Redis image tag
     ## ref: https://github.com/bitnami/bitnami-docker-redis-sentinel#supported-tags-and-respective-dockerfile-links
     ##
-    tag: 5.0.7-debian-9-r10
+    tag: 5.0.7-debian-10-r40
     ## Specify a imagePullPolicy
     ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
     ## ref: http://kubernetes.io/docs/user-guide/images/#pre-pulling-images
@@ -148,6 +148,11 @@ networkPolicy:
   ##
   # allowExternal: true
 
+  ## Allow connections from other namespacess. Just set label for namespace and set label for pods (optional).
+  ##
+  ingressNSMatchLabels: {}
+  ingressNSPodMatchLabels: {}
+
 serviceAccount:
   ## Specifies whether a ServiceAccount should be created
   ##
@@ -183,14 +188,12 @@ securityContext:
   ##
   ## Uncomment the setting below to increase the net.core.somaxconn value
   ##
-  sysctls:
-  - name: net.core.somaxconn
-    value: "100000"
-  - name: net.netfilter.nf_conntrack_max
-    value: "100000"
+  # sysctls:
+  # - name: net.core.somaxconn
+  #   value: "10000"
 
 ## Use password authentication
-usePassword: false
+usePassword: true
 ## Redis password (both master and slave)
 ## Defaults to a random 10-character alphanumeric string if not set and usePassword is true
 ## ref: https://github.com/bitnami/bitnami-docker-redis#setting-the-server-password-on-first-run
@@ -228,7 +231,6 @@ master:
   ## ref: https://redis.io/topics/config
   ##
   configmap:
-
   ## Redis additional command line flags
   ##
   ## Can be used to specify command line flags, for example:
@@ -236,8 +238,7 @@ master:
   ## extraFlags:
   ##  - "--maxmemory-policy volatile-ttl"
   ##  - "--repl-backlog-size 1024mb"
-  extraFlags:
-  - "--maxclients 100000"
+  extraFlags: []
   ## Comma-separated list of Redis commands to disable
   ##
   ## Can be used to disable Redis commands for security reasons.
@@ -251,16 +252,14 @@ master:
   ## Redis Master additional pod labels and annotations
   ## ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
   podLabels: {}
-  podAnnotations: {
-    cni: "flannel"
-  }
+  podAnnotations: {}
 
   ## Redis Master resource requests and limits
   ## ref: http://kubernetes.io/docs/user-guide/compute-resources/
-  resources:
-    requests:
-      memory: 13000Mi
-      cpu: 6500m
+  # resources:
+  #   requests:
+  #     memory: 256Mi
+  #     cpu: 100m
   ## Use an alternate scheduler, e.g. "stork".
   ## ref: https://kubernetes.io/docs/tasks/administer-cluster/configure-multiple-schedulers/
   ##
@@ -336,6 +335,10 @@ master:
     accessModes:
     - ReadWriteOnce
     size: 8Gi
+    ## Persistent Volume selectors
+    ## https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector
+    matchLabels: {}
+    matchExpressions: {}
 
   ## Update strategy, can be set to RollingUpdate or onDelete by default.
   ## https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#updating-statefulsets
@@ -456,6 +459,10 @@ slave:
     accessModes:
     - ReadWriteOnce
     size: 8Gi
+    ## Persistent Volume selectors
+    ## https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector
+    matchLabels: {}
+    matchExpressions: {}
 
   ## Update strategy, can be set to RollingUpdate or onDelete by default.
   ## https://kubernetes.io/docs/tutorials/stateful-application/basic-stateful-set/#updating-statefulsets
@@ -468,12 +475,12 @@ slave:
 ## Prometheus Exporter / Metrics
 ##
 metrics:
-  enabled: true
+  enabled: false
 
   image:
     registry: docker.io
     repository: bitnami/redis-exporter
-    tag: 1.3.4-debian-9-r15
+    tag: 1.4.0-debian-10-r16
     pullPolicy: IfNotPresent
     ## Optionally specify an array of imagePullSecrets.
     ## Secrets must be manually created in the namespace.
@@ -500,7 +507,7 @@ metrics:
 
   # Enable this if you're using https://github.com/coreos/prometheus-operator
   serviceMonitor:
-    enabled: true
+    enabled: false
     ## Specify a namespace if needed
     # namespace: monitoring
     # fallback to the prometheus default unless specified
@@ -510,7 +517,46 @@ metrics:
     ## [Kube Prometheus Selector Label](https://github.com/helm/charts/tree/master/stable/prometheus-operator#exporters)
     selector:
       prometheus: kube-prometheus
-      #      prometheus: prometheus-k8s
+
+  ## Custom PrometheusRule to be defined
+  ## The value is evaluated as a template, so, for example, the value can depend on .Release or .Chart
+  ## ref: https://github.com/coreos/prometheus-operator#customresourcedefinitions
+  prometheusRule:
+    enabled: false
+    additionalLabels: {}
+    namespace: ""
+    rules: []
+      ## These are just examples rules, please adapt them to your needs.
+      ## Make sure to constraint the rules to the current postgresql service.
+      #  - alert: RedisDown
+      #    expr: redis_up{service="{{ template "redis.fullname" . }}-metrics"} == 0
+      #    for: 2m
+      #    labels:
+      #      severity: error
+      #    annotations:
+      #      summary: Redis instance {{ "{{ $instance }}" }} down
+      #      description: Redis instance {{ "{{ $instance }}" }} is down.
+      #  - alert: RedisMemoryHigh
+      #    expr: >
+      #       redis_memory_used_bytes{service="{{ template "redis.fullname" . }}-metrics"} * 100
+      #       /
+      #       redis_memory_max_bytes{service="{{ template "redis.fullname" . }}-metrics"}
+      #       > 90 =< 100
+      #    for: 2m
+      #    labels:
+      #      severity: error
+      #    annotations:
+      #      summary: Redis instance {{ "{{ $instance }}" }} is using too much memory
+      #      description: Redis instance {{ "{{ $instance }}" }} is using {{ "{{ $value }}" }}% of its available memory.
+      #  - alert: RedisKeyEviction
+      #    expr: increase(redis_evicted_keys_total{service="{{ template "redis.fullname" . }}-metrics"}[5m]) > 0
+      #    for: 1s
+      #    labels:
+      #      severity: error
+      #    annotations:
+      #      summary: Redis instance {{ "{{ $instance }}" }} has evicted keys
+      #      description: Redis instance {{ "{{ $instance }}" }} has evicted {{ "{{ $value }}" }} keys in the last 5 minutes.
+
 
   ## Metrics exporter pod priorityClassName
   # priorityClassName: {}
@@ -531,7 +577,7 @@ volumePermissions:
   image:
     registry: docker.io
     repository: bitnami/minideb
-    tag: stretch
+    tag: buster
     pullPolicy: Always
     ## Optionally specify an array of imagePullSecrets.
     ## Secrets must be manually created in the namespace.
@@ -557,16 +603,11 @@ configmap: |-
 ## Sysctl InitContainer
 ## used to perform sysctl operation to modify Kernel settings (needed sometimes to avoid warnings)
 sysctlImage:
-  enabled: true
-  command:
-  - /bin/sh
-  - -c
-  - |
-    sysctl -w net.core.somaxconn=100000 &&
-    sysctl -w net.netfilter.nf_conntrack_max=100000
+  enabled: false
+  command: []
   registry: docker.io
-  repository: busybox
-  tag: latest
+  repository: bitnami/minideb
+  tag: buster
   pullPolicy: Always
   ## Optionally specify an array of imagePullSecrets.
   ## Secrets must be manually created in the namespace.
@@ -588,4 +629,3 @@ podSecurityPolicy:
   ## Specifies whether a PodSecurityPolicy should be created
   ##
   create: false
-
