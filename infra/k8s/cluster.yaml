@@ -34,6 +34,7 @@ spec:
     allowedUnsafeSysctls:
       - net.core.somaxconn
       - net.netfilter.nf_conntrack_max
+    streamingConnectionIdleTimeout: 60m
   kubernetesApiAccess:
   - 0.0.0.0/0
   kubernetesVersion: 1.17.3
