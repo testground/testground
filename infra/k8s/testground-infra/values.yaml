@@ -1,3 +1,4 @@
+---
 # Testground values overrides:
 
 # Changes from defaults:
@@ -18,7 +19,6 @@
 #   https://github.com/helm/charts/blob/master/stable/prometheus-operator/
 #   for an explanation of this option.
 # * podAnnotations is set to flannel to force it to be ont he control network.
----
 prometheus-operator:
   prometheusOperator:
     createCustomResource: false
