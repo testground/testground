@@ -17,6 +17,9 @@
 #   See https://github.com/helm/charts/blob/master/stable/prometheus-operator/README.md#L193
 #   for an explanation of this option.
 prometheus-operator:
+  podAnnotations: {
+    cni: "flannel"
+  }
   alertmanager:
     enabled: false
   grafana:
@@ -72,6 +75,9 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+  podAnnotations: {
+    cni: "flannel"
+  }
 
 
 # Changes from defaults:
@@ -85,3 +91,7 @@ redis:
       namespace: default
   cluster:
     enabled: false
+  master:
+    podAnnotations: {
+      cni: "flannel"
+    }
