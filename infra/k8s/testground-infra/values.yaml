@@ -14,9 +14,11 @@
 # * createCustomResource is configured to false. For helm v3, custom resources
 #   are still created. By including this option, users won't see a confusing
 #   error message about CRDs not being created.
-#   See https://github.com/helm/charts/blob/master/stable/prometheus-operator/README.md#L193
+#   See the following for a description of this option:
+#   https://github.com/helm/charts/blob/master/stable/prometheus-operator/
 #   for an explanation of this option.
 # * podAnnotations is set to flannel to force it to be ont he control network.
+---
 prometheus-operator:
   prometheusOperator:
     createCustomResource: false
@@ -79,7 +81,7 @@ prometheus-operator:
 # * override "fullname" so it is resolves with http://prometheus-pushgateway
 #   This matches the behavior from the kops addon, but we don't need to do this
 #   once we make this a configurable option.
-# * enable the serviceMonitor, so it will be picked up by the prometheus 
+# * enable the serviceMonitor, so it will be picked up by the prometheus
 #   operator. Move the serviceMonitor to the default namespace.
 # * Change the scrape interval to a short value. This should be set to the same
 #   value with which plans push to the pushgatway. See the runner sdk.
@@ -109,7 +111,7 @@ prometheus-pushgateway:
 redis:
   metrics:
     enabled: true
-    serviceMonitor: 
+    serviceMonitor:
       enabled: true
       namespace: default
   cluster:
@@ -117,24 +119,16 @@ redis:
   usePassword: false
   securityContext:
     sysctls:
-    - name: net.core.somaxconn
-      value: "100000"
-    - name: net.netfilter.nf_conntrack_max
-      value: "100000"
+      - name: net.core.somaxconn
+        value: "100000"
+      - name: net.netfilter.nf_conntrack_max
+        value: "100000"
   master:
     extraFlags:
-    - "--maxclients 100000"
+      - "--maxclients 100000"
     podAnnotations:
-       cni: flannel
+      cni: flannel
     resources:
       requests:
         memory: 13000Mi
         cpu: 6500m
-  sysctlImage:
-    enabled: true
-    command:
-    - /bin/sh
-    - -c
-    - |
-      sysctl -w net.core.somaxconn=100000 &&
-      sysctl -w net.netfilter.nf_conntrack_max=100000
