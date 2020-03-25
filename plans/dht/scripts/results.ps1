@@ -63,6 +63,7 @@ foreach ($groupDir in $groupDirs) {
 	$files =  $groupDir | gci -Recurse -File
 
 	$queries = $files  | ?{$_.Name -eq "dht_queries.out"}
+	$lookups = $files | ?{$_.Name -eq "dht_lookup.out"}
 	$out = $files  | ?{$_.Name -eq "run.out"}
 
 	$metrics = $out | Get-Content | ConvertFrom-Json | %{$_.event.metric} | ?{$_}

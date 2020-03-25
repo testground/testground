@@ -50,6 +50,7 @@ instances = { min = 16, max = 10000, default = 16 }
   bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
   bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
   undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+  group_order     = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node"}
 
   n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
 

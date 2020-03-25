@@ -322,13 +322,18 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 
 	ri.runenv.RecordMessage("past the setup network barrier")
 
-	if err := setGroupInfo(ctx, ri); err != nil {
+	groupSeq, err := getGroupSeq(ctx, ri)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if err := setGroupInfo(ctx, ri, opts, groupSeq); err != nil {
 		return nil, nil, err
 	}
 
 	ri.runenv.RecordMessage("past group info")
 
-	groupSeq, testSeq, err := getNodeID(ctx, ri)
+	testSeq := getNodeID(ctx, ri, groupSeq)
 
 	ri.runenv.RecordMessage("past nodeid")
 
@@ -385,11 +390,43 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 	return testNode, otherNodes, nil
 }
 
+// getGroupSeq returns the sequence number of this test instance within its group
+func getGroupSeq(ctx context.Context, ri *RunInfo) (int, error) {
+	// Set a state barrier.
+	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
+
+	// Signal we're in the same state.
+	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
+	if err != nil {
+		return 0, err
+	}
+
+	// make sequence number 0 indexed
+	seq--
+
+	// Wait until all others have signalled.
+	if err := <-seqNumCh; err != nil {
+		return 0, err
+	}
+
+	return int(seq), nil
+}
+
 // setGroupInfo uses the sync service to determine which groups are part of the test and to get their sizes.
 // This information is set on the passed in RunInfo.
-func setGroupInfo(ctx context.Context, ri *RunInfo) error {
-	if _, err := ri.writer.Write(ctx, GroupIDSubtree,
-		&GroupInfo{ID: ri.runenv.TestGroupID, Size: ri.runenv.TestGroupInstanceCount}); err != nil {
+func setGroupInfo(ctx context.Context, ri *RunInfo, opts *SetupOpts, seq int) error {
+	gi := &GroupInfo{
+		ID:   ri.runenv.TestGroupID,
+		Size: ri.runenv.TestGroupInstanceCount,
+	}
+
+	if opts.Bootstrapper {
+		gi.Order = 0
+	} else {
+		gi.Order = 1
+	}
+
+	if _, err := ri.writer.Write(ctx, GroupIDSubtree, gi); err != nil {
 		return err
 	}
 
@@ -400,6 +437,7 @@ func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 		return err
 	}
 
+	groupOrder := make(map[int][]string)
 	groups := make(map[string]int)
 	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
 		select {
@@ -407,44 +445,40 @@ func setGroupInfo(ctx context.Context, ri *RunInfo) error {
 			if !more {
 				break
 			}
-			groups[g.ID] = g.Size
+			if _, ok := groups[g.ID]; !ok {
+				groups[g.ID] = g.Size
+				groupOrder[g.Order] = append(groupOrder[g.Order], g.ID)
+			}
 		case <-ctx.Done():
 			return ctx.Err()
 		}
 	}
 
-	sortedGroups := make([]string, len(groups))
-	for g := range groups {
-		sortedGroups = append(sortedGroups, g)
+	ri.runenv.RecordMessage("there are %d groups %v", len(groups), groups)
+
+	sortedGroups := make([]string, 0, len(groups))
+	sortedOrderNums := make([]int, 0, len(groupOrder))
+	for order := range groupOrder {
+		sortedOrderNums = append(sortedOrderNums, order)
 	}
-	sort.Strings(sortedGroups)
+	sort.Ints(sortedOrderNums)
+
+	for i := 0; i < len(sortedOrderNums); i++ {
+		sort.Strings(groupOrder[i])
+		sortedGroups = append(sortedGroups, groupOrder[i]...)
+	}
 
 	ri.groups = sortedGroups
 	ri.groupSizes = groups
 
+	ri.runenv.RecordMessage("sortedGroup order %v", sortedGroups)
+
 	return nil
 }
 
-// getNodeID returns the sequence number of this test instance within its group and within the test
-func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
-	// Set a state barrier.
-	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
-
-	// Signal we're in the same state.
-	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
-	if err != nil {
-		return 0, 0, err
-	}
-
-	// make sequence number 0 indexed
-	seq--
-
-	// Wait until all others have signalled.
-	if err := <-seqNumCh; err != nil {
-		return 0, 0, err
-	}
-
-	id := int(seq)
+// getNodeID returns the sequence number of this test instance within the test
+func getNodeID(ctx context.Context, ri *RunInfo, seq int) int {
+	id := seq
 	for _, g := range ri.groups {
 		if g == ri.runenv.TestGroupID {
 			break
@@ -452,7 +486,7 @@ func getNodeID(ctx context.Context, ri *RunInfo) (int, int, error) {
 		id += ri.groupSizes[g]
 	}
 
-	return int(seq), id, nil
+	return id
 }
 
 func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) []peer.AddrInfo {
@@ -584,12 +618,9 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 
 	gradualBsStager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "boostrap-gradual", ri,
 		func(seq int) int {
-			if seq == 0 {
-				return 0
-			}
-			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))+1
+			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))
 		})
-	if err :=  gradualBsStager.Begin(); err != nil {
+	if err := gradualBsStager.Begin(); err != nil {
 		return err
 	}
 
@@ -914,7 +945,7 @@ func NewGradualStager(ctx context.Context, seq int, total int, name string, ri *
 
 type gradualFn func(seq int) int
 
-type GradualStager struct{
+type GradualStager struct {
 	BatchStager
 	gradualFn
 }
@@ -927,13 +958,20 @@ func (s *GradualStager) Begin() error {
 	// Wait until it's out turn
 	stage := sync.State(s.name + string(s.stage))
 	ourTurn := s.gradualFn(s.seq)
-	return <-s.watcher.Barrier(s.ctx, stage, int64(ourTurn))
+	s.re.RecordMessage("waiting for turn %d", ourTurn)
+	err := <-s.watcher.Barrier(s.ctx, stage, int64(ourTurn))
+	if err == nil {
+		s.re.RecordMessage("%d starting turn %d", s.seq, ourTurn)
+	} else {
+		s.re.RecordMessage("%d failed to start turn %d", s.seq, ourTurn)
+	}
+
+	return err
 }
 func (s *GradualStager) End() error {
 	return s.BatchStager.End()
 }
 func (s *GradualStager) Reset(name string) { s.stager.Reset(name) }
-
 
 type NoStager struct{}
 

@@ -3,6 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -16,8 +17,8 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	//defer watcher.Close()
+	//defer writer.Close()
 
 	ri := &RunInfo{
 		runenv:  runenv,
@@ -30,12 +31,24 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	//defer Teardown(ctx, ri)
-
-	if err := testSync(ctx, ri, node); err != nil {
-		//Teardown(ctx, ri)
+	stager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "btest", ri,
+		func(seq int) int {
+			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))
+		})
+	if err := stager.Begin(); err != nil {
 		return err
 	}
+	runenv.RecordMessage("%d is running", node.info.Seq)
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	//defer Teardown(ctx, ri)
+
+	//if err := testSync(ctx, ri, node); err != nil {
+	//	//Teardown(ctx, ri)
+	//	return err
+	//}
 
 	//Teardown(ctx, ri)
 

@@ -5,6 +5,7 @@ package test
 import (
 	"context"
 	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
@@ -35,3 +36,7 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 }
 
 func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {return nil}
+
+func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
+	return ctx
+}

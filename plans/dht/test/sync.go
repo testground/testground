@@ -18,6 +18,7 @@ var GroupIDSubtree = &sync.Subtree{
 type GroupInfo struct {
 	ID   string
 	Size int
+	Order int
 }
 
 // PeerAttribSubtree represents a subtree under the test run's sync tree where peers

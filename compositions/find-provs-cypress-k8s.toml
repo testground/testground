@@ -22,13 +22,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:8ce7f1f3210a"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ff537d92ce7f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
@@ -45,13 +45,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ef517e157422"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:6ea4a8995e5a"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
@@ -69,13 +69,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:82fdb8a5210d"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:a18058e40498"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
@@ -93,13 +93,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:e6bab5ebb2cb"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ed7c8d8f0321"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
@@ -117,13 +117,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c10ec14f3d56"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:aa7936645671"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
@@ -141,13 +141,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "99716d16b459e63db6b58038d20a7537e1949d38"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.2-0.20200323213923-1425d551c298"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c0cb701ed2dd"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:97a88597efd6"
     [groups.run.test_params]
       alpha = "6"
       bootstrapper = "true"
