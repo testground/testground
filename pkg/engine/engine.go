@@ -231,14 +231,16 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 
-	// traverse builds, indexing them by the unique build key and remembering their position.
+	// traverse groups, indexing them by the unique build key and remembering their position.
 	uniq := make(map[string][]int, len(comp.Groups))
 	for idx, g := range comp.Groups {
 		k := g.Build.BuildKey()
 		uniq[k] = append(uniq[k], idx)
 	}
 
-	// Trigger a build for each group, and wait until all of them are done.
+	// Trigger a build job for each unique build, and wait until all of them are
+	// done, mapping the build artifacts back to the original group positions in
+	// the response.
 	for key, idxs := range uniq {
 		idxs := idxs
 		key := key // capture
