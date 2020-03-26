@@ -1,4 +1,10 @@
 ## Building this composition of 40 groups should only trigger 4 unique builds.
+##
+## groups 00-09: no selectors, no dependencies.
+## groups 10-19: permutations of selectors, permutations of dependencies.
+## groups 20-29: 
+## groups 30-39: 
+
 
 [metadata]
 name = "unique-builds"
@@ -59,9 +65,11 @@ id = "group10"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["foo", "bar", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -69,9 +77,11 @@ id = "group11"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["foo", "bop", "bar"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -79,9 +89,11 @@ id = "group12"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "foo", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -89,9 +101,11 @@ id = "group13"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "foo", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -99,9 +113,11 @@ id = "group14"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "foo", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -109,8 +125,10 @@ id = "group15"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "bop", "foo"]
 dependencies = [
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
     { module = "github.com/testground/module-a", version = "v0.0.1"}
 ]
 
@@ -119,9 +137,11 @@ id = "group16"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "foo", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -129,9 +149,11 @@ id = "group17"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "foo", "bop"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"}
 ]
 
 [[groups]]
@@ -139,8 +161,10 @@ id = "group18"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["bar", "bop", "foo"]
 dependencies = [
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"},
     { module = "github.com/testground/module-a", version = "v0.0.1"}
 ]
 
@@ -149,9 +173,11 @@ id = "group19"
 instances = { count = 1 }
 
 [groups.build]
-selectors = ["foo"]
+selectors = ["foo", "bop", "bar"]
 dependencies = [
-    { module = "github.com/testground/module-a", version = "v0.0.1"}
+    { module = "github.com/testground/module-a", version = "v0.0.1"},
+    { module = "github.com/testground/module-b", version = "v0.0.1"},
+    { module = "github.com/testground/module-c", version = "v0.0.1"}
 ]
 
 ########

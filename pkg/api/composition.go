@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -112,11 +113,22 @@ type Build struct {
 // deduplication.
 func (b Build) BuildKey() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("selectors=%s;", strings.Join(b.Selectors, ",")))
+
+	// canonicalise selectors.
+	selectors := append(b.Selectors[:0:0], b.Selectors...)
+	sort.Strings(selectors)
+	sb.WriteString(fmt.Sprintf("selectors=%s;", strings.Join(selectors, ",")))
+
+	// canonicalise dependencies.
+	dependencies := append(b.Dependencies[:0:0], b.Dependencies...)
+	sort.SliceStable(dependencies, func(i, j int) bool {
+		return strings.Compare(dependencies[i].Module, dependencies[j].Module) < 0
+	})
 	sb.WriteString("dependencies=")
-	for _, d := range b.Dependencies {
+	for _, d := range dependencies {
 		sb.WriteString(fmt.Sprintf("%s:%s|", d.Module, d.Version))
 	}
+
 	return sb.String()
 }
 
