@@ -4,6 +4,8 @@ package test
 
 import (
 	"context"
+	"sync"
+
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p"
@@ -12,7 +14,6 @@ import (
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"go.uber.org/zap"
-	"sync"
 )
 
 func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error) {
@@ -55,6 +56,7 @@ var (
 	sqonce   sync.Once
 	sqlogger *zap.SugaredLogger
 )
+
 func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
 	sqonce.Do(func() {
 		var err error
@@ -82,10 +84,10 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 				case kaddht.LookupCompleted:
 					msg = "completed"
 				}
-				log.Infow("lookup termination", "eventID" , e.ID ,"targetKad" , e.Key,  "reason", msg)
+				log.Infow("lookup termination", "eventID", e.ID, "targetKad", e.Key, "reason", msg)
 			}
 			if e.Update != nil {
-				log.Infow("update", "eventID", e.ID, "target", e.Key,
+				log.Infow("update", "eventID", e.ID, "targetKad", e.Key,
 					"cause", e.Update.Cause,
 					"heard", e.Update.Heard,
 					"waiting", e.Update.Waiting,
@@ -95,7 +97,7 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 					"waitingKad", peerIDsToKadIDs(e.Update.Waiting),
 					"queriedKad", peerIDsToKadIDs(e.Update.Queried),
 					"unreachableKad", peerIDsToKadIDs(e.Update.Unreachable),
-					)
+				)
 			}
 		}
 	}()
