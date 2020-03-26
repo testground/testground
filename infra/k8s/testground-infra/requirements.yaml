@@ -1,15 +1,17 @@
+---
 dependencies:
 
   - name: prometheus-operator
+    repository: https://kubernetes-charts.storage.googleapis.com/
     version: "*"
 
   - name: prometheus-pushgateway
+    repository: https://kubernetes-charts.storage.googleapis.com/
     version: "*"
 
   - name: redis
+    repository: https://charts.bitnami.com/bitnami
     version: "*"
 
   - name: testground-dashboards
     version: "0.0.*"
-
-
