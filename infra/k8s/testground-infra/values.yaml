@@ -114,6 +114,7 @@ redis:
     serviceMonitor:
       enabled: true
       namespace: default
+  usePassword: false
   cluster:
     enabled: false
   usePassword: false
