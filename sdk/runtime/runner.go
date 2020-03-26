@@ -194,6 +194,8 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 		defer func() {
 			<-durationCh
 			push()
+			time.Sleep(2 * MetricsPushInterval)
+			pusher.Delete()
 		}()
 
 		// Push every MetricsPushInterval.
