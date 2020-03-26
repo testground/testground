@@ -117,8 +117,9 @@ kubectl apply -f ./efs/rbac.yaml \
 echo "installing helm infrastructure"
 pushd testground-infra
 helm dep build
-helm helm install testground-infra .
+helm install --wait --timeout 2m testground-infra ./testground-infra
 popd
+sleep 10
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo

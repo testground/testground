@@ -17,6 +17,9 @@
 #   See https://github.com/helm/charts/blob/master/stable/prometheus-operator/README.md#L193
 #   for an explanation of this option.
 prometheus-operator:
+  podAnnotations: {
+    cni: "flannel"
+  }
   alertmanager:
     enabled: false
   grafana:
@@ -59,7 +62,7 @@ prometheus-operator:
 # * override "fullname" so it is resolves with http://prometheus-pushgateway
 #   This matches the behavior from the kops addon, but we don't need to do this
 #   once we make this a configurable option.
-# * enable the serviceMonitor, so it will be picked up by the prometheus 
+# * enable the serviceMonitor, so it will be picked up by the prometheus
 #   operator. Move the serviceMonitor to the default namespace.
 # * Change the scrape interval to a short value. This should be set to the same
 #   value with which plans push to the pushgatway. See the runner sdk.
@@ -72,6 +75,9 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+  podAnnotations: {
+    cni: "flannel"
+  }
 
 
 # Changes from defaults:
@@ -80,8 +86,13 @@ prometheus-pushgateway:
 redis:
   metrics:
     enabled: true
-    serviceMonitor: 
+    serviceMonitor:
       enabled: true
       namespace: default
+  usePassword: false
   cluster:
     enabled: false
+  master:
+    podAnnotations: {
+      cni: "flannel"
+    }
