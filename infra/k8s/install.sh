@@ -115,7 +115,10 @@ kubectl apply -f ./efs/rbac.yaml \
 
 # monitoring and redis.
 echo "installing helm infrastructure"
-./upgrade-testground-infra.sh
+pushd testground-infra
+helm dep build
+helm helm install testground-infra .
+popd
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
