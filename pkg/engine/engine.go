@@ -231,12 +231,31 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
 
-	// Trigger a build for each group, and wait until all of them are done.
-	for i, grp := range comp.Groups {
-		i, grp := i, grp // captures
+	// traverse groups, indexing them by the unique build key and remembering their position.
+	uniq := make(map[string][]int, len(comp.Groups))
+	for idx, g := range comp.Groups {
+		k := g.Build.BuildKey()
+		uniq[k] = append(uniq[k], idx)
+	}
+
+	// Trigger a build job for each unique build, and wait until all of them are
+	// done, mapping the build artifacts back to the original group positions in
+	// the response.
+	for key, idxs := range uniq {
+		idxs := idxs
+		key := key // capture
 
 		errgrp.Go(func() (err error) {
-			logging.S().Infow("performing build for group", "plan", testplan, "group", grp.ID, "builder", builder)
+			// All groups are identical for the sake of building, so pick the first one.
+			grp := comp.Groups[idxs[0]]
+
+			// Pluck all IDs from the groups this build artifact is for.
+			grpids := make([]string, 0, len(idxs))
+			for _, idx := range idxs {
+				grpids = append(grpids, comp.Groups[idx].ID)
+			}
+
+			logging.S().Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
 
 			in := &api.BuildInput{
 				BuildID:      uuid.New().String()[24:],
@@ -250,13 +269,19 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 
 			res, err := bm.Build(ctx, in, output)
 			if err != nil {
-				logging.S().Infow("build failed", "plan", testplan, "group", grp.ID, "builder", builder, "error", err)
+				logging.S().Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
 				return err
 			}
 
 			res.BuilderID = bm.ID()
-			ress[i] = res
-			logging.S().Infow("build succeeded", "plan", testplan, "group", grp.ID, "builder", builder, "artifact", res.ArtifactPath)
+
+			// no need for a mutex as the indices we access do not intersect
+			// across goroutines.
+			for _, idx := range uniq[key] {
+				ress[idx] = res
+			}
+
+			logging.S().Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
 			return nil
 		})
 	}
