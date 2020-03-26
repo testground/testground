@@ -228,7 +228,7 @@ $ redis-cli -h localhost -p 6379
 7. Get access to Grafana (initial credentials are admin/admin):
 
 ```sh
-$ kubectl -n monitoring port-forward service/grafana 3000:3000
+$ kubectl port-forward service/testground-infra-grafana 3000:80
 ```
 
 ## Use a Kubernetes context for another cluster
@@ -244,7 +244,7 @@ $ kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
 ## How to access the prometheus web UI (for metrics observability)
 
 ```sh
-$ kubectl -n monitoring port-forward service/prometheus-k8s 9090:9090
+$ kubectl port-forward service/testground-infra-prometheu-prometheus 9090:9090
 ```
 
 Direct your web browser to [http://localhost:9090](http://localhost:9090).
