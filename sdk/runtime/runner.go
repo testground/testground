@@ -193,9 +193,10 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 		// defer a final push.
 		defer func() {
 			<-durationCh
+			runenv.RecordMessage("test run completed. waiting a few seconds for the metrics scraper.")
 			push()
 			time.Sleep(2 * MetricsPushInterval)
-			pusher.Delete()
+			_ = pusher.Delete()
 		}()
 
 		// Push every MetricsPushInterval.
