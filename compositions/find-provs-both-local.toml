@@ -5,7 +5,7 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 100
+  total_instances = 150
   builder = "docker:go"
   runner = "local:docker"
 
@@ -17,30 +17,50 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "35593afa57c4"
+    artifact = "0a67fb8fbbc9"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "4"
       record_count = "1"
-      search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "true"
 
 [[groups]]
   id = "balsam-undialable-searcher"
   [groups.instances]
-    count = 35
+    count = 5
     percentage = 0.0
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "4ab6bf748666"
+    artifact = "0a67fb8fbbc9"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "5"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "true"
+
+[[groups]]
+  id = "balsam-dialable-passive"
+  [groups.instances]
+    count = 80
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "6"
+      timeout_secs = "600"
+      undialable = "false"
 
 [[groups]]
   id = "balsam-dialable-provider"
@@ -50,29 +70,57 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "7ff67a8f5168"
+    artifact = "0a67fb8fbbc9"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "7"
       record_count = "1"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "false"
 
 [[groups]]
   id = "balsam-dialable-searcher"
   [groups.instances]
-    count = 35
+    count = 5
     percentage = 0.0
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "17bfb52ad099"
+    artifact = "0a67fb8fbbc9"
     [groups.run.test_params]
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "8"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
       undialable = "false"
+
+[[groups]]
+  id = "cypress-passive"
+  [groups.instances]
+    count = 35
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
+  [groups.run]
+    artifact = "f1d89aed47ea"
+    [groups.run.test_params]
+      alpha = "6"
+      bs_strategy = "3"
+      bucket_size = "10"
+      group_order = "1"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-provider"
@@ -84,57 +132,45 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "v0.5.2-0.20200313220425-e42ee9421469"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat-svc"
-      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "286339fb9fc3"
+    artifact = "f1d89aed47ea"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      group_order = "2"
       record_count = "1"
-      timeout_secs = "200"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-searcher"
   [groups.instances]
-    count = 10
+    count = 5
     percentage = 0.0
   [groups.build]
     Selectors = ["cypress"]
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "v0.5.2-0.20200313220425-e42ee9421469"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat-svc"
-      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "d42e1f32cc57"
+    artifact = "f1d89aed47ea"
     [groups.run.test_params]
+      alpha = "6"
       bs_strategy = "3"
-      bucket_size = "4"
+      bucket_size = "10"
+      group_order = "3"
       search_records = "true"
-      timeout_secs = "200"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-bs"
@@ -146,23 +182,17 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "v0.5.2-0.20200313220425-e42ee9421469"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "v0.1.2-0.20200311232101-4cd130cbe2f9"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat-svc"
-      version = "v0.1.1-0.20200316084915-0eaa5cdf304b"
+      version = "1a8a5f6fc994993322a9bed5b19ce092b5ca9537"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.6.1-0.20200310185355-89c193e0ca37"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "ec9eb9d6a857"
+    artifact = "f1d89aed47ea"
     [groups.run.test_params]
+      alpha = "6"
       bootstrapper = "true"
       bs_strategy = "1"
-      bucket_size = "4"
-      timeout_secs = "200"
+      bucket_size = "10"
+      group_order = "0"
+      timeout_secs = "600"
