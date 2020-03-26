@@ -31,10 +31,31 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	stager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "btest", ri,
-		func(seq int) int {
-			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))
-		})
+	expGrad := func(seq int) (int, int) {
+		switch seq {
+		case 0:
+			return 0,0
+		case 1:
+			return 1,1
+		default:
+			turnNum := int(math.Floor(math.Log2(float64(seq)))) + 1
+			waitFor := int(math.Exp2(float64(turnNum - 2)))
+			return turnNum, waitFor
+		}
+	}
+	_ = expGrad
+
+	linear := func(seq int) (int,int) {
+		slope := 10
+		turnNum := int(math.Floor(float64(seq)/float64(slope)))
+		waitFor := slope
+		if turnNum == 0 {
+			waitFor = 0
+		}
+		return turnNum, waitFor
+	}
+
+	stager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "btest", ri, linear)
 	if err := stager.Begin(); err != nil {
 		return err
 	}

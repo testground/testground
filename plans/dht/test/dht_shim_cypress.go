@@ -82,7 +82,7 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 				case kaddht.LookupCompleted:
 					msg = "completed"
 				}
-				log.Infow("lookup termination", "eventID" , e.ID ,"target" , e.Key,  "reason", msg)
+				log.Infow("lookup termination", "eventID" , e.ID ,"targetKad" , e.Key,  "reason", msg)
 			}
 			if e.Update != nil {
 				log.Infow("update", "eventID", e.ID, "target", e.Key,

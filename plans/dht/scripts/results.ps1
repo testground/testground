@@ -6,6 +6,7 @@ $env:TESTGROUND_SRCDIR="$env:HOME/go/src/github.com/ipfs/testground"
 $outputDir = "$env:HOME/workspace/testground/stats"
 $runner = "cluster:k8s"
 #$runner = "local:docker"
+$graphs = $true
 
 if (-not [System.IO.Directory]::Exists("$outputDir/$runID")) {
 	$outname = "$outputDir/$runID.tar.gz"
@@ -67,6 +68,8 @@ foreach ($groupDir in $groupDirs) {
 	$out = $files  | ?{$_.Name -eq "run.out"}
 
 	$metrics = $out | Get-Content | ConvertFrom-Json | %{$_.event.metric} | ?{$_}
+	$mset =
+
 	$provs = $metrics |
 	?{$_.name -and $_.name.StartsWith("time-to-provide") -and $_.value -gt 0} |
 	%{$_.value/$ns}
@@ -159,7 +162,7 @@ $allGraphs | %{
 	
     $gdata = $obj | %{"Z{0} -> Z{1};`n" -f $_.From, $_.To}
 	$file = "digraph D {`n " + $gdata + "}"
-	$file > "../stats/$runID/$g-conn.dot"
+	$file > "$outputDir/$runID/$g-conn.dot"
 	
 	#$file | circo "-T$fmt" -o "$g.$fmt"
 }
@@ -172,7 +175,7 @@ $allRTs | %{
 	
     $gdata = $obj | %{"Z{0} -> Z{1};`n" -f $_.Node, $_.Peer}
 	$file = "digraph D {`n " + $gdata + "}"
-	$file > "../stats/$runID/$g-rt.dot"
+	$file > "$outputDir/$runID/$g-rt.dot"
 	
 	#$file | circo "-T$fmt" -o "$g.$fmt"
 }

@@ -63,7 +63,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, 2000*time.Millisecond); err != nil {
 		return err
 	}
 

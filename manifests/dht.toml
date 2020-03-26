@@ -50,7 +50,8 @@ instances = { min = 16, max = 10000, default = 16 }
   bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
   bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
   undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
-  group_order     = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node"}
+  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
+  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
 
   n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
 
@@ -73,6 +74,8 @@ instances = { min = 16, max = 10000, default = 16 }
   bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
   bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
   undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
+  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
 
   record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
   record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
@@ -122,6 +125,8 @@ instances = { min = 16, max = 10000, default = 16 }
   bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
   bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
   undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
+  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
 
 # seq 4
 [[testcases]]
@@ -142,6 +147,8 @@ instances = { min = 16, max = 10000, default = 16 }
   bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
   bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
   undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
+  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
 
   record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
   record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }

@@ -7,7 +7,10 @@
   case = "find-providers"
   total_instances = 150
   builder = "docker:go"
-  runner = "local:docker"
+  runner = "cluster:k8s"
+  [global.build_config]
+    push_registry = true
+    registry_type = "aws"
 
 [[groups]]
   id = "balsam-undialable-provider"
@@ -17,10 +20,12 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "838eef15f953"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:57d567f21263"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "10"
+      expect_dht = "false"
+      group_order = "4"
       record_count = "1"
       timeout_secs = "600"
       undialable = "true"
@@ -33,10 +38,12 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "a5869bff0453"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:57d567f21263"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "10"
+      expect_dht = "false"
+      group_order = "5"
       search_records = "true"
       timeout_secs = "600"
       undialable = "true"
@@ -49,10 +56,12 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "bdac6c678253"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:57d567f21263"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "10"
+      expect_dht = "false"
+      group_order = "6"
       timeout_secs = "600"
       undialable = "false"
 
@@ -64,10 +73,12 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "33395aac1d27"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:57d567f21263"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "10"
+      expect_dht = "false"
+      group_order = "7"
       record_count = "1"
       timeout_secs = "600"
       undialable = "false"
@@ -80,10 +91,12 @@
   [groups.build]
     Selectors = ["balsam"]
   [groups.run]
-    artifact = "9ae7dc357a74"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:57d567f21263"
     [groups.run.test_params]
       bs_strategy = "3"
       bucket_size = "10"
+      expect_dht = "false"
+      group_order = "8"
       search_records = "true"
       timeout_secs = "600"
       undialable = "false"
@@ -104,11 +117,12 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "00b84c7b63af"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:5547e48dce53"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "1"
       timeout_secs = "600"
 
 [[groups]]
@@ -127,11 +141,12 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "e64521f25e2a"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:5547e48dce53"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "2"
       record_count = "1"
       timeout_secs = "600"
 
@@ -151,11 +166,12 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "37aacc67ccc6"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:5547e48dce53"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "3"
       search_records = "true"
       timeout_secs = "600"
 
@@ -175,10 +191,11 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "105dabf50c07"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:5547e48dce53"
     [groups.run.test_params]
       alpha = "6"
       bootstrapper = "true"
       bs_strategy = "1"
       bucket_size = "10"
+      group_order = "0"
       timeout_secs = "600"

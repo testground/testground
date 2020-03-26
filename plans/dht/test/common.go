@@ -26,8 +26,12 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
+	"github.com/libp2p/go-libp2p-xor/kademlia"
+	"github.com/libp2p/go-libp2p-xor/key"
+	"github.com/libp2p/go-libp2p-xor/trie"
 	tcp "github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multiaddr-net"
@@ -66,6 +70,8 @@ type SetupOpts struct {
 	Bootstrapper      bool
 	BootstrapStrategy int
 	Undialable        bool
+	GroupOrder        int
+	ExpectServer      bool
 }
 
 type RunInfo struct {
@@ -95,6 +101,8 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 		Bootstrapper:      runenv.BooleanParam("bootstrapper"),
 		BootstrapStrategy: runenv.IntParam("bs_strategy"),
 		Undialable:        runenv.BooleanParam("undialable"),
+		GroupOrder:        runenv.IntParam("group_order"),
+		ExpectServer:      runenv.BooleanParam("expect_dht"),
 	}
 	return opts
 }
@@ -115,6 +123,7 @@ type NodeInfo struct {
 type NodeProperties struct {
 	Bootstrapper bool
 	Undialable   bool
+	ExpectedServer  bool
 }
 
 var ConnManagerGracePeriod = 1 * time.Second
@@ -352,6 +361,7 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 			Properties: NodeProperties{
 				Bootstrapper: opts.Bootstrapper,
 				Undialable:   opts.Undialable,
+				ExpectedServer:  opts.ExpectServer,
 			},
 			Addrs: nil,
 		},
@@ -420,11 +430,7 @@ func setGroupInfo(ctx context.Context, ri *RunInfo, opts *SetupOpts, seq int) er
 		Size: ri.runenv.TestGroupInstanceCount,
 	}
 
-	if opts.Bootstrapper {
-		gi.Order = 0
-	} else {
-		gi.Order = 1
-	}
+	gi.Order = opts.GroupOrder
 
 	if _, err := ri.writer.Write(ctx, GroupIDSubtree, gi); err != nil {
 		return err
@@ -615,11 +621,31 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	dht := node.dht
 
 	// Wait until it's our turn to bootstrap
+	expGrad := func(seq int) (int, int) {
+		switch seq {
+		case 0:
+			return 0,0
+		case 1:
+			return 1,1
+		default:
+			turnNum := int(math.Floor(math.Log2(float64(seq)))) + 1
+			waitFor := int(math.Exp2(float64(turnNum - 2)))
+			return turnNum, waitFor
+		}
+	}
+	_ = expGrad
 
-	gradualBsStager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "boostrap-gradual", ri,
-		func(seq int) int {
-			return int(math.Exp2(math.Floor(math.Log2(float64(seq)))))
-		})
+	linear := func(seq int) (int,int) {
+		slope := 2
+		turnNum := int(math.Floor(float64(seq)/float64(slope)))
+		waitFor := slope
+		if turnNum == 0 {
+			waitFor = 0
+		}
+		return turnNum, waitFor
+	}
+
+	gradualBsStager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "boostrap-gradual", ri, linear)
 	if err := gradualBsStager.Begin(); err != nil {
 		return err
 	}
@@ -752,8 +778,36 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 		dht.RoutingTable().Size(),
 	)
 
+	TableHealth(dht, peers, ri)
+
 	runenv.RecordMessage("bootstrap: done")
 	return nil
+}
+
+// TableHealth computes health reports for a network of nodes, whose routing contacts are given.
+func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {
+	// Construct global network view trie
+	knownNodes := trie.New()
+	for p, info := range peers {
+		if info.Properties.ExpectedServer {
+			knownNodes.Add(kadPeerID(p))
+		}
+	}
+
+	rtPeerIDs := dht.RoutingTable().ListPeers()
+	rtPeers := make([]key.Key, len(rtPeerIDs))
+	for i , p := range rtPeerIDs {
+		rtPeers[i] = kadPeerID(p)
+	}
+
+	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
+	ri.runenv.RecordMessage("table health: %s", report.String())
+
+	return
+}
+
+func kadPeerID(p peer.ID) key.Key {
+	return key.Key(kbucket.ConvertPeerID(p))
 }
 
 // Connect connects a host to a set of peers.
@@ -770,7 +824,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
 			}
 			select {
-			case <-time.After(time.Duration(rand.Intn(3000))*time.Millisecond + 6*time.Second):
+			case <-time.After(time.Duration(rand.Intn(5000))*time.Millisecond + 8*time.Second):
 			case <-ctx.Done():
 				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
@@ -943,7 +997,7 @@ func NewGradualStager(ctx context.Context, seq int, total int, name string, ri *
 	}}, gradFn}
 }
 
-type gradualFn func(seq int) int
+type gradualFn func(seq int) (int, int)
 
 type GradualStager struct {
 	BatchStager
@@ -956,21 +1010,32 @@ func (s *GradualStager) Begin() error {
 	}
 
 	// Wait until it's out turn
-	stage := sync.State(s.name + string(s.stage))
-	ourTurn := s.gradualFn(s.seq)
-	s.re.RecordMessage("waiting for turn %d", ourTurn)
-	err := <-s.watcher.Barrier(s.ctx, stage, int64(ourTurn))
-	if err == nil {
-		s.re.RecordMessage("%d starting turn %d", s.seq, ourTurn)
-	} else {
-		s.re.RecordMessage("%d failed to start turn %d", s.seq, ourTurn)
+	ourTurn, waitFor := s.gradualFn(s.seq)
+
+	stageWait := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn))
+	stageNext := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn+1))
+	s.re.RecordMessage("%d is waiting on %d from state %d", s.seq, waitFor, ourTurn)
+	err := <-s.watcher.Barrier(s.ctx, stageWait, int64(waitFor))
+	if err != nil {
+		return err
 	}
+	s.re.RecordMessage("%d is running", s.seq)
+	_, err = s.writer.SignalEntry(s.ctx, stageNext)
 
 	return err
 }
+
 func (s *GradualStager) End() error {
-	return s.BatchStager.End()
+	lastStage := sync.State(fmt.Sprintf("%s%d-end", s.name, s.stage))
+	_, err := s.writer.SignalEntry(s.ctx, lastStage)
+	if err != nil {
+		return err
+	}
+	s.re.RecordMessage("%d is done", s.seq)
+	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount))
+	return err
 }
+
 func (s *GradualStager) Reset(name string) { s.stager.Reset(name) }
 
 type NoStager struct{}
