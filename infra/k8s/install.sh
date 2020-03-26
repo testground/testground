@@ -114,8 +114,11 @@ kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
 # monitoring and redis.
-echo "Installing helm infrastructure"
+echo "installing helm infrastructure"
+pushd testground-infra
+helm dep build
 helm install --wait --timeout 2m testground-infra ./testground-infra
+popd
 sleep 10
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."

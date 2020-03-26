@@ -35,3 +35,8 @@ plans/**/go.sum
 .history
 
 # End of https://www.gitignore.io/api/go,visualstudiocode
+
+## tarballs
+# test outputs and unextracted helm charts are both gzipped tar files
+# with a tgz extension.
+*.tgz
