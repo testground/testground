@@ -117,7 +117,7 @@ kubectl apply -f ./efs/rbac.yaml \
 echo "installing helm infrastructure"
 pushd testground-infra
 helm dep build
-helm install --wait --timeout 2m testground-infra ./testground-infra
+helm install --wait --timeout 2m testground-infra .
 popd
 sleep 10
 
