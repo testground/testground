@@ -37,6 +37,8 @@ type toDoElement struct {
 }
 
 // ErrGroupHealthcheckHelper implements HealthcheckHelper using an errgroup for paralellism.
+// WARNING: in order to prevent race conditions, the toDo slice should have an initial capacity of
+// one. See https://medium.com/@cep21/gos-append-is-not-always-thread-safe-a3034db7975
 type ErrgroupHealthcheckHelper struct {
 	toDo   []*toDoElement
 	report *api.HealthcheckReport
@@ -46,12 +48,13 @@ func (hh *ErrgroupHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 	hh.toDo = append(hh.toDo, &toDoElement{name, c, f})
 }
 
-func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) *api.HealthcheckReport {
+func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 	eg, _ := errgroup.WithContext(ctx)
 
 	for _, li := range hh.toDo {
 		hcp := *li
 		eg.Go(func() error {
+			hcp := hcp
 			// Checker succeeds, already working.
 			if hcp.Checker() {
 				hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
@@ -89,9 +92,9 @@ func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) *a
 			hh.report.Fixes = append(hh.report.Fixes, fixhc)
 			return nil
 		})
-		eg.Wait()
+		eg.Wait() // TODO... Doing something wrong here. shouldn't have to be serial.
 	}
-	return hh.report
+	return eg.Wait()
 }
 
 // DefaultContainerChecker returns a Checker, a method which when executed will check for the
@@ -148,6 +151,44 @@ func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *cli
 	// Make sure this container is running when the closure is executed.
 	return func() error {
 		_, _, err := docker.EnsureContainer(ctx, log, cli, &ensure)
+		return err
+	}
+}
+
+// CustomContainerFixer returns a Fixer, a method which when executed will ensure the named
+// container exists. Unlike the DefaultContainerFixer, a custom image may be built for the
+// container.
+func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, cmds ...string) Fixer {
+	return func() error {
+		_, err := docker.EnsureImage(ctx,
+			log,
+			cli,
+			&docker.BuildImageOpts{
+				Name:     containerName,
+				BuildCtx: buildCtx,
+			})
+		if err != nil {
+			return err
+		}
+		return DefaultContainerFixer(ctx, log, cli, containerName, imageName, networkID, portSpecs, pull, cmds...)()
+
+	}
+}
+
+func DockerNetworkChecker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, networkID string) Checker {
+	return func() bool {
+		networks, err := docker.CheckBridgeNetwork(ctx, log, cli, networkID)
+		if err != nil {
+			log.Error("encountered an error while checking for network %s, %v", networkID, err)
+			return false
+		}
+		return len(networks) > 0
+	}
+}
+
+func DockerNetworkFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client) Fixer {
+	return func() error {
+		_, err := ensureControlNetwork(ctx, cli, log)
 		return err
 	}
 }
