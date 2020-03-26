@@ -4,9 +4,6 @@ metadata:
   creationTimestamp: null
   name: ${NAME}
 spec:
-  addons:
-  - manifest: metrics-server
-  - manifest: prometheus-operator
   api:
     loadBalancer:
       type: Public
@@ -37,9 +34,10 @@ spec:
     allowedUnsafeSysctls:
       - net.core.somaxconn
       - net.netfilter.nf_conntrack_max
+    streamingConnectionIdleTimeout: 60m
   kubernetesApiAccess:
   - 0.0.0.0/0
-  kubernetesVersion: 1.15.9
+  kubernetesVersion: 1.17.3
   masterInternalName: api.internal.${NAME}
   masterPublicName: api.${NAME}
   networkCIDR: 172.20.0.0/16
@@ -70,7 +68,7 @@ metadata:
     kops.k8s.io/cluster: ${NAME}
   name: master-${ZONE}
 spec:
-  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
+  image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: 1
   minSize: 1
@@ -90,7 +88,7 @@ metadata:
     kops.k8s.io/cluster: ${NAME}
   name: nodes
 spec:
-  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2020-01-17
+  image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: ${WORKER_NODES}
   minSize: ${WORKER_NODES}

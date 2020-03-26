@@ -1,5 +1,5 @@
 {
-    "id": 57,
+    "id": 24,
     "uid": "8XVMUX_Zk",
     "slug": "cluster-bench",
     "title": "Cluster Bench",
@@ -41,8 +41,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -120,8 +120,8 @@
             "valueName": "avg"
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -194,8 +194,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -294,8 +294,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -312,67 +312,84 @@
             "CustomPanel": {
                 "CustomPanel": {
                     "CustomPanel": {
-                        "cards": {
-                            "cardPadding": null,
-                            "cardRound": null
+                        "CustomPanel": {
+                            "cards": {
+                                "cardPadding": null,
+                                "cardRound": null
+                            },
+                            "color": {
+                                "cardColor": "#b4ff00",
+                                "colorScale": "sqrt",
+                                "colorScheme": "interpolateOranges",
+                                "exponent": 0.5,
+                                "mode": "spectrum"
+                            },
+                            "dataFormat": "timeseries",
+                            "datasource": "Prometheus",
+                            "gridPos": {
+                                "h": 9,
+                                "w": 12,
+                                "x": 0,
+                                "y": 22
+                            },
+                            "heatmap": {},
+                            "highlightCards": true,
+                            "id": 10,
+                            "legend": {
+                                "show": false
+                            },
+                            "links": [],
+                            "targets": [
+                                {
+                                    "expr": "start_time / 1000 / 1000",
+                                    "format": "heatmap",
+                                    "intervalFactor": 1,
+                                    "legendFormat": "",
+                                    "refId": "A"
+                                }
+                            ],
+                            "title": "time to start",
+                            "tooltip": {
+                                "show": true,
+                                "showHistogram": false
+                            },
+                            "type": "heatmap",
+                            "xAxis": {
+                                "show": true
+                            },
+                            "xBucketNumber": null,
+                            "xBucketSize": null,
+                            "yAxis": {
+                                "decimals": null,
+                                "format": "short",
+                                "logBase": 1,
+                                "max": null,
+                                "min": null,
+                                "show": true,
+                                "splitFactor": null
+                            },
+                            "yBucketBound": "auto",
+                            "yBucketNumber": null,
+                            "yBucketSize": null
                         },
-                        "color": {
-                            "cardColor": "#b4ff00",
-                            "colorScale": "sqrt",
-                            "colorScheme": "interpolateOranges",
-                            "exponent": 0.5,
-                            "mode": "spectrum"
-                        },
-                        "dataFormat": "timeseries",
-                        "datasource": "prometheus",
+                        "datasource": "Prometheus",
+                        "editable": true,
+                        "error": false,
                         "gridPos": {
                             "h": 9,
                             "w": 12,
                             "x": 0,
                             "y": 22
                         },
-                        "heatmap": {},
-                        "highlightCards": true,
                         "id": 10,
-                        "legend": {
-                            "show": false
-                        },
-                        "links": [],
-                        "targets": [
-                            {
-                                "expr": "start_time / 1000 / 1000",
-                                "format": "heatmap",
-                                "intervalFactor": 1,
-                                "legendFormat": "",
-                                "refId": "A"
-                            }
-                        ],
+                        "isNew": false,
+                        "span": 0,
                         "title": "time to start",
-                        "tooltip": {
-                            "show": true,
-                            "showHistogram": false
-                        },
-                        "type": "heatmap",
-                        "xAxis": {
-                            "show": true
-                        },
-                        "xBucketNumber": null,
-                        "xBucketSize": null,
-                        "yAxis": {
-                            "decimals": null,
-                            "format": "short",
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true,
-                            "splitFactor": null
-                        },
-                        "yBucketBound": "auto",
-                        "yBucketNumber": null,
-                        "yBucketSize": null
+                        "transparent": false,
+                        "type": "heatmap"
                     },
-                    "datasource": "prometheus",
-                    "editable": false,
+                    "datasource": "Prometheus",
+                    "editable": true,
                     "error": false,
                     "gridPos": {
                         "h": 9,
@@ -387,8 +404,8 @@
                     "transparent": false,
                     "type": "heatmap"
                 },
-                "datasource": "prometheus",
-                "editable": false,
+                "datasource": "Prometheus",
+                "editable": true,
                 "error": false,
                 "gridPos": {
                     "h": 9,
@@ -405,8 +422,8 @@
             }
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -497,8 +514,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,

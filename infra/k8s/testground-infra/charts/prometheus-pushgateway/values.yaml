@@ -67,6 +67,8 @@ ingress:
   ## Enable Ingress.
   ##
   enabled: false
+  # AWS ALB requires path of /*
+  path: /
 
     ## Annotations.
     ##
@@ -112,13 +114,11 @@ affinity: {}
 
 # Enable this if you're using https://github.com/coreos/prometheus-operator
 serviceMonitor:
-  enabled: true
+  enabled: false
   namespace: monitoring
 
   # Fallback to the prometheus default unless specified
   # interval: 10s
-  # This is set to the same value as the "push_interval" in `sdk/runtime/runner.go`
-  interval: 5s
 
   # Fallback to the prometheus default unless specified
   # scrapeTimeout: 30s

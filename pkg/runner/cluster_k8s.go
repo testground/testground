@@ -206,7 +206,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{
 			Name:  "REDIS_HOST",
-			Value: "redis-headless",
+			Value: "testground-infra-redis-headless",
 		})
 
 		// Set the log level if provided in cfg.
@@ -347,9 +347,10 @@ func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
 		return
 	}
 
-	pod := pods.Items[0]
-	if pod.Status.Phase != "Running" {
-		return
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != "Running" {
+			return
+		}
 	}
 
 	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusOK, Message: "redis service is running"}
