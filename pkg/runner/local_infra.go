@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 )
 
-func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Context, log *zap.SugaredLogger, cli *client.Client, controlNetworkID string, srcdir string) {
+func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Context, log *zap.SugaredLogger, cli *client.Client, controlNetworkID string, srcdir string, workdir string) {
 	// testground-control
 	hcHelper.Enlist(controlNetworkID,
 		DockerNetworkChecker(ctx,
@@ -106,4 +106,9 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 			"--redis.addr",
 			"redis://testground-redis:6379",
 		))
+
+	hcHelper.Enlist("local-outputs-dir",
+		DirExistsChecker(workdir),
+		DirExistsFixer(workdir),
+	)
 }

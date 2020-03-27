@@ -106,7 +106,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
 	// setup infra which is common between local:docker and local:exec
-	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, r.controlNetworkID, engine.EnvConfig().SrcDir)
+	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
 	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
 	hcHelper.Enlist("local-sidecar",
@@ -220,12 +220,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
 			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-		}
-
-		// Create the run output directory and write the runenv.
-		runDir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID)
-		if err := os.MkdirAll(runDir, 0777); err != nil {
-			return nil, err
 		}
 
 		// Start as many containers as group instances.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
 	"os/exec"
 	"reflect"
 
@@ -209,7 +210,7 @@ func DockerNetworkFixer(ctx context.Context, log *zap.SugaredLogger, cli *client
 // port is dialable. For TCP sockets, a false return could mean the network is unreachable,
 // or that a TCP socket is closed. For UDP sockets, being connectionless, may return a false
 // positive if the network is reachable.
-func DialableChecker(protocol string, address string) func() bool {
+func DialableChecker(protocol string, address string) Checker {
 	return func() bool {
 		_, err := net.Dial(protocol, address)
 		return err == nil
@@ -219,9 +220,30 @@ func DialableChecker(protocol string, address string) func() bool {
 // CommandStartFixer returns a Fixer, a method which when executed will start an executable
 // with the given parameters. Uses os/exec to start the command. Cancelling the passed context
 // will stop the executable.
-func CommandStartFixer(ctx context.Context, cmd string, args ...string) func() error {
+func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 	return func() error {
 		cmd := exec.CommandContext(ctx, cmd, args...)
 		return cmd.Start()
+	}
+}
+
+// DirExistsChecker returns a Checker, a method which when executed will check whether a director
+// exists. A true value means the directory exists. A false value means it does not exist, or
+// that the path does not point to a directory.
+func DirExistsChecker(path string) Checker {
+	return func() bool {
+		fi, err := os.Stat(path)
+		if err != nil {
+			return false
+		}
+		return fi.IsDir()
+	}
+}
+
+// DirExistsFixer returns a Fixer, a method which when executed will create a directory and
+// any parent directories as appropriate.
+func DirExistsFixer(path string) Fixer {
+	return func() error {
+		return os.MkdirAll(path, 0750)
 	}
 }
