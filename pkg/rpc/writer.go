@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 
@@ -15,6 +16,16 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
+
+type OutputWriter struct {
+	sync.Mutex
+	*zap.SugaredLogger
+	*progressWriter
+
+	out io.Writer
+}
+
+var _ io.Writer = (*OutputWriter)(nil)
 
 func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	w.Header().Set("Content-Type", "application/json")
@@ -76,12 +87,48 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 	return w.out.Write(json)
 }
 
-type OutputWriter struct {
-	sync.Mutex
-	*zap.SugaredLogger
-	*progressWriter
+// infoWriter implements io.Writer, and turns all writes into Info log
+// statements in the underlying logger.
+type infoWriter struct{ ow *OutputWriter }
 
-	out io.Writer
+var _ io.Writer = (*infoWriter)(nil)
+
+func (iw *infoWriter) Write(p []byte) (n int, err error) {
+	iw.ow.Info(string(p))
+	return len(p), nil
+}
+
+// InfoWriter returns an io.Writer that turns all writes into Info log
+// statements in the underlying logger.
+func (ow *OutputWriter) InfoWriter() io.Writer {
+	return &infoWriter{ow}
+}
+
+// stdoutWriter implements io.Writer, and turns all writes into stdout writes,
+// piping them to the underlying progressWriter, so that they're sent to the client.
+type stdoutWriter struct{ ow *OutputWriter }
+
+var _ io.Writer = (*stdoutWriter)(nil)
+
+func (sw *stdoutWriter) Write(p []byte) (n int, err error) {
+	_, _ = os.Stdout.Write(p)
+	return sw.ow.progressWriter.Write(p)
+}
+
+// StdoutWriter returns an io.Writer that prints all writes into Stdout, and
+// sends them to the client as a progress chunk.
+func (ow *OutputWriter) StdoutWriter() io.Writer {
+	return &stdoutWriter{ow}
+}
+
+// With returns a new OutputWriter, replacing the SugaredLogger with the result
+// from delegating to SugaredLogger.With.
+func (ow *OutputWriter) With(args ...interface{}) *OutputWriter {
+	return &OutputWriter{
+		SugaredLogger:  ow.SugaredLogger.With(args...),
+		out:            ow.out,
+		progressWriter: ow.progressWriter,
+	}
 }
 
 func (ow *OutputWriter) WriteResult(res interface{}) {

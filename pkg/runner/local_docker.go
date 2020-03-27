@@ -33,7 +33,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -297,7 +296,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			fixes = append(fixes, it)
 		default:
 			if err == nil {
-				_, err := ensureInfraContainer(ctx, cli, log, "testground-grafana", "bitnami/grafana", r.controlNetworkID, true)
+				_, err := ensureInfraContainer(ctx, cli, ow, "testground-grafana", "bitnami/grafana", r.controlNetworkID, true)
 				if err == nil {
 					msg := "grafana container created successfully"
 					it := api.HealthcheckItem{Name: "grafana-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -334,14 +333,14 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := docker.EnsureImage(ctx, log, cli, &docker.BuildImageOpts{
+			_, err := docker.EnsureImage(ctx, ow, cli, &docker.BuildImageOpts{
 				Name: "testground-prometheus",
 				// This is the location of the pre-configured prometheus used by the local docker runner.
 				BuildCtx: filepath.Join(engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"),
 			})
 
 			if err == nil {
-				_, err := ensureInfraContainer(ctx, cli, log, "testground-prometheus", "testground-prometheus:latest", r.controlNetworkID, false)
+				_, err := ensureInfraContainer(ctx, cli, ow, "testground-prometheus", "testground-prometheus:latest", r.controlNetworkID, false)
 				if err == nil {
 					msg := "prometheus container created successfully"
 					it := api.HealthcheckItem{Name: "prometheus-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -366,7 +365,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			it := api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := ensureInfraContainer(ctx, cli, log, "prometheus-pushgateway", "prom/pushgateway", r.controlNetworkID, true)
+			_, err := ensureInfraContainer(ctx, cli, ow, "prometheus-pushgateway", "prom/pushgateway", r.controlNetworkID, true)
 			if err == nil {
 				msg := "pushgateway container created successfully"
 				it := api.HealthcheckItem{Name: "pushgateway-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -386,7 +385,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOmitted, Message: msg}
 			fixes = append(fixes, it)
 		default:
-			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis", "redis", r.controlNetworkID, true)
+			_, err := ensureInfraContainer(ctx, cli, ow, "testground-redis", "redis", r.controlNetworkID, true)
 			if err == nil {
 				msg := "redis container created successfully"
 				it := api.HealthcheckItem{Name: "redis-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -411,7 +410,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 				"--redis.addr",
 				"redis://testground-redis:6379",
 			}
-			_, err := ensureInfraContainer(ctx, cli, log, "testground-redis-exporter", "bitnami/redis-exporter", r.controlNetworkID, true, args...)
+			_, err := ensureInfraContainer(ctx, cli, ow, "testground-redis-exporter", "bitnami/redis-exporter", r.controlNetworkID, true, args...)
 			if err == nil {
 				msg := "redis-exporter container created successfully"
 				it := api.HealthcheckItem{Name: "redis-exporter-container", Status: api.HealthcheckStatusOK, Message: msg}
@@ -734,10 +733,10 @@ func deleteContainers(cli *client.Client, ow *rpc.OutputWriter, ids []string) (e
 	return merr.ErrorOrNil()
 }
 
-func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
+func ensureControlNetwork(ctx context.Context, cli *client.Client, ow *rpc.OutputWriter) (id string, err error) {
 	return docker.EnsureBridgeNetwork(
 		ctx,
-		log, cli,
+		ow, cli,
 		"testground-control",
 		// making internal=false enables us to expose ports to the host (e.g.
 		// pprof and prometheus). by itself, it would allow the container to
@@ -791,8 +790,8 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 }
 
 // ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool, cmds ...string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+func ensureInfraContainer(ctx context.Context, cli *client.Client, ow *rpc.OutputWriter, containerName string, imageName string, networkID string, pull bool, cmds ...string) (id string, err error) {
+	container, _, err := docker.EnsureContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 		ContainerName: containerName,
 		ContainerConfig: &container.Config{
 			Image: imageName,
@@ -818,14 +817,14 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.Suga
 }
 
 // ensureSidecarContainer ensures there's a testground-sidecar container started.
-func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
+func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, ow *rpc.OutputWriter, controlNetworkID string) (id string, err error) {
 	dockerSock := "/var/run/docker.sock"
 	if host := cli.DaemonHost(); strings.HasPrefix(host, "unix://") {
 		dockerSock = host[len("unix://"):]
 	} else {
-		log.Warnf("guessing docker socket as %s", dockerSock)
+		ow.Warnf("guessing docker socket as %s", dockerSock)
 	}
-	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
+	container, _, err := docker.EnsureContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
 			Image:      "ipfs/testground:latest",

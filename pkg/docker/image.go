@@ -1,17 +1,13 @@
 package docker
 
-// Create docker images with a customized docker context.
-
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
-
-	"go.uber.org/zap"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 type BuildImageOpts struct {
@@ -36,7 +32,7 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 // When BuildImageOpts.BuildOpts has nil value, a default set of options will be constructed using
 // the Name, and the constructed options are sent to the docker client.
 // The build output is directed to stdout via PipeOutput.
-func BuildImage(ctx context.Context, client *client.Client, opts *BuildImageOpts) error {
+func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) error {
 	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
 	if err != nil {
 		return err
@@ -55,14 +51,14 @@ func BuildImage(ctx context.Context, client *client.Client, opts *BuildImageOpts
 		return err
 	}
 	defer buildResponse.Body.Close()
-	return PipeOutput(buildResponse.Body, os.Stdout)
+	return PipeOutput(buildResponse.Body, ow.StdoutWriter())
 }
 
 // EnsureImage builds an image only of one does not yet exist.
 // This is a thin wrapper around BuildImage, and the same comments regarding the passed
 // BuildImageOpts applies here. Returns a bool depending on whether the image had to be created and
 // any errors that were encountered.
-func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Client, opts *BuildImageOpts) (created bool, err error) {
+func EnsureImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) (created bool, err error) {
 	// Unfortunately we can't filter for RepoTags
 	// Find out if we have any images with a RepoTag which matches the name of the image.
 	// the RepoTag will be something like "name:latest" and I want to match any that have "name"
@@ -74,16 +70,16 @@ func EnsureImage(ctx context.Context, log *zap.SugaredLogger, client *client.Cli
 	for _, image := range images {
 		for _, rt := range image.RepoTags {
 			if strings.HasPrefix(rt, opts.Name) {
-				log.Infof("found existing image: %s; continuing", rt)
+				ow.Infof("found existing image: %s; continuing", rt)
 				return false, nil
 			}
 		}
 	}
 
-	log.Infof("image %s not found; building", opts.Name)
-	err = BuildImage(ctx, client, opts)
+	ow.Infof("image %s not found; building", opts.Name)
+	err = BuildImage(ctx, ow, client, opts)
 	if err != nil {
-		log.Warn(err)
+		ow.Warn(err)
 		return false, err
 	}
 	return true, err

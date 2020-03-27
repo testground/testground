@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
-	"go.uber.org/zap"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 func parseDependencies(raw string) map[string]string {
@@ -38,7 +38,7 @@ func parseDependencies(raw string) map[string]string {
 	return modules
 }
 
-func parseDependenciesFromDocker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, imageID string) (map[string]string, error) {
+func parseDependenciesFromDocker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, imageID string) (map[string]string, error) {
 	res, err := cli.ContainerCreate(ctx, &container.Config{Image: imageID}, nil, nil, "")
 	if err != nil {
 		return nil, err
@@ -47,7 +47,7 @@ func parseDependenciesFromDocker(ctx context.Context, log *zap.SugaredLogger, cl
 	defer func() {
 		err = cli.ContainerRemove(context.Background(), res.ID, types.ContainerRemoveOptions{Force: true})
 		if err != nil {
-			log.Warnf("error while removing container %s: %v", res.ID, err)
+			ow.Warnf("error while removing container %s: %v", res.ID, err)
 		}
 	}()
 
