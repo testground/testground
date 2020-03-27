@@ -54,26 +54,34 @@ func (hh *ErrgroupHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 
 func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 	eg, _ := errgroup.WithContext(ctx)
+	hh.report.Checks = make([]api.HealthcheckItem, len(hh.toDo))
+	hh.report.Fixes = make([]api.HealthcheckItem, len(hh.toDo))
 
-	for _, li := range hh.toDo {
+	for i, li := range hh.toDo {
+		i, li := i, li
 		hcp := *li
 		eg.Go(func() error {
-			hcp := hcp
 			// Checker succeeds, already working.
 			if hcp.Checker() {
-				hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
+				hh.report.Checks[i] = api.HealthcheckItem{
 					Name:    li.Name,
 					Status:  api.HealthcheckStatusOK,
 					Message: fmt.Sprintf("%s: OK", li.Name),
-				})
+				}
+				// This is only needed so we don't have a sparce slice
+				hh.report.Fixes[i] = api.HealthcheckItem{
+					Name:    li.Name,
+					Status:  api.HealthcheckStatusOK,
+					Message: "",
+				}
 				return nil
 			}
 			// Checker failed, Append the failure to the check report
-			hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
+			hh.report.Checks[i] = api.HealthcheckItem{
 				Name:    li.Name,
 				Status:  api.HealthcheckStatusFailed,
 				Message: fmt.Sprintf("%s: FAILED. Fixing: %t", li.Name, fix),
-			})
+			}
 			// Attempt fix if fix is enabled.
 			fixhc := api.HealthcheckItem{Name: li.Name}
 			if fix {
@@ -93,10 +101,9 @@ func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) er
 				fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
 			}
 			// Fill the report with fix information.
-			hh.report.Fixes = append(hh.report.Fixes, fixhc)
+			hh.report.Fixes[i] = fixhc
 			return nil
 		})
-		eg.Wait() // TODO... Doing something wrong here. shouldn't have to be serial.
 	}
 	return eg.Wait()
 }
