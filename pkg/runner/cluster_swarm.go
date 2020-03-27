@@ -12,7 +12,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/conv"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 	"golang.org/x/sync/errgroup"
 
@@ -68,10 +68,10 @@ type ClusterSwarmRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	var (
 		seq = input.Seq
-		log = logging.S().With("runner", "cluster:swarm", "run_id", input.RunID)
+		log = ow.With("runner", "cluster:swarm", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterSwarmRunnerConfig)
 	)
 
@@ -189,7 +189,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		}
 	}()
 
-	logging.S().Infof("fetching an authorization token from AWS ECR")
+	ow.Infof("fetching an authorization token from AWS ECR")
 
 	// Get an authorization token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(input.EnvConfig.AWS)
@@ -197,7 +197,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
-	logging.S().Infof("fetched an authorization token from AWS ECR")
+	ow.Infof("fetched an authorization token from AWS ECR")
 
 	services := make(map[string]int, len(input.Groups))
 	for _, g := range input.Groups {
@@ -267,7 +267,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 			EncodedRegistryAuth: aws.ECR.EncodeAuthToken(auth),
 		}
 
-		logging.S().Infow("creating the service on docker swarm", "parent", parent, "group", g.ID, "image", g.ArtifactPath, "replicas", g.Instances)
+		ow.Infow("creating the service on docker swarm", "parent", parent, "group", g.ID, "image", g.ArtifactPath, "replicas", g.Instances)
 
 		// Now create the docker swarm service.
 		serviceResp, err := cli.ServiceCreate(ctx, serviceSpec, scopts)
@@ -275,7 +275,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 			return nil, err
 		}
 
-		logging.S().Infow("service created successfully", "id", serviceResp.ID)
+		ow.Infow("service created successfully", "id", serviceResp.ID)
 
 		services[serviceResp.ID] = g.Instances
 	}
@@ -339,7 +339,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 							finished++
 						}
 					}
-					logging.S().Infow("task status", "service", service, "status", status)
+					ow.Infow("task status", "service", service, "status", status)
 					if finished == count {
 						break
 					}
@@ -364,12 +364,12 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		defer cancel()
 
 		for service := range services {
-			logging.S().Infow("removing service", "service", service)
+			ow.Infow("removing service", "service", service)
 
 			if err := cli.ServiceRemove(ctx, service); err == nil {
-				logging.S().Infow("service removed", "service", service)
+				ow.Infow("service removed", "service", service)
 			} else {
-				logging.S().Errorf("removing the service failed: %w", err)
+				ow.Errorf("removing the service failed: %w", err)
 			}
 		}
 	} else {
@@ -379,7 +379,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	return errors.New("unimplemented")
 }
 

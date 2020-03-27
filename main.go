@@ -33,8 +33,6 @@ func main() {
 }
 
 func configureLogging(c *cli.Context) {
-	logging.TerminalMode()
-
 	// The LOG_LEVEL environment variable takes precedence.
 	if level := os.Getenv("LOG_LEVEL"); level != "" {
 		var l zapcore.Level

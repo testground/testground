@@ -3,13 +3,13 @@ package runner
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"os"
 	"path/filepath"
 	"strconv"
 	"time"
 
-	"io"
+	"golang.org/x/sync/errgroup"
+
 	"net"
 	"os/exec"
 	"reflect"
@@ -18,6 +18,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
@@ -77,7 +78,7 @@ func commandStarter(ctx context.Context, cmd string, args ...string) func() erro
 	}
 }
 
-func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
 
@@ -182,7 +183,7 @@ func (r *LocalExecutableRunner) Close() error {
 	return nil
 }
 
-func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
@@ -208,7 +209,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	}
 
 	// Spawn as many instances as the input parameters require.
-	pretty := NewPrettyPrinter()
+	pretty := NewPrettyPrinter(ow)
 	commands := make([]*exec.Cmd, 0, input.TotalInstances)
 	defer func() {
 		for _, cmd := range commands {
@@ -242,7 +243,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
-			logging.S().Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
+			ow.Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
 
 			cmd := exec.CommandContext(ctx, g.ArtifactPath)
 			stdout, _ := cmd.StdoutPipe()
@@ -267,9 +268,9 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	return zipRunOutputs(ctx, basedir, input, w)
+	return zipRunOutputs(ctx, basedir, input, ow)
 }
 
 func (*LocalExecutableRunner) ID() string {

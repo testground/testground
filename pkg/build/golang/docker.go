@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -18,7 +17,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/hashicorp/go-getter"
 	"github.com/otiai10/copy"
-	"go.uber.org/zap"
 )
 
 var (
@@ -71,7 +69,7 @@ type DockerGoBuilderConfig struct {
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
@@ -84,9 +82,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	var (
 		id       = in.BuildID
-		log      = logging.S().With("build_id", id)
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
+
+	ow = ow.With("build_id", id)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -98,17 +97,17 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 	// The testground-build network is used to connect build services (like the
 	// GOPROXY) to the build container.
 	b.proxyLk.Lock()
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, log, cli, "testground-build", false)
+	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, ow, cli, "testground-build", false)
 	if err != nil {
-		log.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+		ow.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
 		cfg.GoProxyMode = "direct"
 	}
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, log, cli, buildNetworkID, cfg)
+	proxyURL, warn := setupGoProxy(ctx, ow, cli, buildNetworkID, cfg)
 	if warn != nil {
-		log.Warnf("warning while setting up the go proxy: %s", warn)
+		ow.Warnf("warning while setting up the go proxy: %s", warn)
 	}
 	b.proxyLk.Unlock()
 
@@ -225,14 +224,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	buildStart := time.Now()
 
-	err = docker.BuildImage(ctx, cli, &imageOpts)
+	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Infow("build completed", "took", time.Since(buildStart))
+	ow.Infow("build completed", "took", time.Since(buildStart))
 
-	deps, err := parseDependenciesFromDocker(ctx, log, cli, in.BuildID)
+	deps, err := parseDependenciesFromDocker(ctx, ow, cli, in.BuildID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
 	}
@@ -244,14 +243,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	if cfg.PushRegistry {
 		pushStart := time.Now()
-		defer func() { log.Infow("image push completed", "took", time.Since(pushStart)) }()
+		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart)) }()
 		if cfg.RegistryType == "aws" {
-			err := pushToAWSRegistry(ctx, log, cli, in, out)
+			err := pushToAWSRegistry(ctx, ow, cli, in, out)
 			return out, err
 		}
 
 		if cfg.RegistryType == "dockerhub" {
-			err := pushToDockerHubRegistry(ctx, log, cli, in, out)
+			err := pushToDockerHubRegistry(ctx, ow, cli, in, out)
 			return out, err
 		}
 
@@ -269,7 +268,7 @@ func (*DockerGoBuilder) ConfigType() reflect.Type {
 	return reflect.TypeOf(DockerGoBuilderConfig{})
 }
 
-func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	// Get a Docker registry authentication token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 	if err != nil {
@@ -288,14 +287,14 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 
 	// Tag the image under the AWS ECR repository.
 	tag := uri + ":" + in.BuildID
-	log.Infow("tagging image", "tag", tag)
+	ow.Infow("tagging image", "tag", tag)
 	if err = client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
 	}
 
 	// TODO for some reason, this push is way slower than the equivalent via the
 	// docker CLI. Needs investigation.
-	log.Infow("pushing image", "tag", tag)
+	ow.Infow("pushing image", "tag", tag)
 	rc, err := client.ImagePush(ctx, tag, types.ImagePushOptions{
 		RegistryAuth: aws.ECR.EncodeAuthToken(auth),
 	})
@@ -304,7 +303,7 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	}
 
 	// Pipe the docker output to stdout.
-	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
 		return err
 	}
 
@@ -313,11 +312,11 @@ func pushToAWSRegistry(ctx context.Context, log *zap.SugaredLogger, client *clie
 	return nil
 }
 
-func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+func pushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	uri := in.EnvConfig.DockerHub.Repo + "/testground"
 
 	tag := uri + ":" + in.BuildID
-	log.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
+	ow.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
 
 	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
@@ -340,10 +339,10 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 		return err
 	}
 
-	log.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
+	ow.Infow("pushed image", "source", out.ArtifactPath, "tag", tag, "repo", uri)
 
 	// Pipe the docker output to stdout.
-	if err := docker.PipeOutput(rc, os.Stdout); err != nil {
+	if err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
 		return err
 	}
 
@@ -352,11 +351,11 @@ func pushToDockerHubRegistry(ctx context.Context, log *zap.SugaredLogger, client
 	return nil
 }
 
-func setupLocalGoProxyVol(ctx context.Context, log *zap.SugaredLogger, cli *client.Client) (*mount.Mount, error) {
+func setupLocalGoProxyVol(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client) (*mount.Mount, error) {
 	volumeOpts := docker.EnsureVolumeOpts{
 		Name: "testground-goproxy-vol",
 	}
-	vol, _, err := docker.EnsureVolume(ctx, log, cli, &volumeOpts)
+	vol, _, err := docker.EnsureVolume(ctx, ow.SugaredLogger, cli, &volumeOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -373,13 +372,13 @@ func setupLocalGoProxyVol(ctx context.Context, log *zap.SugaredLogger, cli *clie
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
-func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
 	var mnt *mount.Mount
 
 	switch strings.TrimSpace(cfg.GoProxyMode) {
 	case "direct":
 		proxyURL = "direct"
-		log.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
+		ow.Debugw("[go_proxy_mode=direct] no goproxy container will be started")
 
 	case "remote":
 		if cfg.GoProxyURL == "" {
@@ -389,14 +388,14 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		}
 
 		proxyURL = cfg.GoProxyURL
-		log.Infof("[go_proxy_mode=remote] using url: %s", proxyURL)
+		ow.Infof("[go_proxy_mode=remote] using url: %s", proxyURL)
 
 	case "local":
 		fallthrough
 
 	default:
 		proxyURL = "http://testground-goproxy:8081"
-		mnt, warn = setupLocalGoProxyVol(ctx, log, cli)
+		mnt, warn = setupLocalGoProxyVol(ctx, ow, cli)
 		if warn != nil {
 			proxyURL = "direct"
 			warn = fmt.Errorf("encountered an error setting up the goproxy volueme; falling back to go_proxy_mode=direct; err: %w", warn)
@@ -413,7 +412,7 @@ func setupGoProxy(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 			},
 			PullImageIfMissing: true,
 		}
-		_, _, warn = docker.EnsureContainer(ctx, log, cli, &containerOpts)
+		_, _, warn = docker.EnsureContainer(ctx, ow, cli, &containerOpts)
 		if warn != nil {
 			proxyURL = "direct"
 			warn = fmt.Errorf("encountered an error when creating the goproxy container; falling back to go_proxy_mode=direct; err: %w", warn)

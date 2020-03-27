@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/docker/docker/api/types/filters"
-	"go.uber.org/zap"
+	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
@@ -27,7 +27,7 @@ func NewBridgeNetwork(ctx context.Context, cli *client.Client, name string, inte
 	return res.ID, nil
 }
 
-func CheckBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) ([]types.NetworkResource, error) {
+func CheckBridgeNetwork(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) ([]types.NetworkResource, error) {
 	opts := types.NetworkListOptions{
 		Filters: filters.NewArgs(
 			filters.Arg("name", name),
@@ -37,15 +37,15 @@ func CheckBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client
 	return cli.NetworkList(ctx, opts)
 }
 
-func EnsureBridgeNetwork(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string, internal bool, config ...network.IPAMConfig) (id string, err error) {
-	networks, err := CheckBridgeNetwork(ctx, log, cli, name)
+func EnsureBridgeNetwork(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string, internal bool, config ...network.IPAMConfig) (id string, err error) {
+	networks, err := CheckBridgeNetwork(ctx, ow, cli, name)
 	if err != nil {
 		return "", err
 	}
 
 	if len(networks) > 0 {
 		network := networks[0]
-		log.Debugw("network found", "name", name, "id", network.ID)
+		ow.Debugw("network found", "name", name, "id", network.ID)
 		return network.ID, nil
 	}
 

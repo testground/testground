@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 var TermExplanation = "a term is any of: <testplan> or <testplan>/<testcase>"
@@ -21,7 +21,7 @@ func (srv *Daemon) describeHandler(engine api.Engine) func(w http.ResponseWriter
 		log.Debugw("handle request", "command", "describe")
 		defer log.Debugw("request handled", "command", "describe")
 
-		tgw := tgwriter.New(w, log)
+		tgw := rpc.NewOutputWriter(w, r)
 
 		var req client.DescribeRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
@@ -59,23 +59,14 @@ func (srv *Daemon) describeHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		plan.Describe(tgw)
-
-		header := `TESTCASES:
-----------
-----------
-`
-
-		_, err = tgw.Write([]byte(header))
-		if err != nil {
-			tgw.WriteError("header write error", "err", err)
-			return
-		}
+		var sb strings.Builder
+		plan.Describe(&sb)
+		sb.WriteString("TEST CASES:\n----------\n----------\n")
 
 		for _, tc := range cases {
-			tc.Describe(tgw)
+			tc.Describe(&sb)
 		}
 
-		tgw.WriteResult(struct{}{})
+		tgw.WriteResult(sb.String())
 	}
 }

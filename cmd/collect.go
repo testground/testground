@@ -66,7 +66,7 @@ func collectCommand(c *cli.Context) error {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer resp.Close()
 
@@ -75,7 +75,7 @@ func collectCommand(c *cli.Context) error {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer file.Close()
 
