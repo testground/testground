@@ -28,7 +28,7 @@ type Fixer func() error
 // be called when RunChecks is executed.
 type HealthcheckHelper interface {
 	Enlist(name string, c Checker, f Fixer)
-	RunChecks(ctx context.Context, fix bool) *api.HealthcheckReport
+	RunChecks(ctx context.Context, fix bool) error
 }
 
 type toDoElement struct {

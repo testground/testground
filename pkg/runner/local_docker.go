@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	_ "errors"
 	"fmt"
 	"io"
 	"net"
@@ -106,103 +105,8 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	report := api.HealthcheckReport{}
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
-	// testground-control
-	hcHelper.Enlist(r.controlNetworkID,
-		DockerNetworkChecker(ctx,
-			log,
-			cli,
-			r.controlNetworkID),
-		DockerNetworkFixer(ctx,
-			log,
-			cli))
-
-	// prometheus built from Dockerfile.
-	hcHelper.Enlist("local-prometheus",
-		DefaultContainerChecker(ctx,
-			log,
-			cli,
-			"testground-prometheus"),
-		CustomContainerFixer(ctx,
-			log,
-			cli,
-			filepath.Join(engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"),
-			"testground-prometheus",
-			"testground-prometheus:latest",
-			r.controlNetworkID,
-			[]string{"9090:9090"},
-			false,
-			&container.HostConfig{},
-		))
-
-	// pushgateway
-	hcHelper.Enlist("local-pushgateway",
-		DefaultContainerChecker(ctx,
-			log,
-			cli,
-			"prometheus-pushgateway"),
-		DefaultContainerFixer(ctx,
-			log,
-			cli,
-			"prometheus-pushgateway",
-			"prom/pushgateway",
-			r.controlNetworkID,
-			[]string{"9091:9091"},
-			true,
-			&container.HostConfig{},
-		))
-
-	// grafana
-	hcHelper.Enlist("local-grafana",
-		DefaultContainerChecker(ctx,
-			log,
-			cli,
-			"testground-grafana"),
-		DefaultContainerFixer(ctx,
-			log,
-			cli,
-			"testground-grafana",
-			"bitnami/grafana",
-			r.controlNetworkID,
-			[]string{"3000:3000"},
-			true,
-			&container.HostConfig{},
-		))
-
-	// redis
-	hcHelper.Enlist("local-redis",
-		DefaultContainerChecker(ctx,
-			log,
-			cli,
-			"testground-redis"),
-		DefaultContainerFixer(ctx,
-			log,
-			cli,
-			"testground-redis",
-			"library/redis",
-			r.controlNetworkID,
-			[]string{"6379:6379"},
-			true,
-			&container.HostConfig{},
-		))
-
-	// metrics for redis, customized by commandline args
-	hcHelper.Enlist("local-redis-exporter",
-		DefaultContainerChecker(ctx,
-			log,
-			cli,
-			"testground-redis-exporter"),
-		DefaultContainerFixer(ctx,
-			log,
-			cli,
-			"testground-redis",
-			"bitnami/redis-exporter",
-			r.controlNetworkID,
-			[]string{"1921:1921"},
-			true,
-			&container.HostConfig{},
-			"--redis.addr",
-			"redis://testground-redis:6379",
-		))
+	// setup infra which is common between local:docker and local:exec
+	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, r.controlNetworkID, engine.EnvConfig().SrcDir)
 
 	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
 	hcHelper.Enlist("local-sidecar",
