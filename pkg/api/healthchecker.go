@@ -2,14 +2,15 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"strings"
+
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 // Healthchecker is the interface to be implemented by a runner that supports
 // healthchecks and fixes.
 type Healthchecker interface {
-	Healthcheck(fix bool, engine Engine, writer io.Writer) (*HealthcheckReport, error)
+	Healthcheck(fix bool, engine Engine, ow *rpc.OutputWriter) (*HealthcheckReport, error)
 }
 
 // HealthcheckStatus is an enum that represents

@@ -4,15 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-
-	"go.uber.org/zap"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 type EnsureContainerOpts struct {
@@ -23,10 +21,10 @@ type EnsureContainerOpts struct {
 	PullImageIfMissing bool
 }
 
-func CheckContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) (container *types.ContainerJSON, err error) {
-	log = log.With("container_name", name)
+func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) (container *types.ContainerJSON, err error) {
+	ow = ow.With("container_name", name)
 
-	log.Debug("checking state of container")
+	ow.Debug("checking state of container")
 
 	// Check if a ${name} container exists.
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
@@ -39,11 +37,11 @@ func CheckContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cli
 
 	c := containers[0]
 
-	log.Debugw("container found", "container_id", c.ID, "state", c.State)
+	ow.Debugw("container found", "container_id", c.ID, "state", c.State)
 
 	ci, err := cli.ContainerInspect(ctx, c.ID)
 	if err != nil {
-		log.Errorw("inspecting container failed", "container_id", container.ID)
+		ow.Errorw("inspecting container failed", "container_id", c.ID)
 		return nil, err
 	}
 
@@ -52,13 +50,13 @@ func CheckContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cli
 }
 
 // EnsureContainer ensures there's a container started of the specified kind.
-func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client,
+func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 	opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
-	log = log.With("container_name", opts.ContainerName)
+	log := ow.With("container_name", opts.ContainerName)
 
 	log.Debug("checking state of container")
 
-	ci, err := CheckContainer(ctx, log, cli, opts.ContainerName)
+	ci, err := CheckContainer(ctx, ow, cli, opts.ContainerName)
 	if err != nil {
 		return nil, false, err
 	}
@@ -76,7 +74,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 			return nil, false, err
 		}
 
-		ci, err = CheckContainer(ctx, log, cli, opts.ContainerName)
+		ci, err = CheckContainer(ctx, ow, cli, opts.ContainerName)
 		return ci, false, err
 	}
 
@@ -88,7 +86,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 			return nil, false, err
 		}
 
-		if err := PipeOutput(out, os.Stdout); err != nil {
+		if err := PipeOutput(out, ow.StdoutWriter()); err != nil {
 			return nil, false, err
 		}
 	} else {

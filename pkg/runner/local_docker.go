@@ -17,7 +17,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
@@ -30,7 +30,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
-	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -82,7 +81,7 @@ type LocalDockerRunner struct {
 	outputsDir       string
 }
 
-func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
 
@@ -90,8 +89,6 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	// Docker images.
 	ctx, cancel := context.WithCancel(engine.Context())
 	defer cancel()
-
-	log := logging.S().With("runner", "local:docker")
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -106,16 +103,16 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
 	// setup infra which is common between local:docker and local:exec
-	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
+	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
 	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
 	hcHelper.Enlist("local-sidecar",
 		DefaultContainerChecker(ctx,
-			log,
+			ow,
 			cli,
 			"testground-sidecar"),
 		CustomContainerFixer(ctx,
-			log,
+			ow,
 			cli,
 			engine.EnvConfig().SrcDir,
 			"testground-sidecar",
@@ -155,7 +152,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	return &report, err
 }
 
-func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
 	r.lk.RLock()
@@ -163,7 +160,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 	var (
 		seq = input.Seq
-		log = logging.S().With("runner", "local:docker", "run_id", input.RunID)
+		log = ow.With("runner", "local:docker", "run_id", input.RunID)
 		err error
 	)
 
@@ -194,7 +191,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	}
 
 	// Create a data network.
-	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, logging.S(), &template, "default")
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &template, "default")
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +273,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 
 	if !cfg.KeepContainers {
 		defer func() {
-			_ = deleteContainers(cli, log, containers)
+			_ = deleteContainers(cli, ow, containers)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -343,7 +340,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	}()
 
 	if !cfg.Background {
-		pretty := NewPrettyPrinter()
+		pretty := NewPrettyPrinter(ow)
 
 		// This goroutine takes started containers and attaches them to the pretty printer.
 		go func() {
@@ -403,8 +400,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow io.
 	return &api.RunOutput{RunID: input.RunID}, err
 }
 
-func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) (err error) {
-	log.Infow("deleting containers", "ids", ids)
+func deleteContainers(cli *client.Client, ow *rpc.OutputWriter, ids []string) (err error) {
+	ow.Infow("deleting containers", "ids", ids)
 
 	ratelimit := make(chan struct{}, 16)
 
@@ -414,7 +411,7 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 			ratelimit <- struct{}{}
 			defer func() { <-ratelimit }()
 
-			log.Infow("deleting container", "id", id)
+			ow.Infow("deleting container", "id", id)
 			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
 		}(id)
 	}
@@ -422,7 +419,7 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 	var merr *multierror.Error
 	for i := 0; i < len(ids); i++ {
 		if err := <-errs; err != nil {
-			log.Errorw("failed while deleting container", "error", err)
+			ow.Errorw("failed while deleting container", "error", err)
 			merr = multierror.Append(merr, <-errs)
 		}
 	}
@@ -430,25 +427,7 @@ func deleteContainers(cli *client.Client, log *zap.SugaredLogger, ids []string) 
 	return merr.ErrorOrNil()
 }
 
-func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger) (id string, err error) {
-	return docker.EnsureBridgeNetwork(
-		ctx,
-		log, cli,
-		"testground-control",
-		// making internal=false enables us to expose ports to the host (e.g.
-		// pprof and prometheus). by itself, it would allow the container to
-		// access the Internet, and therefore would break isolation, but since
-		// we have sidecar overriding the default Docker ip routes, and
-		// suppressing such traffic, we're safe.
-		false,
-		network.IPAMConfig{
-			Subnet:  controlSubnet,
-			Gateway: controlGateway,
-		},
-	)
-}
-
-func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -486,9 +465,9 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 	return id, subnet, err
 }
 
-func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
-	return zipRunOutputs(ctx, basedir, input, w)
+	return zipRunOutputs(ctx, basedir, input, ow)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified
@@ -521,9 +500,8 @@ func (*LocalDockerRunner) CompatibleBuilders() []string {
 // This method deletes the testground containers.
 // It does *not* delete any downloaded images or networks.
 // I'll leave a friendly message for how to do a more complete cleanup.
-func (*LocalDockerRunner) TerminateAll(ctx context.Context) error {
-	log := logging.S()
-	log.Info("terminate local:docker requested")
+func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
+	ow.Info("terminate local:docker requested")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -567,11 +545,11 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context) error {
 		containers = append(containers, container.ID)
 	}
 
-	err = deleteContainers(cli, log, containers)
+	err = deleteContainers(cli, ow, containers)
 	if err != nil {
 		return fmt.Errorf("failed to list testground containers: %w", err)
 	}
 
-	log.Info("to delete networks and images, you may want to run `docker system prune`")
+	ow.Info("to delete networks and images, you may want to run `docker system prune`")
 	return nil
 }

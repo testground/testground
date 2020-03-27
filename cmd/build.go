@@ -111,7 +111,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	req := &client.BuildRequest{Composition: *comp}
 	resp, err := cl.Build(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("fatal error from daemon: %s", err)
+		return nil, err
 	}
 	defer resp.Close()
 
@@ -121,7 +121,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	case context.Canceled:
 		return nil, fmt.Errorf("interrupted")
 	default:
-		return nil, fmt.Errorf("fatal error from daemon: %w", err)
+		return nil, err
 	}
 
 	for i, out := range res {

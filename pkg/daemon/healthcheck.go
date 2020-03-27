@@ -7,7 +7,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 func (srv *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -17,7 +17,7 @@ func (srv *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWri
 		log.Debugw("handle request", "command", "healthcheck")
 		defer log.Debugw("request handled", "command", "healthcheck")
 
-		tgw := tgwriter.New(w, log)
+		tgw := rpc.NewOutputWriter(w, r)
 
 		var req client.HealthcheckRequest
 		err := json.NewDecoder(r.Body).Decode(&req)

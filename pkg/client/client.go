@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/logrusorgru/aurora"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -128,26 +130,33 @@ func (c *Client) Healthcheck(ctx context.Context, r *HealthcheckRequest) (io.Rea
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
-	var msg tgwriter.Msg
+	var chunk rpc.Chunk
+	var once sync.Once
 
 	for dec := json.NewDecoder(r); ; {
-		err := dec.Decode(&msg)
+		err := dec.Decode(&chunk)
 		if err != nil {
 			return err
 		}
 
-		switch msg.Type {
-		case "progress":
-			err = fnProgress(msg.Payload)
+		switch chunk.Type {
+		case rpc.ChunkTypeProgress:
+			once.Do(func() {
+				fmt.Println(aurora.Bold(aurora.Cyan("\n>>> Server output:\n")))
+			})
+
+			err = fnProgress(chunk.Payload)
 			if err != nil {
 				return err
 			}
 
-		case "error":
-			return errors.New(msg.Error.Message)
+		case rpc.ChunkTypeError:
+			fmt.Println(aurora.Bold(aurora.BrightRed("\n>>> Error:\n")))
+			return errors.New(chunk.Error.Msg)
 
-		case "result":
-			return fnResult(msg.Payload)
+		case rpc.ChunkTypeResult:
+			fmt.Println(aurora.Bold(aurora.BrightGreen("\n>>> Result:\n")))
+			return fnResult(chunk.Payload)
 
 		default:
 			return errors.New("unknown message type")

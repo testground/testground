@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"io"
 	"net"
 	"os/exec"
 	"reflect"
@@ -21,6 +20,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
@@ -43,14 +43,12 @@ type LocalExecutableRunner struct {
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
 
 	ctx, cancel := context.WithCancel(engine.Context())
 	r.closeFn = cancel
-
-	log := logging.S().With("runner", "local:docker")
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -63,7 +61,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
 	// setup infra which is common between local:docker and local:exec
-	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, "testground-control", engine.EnvConfig().SrcDir, r.outputsDir)
+	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, "testground-control", engine.EnvConfig().SrcDir, r.outputsDir)
 
 	// RunChecks will fill the report and return any errors.
 	err = hcHelper.RunChecks(ctx, fix)
@@ -80,7 +78,7 @@ func (r *LocalExecutableRunner) Close() error {
 	return nil
 }
 
-func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
@@ -106,7 +104,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	}
 
 	// Spawn as many instances as the input parameters require.
-	pretty := NewPrettyPrinter()
+	pretty := NewPrettyPrinter(ow)
 	commands := make([]*exec.Cmd, 0, input.TotalInstances)
 	defer func() {
 		for _, cmd := range commands {
@@ -140,7 +138,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
-			logging.S().Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
+			ow.Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
 
 			cmd := exec.CommandContext(ctx, g.ArtifactPath)
 			stdout, _ := cmd.StdoutPipe()
@@ -165,9 +163,9 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	return zipRunOutputs(ctx, basedir, input, w)
+	return zipRunOutputs(ctx, basedir, input, ow)
 }
 
 func (*LocalExecutableRunner) ID() string {
@@ -182,9 +180,8 @@ func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	return []string{"exec:go"}
 }
 
-func (*LocalExecutableRunner) TerminateAll(ctx context.Context) error {
-	log := logging.S()
-	log.Info("terminate local:docker requested")
+func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
+	ow.Info("terminate local:docker requested")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -216,11 +213,11 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context) error {
 		containers = append(containers, container.ID)
 	}
 
-	err = deleteContainers(cli, log, containers)
+	err = deleteContainers(cli, ow, containers)
 	if err != nil {
 		return fmt.Errorf("failed to list testground containers: %w", err)
 	}
 
-	log.Info("to delete networks and images, you may want to run `docker system prune`")
+	ow.Info("to delete networks and images, you may want to run `docker system prune`")
 	return nil
 }
