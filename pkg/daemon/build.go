@@ -18,7 +18,7 @@ func (srv *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r
 		log.Debugw("handle request", "command", "build")
 		defer log.Debugw("request handled", "command", "build")
 
-		tgw := tgwriter.New(w, log)
+		tgw := tgwriter.New(w, r)
 
 		var req client.BuildRequest
 		err := json.NewDecoder(r.Body).Decode(&req)

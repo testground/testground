@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
+	"github.com/ipfs/testground/pkg/tgwriter"
 
 	"errors"
 
@@ -151,7 +150,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.Writer) ([]*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output *tgwriter.TgWriter) ([]*api.BuildOutput, error) {
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
@@ -255,7 +254,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				grpids = append(grpids, comp.Groups[idx].ID)
 			}
 
-			logging.S().Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
+			output.Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
 
 			in := &api.BuildInput{
 				BuildID:      uuid.New().String()[24:],
@@ -269,7 +268,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 
 			res, err := bm.Build(ctx, in, output)
 			if err != nil {
-				logging.S().Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
+				output.Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
 				return err
 			}
 
@@ -281,7 +280,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				ress[idx] = res
 			}
 
-			logging.S().Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
+			output.Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
 			return nil
 		})
 	}
@@ -294,7 +293,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	return ress, nil
 }
 
-func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Writer) (*api.RunOutput, error) {
+func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output *tgwriter.TgWriter) (*api.RunOutput, error) {
 	if err := comp.ValidateForRun(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
@@ -399,7 +398,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	for n, v := range tcase.Parameters {
 		data, err := json.Marshal(v.Default)
 		if err != nil {
-			logging.S().Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
+			output.Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
 			continue
 		}
 		defaultParams[n] = string(data)
@@ -438,17 +437,17 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 
 	out, err := run.Run(ctx, &in, output)
 	if err == nil {
-		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		output.Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		logging.S().Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		output.Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		logging.S().Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		output.Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error {
+func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, w *tgwriter.TgWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -476,7 +475,7 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	return run.CollectOutputs(ctx, input, w)
 }
 
-func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) error {
+func (e *Engine) DoTerminate(ctx context.Context, runner string, w *tgwriter.TgWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -487,21 +486,18 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) er
 		return fmt.Errorf("runner %s is not terminatable", runner)
 	}
 
-	_, err := w.Write([]byte("terminating all jobs on runner " + runner + "\n"))
+	w.Infof("terminating all jobs on runner: %s", runner)
+
+	err := terminatable.TerminateAll(ctx, w)
 	if err != nil {
 		return err
 	}
 
-	err = terminatable.TerminateAll(ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
-	return err
+	w.Infof("all jobs terminated on runner: ", runner)
+	return nil
 }
 
-func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*api.HealthcheckReport, error) {
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w *tgwriter.TgWriter) (*api.HealthcheckReport, error) {
 	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
@@ -512,10 +508,7 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w i
 		return nil, fmt.Errorf("runner %s does not support healthchecks", runner)
 	}
 
-	_, err := w.Write([]byte("checking runner " + runner + "\n"))
-	if err != nil {
-		return nil, err
-	}
+	w.Infof("checking runner: %s", runner)
 
 	return hc.Healthcheck(fix, e, w)
 }

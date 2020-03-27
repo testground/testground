@@ -3,7 +3,6 @@ package golang
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -12,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/tgwriter"
 
 	"github.com/hashicorp/go-getter"
 )
@@ -33,7 +32,7 @@ type ExecGoBuilderConfig struct {
 }
 
 // Build builds a testplan written in Go and outputs an executable.
-func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output io.Writer) (*api.BuildOutput, error) {
+func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output *tgwriter.TgWriter) (*api.BuildOutput, error) {
 	cfg, ok := input.BuildConfig.(*ExecGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type ExecGoBuilderConfig, was: %T", input.BuildConfig)
@@ -132,7 +131,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, output
 	cmd.Dir = plandst
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		logging.S().Errorf("go build failed: %s", string(out))
+		output.Errorf("go build failed: %s", string(out))
 		return nil, fmt.Errorf("failed to run the build; %w", err)
 	}
 

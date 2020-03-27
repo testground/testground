@@ -25,6 +25,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/tgwriter"
 	"github.com/ipfs/testground/sdk/runtime"
 	"go.uber.org/zap"
 
@@ -130,11 +131,11 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.Writer) (*api.RunOutput, error) {
+func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *tgwriter.TgWriter) (*api.RunOutput, error) {
 	c.initPool()
 
 	var (
-		log = logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+		log = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 	)
 
@@ -396,7 +397,7 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	return
 }
 
-func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
+func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, writer *tgwriter.TgWriter) (*api.HealthcheckReport, error) {
 	c.initPool()
 
 	report := api.HealthcheckReport{}
@@ -447,10 +448,10 @@ func (c *ClusterK8sRunner) initPool() {
 	})
 }
 
-func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {
+func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w *tgwriter.TgWriter) error {
 	c.initPool()
 
-	log := logging.S().With("runner", "cluster:k8s", "run_id", input.RunID)
+	log := w.With("runner", "cluster:k8s", "run_id", input.RunID)
 	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
 		return err
@@ -886,7 +887,7 @@ func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error
 
 // Terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
-func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
+func (c *ClusterK8sRunner) TerminateAll(_ context.Context, w *tgwriter.TgWriter) error {
 	c.initPool()
 
 	client := c.pool.Acquire()
@@ -897,7 +898,7 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context) error {
 	}
 	err := client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
 	if err != nil {
-		logging.S().Errorw("could not terminate all pods", "err", err)
+		w.Errorw("could not terminate all pods", "err", err)
 		return err
 	}
 	return nil

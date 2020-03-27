@@ -17,7 +17,7 @@ func (srv *Daemon) terminateHandler(engine api.Engine) func(w http.ResponseWrite
 		log.Debugw("handle request", "command", "terminate")
 		defer log.Debugw("request handled", "command", "terminate")
 
-		tgw := tgwriter.New(w, log)
+		tgw := tgwriter.New(w, r)
 
 		var req client.TerminateRequest
 		err := json.NewDecoder(r.Body).Decode(&req)

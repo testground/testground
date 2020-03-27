@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/tgwriter"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/logrusorgru/aurora"
@@ -39,6 +40,7 @@ func (et eventType) String() string {
 type PrettyPrinter struct {
 	aurora  aurora.Aurora
 	classes [10]aurora.Value
+	tgw     *tgwriter.TgWriter
 
 	// guarded by atomic.
 	failed uint32
@@ -49,7 +51,7 @@ type PrettyPrinter struct {
 }
 
 // NewPrettyPrinter constructs a new console logger.
-func NewPrettyPrinter() *PrettyPrinter {
+func NewPrettyPrinter(tgw *tgwriter.TgWriter) *PrettyPrinter {
 	au := aurora.NewAurora(logging.IsTerminal())
 	return &PrettyPrinter{
 		aurora: au,
@@ -66,6 +68,7 @@ func NewPrettyPrinter() *PrettyPrinter {
 			aurora.BgBrightRed("INTERNAL_ERR").White(),
 		},
 		start: time.Now(),
+		tgw:   tgw,
 	}
 }
 
@@ -216,7 +219,7 @@ func (c *PrettyPrinter) print(idx uint32, id string, now time.Time, evtType even
 		elapsed = 0
 	}
 
-	fmt.Printf("%9.4fs %10s %s %s\n",
+	c.tgw.Infof("%5.4fs %10s %s %s",
 		float64(elapsed)/float64(time.Second),
 		class,
 		c.aurora.Index(uint8(idx%15)+1, "<< "+id+" >>"),

@@ -15,7 +15,7 @@ func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r 
 		log.Debugw("handle request", "command", "list")
 		defer log.Debugw("request handled", "command", "list")
 
-		tgw := tgwriter.New(w, log)
+		tgw := tgwriter.New(w, r)
 
 		plans := engine.TestCensus().ListPlans()
 		for _, tp := range plans {

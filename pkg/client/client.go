@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/logrusorgru/aurora"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -129,6 +131,7 @@ func (c *Client) Healthcheck(ctx context.Context, r *HealthcheckRequest) (io.Rea
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
 	var msg tgwriter.Msg
+	var once sync.Once
 
 	for dec := json.NewDecoder(r); ; {
 		err := dec.Decode(&msg)
@@ -138,15 +141,21 @@ func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error)
 
 		switch msg.Type {
 		case "progress":
+			once.Do(func() {
+				fmt.Println(aurora.Bold(aurora.Cyan("\n>>> Server output:\n")))
+			})
+
 			err = fnProgress(msg.Payload)
 			if err != nil {
 				return err
 			}
 
 		case "error":
+			fmt.Println(aurora.Bold(aurora.BrightRed("\n>>> Error:\n")))
 			return errors.New(msg.Error.Message)
 
 		case "result":
+			fmt.Println(aurora.Bold(aurora.BrightGreen("\n>>> Result:\n")))
 			return fnResult(msg.Payload)
 
 		default:

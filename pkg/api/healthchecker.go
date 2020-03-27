@@ -2,14 +2,15 @@ package api
 
 import (
 	"fmt"
-	"io"
 	"strings"
+
+	"github.com/ipfs/testground/pkg/tgwriter"
 )
 
 // Healthchecker is the interface to be implemented by a runner that supports
 // healthchecks and fixes.
 type Healthchecker interface {
-	Healthcheck(fix bool, engine Engine, writer io.Writer) (*HealthcheckReport, error)
+	Healthcheck(fix bool, engine Engine, writer *tgwriter.TgWriter) (*HealthcheckReport, error)
 }
 
 // HealthcheckStatus is an enum that represents
