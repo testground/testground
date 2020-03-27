@@ -104,6 +104,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 	report := api.HealthcheckReport{}
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
+	// testground-control
 	hcHelper.Enlist("control-network",
 		DockerNetworkChecker(ctx,
 			log,
@@ -169,11 +170,12 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			log,
 			cli,
 			"testground-redis",
-			"redis",
+			"library/redis",
 			"testground-control",
 			[]string{"6379:6379"},
 			true))
 
+	// metrics for redis, customized by commandline args
 	hcHelper.Enlist("local-redis-exporter",
 		DefaultContainerChecker(ctx,
 			log,
@@ -183,12 +185,28 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			log,
 			cli,
 			"testground-redis",
-			"redis",
+			"bitnami/redis-exporter",
 			"testground-control",
 			[]string{"1921:1921"},
 			true,
 			"--redis.addr",
 			"redis://testground-redis:6379"))
+
+	// sidecar, build it if necessary.
+	hcHelper.Enlist("local-prometheus",
+		DefaultContainerChecker(ctx,
+			log,
+			cli,
+			"testground-sidecar"),
+		CustomContainerFixer(ctx,
+			log,
+			cli,
+			engine.EnvConfig().SrcDir,
+			"testground-sidecar",
+			"testground-sidecar:latest",
+			"testground-control",
+			[]string{"6060:6060"},
+			false))
 
 	// RunChecks will fill the report and return any errors.
 	err = hcHelper.RunChecks(ctx, fix)
