@@ -28,14 +28,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
       bs_strategy = "3"
       bucket_size = "10"
       group_order = "1"
-      latency = "500"
+      latency = "100"
       timeout_secs = "600"
 
 [[groups]]
@@ -54,14 +54,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
       bs_strategy = "3"
       bucket_size = "10"
       group_order = "4"
-      latency = "500"
+      latency = "100"
       record_count = "1"
       timeout_secs = "600"
 
@@ -81,14 +81,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
       bs_strategy = "3"
       bucket_size = "10"
       group_order = "3"
-      latency = "500"
+      latency = "100"
       record_count = "1"
       timeout_secs = "600"
 
@@ -108,14 +108,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
       bs_strategy = "3"
       bucket_size = "10"
       group_order = "2"
-      latency = "500"
+      latency = "100"
       record_count = "1"
       timeout_secs = "600"
 
@@ -135,14 +135,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
       bs_strategy = "3"
       bucket_size = "10"
       group_order = "5"
-      latency = "500"
+      latency = "100"
       search_records = "true"
       timeout_secs = "600"
 
@@ -162,7 +162,7 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:330582e48d5f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:c18d74b16d64"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -170,5 +170,5 @@
       bs_strategy = "1"
       bucket_size = "10"
       group_order = "0"
-      latency = "500"
+      latency = "100"
       timeout_secs = "600"

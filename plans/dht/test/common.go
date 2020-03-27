@@ -637,7 +637,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int,int) {
-		slope := 5
+		slope := 1
 		turnNum := int(math.Floor(float64(seq)/float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
