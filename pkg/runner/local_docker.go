@@ -205,7 +205,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		))
 
 	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
-	hcHelper.Enlist("local-prometheus",
+	hcHelper.Enlist("local-sidecar",
 		DefaultContainerChecker(ctx,
 			log,
 			cli,
