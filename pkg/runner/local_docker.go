@@ -88,7 +88,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 
 	// This context must be long, because some fixes will end up downloading
 	// Docker images.
-	ctx, cancel := context.WithTimeout(engine.Context(), 5*time.Minute)
+	ctx, cancel := context.WithCancel(engine.Context())
 	defer cancel()
 
 	log := logging.S().With("runner", "local:docker")
