@@ -10,11 +10,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -81,7 +79,8 @@ var defaultConfig = LocalDockerRunnerConfig{
 type LocalDockerRunner struct {
 	lk sync.RWMutex
 
-	outputsDir string
+	controlNetworkID string
+	outputsDir       string
 }
 
 func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
@@ -101,15 +100,18 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 		return nil, err
 	}
 
+	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
+	r.controlNetworkID = "testground-control"
+
 	report := api.HealthcheckReport{}
 	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
 	// testground-control
-	hcHelper.Enlist("control-network",
+	hcHelper.Enlist(r.controlNetworkID,
 		DockerNetworkChecker(ctx,
 			log,
 			cli,
-			"testground-control"),
+			r.controlNetworkID),
 		DockerNetworkFixer(ctx,
 			log,
 			cli))
@@ -126,24 +128,28 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			filepath.Join(engine.EnvConfig().SrcDir, "infra/docker/testground-prometheus"),
 			"testground-prometheus",
 			"testground-prometheus:latest",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"9090:9090"},
-			false))
+			false,
+			&container.HostConfig{},
+		))
 
 	// pushgateway
 	hcHelper.Enlist("local-pushgateway",
 		DefaultContainerChecker(ctx,
 			log,
 			cli,
-			"testground-pushgateway"),
+			"prometheus-pushgateway"),
 		DefaultContainerFixer(ctx,
 			log,
 			cli,
-			"testground-pushgateway",
+			"prometheus-pushgateway",
 			"prom/pushgateway",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"9091:9091"},
-			true))
+			true,
+			&container.HostConfig{},
+		))
 
 	// grafana
 	hcHelper.Enlist("local-grafana",
@@ -156,9 +162,11 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			cli,
 			"testground-grafana",
 			"bitnami/grafana",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"3000:3000"},
-			true))
+			true,
+			&container.HostConfig{},
+		))
 
 	// redis
 	hcHelper.Enlist("local-redis",
@@ -171,9 +179,11 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			cli,
 			"testground-redis",
 			"library/redis",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"6379:6379"},
-			true))
+			true,
+			&container.HostConfig{},
+		))
 
 	// metrics for redis, customized by commandline args
 	hcHelper.Enlist("local-redis-exporter",
@@ -186,13 +196,15 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			cli,
 			"testground-redis",
 			"bitnami/redis-exporter",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"1921:1921"},
 			true,
+			&container.HostConfig{},
 			"--redis.addr",
-			"redis://testground-redis:6379"))
+			"redis://testground-redis:6379",
+		))
 
-	// sidecar, build it if necessary.
+	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
 	hcHelper.Enlist("local-prometheus",
 		DefaultContainerChecker(ctx,
 			log,
@@ -204,9 +216,34 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 			engine.EnvConfig().SrcDir,
 			"testground-sidecar",
 			"testground-sidecar:latest",
-			"testground-control",
+			r.controlNetworkID,
 			[]string{"6060:6060"},
-			false))
+			false,
+			&container.HostConfig{
+				NetworkMode: container.NetworkMode(r.controlNetworkID),
+				// To lookup namespaces. Can't use SandboxKey for some reason.
+				PidMode: "host",
+				// We need _both_ to actually get a network namespace handle.
+				// We may be able to drop sys_admin if we drop netlink
+				// sockets that we're not using.
+				CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+				// needed to talk to docker.
+				Mounts: []mount.Mount{{
+					Type:   mount.TypeBind,
+					Source: "/var/run/docker.sock",
+					Target: "/var/run/docker.sock",
+				}},
+				Resources: container.Resources{
+					Ulimits: []*units.Ulimit{
+						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+					},
+				},
+			},
+			"sidecar",
+			"--runner",
+			"docker",
+			"--pprof",
+		))
 
 	// RunChecks will fill the report and return any errors.
 	err = hcHelper.RunChecks(ctx, fix)
@@ -251,15 +288,15 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 // 		switch len(networks) {
 // 		case 0:
 // 			msg := "control network: not created"
-// 			ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusFailed, Message: msg}
+// 			ctrlNetCheck = api.HealthcheckItem{Name: "r.controlNetworkID", Status: api.HealthcheckStatusFailed, Message: msg}
 // 		default:
 // 			msg := "control network: exists"
-// 			ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusOK, Message: msg}
+// 			ctrlNetCheck = api.HealthcheckItem{Name: "r.controlNetworkID", Status: api.HealthcheckStatusOK, Message: msg}
 // 			r.controlNetworkID = networks[0].ID
 // 		}
 // 	} else {
 // 		msg := fmt.Sprintf("control network errored: %s", err)
-// 		ctrlNetCheck = api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusAborted, Message: msg}
+// 		ctrlNetCheck = api.HealthcheckItem{Name: "r.controlNetworkID", Status: api.HealthcheckStatusAborted, Message: msg}
 // 	}
 //
 // 	ci, err := docker.CheckContainer(ctx, log, cli, "testground-grafana")
@@ -409,11 +446,11 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer io.W
 // 		if err == nil {
 // 			r.controlNetworkID = id
 // 			msg := "control network created successfully"
-// 			it := api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusOK, Message: msg}
+// 			it := api.HealthcheckItem{Name: "r.controlNetworkID", Status: api.HealthcheckStatusOK, Message: msg}
 // 			fixes = append(fixes, it)
 // 		} else {
 // 			msg := fmt.Sprintf("failed to create control network: %s", err)
-// 			it := api.HealthcheckItem{Name: "control-network", Status: api.HealthcheckStatusFailed, Message: msg}
+// 			it := api.HealthcheckItem{Name: "r.controlNetworkID", Status: api.HealthcheckStatusFailed, Message: msg}
 // 			fixes = append(fixes, it)
 // 		}
 // 	}
@@ -917,80 +954,6 @@ func newDataNetwork(ctx context.Context, cli *client.Client, log *zap.SugaredLog
 		},
 	)
 	return id, subnet, err
-}
-
-// ensure container is started
-func ensureInfraContainer(ctx context.Context, cli *client.Client, log *zap.SugaredLogger, containerName string, imageName string, networkID string, pull bool, cmds ...string) (id string, err error) {
-	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
-		ContainerName: containerName,
-		ContainerConfig: &container.Config{
-			Image: imageName,
-			Cmd:   cmds,
-		},
-		HostConfig: &container.HostConfig{
-			NetworkMode:     container.NetworkMode(networkID),
-			PublishAllPorts: true,
-			Resources: container.Resources{
-				Ulimits: []*units.Ulimit{
-					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
-				},
-			},
-		},
-		PullImageIfMissing: pull,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return container.ID, err
-
-}
-
-// ensureSidecarContainer ensures there's a testground-sidecar container started.
-func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir string, log *zap.SugaredLogger, controlNetworkID string) (id string, err error) {
-	dockerSock := "/var/run/docker.sock"
-	if host := cli.DaemonHost(); strings.HasPrefix(host, "unix://") {
-		dockerSock = host[len("unix://"):]
-	} else {
-		log.Warnf("guessing docker socket as %s", dockerSock)
-	}
-	container, _, err := docker.EnsureContainer(ctx, log, cli, &docker.EnsureContainerOpts{
-		ContainerName: "testground-sidecar",
-		ContainerConfig: &container.Config{
-			Image:      "ipfs/testground:latest",
-			Entrypoint: []string{"testground"},
-			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
-			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
-		},
-		HostConfig: &container.HostConfig{
-			PublishAllPorts: true,
-			PortBindings:    nat.PortMap{"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
-			NetworkMode:     container.NetworkMode(controlNetworkID),
-			// To lookup namespaces. Can't use SandboxKey for some reason.
-			PidMode: "host",
-			// We need _both_ to actually get a network namespace handle.
-			// We may be able to drop sys_admin if we drop netlink
-			// sockets that we're not using.
-			CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
-			// needed to talk to docker.
-			Mounts: []mount.Mount{{
-				Type:   mount.TypeBind,
-				Source: dockerSock,
-				Target: "/var/run/docker.sock",
-			}},
-			Resources: container.Resources{
-				Ulimits: []*units.Ulimit{
-					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
-				},
-			},
-		},
-		PullImageIfMissing: false, // Don't pull from Docker Hub
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return container.ID, err
 }
 
 func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w io.Writer) error {

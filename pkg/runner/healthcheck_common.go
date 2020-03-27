@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -115,16 +116,21 @@ func DefaultContainerChecker(ctx context.Context, log *zap.SugaredLogger, cli *c
 // container exists with some default paramaters which are appropriate for infra containers.
 // Unless containers require special consideration, this should be considered the sensible default
 // fixer for docker containers.
-func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, containerName string, imageName string, networkID string, portSpecs []string, pull bool, cmds ...string) Fixer {
+func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
 	// Docker host configuration.
 	// https://godoc.org/github.com/docker/docker/api/types/container#HostConfig
-	hostConfig := container.HostConfig{
-		NetworkMode: container.NetworkMode(networkID),
-		Resources: container.Resources{
-			Ulimits: []*units.Ulimit{
-				{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+	var hostConfig container.HostConfig
+	if reflect.DeepEqual(*customHostConfig, container.HostConfig{}) {
+		hostConfig = container.HostConfig{
+			NetworkMode: container.NetworkMode(networkID),
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+				},
 			},
-		},
+		}
+	} else {
+		hostConfig = *customHostConfig
 	}
 	// Try to parse the portSpecs, but if we can't, fall back to using random host port assignments.
 	// the portSpec should be in the format ip:public:private/proto
@@ -158,19 +164,19 @@ func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *cli
 // CustomContainerFixer returns a Fixer, a method which when executed will ensure the named
 // container exists. Unlike the DefaultContainerFixer, a custom image may be built for the
 // container.
-func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, cmds ...string) Fixer {
+func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
 	return func() error {
 		_, err := docker.EnsureImage(ctx,
 			log,
 			cli,
 			&docker.BuildImageOpts{
-				Name:     containerName,
+				Name:     imageName,
 				BuildCtx: buildCtx,
 			})
 		if err != nil {
 			return err
 		}
-		return DefaultContainerFixer(ctx, log, cli, containerName, imageName, networkID, portSpecs, pull, cmds...)()
+		return DefaultContainerFixer(ctx, log, cli, containerName, imageName, networkID, portSpecs, pull, customHostConfig, cmds...)()
 
 	}
 }
