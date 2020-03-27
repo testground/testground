@@ -55,6 +55,7 @@ const (
 
 type SetupOpts struct {
 	Timeout     time.Duration
+	Latency     time.Duration
 	AutoRefresh bool
 	RandomWalk  bool
 
@@ -86,13 +87,13 @@ type RunInfo struct {
 func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 	opts := &SetupOpts{
 		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
+		Latency:     time.Duration(runenv.IntParam("latency")) * time.Millisecond,
 		AutoRefresh: runenv.BooleanParam("auto_refresh"),
 		RandomWalk:  runenv.BooleanParam("random_walk"),
 
 		BucketSize:     runenv.IntParam("bucket_size"),
 		Alpha:          runenv.IntParam("alpha"),
 		Beta:           runenv.IntParam("beta"),
-		NDisjointPaths: runenv.IntParam("n_paths"),
 
 		ClientMode: runenv.BooleanParam("client_mode"),
 		Datastore:  OptDatastore(runenv.IntParam("datastore")),
@@ -636,7 +637,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int,int) {
-		slope := 20
+		slope := 5
 		turnNum := int(math.Floor(float64(seq)/float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {

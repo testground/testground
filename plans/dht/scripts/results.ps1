@@ -42,8 +42,8 @@ function basicStats ($values, $reverse) {
 	} 
 
 	return [PSCustomObject]@{
-		Average = [math]::Round($obj.Average,2)
-		Percentile95 = [math]::Round($95percentile, 2)
+		Average = [math]::Round([double]$obj.Average,2)
+		Percentile95 = [math]::Round([double]$95percentile, 2)
 	}
 }
 
@@ -86,6 +86,14 @@ foreach ($groupDir in $groupDirs) {
 	?{$_.name -and $_.name.StartsWith("time-to-find|")} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
 
+	$findgood = $metrics |
+	?{$_.name -and $_.name.StartsWith("time-to-find|done")} |
+	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
+
+	$findfail = $metrics |
+	?{$_.name -and $_.name.StartsWith("time-to-find|fail")} |
+	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value/$ns; }}
+
 	$found = $metrics |
 	?{$_.name -and $_.name.StartsWith("peers-found") -and $_.value -gt 0} |
 	%{ [pscustomobject]@{ Name=$_.name; Value= $_.value; }}
@@ -118,8 +126,23 @@ foreach ($groupDir in $groupDirs) {
 		echo "Time-to-Find-Last"
 		groupStats $findlast 2 | Format-Table
 
-		echo "Time-to-Find"
-		groupStats $findall 2 | Format-Table
+		if ($null -ne $findgood) {
+			echo "Time-to-Find Success"
+			groupStats $findgood 2 | Format-Table
+		}
+
+		if ($null -ne $findfail) {
+			echo "Time-to-Find Fail"
+			groupStats $findfail 2 | Format-Table
+
+			echo "Number of Failures"
+			groupStats $failures 2 | Format-Table
+		}
+
+		if (($null -ne $findgood) -and ($null -ne $findfail)) {
+			echo "Time-to-Find"
+			groupStats $findall 2 | Format-Table
+		}
 
 		echo "Peers Found"
 		groupStats $found 2 $true | Format-Table

@@ -37,6 +37,8 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 
 func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {return nil}
 
+func getAllProvRecordsNum() int {return 100}
+
 func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
 	return ctx
 }

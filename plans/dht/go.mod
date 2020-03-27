@@ -22,7 +22,7 @@ require (
 	github.com/libp2p/go-libp2p-kbucket v0.2.2
 	github.com/libp2p/go-libp2p-swarm v0.2.3-0.20200210151353-6e99a7602774
 	github.com/libp2p/go-libp2p-transport-upgrader v0.1.1
-	github.com/libp2p/go-libp2p-xor v0.0.0-20200327055428-733f65fca4e5
+	github.com/libp2p/go-libp2p-xor v0.0.0-20200327214123-c82f4a56e111
 	github.com/libp2p/go-tcp-transport v0.1.1
 	github.com/mattn/go-colorable v0.1.2 // indirect
 	github.com/mattn/go-isatty v0.0.9 // indirect

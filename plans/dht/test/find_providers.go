@@ -36,7 +36,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	//defer watcher.Close()
 	//defer writer.Close()
-	
+
 	ri := &RunInfo{
 		runenv:  runenv,
 		watcher: watcher,
@@ -61,7 +61,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, commonOpts.Latency); err != nil {
 		return err
 	}
 
@@ -142,8 +142,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					t := time.Now()
 
 					numProvs := 0
-					provsCh := node.dht.FindProvidersAsync(ectx, c, 100)
-					incomplete := "done"
+					provsCh := node.dht.FindProvidersAsync(ectx, c, getAllProvRecordsNum())
+					status := "done"
 
 					var tLastFound time.Time
 					provLoop:
@@ -166,33 +166,36 @@ func FindProviders(runenv *runtime.RunEnv) error {
 
 							numProvs++
 						case <-ctx.Done():
-							incomplete = "incomplete"
+							status = "incomplete"
 							break provLoop
 						}
 					}
 					cancel()
 
-					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find-last|%s|%s|%d", incomplete, groupID, i),
-						Unit:           "ns",
-						ImprovementDir: -1,
-					}, float64(tLastFound.Sub(t).Nanoseconds()))
+					if numProvs > 0 {
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("time-to-find-last|%s|%s|%d", status, groupID, i),
+							Unit:           "ns",
+							ImprovementDir: -1,
+						}, float64(tLastFound.Sub(t).Nanoseconds()))
+					} else if status != "incomplete" {
+						status = "fail"
+					}
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", incomplete, groupID, i),
+						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", status, groupID, i),
 						Unit:           "ns",
 						ImprovementDir: -1,
 					}, float64(time.Since(t).Nanoseconds()))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found|%s|%s|%d", incomplete, groupID, i, ),
+						Name:           fmt.Sprintf("peers-found|%s|%s|%d", status, groupID, i, ),
 						Unit:           "peers",
 						ImprovementDir: 1,
 					}, float64(numProvs))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", incomplete,
-							groupID, i),
+						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", status, groupID, i),
 						Unit:           "peers",
 						ImprovementDir: -1,
 					}, float64(ri.groupSizes[groupID] - numProvs))

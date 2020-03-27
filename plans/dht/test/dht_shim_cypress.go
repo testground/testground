@@ -24,7 +24,6 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 		kaddht.RoutingTableRefreshQueryTimeout(opts.Timeout),
 		kaddht.Concurrency(opts.Alpha),
 		kaddht.Resiliency(opts.Beta),
-		kaddht.DisjointPaths(opts.NDisjointPaths),
 	}
 
 	if !opts.AutoRefresh {
@@ -51,6 +50,8 @@ func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {
 		return []libp2p.Option{libp2p.EnableNATService()}
 	}
 }
+
+func getAllProvRecordsNum() int {return 0}
 
 var (
 	sqonce   sync.Once
@@ -89,10 +90,13 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 			if e.Update != nil {
 				log.Infow("update", "eventID", e.ID, "targetKad", e.Key,
 					"cause", e.Update.Cause,
+					"source", e.Update.Source,
 					"heard", e.Update.Heard,
 					"waiting", e.Update.Waiting,
 					"queried", e.Update.Queried,
 					"unreachable", e.Update.Unreachable,
+					"causeKad", kbucket.ConvertPeerID(e.Update.Cause),
+					"sourceKad", kbucket.ConvertPeerID(e.Update.Source),
 					"heardKad", peerIDsToKadIDs(e.Update.Heard),
 					"waitingKad", peerIDsToKadIDs(e.Update.Waiting),
 					"queriedKad", peerIDsToKadIDs(e.Update.Queried),
