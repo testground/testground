@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net"
+	"os/exec"
 	"reflect"
 
 	"github.com/docker/docker/api/types/container"
@@ -181,6 +183,8 @@ func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *clie
 	}
 }
 
+// DockerNetworkChecker returns a Checker, a method which when executed will verify a docker network
+// exists with the passed networkID as its name.
 func DockerNetworkChecker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, networkID string) Checker {
 	return func() bool {
 		networks, err := docker.CheckBridgeNetwork(ctx, log, cli, networkID)
@@ -192,9 +196,32 @@ func DockerNetworkChecker(ctx context.Context, log *zap.SugaredLogger, cli *clie
 	}
 }
 
+// DockerNetworkFixer returns a Fixer, a method which when executed will create a docker network
+// with the given name, provided it does not exist already.
 func DockerNetworkFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client) Fixer {
 	return func() error {
 		_, err := ensureControlNetwork(ctx, cli, log)
 		return err
+	}
+}
+
+// DialableChecker returns a Checker, a method which when executed will tell us whether a
+// port is dialable. For TCP sockets, a false return could mean the network is unreachable,
+// or that a TCP socket is closed. For UDP sockets, being connectionless, may return a false
+// positive if the network is reachable.
+func DialableChecker(protocol string, address string) func() bool {
+	return func() bool {
+		_, err := net.Dial(protocol, address)
+		return err == nil
+	}
+}
+
+// CommandStartFixer returns a Fixer, a method which when executed will start an executable
+// with the given parameters. Uses os/exec to start the command. Cancelling the passed context
+// will stop the executable.
+func CommandStartFixer(ctx context.Context, cmd string, args ...string) func() error {
+	return func() error {
+		cmd := exec.CommandContext(ctx, cmd, args...)
+		return cmd.Start()
 	}
 }

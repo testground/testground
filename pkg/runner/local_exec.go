@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +13,10 @@ import (
 	"os/exec"
 	"reflect"
 	"sync"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
@@ -40,43 +43,6 @@ type LocalExecutableRunner struct {
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-type healthcheckedProcess struct {
-	HealthcheckItem api.HealthcheckItem
-	Checker         func() bool
-	Fixer           func() error
-	Success         string
-	Failure         string
-}
-
-func newhealthcheckedProcess(ctx context.Context, name string, address string, cmd string, args ...string) *healthcheckedProcess {
-	return &healthcheckedProcess{
-		HealthcheckItem: api.HealthcheckItem{
-			Name: name,
-		},
-		Checker: tcpChecker(address),
-		Fixer:   commandStarter(ctx, cmd, args...),
-		Success: fmt.Sprintf("%s instance check: OK", name),
-		Failure: fmt.Sprintf("%s instance check: FAIL", name),
-	}
-}
-
-// tcpChecker returns a closure which can be used to check
-// when a tcp port is open. Returns true if the socket is dialable.
-// Otherwise, returns false. Use as healthcheckedProcess.Checker.
-func tcpChecker(address string) func() bool {
-	return func() bool {
-		_, err := net.Dial("tcp", address)
-		return err == nil
-	}
-}
-
-func commandStarter(ctx context.Context, cmd string, args ...string) func() error {
-	return func() error {
-		cmd := exec.CommandContext(ctx, cmd, args...)
-		return cmd.Start()
-	}
-}
-
 func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer io.Writer) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
@@ -84,93 +50,24 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer 
 	ctx, cancel := context.WithCancel(engine.Context())
 	r.closeFn = cancel
 
-	report := api.HealthcheckReport{
-		Checks: []api.HealthcheckItem{},
-		Fixes:  []api.HealthcheckItem{},
+	log := logging.S().With("runner", "local:docker")
+
+	// Create a docker client.
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, err
 	}
 
-	// Use this slice to add or remove additional checks.
-	localInfra := []*healthcheckedProcess{
-		newhealthcheckedProcess(ctx,
-			"local-redis",
-			"localhost:6379",
-			"redis-server",
-			"--save",
-			"\"\"",
-			"--appendonly",
-			"no"),
-		newhealthcheckedProcess(ctx,
-			"local-prometheus",
-			"localhost:9090",
-			"prometheus"),
-		newhealthcheckedProcess(ctx,
-			"local-pushgateway",
-			"localhost:9091",
-			"pushgateway"),
-	}
+	report := api.HealthcheckReport{}
+	hcHelper := ErrgroupHealthcheckHelper{report: &report}
 
-	eg, _ := errgroup.WithContext(ctx)
+	// setup infra which is common between local:docker and local:exec
+	healthcheck_common_local_infra(&hcHelper, ctx, log, cli, "testground-control", engine.EnvConfig().SrcDir)
 
-	for _, li := range localInfra {
-		hcp := *li
-		eg.Go(func() error {
-			// Checker succeeds, already working.
-			if hcp.Checker() {
-				hcp.HealthcheckItem.Status = api.HealthcheckStatusOK
-				hcp.HealthcheckItem.Message = hcp.Success
-				report.Checks = append(report.Checks, hcp.HealthcheckItem)
-				return nil
-			}
-			// Checker failed, try to fix.
-			err := hcp.Fixer()
-			if err != nil {
-				// Oh no! the fix failed.
-				hcp.HealthcheckItem.Status = api.HealthcheckStatusFailed
-				hcp.HealthcheckItem.Message = hcp.Failure
-				report.Checks = append(report.Checks, hcp.HealthcheckItem)
-				// just because the fixer failed, doesn't mean *this* procedure failed.
-				return nil
-			}
-			// Fix succeeded.
-			hcp.HealthcheckItem.Status = api.HealthcheckStatusOK
-			hcp.HealthcheckItem.Message = hcp.Success
-			report.Checks = append(report.Checks, hcp.HealthcheckItem)
-			report.Fixes = append(report.Fixes, hcp.HealthcheckItem)
-			return nil
-		})
-		err := eg.Wait()
-		if err != nil {
-			return nil, nil
-		}
-	}
+	// RunChecks will fill the report and return any errors.
+	err = hcHelper.RunChecks(ctx, fix)
 
-	var outputsDirCheck api.HealthcheckItem
-	// Ensure the outputs dir exists.
-	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
-	if _, err := os.Stat(r.outputsDir); err == nil {
-		msg := "outputs directory exists"
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
-	} else if os.IsNotExist(err) {
-		msg := "outputs directory does not exist"
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
-	} else {
-		msg := fmt.Sprintf("failed to stat outputs directory: %s", err)
-		outputsDirCheck = api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusAborted, Message: msg}
-	}
-
-	if outputsDirCheck.Status != api.HealthcheckStatusOK {
-		if err := os.MkdirAll(r.outputsDir, 0777); err == nil {
-			msg := "outputs dir created successfully"
-			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusOK, Message: msg}
-			report.Fixes = append(report.Fixes, it)
-		} else {
-			msg := fmt.Sprintf("failed to create outputs dir: %s", err)
-			it := api.HealthcheckItem{Name: "outputs-dir", Status: api.HealthcheckStatusFailed, Message: msg}
-			report.Fixes = append(report.Fixes, it)
-		}
-	}
-
-	return &report, nil
+	return &report, err
 }
 
 func (r *LocalExecutableRunner) Close() error {
@@ -282,4 +179,47 @@ func (*LocalExecutableRunner) ConfigType() reflect.Type {
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
 	return []string{"exec:go"}
+}
+
+func (*LocalExecutableRunner) TerminateAll(ctx context.Context) error {
+	log := logging.S()
+	log.Info("terminate local:docker requested")
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	// Build two separate queries: one for infrastructure containers, another
+	// for test plan containers. The former, we match by container name. The
+	// latter, we match by the `testground.purpose` label, which we apply to all
+	// plan containers managed by testground label.
+
+	// Build query for runner infrastructure containers.
+	infraOpts := types.ContainerListOptions{}
+	infraOpts.Filters = filters.NewArgs()
+	infraOpts.Filters.Add("name", "prometheus-pushgateway")
+	infraOpts.Filters.Add("name", "testground-goproxy")
+	infraOpts.Filters.Add("name", "testground-grafana")
+	infraOpts.Filters.Add("name", "testground-prometheus")
+	infraOpts.Filters.Add("name", "testground-redis")
+	infraOpts.Filters.Add("name", "testground-sidecar")
+
+	infracontainers, err := cli.ContainerList(ctx, infraOpts)
+	if err != nil {
+		return fmt.Errorf("failed to list infrastructure containers: %w", err)
+	}
+
+	containers := make([]string, 0, len(infracontainers))
+	for _, container := range infracontainers {
+		containers = append(containers, container.ID)
+	}
+
+	err = deleteContainers(cli, log, containers)
+	if err != nil {
+		return fmt.Errorf("failed to list testground containers: %w", err)
+	}
+
+	log.Info("to delete networks and images, you may want to run `docker system prune`")
+	return nil
 }
