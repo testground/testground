@@ -256,33 +256,35 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow io.W
 		return nil, err
 	}
 
-	var gg errgroup.Group
+	if input.TotalInstances <= 500 {
+		var gg errgroup.Group
 
-	for _, g := range input.Groups {
-		for i := 0; i < g.Instances; i++ {
-			i := i
-			g := g
-			sem <- struct{}{}
+		for _, g := range input.Groups {
+			for i := 0; i < g.Instances; i++ {
+				i := i
+				g := g
+				sem <- struct{}{}
 
-			gg.Go(func() error {
-				defer func() { <-sem }()
+				gg.Go(func() error {
+					defer func() { <-sem }()
 
-				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
+					podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs, err := c.getPodLogs(log, podName)
-				if err != nil {
-					return err
-				}
+					logs, err := c.getPodLogs(log, podName)
+					if err != nil {
+						return err
+					}
 
-				fmt.Print(logs)
-				return nil
-			})
+					fmt.Print(logs)
+					return nil
+				})
+			}
 		}
-	}
 
-	err = gg.Wait()
-	if err != nil {
-		return nil, err
+		err = gg.Wait()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &api.RunOutput{RunID: input.RunID}, nil
