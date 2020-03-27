@@ -72,7 +72,7 @@ func EnsureContainer(ctx context.Context, log *zap.SugaredLogger, cli *client.Cl
 
 		err := cli.ContainerStart(ctx, ci.ID, types.ContainerStartOptions{})
 		if err != nil {
-			log.Errorf("starting container failed", "container_id %s: %v", ci.ID, err)
+			log.Errorf("starting container failed", "container_id %s: %v", opts.ContainerName, err)
 			return nil, false, err
 		}
 
