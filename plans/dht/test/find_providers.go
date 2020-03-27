@@ -36,9 +36,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	//defer watcher.Close()
 	//defer writer.Close()
-
-	runenv.RecordMessage("Test4")
-
+	
 	ri := &RunInfo{
 		runenv:  runenv,
 		watcher: watcher,
@@ -63,7 +61,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 	}
 
-	if err := SetupNetwork(ctx, ri, 2000*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
 		return err
 	}
 

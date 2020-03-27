@@ -636,7 +636,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int,int) {
-		slope := 2
+		slope := 20
 		turnNum := int(math.Floor(float64(seq)/float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
@@ -787,10 +787,13 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 // TableHealth computes health reports for a network of nodes, whose routing contacts are given.
 func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {
 	// Construct global network view trie
+	var kn []key.Key
 	knownNodes := trie.New()
 	for p, info := range peers {
 		if info.Properties.ExpectedServer {
-			knownNodes.Add(kadPeerID(p))
+			k := kadPeerID(p)
+			kn = append(kn , k)
+			knownNodes.Add(k)
 		}
 	}
 
@@ -800,6 +803,8 @@ func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) 
 		rtPeers[i] = kadPeerID(p)
 	}
 
+
+	ri.runenv.RecordMessage("rt: %v | all: %v", rtPeers, kn)
 	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
 	ri.runenv.RecordMessage("table health: %s", report.String())
 

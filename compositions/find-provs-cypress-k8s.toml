@@ -5,7 +5,7 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 1000
+  total_instances = 3000
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
@@ -15,7 +15,7 @@
 [[groups]]
   id = "cypress-passive"
   [groups.instances]
-    count = 870
+    count = 2870
     percentage = 0.0
   [groups.build]
     Selectors = ["cypress"]
@@ -28,13 +28,13 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ff537d92ce7f"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
-      timeout_secs = "600"
       group_order = "1"
+      timeout_secs = "600"
 
 [[groups]]
   id = "cypress-provider-small"
@@ -52,14 +52,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:6ea4a8995e5a"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "4"
       record_count = "1"
       timeout_secs = "600"
-      group_order = "4"
 
 [[groups]]
   id = "cypress-provider-medium"
@@ -77,14 +77,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:a18058e40498"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "3"
       record_count = "1"
       timeout_secs = "600"
-      group_order = "3"
 
 [[groups]]
   id = "cypress-provider-large"
@@ -102,14 +102,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ed7c8d8f0321"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "2"
       record_count = "1"
       timeout_secs = "600"
-      group_order = "2"
 
 [[groups]]
   id = "cypress-searcher"
@@ -127,14 +127,14 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:aa7936645671"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bs_strategy = "3"
       bucket_size = "10"
+      group_order = "5"
       search_records = "true"
       timeout_secs = "600"
-      group_order = "5"
 
 [[groups]]
   id = "cypress-bs"
@@ -152,11 +152,11 @@
       module = "github.com/libp2p/go-libp2p"
       version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:97a88597efd6"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:ec9bbf7a999f"
     [groups.run.test_params]
       alpha = "6"
       bootstrapper = "true"
       bs_strategy = "1"
       bucket_size = "10"
-      timeout_secs = "600"
       group_order = "0"
+      timeout_secs = "600"
