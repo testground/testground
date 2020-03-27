@@ -12,7 +12,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/conv"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 	"golang.org/x/sync/errgroup"
 
@@ -68,7 +68,7 @@ type ClusterSwarmRunner struct{}
 
 // TODO runner option to keep containers alive instead of deleting them after
 // the test has run.
-func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *tgwriter.TgWriter) (*api.RunOutput, error) {
+func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	var (
 		seq = input.Seq
 		log = ow.With("runner", "cluster:swarm", "run_id", input.RunID)
@@ -379,7 +379,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *tgw
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w *tgwriter.TgWriter) error {
+func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	return errors.New("unimplemented")
 }
 

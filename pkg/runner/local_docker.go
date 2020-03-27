@@ -20,7 +20,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/docker/docker/api/types"
@@ -85,7 +85,7 @@ type LocalDockerRunner struct {
 	outputsDir       string
 }
 
-func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer *tgwriter.TgWriter) (*api.HealthcheckReport, error) {
+func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
 
@@ -98,7 +98,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer *tgw
 	ctx, cancel := context.WithTimeout(engine.Context(), 5*time.Minute)
 	defer cancel()
 
-	log := writer.With("runner", "local:docker")
+	log := ow.With("runner", "local:docker")
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -453,7 +453,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, writer *tgw
 	return report, nil
 }
 
-func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *tgwriter.TgWriter) (*api.RunOutput, error) {
+func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
 	r.lk.RLock()
@@ -707,8 +707,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *tg
 	return &api.RunOutput{RunID: input.RunID}, err
 }
 
-func deleteContainers(cli *client.Client, w *tgwriter.TgWriter, ids []string) (err error) {
-	w.Infow("deleting containers", "ids", ids)
+func deleteContainers(cli *client.Client, ow *rpc.OutputWriter, ids []string) (err error) {
+	ow.Infow("deleting containers", "ids", ids)
 
 	ratelimit := make(chan struct{}, 16)
 
@@ -718,7 +718,7 @@ func deleteContainers(cli *client.Client, w *tgwriter.TgWriter, ids []string) (e
 			ratelimit <- struct{}{}
 			defer func() { <-ratelimit }()
 
-			w.Infow("deleting container", "id", id)
+			ow.Infow("deleting container", "id", id)
 			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
 		}(id)
 	}
@@ -726,7 +726,7 @@ func deleteContainers(cli *client.Client, w *tgwriter.TgWriter, ids []string) (e
 	var merr *multierror.Error
 	for i := 0; i < len(ids); i++ {
 		if err := <-errs; err != nil {
-			w.Errorw("failed while deleting container", "error", err)
+			ow.Errorw("failed while deleting container", "error", err)
 			merr = multierror.Append(merr, <-errs)
 		}
 	}
@@ -752,7 +752,7 @@ func ensureControlNetwork(ctx context.Context, cli *client.Client, log *zap.Suga
 	)
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, w *tgwriter.TgWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -864,9 +864,9 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 	return container.ID, err
 }
 
-func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w *tgwriter.TgWriter) error {
+func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
-	return zipRunOutputs(ctx, basedir, input, w)
+	return zipRunOutputs(ctx, basedir, input, ow)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified
@@ -899,8 +899,8 @@ func (*LocalDockerRunner) CompatibleBuilders() []string {
 // This method deletes the testground containers.
 // It does *not* delete any downloaded images or networks.
 // I'll leave a friendly message for how to do a more complete cleanup.
-func (*LocalDockerRunner) TerminateAll(ctx context.Context, w *tgwriter.TgWriter) error {
-	w.Info("terminate local:docker requested")
+func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
+	ow.Info("terminate local:docker requested")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -941,11 +941,11 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, w *tgwriter.TgWriter
 		containers = append(containers, container.ID)
 	}
 
-	err = deleteContainers(cli, w, containers)
+	err = deleteContainers(cli, ow, containers)
 	if err != nil {
 		return fmt.Errorf("failed to list testground containers: %w", err)
 	}
 
-	w.Info("to delete networks and images, you may want to run `docker system prune`")
+	ow.Info("to delete networks and images, you may want to run `docker system prune`")
 	return nil
 }

@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 // Builder is the interface to be implemented by all builders. A builder takes a
@@ -16,7 +16,7 @@ type Builder interface {
 	ID() string
 
 	// Build performs a build.
-	Build(ctx context.Context, input *BuildInput, output *tgwriter.TgWriter) (*BuildOutput, error)
+	Build(ctx context.Context, input *BuildInput, ow *rpc.OutputWriter) (*BuildOutput, error)
 
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type

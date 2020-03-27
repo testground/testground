@@ -17,7 +17,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -70,7 +70,7 @@ type DockerGoBuilderConfig struct {
 
 // TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
-func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output *tgwriter.TgWriter) (*api.BuildOutput, error) {
+func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
@@ -83,7 +83,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, output 
 
 	var (
 		id       = in.BuildID
-		log      = output.With("build_id", id)
+		log      = ow.With("build_id", id)
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 

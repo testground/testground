@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 // Runner is the interface to be implemented by all runners. A runner takes a
@@ -19,7 +19,7 @@ type Runner interface {
 	ID() string
 
 	// Run runs a test case.
-	Run(ctx context.Context, job *RunInput, output *tgwriter.TgWriter) (*RunOutput, error)
+	Run(ctx context.Context, job *RunInput, ow *rpc.OutputWriter) (*RunOutput, error)
 
 	// ConfigType returns the configuration type of this runner.
 	ConfigType() reflect.Type
@@ -30,7 +30,7 @@ type Runner interface {
 
 	// CollectOutputs gathers the outputs from a run, and produces a zip file
 	// with the contents, writing it to the specified io.Writer.
-	CollectOutputs(context.Context, *CollectionInput, *tgwriter.TgWriter) error
+	CollectOutputs(context.Context, *CollectionInput, *rpc.OutputWriter) error
 }
 
 // RunInput encapsulates the input options for running a test plan.
@@ -98,5 +98,5 @@ type CollectionInput struct {
 // Terminatable is the interface to be implemented by a runner that can be
 // terminated.
 type Terminatable interface {
-	TerminateAll(context.Context, *tgwriter.TgWriter) error
+	TerminateAll(context.Context, *rpc.OutputWriter) error
 }

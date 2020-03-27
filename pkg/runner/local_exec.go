@@ -18,7 +18,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
@@ -78,7 +78,7 @@ func commandStarter(ctx context.Context, cmd string, args ...string) func() erro
 	}
 }
 
-func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, writer *tgwriter.TgWriter) (*api.HealthcheckReport, error) {
+func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
 
@@ -183,7 +183,7 @@ func (r *LocalExecutableRunner) Close() error {
 	return nil
 }
 
-func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *tgwriter.TgWriter) (*api.RunOutput, error) {
+func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
@@ -268,9 +268,9 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, w *tgwriter.TgWriter) error {
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	return zipRunOutputs(ctx, basedir, input, w)
+	return zipRunOutputs(ctx, basedir, input, ow)
 }
 
 func (*LocalExecutableRunner) ID() string {

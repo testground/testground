@@ -8,7 +8,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 func (srv *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +18,7 @@ func (srv *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r
 		log.Debugw("handle request", "command", "build")
 		defer log.Debugw("request handled", "command", "build")
 
-		tgw := tgwriter.New(w, r)
+		tgw := rpc.NewOutputWriter(w, r)
 
 		var req client.BuildRequest
 		err := json.NewDecoder(r.Body).Decode(&req)

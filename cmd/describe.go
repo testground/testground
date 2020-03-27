@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/daemon"
@@ -39,7 +38,7 @@ func describeCommand(c *cli.Context) error {
 	}
 	resp, err := api.Describe(ctx, req)
 	if err != nil {
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer resp.Close()
 

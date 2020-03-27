@@ -179,7 +179,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	case context.Canceled:
 		return fmt.Errorf("interrupted")
 	default:
-		return fmt.Errorf("fatal error from daemon: %w", err)
+		return err
 	}
 
 	defer resp.Close()
@@ -214,7 +214,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer file.Close()
 

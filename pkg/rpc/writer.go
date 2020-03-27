@@ -1,4 +1,4 @@
-package tgwriter
+package rpc
 
 import (
 	"encoding/json"
@@ -16,20 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Msg defines a protocol message struct sent from the Testground daemon to the
-// Testground client. For a given request, clients should expect between 0 to
-// `n` `progress` messages, and exactly 1 `result` message.
-type Msg struct {
-	Type    string      `json:"type"` // progress or result or error
-	Payload interface{} `json:"payload,omitempty"`
-	Error   *Error      `json:"error,omitempty"`
-}
-
-type Error struct {
-	Message string `json:"message"`
-}
-
-func New(w http.ResponseWriter, r *http.Request) *TgWriter {
+func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	w.Header().Set("Content-Type", "application/json")
 
 	httpWriter := ioutils.NewWriteFlusher(w)
@@ -42,30 +29,30 @@ func New(w http.ResponseWriter, r *http.Request) *TgWriter {
 	// response.
 	logger := logging.NewLogger(writeSyncer).With(zap.String("req_id", r.Header.Get("X-Request-ID")))
 
-	tgw := &TgWriter{
+	ow := &OutputWriter{
 		SugaredLogger:  logger.Sugar(),
 		out:            httpWriter,
 		progressWriter: progressWriter,
 	}
 
 	// we need to wire this back for the lock.
-	progressWriter.tgw = tgw
-	return tgw
+	progressWriter.ow = ow
+	return ow
 }
 
-func Discard() *TgWriter {
+func Discard() *OutputWriter {
 	pw := &progressWriter{out: ioutil.Discard}
-	tgw := &TgWriter{
+	ow := &OutputWriter{
 		SugaredLogger:  zap.NewNop().Sugar(),
 		out:            ioutil.Discard,
 		progressWriter: pw,
 	}
-	tgw.progressWriter = pw
-	return tgw
+	ow.progressWriter = pw
+	return ow
 }
 
 type progressWriter struct {
-	tgw *TgWriter
+	ow  *OutputWriter
 	out io.Writer
 }
 
@@ -77,19 +64,19 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 		return 0, nil
 	}
 
-	msg := Msg{Type: "progress", Payload: p}
+	msg := Chunk{Type: ChunkTypeProgress, Payload: p}
 	json, err := json.Marshal(msg)
 	if err != nil {
 		return 0, err
 	}
 
-	w.tgw.Lock()
-	defer w.tgw.Unlock()
+	w.ow.Lock()
+	defer w.ow.Unlock()
 
 	return w.out.Write(json)
 }
 
-type TgWriter struct {
+type OutputWriter struct {
 	sync.Mutex
 	*zap.SugaredLogger
 	*progressWriter
@@ -97,25 +84,25 @@ type TgWriter struct {
 	out io.Writer
 }
 
-func (tgw *TgWriter) WriteResult(res interface{}) {
-	msg := Msg{Type: "result", Payload: res}
+func (ow *OutputWriter) WriteResult(res interface{}) {
+	msg := Chunk{Type: ChunkTypeResult, Payload: res}
 	json, err := json.Marshal(msg)
 	if err != nil {
 		logging.S().Errorw("could not write result", "err", err)
 		return
 	}
 
-	tgw.Lock()
-	defer tgw.Unlock()
+	ow.Lock()
+	defer ow.Unlock()
 
-	_, err = tgw.out.Write(json)
+	_, err = ow.out.Write(json)
 	if err != nil {
 		logging.S().Errorw("could not write result", "err", err)
 	}
 }
 
-func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
-	tgw.Warnw(message, keysAndValues...)
+func (ow *OutputWriter) WriteError(message string, keysAndValues ...interface{}) {
+	ow.Warnw(message, keysAndValues...)
 
 	if len(keysAndValues) > 0 {
 		b := &strings.Builder{}
@@ -126,24 +113,24 @@ func (tgw *TgWriter) WriteError(message string, keysAndValues ...interface{}) {
 		message = message + "; " + kvs[:len(kvs)-1]
 	}
 
-	pld := Msg{Type: "error", Error: &Error{message}}
+	pld := Chunk{Type: ChunkTypeError, Error: &Error{message}}
 	json, err := json.Marshal(pld)
 	if err != nil {
 		logging.S().Errorw("could not write error response", "err", err)
 		return
 	}
 
-	tgw.Lock()
-	defer tgw.Unlock()
+	ow.Lock()
+	defer ow.Unlock()
 
-	_, err = tgw.out.Write(json)
+	_, err = ow.out.Write(json)
 	if err != nil {
 		logging.S().Errorw("could not write error response", "err", err)
 	}
 }
 
-func (tgw *TgWriter) Flush() {
-	if f, ok := tgw.out.(http.Flusher); ok {
+func (ow *OutputWriter) Flush() {
+	if f, ok := ow.out.(http.Flusher); ok {
 		f.Flush()
 	}
 }

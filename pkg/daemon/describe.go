@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 var TermExplanation = "a term is any of: <testplan> or <testplan>/<testcase>"
@@ -21,7 +21,7 @@ func (srv *Daemon) describeHandler(engine api.Engine) func(w http.ResponseWriter
 		log.Debugw("handle request", "command", "describe")
 		defer log.Debugw("request handled", "command", "describe")
 
-		tgw := tgwriter.New(w, r)
+		tgw := rpc.NewOutputWriter(w, r)
 
 		var req client.DescribeRequest
 		err := json.NewDecoder(r.Body).Decode(&req)

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 // Use consistent IP address ranges for both the data and the control subnet.
@@ -37,7 +37,7 @@ func nextDataNetwork(lenNetworks int) (*net.IPNet, string, error) {
 	return subnet, gw, err
 }
 
-func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, w *tgwriter.TgWriter) error {
+func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	pattern := filepath.Join(basedir, "*", input.RunID)
 
 	matches, err := filepath.Glob(pattern)
@@ -57,7 +57,7 @@ func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInp
 		return fmt.Errorf("internal error: not a directory when accessing run outputs")
 	}
 
-	wz := zip.NewWriter(w)
+	wz := zip.NewWriter(ow)
 	defer wz.Close()
 	defer wz.Flush()
 
