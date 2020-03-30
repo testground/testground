@@ -277,6 +277,6 @@ func DirExistsChecker(path string) Checker {
 // any parent directories as appropriate.
 func DirExistsFixer(path string) Fixer {
 	return func() error {
-		return os.MkdirAll(path, os.ModeDir)
+		return os.MkdirAll(path, os.ModePerm)
 	}
 }
