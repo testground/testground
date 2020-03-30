@@ -257,7 +257,8 @@ func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 
 // DirExistsChecker returns a Checker, a method which when executed will check whether a director
 // exists. A true value means the directory exists. A false value means it does not exist, or
-// that the path does not point to a directory.
+// that the path does not point to a directory. Aside from ErrNotExist, which is the error we expect
+// to handle, any file permission or I/O errors will will be returned to the caller.
 func DirExistsChecker(path string) Checker {
 	return func() (bool, error) {
 		fi, err := os.Stat(path)
