@@ -18,7 +18,7 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 )
 
-type Checker func() bool
+type Checker func() (bool, error)
 type Fixer func() error
 
 // HealthcheckHelper is a strategy interface for runners.
@@ -53,7 +53,11 @@ func (hh *SequentialHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 	for _, li := range hh.toDo {
 		// Check succeeds.
-		if li.Checker() {
+		succeed, err := li.Checker()
+		if err != nil {
+			return err
+		}
+		if succeed {
 			hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
 				Name:    li.Name,
 				Status:  api.HealthcheckStatusOK,
@@ -96,13 +100,12 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 // existance of the container. This should be considered a sensible default for checking whether
 // docker containers are started.
 func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
-	return func() bool {
+	return func() (bool, error) {
 		ci, err := docker.CheckContainer(ctx, ow, cli, name)
 		if err != nil || ci == nil {
-			return false
+			return false, err
 		}
-		return ci.State.Running
-
+		return ci.State.Running, nil
 	}
 }
 
@@ -178,13 +181,13 @@ func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client
 // DockerNetworkChecker returns a Checker, a method which when executed will verify a docker network
 // exists with the passed networkID as its name.
 func DockerNetworkChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Checker {
-	return func() bool {
+	return func() (bool, error) {
 		networks, err := docker.CheckBridgeNetwork(ctx, ow, cli, networkID)
 		if err != nil {
 			ow.Errorf("encountered an error while checking for network %s, %v", networkID, err)
-			return false
+			return false, err
 		}
-		return len(networks) > 0
+		return len(networks) > 0, nil
 	}
 }
 
@@ -216,9 +219,9 @@ func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.C
 // or that a TCP socket is closed. For UDP sockets, being connectionless, may return a false
 // positive if the network is reachable.
 func DialableChecker(protocol string, address string) Checker {
-	return func() bool {
+	return func() (bool, error) {
 		_, err := net.Dial(protocol, address)
-		return err == nil
+		return err == nil, err
 	}
 }
 
@@ -236,12 +239,12 @@ func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 // exists. A true value means the directory exists. A false value means it does not exist, or
 // that the path does not point to a directory.
 func DirExistsChecker(path string) Checker {
-	return func() bool {
+	return func() (bool, error) {
 		fi, err := os.Stat(path)
 		if err != nil {
-			return false
+			return false, err
 		}
-		return fi.IsDir()
+		return fi.IsDir(), nil
 	}
 }
 
