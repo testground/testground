@@ -75,6 +75,10 @@ prometheus-operator:
       spec:
         serviceMonitorNamespaceSelector:
           any: true
+    resources:
+      requests:
+        memory: 2000Mi
+        cpu: 2000m
 
 
 # Changes from defaults:
@@ -97,6 +101,10 @@ prometheus-pushgateway:
     allowAll: true
   podAnnotations:
     cni: flannel
+  resources:
+    requests:
+      memory: 2000Mi
+      cpu: 2000m
 
 
 # Changes from defaults:
