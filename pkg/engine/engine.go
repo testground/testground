@@ -4,13 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/pkg/runner"
 
 	"errors"
@@ -151,7 +150,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.Writer) ([]*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
@@ -180,7 +179,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := bm.(api.Healthchecker); ok {
-		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -255,7 +254,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				grpids = append(grpids, comp.Groups[idx].ID)
 			}
 
-			logging.S().Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
+			ow.Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
 
 			in := &api.BuildInput{
 				BuildID:      uuid.New().String()[24:],
@@ -267,9 +266,9 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				Dependencies: grp.Build.Dependencies.AsMap(),
 			}
 
-			res, err := bm.Build(ctx, in, output)
+			res, err := bm.Build(ctx, in, ow)
 			if err != nil {
-				logging.S().Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
+				ow.Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
 				return err
 			}
 
@@ -281,7 +280,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 				ress[idx] = res
 			}
 
-			logging.S().Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
+			ow.Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
 			return nil
 		})
 	}
@@ -294,7 +293,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, output io.W
 	return ress, nil
 }
 
-func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Writer) (*api.RunOutput, error) {
+func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	if err := comp.ValidateForRun(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
@@ -338,7 +337,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := run.(api.Healthchecker); ok {
-		if rep, err := hc.Healthcheck(true, e, output); err != nil {
+		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -399,7 +398,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 	for n, v := range tcase.Parameters {
 		data, err := json.Marshal(v.Default)
 		if err != nil {
-			logging.S().Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
+			ow.Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
 			continue
 		}
 		defaultParams[n] = string(data)
@@ -436,19 +435,19 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, output io.Wri
 		in.Groups = append(in.Groups, g)
 	}
 
-	out, err := run.Run(ctx, &in, output)
+	out, err := run.Run(ctx, &in, ow)
 	if err == nil {
-		logging.S().Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		logging.S().Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		logging.S().Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		ow.Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error {
+func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -473,10 +472,10 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 		RunnerConfig: obj,
 	}
 
-	return run.CollectOutputs(ctx, input, w)
+	return run.CollectOutputs(ctx, input, ow)
 }
 
-func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) error {
+func (e *Engine) DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -487,21 +486,18 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, w io.Writer) er
 		return fmt.Errorf("runner %s is not terminatable", runner)
 	}
 
-	_, err := w.Write([]byte("terminating all jobs on runner " + runner + "\n"))
+	ow.Infof("terminating all jobs on runner: %s", runner)
+
+	err := terminatable.TerminateAll(ctx, ow)
 	if err != nil {
 		return err
 	}
 
-	err = terminatable.TerminateAll(ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write([]byte("all jobs on runner " + runner + " were terminated\n"))
-	return err
+	ow.Infof("all jobs terminated on runner: ", runner)
+	return nil
 }
 
-func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*api.HealthcheckReport, error) {
+func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	run, ok := e.runners[runner]
 	if !ok {
 		return nil, fmt.Errorf("unknown runner: %s", runner)
@@ -512,12 +508,9 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, w i
 		return nil, fmt.Errorf("runner %s does not support healthchecks", runner)
 	}
 
-	_, err := w.Write([]byte("checking runner " + runner + "\n"))
-	if err != nil {
-		return nil, err
-	}
+	ow.Infof("checking runner: %s", runner)
 
-	return hc.Healthcheck(fix, e, w)
+	return hc.Healthcheck(fix, e, ow)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

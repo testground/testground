@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
@@ -26,7 +25,7 @@ func listCommand(c *cli.Context) error {
 
 	resp, err := api.List(ctx)
 	if err != nil {
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer resp.Close()
 

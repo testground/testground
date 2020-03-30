@@ -7,6 +7,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +25,9 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			return
 		}
 
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, w)
+		tgw := rpc.NewOutputWriter(w, r)
+
+		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
 		if err != nil {
 			log.Errorw("collect outputs error", "err", err.Error())
 			return

@@ -33,33 +33,33 @@ enabled = true
 
 [[testcases]]
 name = "all"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
   [testcases.params]
   iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
 
 [[testcases]]
 name = "startup"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "netinit"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "netlinkshape"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "barrier"
-instances = { min = 1, max = 5000, default = 1 }
+instances = { min = 1, max = 50000, default = 1 }
 
   [testcases.params]
   iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
 
 [[testcases]]
 name = "subtree"
-instances = { min = 1, max = 32, default = 2 }
+instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
   iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10000 }
