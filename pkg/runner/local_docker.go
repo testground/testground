@@ -118,8 +118,6 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			&ContainerFixerOpts{
 				ContainerName: "testground-sidecar",
 				ImageName:     "testground-sidecar:latest",
-				NetworkID:     r.controlNetworkID,
-				PortSpecs:     []string{"6060:6060"},
 				Pull:          false,
 				HostConfig: &container.HostConfig{
 					NetworkMode: container.NetworkMode(r.controlNetworkID),

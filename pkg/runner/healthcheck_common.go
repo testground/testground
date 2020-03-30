@@ -108,6 +108,14 @@ func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *cli
 	}
 }
 
+// Options used by the DefaultContainerFixer and the CustomContainerFixer
+// ContainerName and ImageName are requred fields.
+// PortSpecs and NetworkID are used internally to construct a HostConfig, either the one provided
+// or the a default HostConfig will be constructed.
+// HostConfig is a docker container config object, and is not normally required. Use this when
+// additional capabilities or usunusal configuration is required.
+// Cmds is a slice of string options passed to the container. Use this if the container takes
+// command-line parameters.
 type ContainerFixerOpts struct {
 	ContainerName string
 	ImageName     string
@@ -130,7 +138,6 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 	if opts.HostConfig == nil {
 		//	if reflect.DeepEqual(opts.HostConfig, container.HostConfig{}) {
 		hostConfig = container.HostConfig{
-			NetworkMode: container.NetworkMode(opts.NetworkID),
 			Resources: container.Resources{
 				Ulimits: []*units.Ulimit{
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
@@ -140,6 +147,7 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 	} else {
 		hostConfig = *opts.HostConfig
 	}
+	hostConfig.NetworkMode = container.NetworkMode(opts.NetworkID)
 	// Try to parse the portSpecs, but if we can't, fall back to using random host port assignments.
 	// the portSpec should be in the format ip:public:private/proto
 	_, portBindings, err := nat.ParsePortSpecs(opts.PortSpecs)
