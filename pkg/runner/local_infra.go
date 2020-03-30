@@ -8,6 +8,13 @@ import (
 )
 
 func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, controlNetworkID string, srcdir string, workdir string) {
+
+	// ~/.testground
+	hcHelper.Enlist("local-outputs-dir",
+		DirExistsChecker(workdir),
+		DirExistsFixer(workdir),
+	)
+
 	// testground-control
 	hcHelper.Enlist(controlNetworkID,
 		DockerNetworkChecker(ctx,
@@ -37,10 +44,10 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 				PortSpecs:     []string{"9090:9090"},
 				Pull:          false,
 			},
-		))
+		),
+	)
 
 	// pushgateway
-
 	hcHelper.Enlist("local-pushgateway",
 		DefaultContainerChecker(ctx,
 			ow,
@@ -56,7 +63,8 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 				PortSpecs:     []string{"9091:9091"},
 				Pull:          true,
 			},
-		))
+		),
+	)
 
 	// grafana
 	hcHelper.Enlist("local-grafana",
@@ -74,7 +82,8 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 				PortSpecs:     []string{"3000:3000"},
 				Pull:          true,
 			},
-		))
+		),
+	)
 
 	// redis
 	hcHelper.Enlist("local-redis",
@@ -92,7 +101,8 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 				PortSpecs:     []string{"6379:6379"},
 				Pull:          true,
 			},
-		))
+		),
+	)
 
 	// metrics for redis, customized by commandline args
 	hcHelper.Enlist("local-redis-exporter",
@@ -114,10 +124,7 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 					"redis://testground-redis:6379",
 				},
 			},
-		))
-
-	hcHelper.Enlist("local-outputs-dir",
-		DirExistsChecker(workdir),
-		DirExistsFixer(workdir),
+		),
 	)
+
 }

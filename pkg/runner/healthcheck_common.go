@@ -262,6 +262,11 @@ func DirExistsChecker(path string) Checker {
 	return func() (bool, error) {
 		fi, err := os.Stat(path)
 		if err != nil {
+			// ErrExist is the error we expect to see (and handle with DirExistsFixer)
+			// Any other kind of error will be returned.
+			if os.IsNotExist(err) {
+				return false, nil
+			}
 			return false, err
 		}
 		return fi.IsDir(), nil
@@ -272,6 +277,6 @@ func DirExistsChecker(path string) Checker {
 // any parent directories as appropriate.
 func DirExistsFixer(path string) Fixer {
 	return func() error {
-		return os.MkdirAll(path, 0750)
+		return os.MkdirAll(path, os.ModeDir)
 	}
 }
