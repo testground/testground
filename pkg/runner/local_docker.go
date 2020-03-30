@@ -100,7 +100,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 	r.controlNetworkID = "testground-control"
 
 	report := api.HealthcheckReport{}
-	hcHelper := ErrgroupHealthcheckHelper{report: &report}
+	hcHelper := SequentialHealthcheckHelper{report: &report}
 
 	// setup infra which is common between local:docker and local:exec
 	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)

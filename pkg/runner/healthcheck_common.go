@@ -9,14 +9,13 @@ import (
 	"reflect"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/docker"
-
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 type Checker func() bool
@@ -40,80 +39,65 @@ type toDoElement struct {
 	Fixer   Fixer
 }
 
-// ErrGroupHealthcheckHelper implements HealthcheckHelper using an errgroup for paralellism.
-// WARNING: in order to prevent race conditions, the toDo slice should have an initial capacity of
-// one. See https://medium.com/@cep21/gos-append-is-not-always-thread-safe-a3034db7975
-type ErrgroupHealthcheckHelper struct {
+// SequentialHealthcheckHelper implements HealthcheckHelper. Runchecks runs each check and fix
+// sequentially, in the order they are Enlist()'ed.
+type SequentialHealthcheckHelper struct {
 	toDo   []*toDoElement
 	report *api.HealthcheckReport
 }
 
-func (hh *ErrgroupHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
+func (hh *SequentialHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 	hh.toDo = append(hh.toDo, &toDoElement{name, c, f})
 }
 
-func (hh *ErrgroupHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
-	eg, _ := errgroup.WithContext(ctx)
-	hh.report.Checks = make([]api.HealthcheckItem, len(hh.toDo))
-	hh.report.Fixes = make([]api.HealthcheckItem, len(hh.toDo))
-
-	for i, li := range hh.toDo {
-		i, li := i, li
-		hcp := *li
-		eg.Go(func() error {
-			// Checker succeeds, already working.
-			if hcp.Checker() {
-				hh.report.Checks[i] = api.HealthcheckItem{
-					Name:    li.Name,
-					Status:  api.HealthcheckStatusOK,
-					Message: fmt.Sprintf("%s: OK", li.Name),
-				}
-				// This is only needed so we don't have a sparce slice
-				hh.report.Fixes[i] = api.HealthcheckItem{
-					Name:    li.Name,
-					Status:  api.HealthcheckStatusOK,
-					Message: "",
-				}
-				return nil
-			}
-			// Checker failed, Append the failure to the check report
-			hh.report.Checks[i] = api.HealthcheckItem{
+func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
+	for _, li := range hh.toDo {
+		// Check succeeds.
+		if li.Checker() {
+			hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
 				Name:    li.Name,
-				Status:  api.HealthcheckStatusFailed,
-				Message: fmt.Sprintf("%s: FAILED. Fixing: %t", li.Name, fix),
-			}
-			// Attempt fix if fix is enabled.
-			fixhc := api.HealthcheckItem{Name: li.Name}
-			if fix {
-				err := li.Fixer()
-				if err != nil {
-					// Oh no! the fix failed.
-					fixhc.Status = api.HealthcheckStatusFailed
-					fixhc.Message = fmt.Sprintf("%s FAILED: %v", li.Name, err)
-				} else {
-					// Fix succeeded.
-					fixhc.Status = api.HealthcheckStatusOK
-					fixhc.Message = fmt.Sprintf("%s RECOVERED", li.Name)
-				}
-			} else {
-				// don't attempt to fix.
-				fixhc.Status = api.HealthcheckStatusOmitted
-				fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
-			}
-			// Fill the report with fix information.
-			hh.report.Fixes[i] = fixhc
-			return nil
+				Status:  api.HealthcheckStatusOK,
+				Message: fmt.Sprintf("%s: OK", li.Name),
+			})
+			continue
+		}
+		// Checker failed, Append the failure to the check report
+		hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
+			Name:    li.Name,
+			Status:  api.HealthcheckStatusFailed,
+			Message: fmt.Sprintf("%s: FAILED. Fixing: %t", li.Name, fix),
 		})
+		// Attempt fix if fix is enabled.
+		// The fix might result in a failure, a successful recovery.
+		fixhc := api.HealthcheckItem{Name: li.Name}
+		if fix {
+			err := li.Fixer()
+			if err != nil {
+				// Oh no! the fix failed.
+				fixhc.Status = api.HealthcheckStatusFailed
+				fixhc.Message = fmt.Sprintf("%s FAILED: %v", li.Name, err)
+			} else {
+				// Fix succeeded.
+				fixhc.Status = api.HealthcheckStatusOK
+				fixhc.Message = fmt.Sprintf("%s RECOVERED", li.Name)
+			}
+		} else {
+			// don't attempt to fix.
+			fixhc.Status = api.HealthcheckStatusOmitted
+			fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
+		}
+		// Fill the report with fix information.
+		hh.report.Fixes = append(hh.report.Fixes, fixhc)
 	}
-	return eg.Wait()
+	return nil
 }
 
 // DefaultContainerChecker returns a Checker, a method which when executed will check for the
 // existance of the container. This should be considered a sensible default for checking whether
 // docker containers are started.
-func DefaultContainerChecker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, name string) Checker {
+func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
 	return func() bool {
-		ci, err := docker.CheckContainer(ctx, log, cli, name)
+		ci, err := docker.CheckContainer(ctx, ow, cli, name)
 		if err != nil || ci == nil {
 			return false
 		}
@@ -126,7 +110,7 @@ func DefaultContainerChecker(ctx context.Context, log *zap.SugaredLogger, cli *c
 // container exists with some default paramaters which are appropriate for infra containers.
 // Unless containers require special consideration, this should be considered the sensible default
 // fixer for docker containers.
-func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
+func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
 	// Docker host configuration.
 	// https://godoc.org/github.com/docker/docker/api/types/container#HostConfig
 	var hostConfig container.HostConfig
@@ -166,7 +150,7 @@ func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *cli
 
 	// Make sure this container is running when the closure is executed.
 	return func() error {
-		_, _, err := docker.EnsureContainer(ctx, log, cli, &ensure)
+		_, _, err := docker.EnsureContainer(ctx, ow, cli, &ensure)
 		return err
 	}
 }
@@ -174,10 +158,10 @@ func DefaultContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *cli
 // CustomContainerFixer returns a Fixer, a method which when executed will ensure the named
 // container exists. Unlike the DefaultContainerFixer, a custom image may be built for the
 // container.
-func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
+func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
 	return func() error {
 		_, err := docker.EnsureImage(ctx,
-			log,
+			ow,
 			cli,
 			&docker.BuildImageOpts{
 				Name:     imageName,
@@ -186,18 +170,18 @@ func CustomContainerFixer(ctx context.Context, log *zap.SugaredLogger, cli *clie
 		if err != nil {
 			return err
 		}
-		return DefaultContainerFixer(ctx, log, cli, containerName, imageName, networkID, portSpecs, pull, customHostConfig, cmds...)()
+		return DefaultContainerFixer(ctx, ow, cli, containerName, imageName, networkID, portSpecs, pull, customHostConfig, cmds...)()
 
 	}
 }
 
 // DockerNetworkChecker returns a Checker, a method which when executed will verify a docker network
 // exists with the passed networkID as its name.
-func DockerNetworkChecker(ctx context.Context, log *zap.SugaredLogger, cli *client.Client, networkID string) Checker {
+func DockerNetworkChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Checker {
 	return func() bool {
-		networks, err := docker.CheckBridgeNetwork(ctx, log, cli, networkID)
+		networks, err := docker.CheckBridgeNetwork(ctx, ow, cli, networkID)
 		if err != nil {
-			log.Error("encountered an error while checking for network %s, %v", networkID, err)
+			ow.Errorf("encountered an error while checking for network %s, %v", networkID, err)
 			return false
 		}
 		return len(networks) > 0
@@ -206,9 +190,23 @@ func DockerNetworkChecker(ctx context.Context, log *zap.SugaredLogger, cli *clie
 
 // DockerNetworkFixer returns a Fixer, a method which when executed will create a docker network
 // with the given name, provided it does not exist already.
-func DockerNetworkFixer(ctx context.Context, log *zap.SugaredLogger, cli *client.Client) Fixer {
+func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Fixer {
 	return func() error {
-		_, err := ensureControlNetwork(ctx, cli, log)
+		_, err := docker.EnsureBridgeNetwork(
+			ctx,
+			ow, cli,
+			networkID,
+			// making internal=false enables us to expose ports to the host (e.g.
+			// pprof and prometheus). by itself, it would allow the container to
+			// access the Internet, and therefore would break isolation, but since
+			// we have sidecar overriding the default Docker ip routes, and
+			// suppressing such traffic, we're safe.
+			false,
+			network.IPAMConfig{
+				Subnet:  controlSubnet,
+				Gateway: controlGateway,
+			},
+		)
 		return err
 	}
 }
