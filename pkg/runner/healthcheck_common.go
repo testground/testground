@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"reflect"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -109,17 +108,29 @@ func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *cli
 	}
 }
 
+type ContainerFixerOpts struct {
+	ContainerName string
+	ImageName     string
+	NetworkID     string
+	PortSpecs     []string
+	Pull          bool
+	HostConfig    *container.HostConfig
+	Cmds          []string
+}
+
 // DefaultContainerFixer returns a Fixer, a method which when executed will ensure the named
 // container exists with some default paramaters which are appropriate for infra containers.
 // Unless containers require special consideration, this should be considered the sensible default
 // fixer for docker containers.
-func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
+func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, opts *ContainerFixerOpts) Fixer {
 	// Docker host configuration.
 	// https://godoc.org/github.com/docker/docker/api/types/container#HostConfig
 	var hostConfig container.HostConfig
-	if reflect.DeepEqual(*customHostConfig, container.HostConfig{}) {
+	// If we have not provided a HostConfig, create a default one.
+	if opts.HostConfig == nil {
+		//	if reflect.DeepEqual(opts.HostConfig, container.HostConfig{}) {
 		hostConfig = container.HostConfig{
-			NetworkMode: container.NetworkMode(networkID),
+			NetworkMode: container.NetworkMode(opts.NetworkID),
 			Resources: container.Resources{
 				Ulimits: []*units.Ulimit{
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
@@ -127,12 +138,13 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 			},
 		}
 	} else {
-		hostConfig = *customHostConfig
+		hostConfig = *opts.HostConfig
 	}
 	// Try to parse the portSpecs, but if we can't, fall back to using random host port assignments.
 	// the portSpec should be in the format ip:public:private/proto
-	_, portBindings, err := nat.ParsePortSpecs(portSpecs)
+	_, portBindings, err := nat.ParsePortSpecs(opts.PortSpecs)
 	if err != nil {
+		// Fall back to picking a random port.
 		hostConfig.PublishAllPorts = true
 	} else {
 		hostConfig.PortBindings = portBindings
@@ -140,15 +152,15 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 
 	// Configuration for the container:
 	containerConfig := container.Config{
-		Image: imageName,
-		Cmd:   cmds,
+		Image: opts.ImageName,
+		Cmd:   opts.Cmds,
 	}
 
 	ensure := docker.EnsureContainerOpts{
-		ContainerName:      containerName,
+		ContainerName:      opts.ContainerName,
 		ContainerConfig:    &containerConfig,
 		HostConfig:         &hostConfig,
-		PullImageIfMissing: pull,
+		PullImageIfMissing: opts.Pull,
 	}
 
 	// Make sure this container is running when the closure is executed.
@@ -161,19 +173,19 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 // CustomContainerFixer returns a Fixer, a method which when executed will ensure the named
 // container exists. Unlike the DefaultContainerFixer, a custom image may be built for the
 // container.
-func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildCtx string, containerName string, imageName string, networkID string, portSpecs []string, pull bool, customHostConfig *container.HostConfig, cmds ...string) Fixer {
+func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildCtx string, opts *ContainerFixerOpts) Fixer {
 	return func() error {
 		_, err := docker.EnsureImage(ctx,
 			ow,
 			cli,
 			&docker.BuildImageOpts{
-				Name:     imageName,
+				Name:     opts.ImageName,
 				BuildCtx: buildCtx,
 			})
 		if err != nil {
 			return err
 		}
-		return DefaultContainerFixer(ctx, ow, cli, containerName, imageName, networkID, portSpecs, pull, customHostConfig, cmds...)()
+		return DefaultContainerFixer(ctx, ow, cli, opts)()
 
 	}
 }

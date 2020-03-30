@@ -115,36 +115,41 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			ow,
 			cli,
 			engine.EnvConfig().SrcDir,
-			"testground-sidecar",
-			"testground-sidecar:latest",
-			r.controlNetworkID,
-			[]string{"6060:6060"},
-			false,
-			&container.HostConfig{
-				NetworkMode: container.NetworkMode(r.controlNetworkID),
-				// To lookup namespaces. Can't use SandboxKey for some reason.
-				PidMode: "host",
-				// We need _both_ to actually get a network namespace handle.
-				// We may be able to drop sys_admin if we drop netlink
-				// sockets that we're not using.
-				CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
-				// needed to talk to docker.
-				Mounts: []mount.Mount{{
-					Type:   mount.TypeBind,
-					Source: "/var/run/docker.sock",
-					Target: "/var/run/docker.sock",
-				}},
-				Resources: container.Resources{
-					Ulimits: []*units.Ulimit{
-						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+			&ContainerFixerOpts{
+				ContainerName: "testground-sidecar",
+				ImageName:     "testground-sidecar:latest",
+				NetworkID:     r.controlNetworkID,
+				PortSpecs:     []string{"6060:6060"},
+				Pull:          false,
+				HostConfig: &container.HostConfig{
+					NetworkMode: container.NetworkMode(r.controlNetworkID),
+					// To lookup namespaces. Can't use SandboxKey for some reason.
+					PidMode: "host",
+					// We need _both_ to actually get a network namespace handle.
+					// We may be able to drop sys_admin if we drop netlink
+					// sockets that we're not using.
+					CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+					// needed to talk to docker.
+					Mounts: []mount.Mount{{
+						Type:   mount.TypeBind,
+						Source: "/var/run/docker.sock",
+						Target: "/var/run/docker.sock",
+					}},
+					Resources: container.Resources{
+						Ulimits: []*units.Ulimit{
+							{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+						},
 					},
 				},
+				Cmds: []string{
+					"sidecar",
+					"--runner",
+					"docker",
+					"--pprof",
+				},
 			},
-			"sidecar",
-			"--runner",
-			"docker",
-			"--pprof",
-		))
+		),
+	)
 
 	// RunChecks will fill the report and return any errors.
 	err = hcHelper.RunChecks(ctx, fix)

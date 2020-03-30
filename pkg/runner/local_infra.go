@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/ipfs/testground/pkg/rpc"
 	"path/filepath"
@@ -31,15 +30,17 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 			ow,
 			cli,
 			filepath.Join(srcdir, "infra/docker/testground-prometheus"),
-			"testground-prometheus",
-			"testground-prometheus:latest",
-			controlNetworkID,
-			[]string{"9090:9090"},
-			false,
-			&container.HostConfig{},
+			&ContainerFixerOpts{
+				ContainerName: "testground-prometheus",
+				ImageName:     "testground-prometheus:latest",
+				NetworkID:     controlNetworkID,
+				PortSpecs:     []string{"9090:9090"},
+				Pull:          false,
+			},
 		))
 
 	// pushgateway
+
 	hcHelper.Enlist("local-pushgateway",
 		DefaultContainerChecker(ctx,
 			ow,
@@ -48,12 +49,13 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 		DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			"prometheus-pushgateway",
-			"prom/pushgateway",
-			controlNetworkID,
-			[]string{"9091:9091"},
-			true,
-			&container.HostConfig{},
+			&ContainerFixerOpts{
+				ContainerName: "prometheus-pushgateway",
+				ImageName:     "prom/pushgateway",
+				NetworkID:     controlNetworkID,
+				PortSpecs:     []string{"9091:9091"},
+				Pull:          true,
+			},
 		))
 
 	// grafana
@@ -65,12 +67,13 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 		DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			"testground-grafana",
-			"bitnami/grafana",
-			controlNetworkID,
-			[]string{"3000:3000"},
-			true,
-			&container.HostConfig{},
+			&ContainerFixerOpts{
+				ContainerName: "testground-grafana",
+				ImageName:     "bitnami/grafana",
+				NetworkID:     controlNetworkID,
+				PortSpecs:     []string{"3000:3000"},
+				Pull:          true,
+			},
 		))
 
 	// redis
@@ -82,12 +85,13 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 		DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			"testground-redis",
-			"library/redis",
-			controlNetworkID,
-			[]string{"6379:6379"},
-			true,
-			&container.HostConfig{},
+			&ContainerFixerOpts{
+				ContainerName: "testground-redis",
+				ImageName:     "library/redis",
+				NetworkID:     controlNetworkID,
+				PortSpecs:     []string{"6379:6379"},
+				Pull:          true,
+			},
 		))
 
 	// metrics for redis, customized by commandline args
@@ -99,14 +103,17 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 		DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			"testground-redis-exporter",
-			"bitnami/redis-exporter",
-			controlNetworkID,
-			[]string{"1921:1921"},
-			true,
-			&container.HostConfig{},
-			"--redis.addr",
-			"redis://testground-redis:6379",
+			&ContainerFixerOpts{
+				ContainerName: "testground-redis-exporter",
+				ImageName:     "bitnami/redis-exporter",
+				NetworkID:     controlNetworkID,
+				PortSpecs:     []string{"1921:1921"},
+				Pull:          true,
+				Cmds: []string{
+					"--redis.addr",
+					"redis://testground-redis:6379",
+				},
+			},
 		))
 
 	hcHelper.Enlist("local-outputs-dir",
