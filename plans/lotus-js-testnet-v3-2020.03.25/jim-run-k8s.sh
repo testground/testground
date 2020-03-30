@@ -3,7 +3,7 @@
 INSTANCES=$1
 
 if [ -z "$INSTANCES" ]; then
-  INSTANCES=2
+  INSTANCES=3
 fi
 
 DIR=$(basename `pwd`)
@@ -12,6 +12,8 @@ echo $NAME
 
 ../../testground --vv run single $NAME/bootstrap \
     --builder=docker:lotus \
-    --runner=local:docker \
+    --runner=cluster:k8s \
+    --build-cfg push_registry=true \
+    --build-cfg registry_type=aws \
     --run-cfg keep_service=true \
     --instances=$INSTANCES
