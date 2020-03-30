@@ -59,6 +59,7 @@ func Discard() *OutputWriter {
 		progressWriter: pw,
 	}
 	ow.progressWriter = pw
+	pw.ow = ow
 	return ow
 }
 
