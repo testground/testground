@@ -193,11 +193,7 @@ func ParseCollectResponse(r io.ReadCloser, file io.Writer) (CollectResponse, err
 			}
 
 			_, err = file.Write(m)
-			if err != nil {
-				return err
-			}
-			resp.Exists = true
-			return nil
+			return err
 		},
 		func(result interface{}) error {
 			resp.Exists = result.(bool)
