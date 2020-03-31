@@ -70,7 +70,7 @@ func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clie
 
 		err := cli.ContainerStart(ctx, ci.ID, types.ContainerStartOptions{})
 		if err != nil {
-			log.Errorw("starting container failed", "ContainerName", opts.ContainerName, "error", err)
+			log.Errorw("starting container failed", "container_name", opts.ContainerName, "error", err)
 			return nil, false, err
 		}
 
