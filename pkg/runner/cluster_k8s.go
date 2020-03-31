@@ -764,6 +764,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
+	gracefulShutdown := int64(60)
 
 	podRequest := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -788,6 +789,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
+			TerminationGracePeriodSeconds: &gracefulShutdown,
 			SecurityContext: &v1.PodSecurityContext{
 				Sysctls: testplanSysctls,
 			},
