@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -162,7 +161,7 @@ func (ow *OutputWriter) WriteProgress(b []byte) (n int, err error) {
 }
 
 func (ow *OutputWriter) WriteBinary(b []byte) (n int, err error) {
-	msg := Chunk{Type: ChunkTypeBinary, Payload: base64.StdEncoding.EncodeToString(b)}
+	msg := Chunk{Type: ChunkTypeBinary, Payload: b}
 	json, err := json.Marshal(msg)
 	if err != nil {
 		logging.S().Errorw("could not write binary", "err", err)
