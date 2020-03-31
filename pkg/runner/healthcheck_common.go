@@ -18,8 +18,8 @@ import (
 	"github.com/docker/go-units"
 )
 
-type Checker func() (bool, error)
-type Fixer func() error
+type Checker func() (bool, string, error)
+type Fixer func() (string, error)
 
 // HealthcheckHelper is a strategy interface for runners.
 // Each runner may have required elements -- infrastructure, etc. which should be checked prior to
@@ -53,7 +53,7 @@ func (hh *SequentialHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 	for _, li := range hh.toDo {
 		// Check succeeds.
-		succeed, err := li.Checker()
+		succeed, message, err := li.Checker()
 		if err != nil {
 			return err
 		}
@@ -61,7 +61,7 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 			hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
 				Name:    li.Name,
 				Status:  api.HealthcheckStatusOK,
-				Message: fmt.Sprintf("%s: OK", li.Name),
+				Message: fmt.Sprintf("%s: %s", li.Name, message),
 			})
 			continue
 		}
@@ -75,16 +75,15 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 		// The fix might result in a failure, a successful recovery.
 		fixhc := api.HealthcheckItem{Name: li.Name}
 		if fix {
-			err := li.Fixer()
+			fixmsg, err := li.Fixer()
 			if err != nil {
 				// Oh no! the fix failed.
 				fixhc.Status = api.HealthcheckStatusFailed
-				fixhc.Message = fmt.Sprintf("%s FAILED: %v", li.Name, err)
 			} else {
 				// Fix succeeded.
 				fixhc.Status = api.HealthcheckStatusOK
-				fixhc.Message = fmt.Sprintf("%s RECOVERED", li.Name)
 			}
+			fixhc.Message = fmt.Sprintf("%s: %s, %v", li.Name, fixmsg, err)
 		} else {
 			// don't attempt to fix.
 			fixhc.Status = api.HealthcheckStatusOmitted
@@ -100,12 +99,12 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 // existance of the container. This should be considered a sensible default for checking whether
 // docker containers are started.
 func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
-	return func() (bool, error) {
+	return func() (bool, string, error) {
 		ci, err := docker.CheckContainer(ctx, ow, cli, name)
 		if err != nil || ci == nil {
-			return false, err
+			return false, "container not running.", err
 		}
-		return ci.State.Running, nil
+		return ci.State.Running, "container already running.", nil
 	}
 }
 
@@ -173,9 +172,12 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 	}
 
 	// Make sure this container is running when the closure is executed.
-	return func() error {
+	return func() (string, error) {
 		_, _, err := docker.EnsureContainer(ctx, ow, cli, &ensure)
-		return err
+		if err != nil {
+			return "failed to start container.", err
+		}
+		return "container created.", err
 	}
 }
 
@@ -183,7 +185,7 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 // container exists. Unlike the DefaultContainerFixer, a custom image may be built for the
 // container.
 func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildCtx string, opts *ContainerFixerOpts) Fixer {
-	return func() error {
+	return func() (string, error) {
 		_, err := docker.EnsureImage(ctx,
 			ow,
 			cli,
@@ -192,7 +194,7 @@ func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client
 				BuildCtx: buildCtx,
 			})
 		if err != nil {
-			return err
+			return "failed to create custom image.", err
 		}
 		return DefaultContainerFixer(ctx, ow, cli, opts)()
 
@@ -202,20 +204,22 @@ func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client
 // DockerNetworkChecker returns a Checker, a method which when executed will verify a docker network
 // exists with the passed networkID as its name.
 func DockerNetworkChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Checker {
-	return func() (bool, error) {
+	return func() (bool, string, error) {
 		networks, err := docker.CheckBridgeNetwork(ctx, ow, cli, networkID)
 		if err != nil {
-			ow.Errorf("encountered an error while checking for network %s, %v", networkID, err)
-			return false, err
+			return false, "error when checking for network", err
 		}
-		return len(networks) > 0, nil
+		if len(networks) > 0 {
+			return true, "network already exists.", nil
+		}
+		return false, "network does not exist.", nil
 	}
 }
 
 // DockerNetworkFixer returns a Fixer, a method which when executed will create a docker network
 // with the given name, provided it does not exist already.
 func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Fixer {
-	return func() error {
+	return func() (string, error) {
 		_, err := docker.EnsureBridgeNetwork(
 			ctx,
 			ow, cli,
@@ -231,7 +235,10 @@ func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.C
 				Gateway: controlGateway,
 			},
 		)
-		return err
+		if err != nil {
+			return "could not create network.", err
+		}
+		return "network created.", err
 	}
 }
 
@@ -240,9 +247,12 @@ func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.C
 // or that a TCP socket is closed. For UDP sockets, being connectionless, may return a false
 // positive if the network is reachable.
 func DialableChecker(protocol string, address string) Checker {
-	return func() (bool, error) {
+	return func() (bool, string, error) {
 		_, err := net.Dial(protocol, address)
-		return err == nil, err
+		if err != nil {
+			return false, "address not dialable.", err
+		}
+		return true, "address is already dialable.", err
 	}
 }
 
@@ -250,9 +260,13 @@ func DialableChecker(protocol string, address string) Checker {
 // with the given parameters. Uses os/exec to start the command. Cancelling the passed context
 // will stop the executable.
 func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
-	return func() error {
+	return func() (string, error) {
 		cmd := exec.CommandContext(ctx, cmd, args...)
-		return cmd.Start()
+		err := cmd.Start()
+		if err != nil {
+			return "command did not start successfully.", err
+		}
+		return "command started successfully.", err
 	}
 }
 
@@ -261,24 +275,31 @@ func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 // that the path does not point to a directory. Aside from ErrNotExist, which is the error we expect
 // to handle, any file permission or I/O errors will will be returned to the caller.
 func DirExistsChecker(path string) Checker {
-	return func() (bool, error) {
+	return func() (bool, string, error) {
 		fi, err := os.Stat(path)
 		if err != nil {
 			// ErrExist is the error we expect to see (and handle with DirExistsFixer)
 			// Any other kind of error will be returned.
 			if os.IsNotExist(err) {
-				return false, nil
+				return false, "directory does not exist. can recreate.", nil
 			}
-			return false, err
+			return false, "filesystem error. cannot recreate.", err
 		}
-		return fi.IsDir(), nil
+		if fi.IsDir() {
+			return true, "directory already exists.", nil
+		}
+		return false, "expected directory. found regular file. please fix manually.", fmt.Errorf("not a directory")
 	}
 }
 
 // DirExistsFixer returns a Fixer, a method which when executed will create a directory and
 // any parent directories as appropriate.
 func DirExistsFixer(path string) Fixer {
-	return func() error {
-		return os.MkdirAll(path, os.ModePerm)
+	return func() (string, error) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			return "directory not created successfully.", err
+		}
+		return "directory created successfully.", err
 	}
 }
