@@ -1,9 +1,10 @@
 package daemon
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
@@ -26,13 +27,21 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			return
 		}
 
-		discard := httptest.NewRecorder()
-		tgw := rpc.NewOutputWriter(discard, r)
+		tgw := rpc.NewOutputWriter(w, r)
 
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw, w)
+		result := false
+		defer tgw.WriteResult(result)
+
+		var file bytes.Buffer
+		fw := bufio.NewWriter(&file)
+
+		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw, fw)
 		if err != nil {
-			log.Errorw("collect outputs error", "err", err.Error())
+			log.Warnw("collect outputs error", "err", err.Error())
 			return
 		}
+
+		tgw.WriteBinary(file.Bytes())
+		result = true
 	}
 }

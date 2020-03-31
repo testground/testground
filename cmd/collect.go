@@ -79,6 +79,16 @@ func collectCommand(c *cli.Context) error {
 	}
 	defer file.Close()
 
+	cr, err := client.ParseCollectResponse(resp, file)
+	if err != nil {
+		return err
+	}
+
+	if !cr.Exists {
+		logging.S().Errorw("no such testplan run", "run_id", id, "runner", runner)
+		return nil
+	}
+
 	_, err = io.Copy(file, resp)
 	if err != nil {
 		return err

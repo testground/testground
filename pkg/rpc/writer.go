@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -129,6 +130,23 @@ func (ow *OutputWriter) With(args ...interface{}) *OutputWriter {
 		SugaredLogger:  ow.SugaredLogger.With(args...),
 		out:            ow.out,
 		progressWriter: ow.progressWriter,
+	}
+}
+
+func (ow *OutputWriter) WriteBinary(b []byte) {
+	msg := Chunk{Type: ChunkTypeBinary, Payload: base64.StdEncoding.EncodeToString(b)}
+	json, err := json.Marshal(msg)
+	if err != nil {
+		logging.S().Errorw("could not write binary", "err", err)
+		return
+	}
+
+	ow.Lock()
+	defer ow.Unlock()
+
+	_, err = ow.out.Write(json)
+	if err != nil {
+		logging.S().Errorw("could not write binary", "err", err)
 	}
 }
 

@@ -5,6 +5,7 @@ type ChunkType rune
 
 const (
 	ChunkTypeProgress ChunkType = 'p'
+	ChunkTypeBinary   ChunkType = 'b'
 	ChunkTypeResult   ChunkType = 'r'
 	ChunkTypeError    ChunkType = 'e'
 )
