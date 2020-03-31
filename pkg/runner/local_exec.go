@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -268,9 +269,9 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter, file io.Writer) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	return zipRunOutputs(ctx, basedir, input, ow)
+	return zipRunOutputs(ctx, basedir, input, ow, file)
 }
 
 func (*LocalExecutableRunner) ID() string {

@@ -37,7 +37,7 @@ func nextDataNetwork(lenNetworks int) (*net.IPNet, string, error) {
 	return subnet, gw, err
 }
 
-func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, ow *rpc.OutputWriter, file io.Writer) error {
 	pattern := filepath.Join(basedir, "*", input.RunID)
 
 	matches, err := filepath.Glob(pattern)
@@ -57,7 +57,7 @@ func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInp
 		return fmt.Errorf("internal error: not a directory when accessing run outputs")
 	}
 
-	wz := zip.NewWriter(ow)
+	wz := zip.NewWriter(file)
 	defer wz.Close()
 	defer wz.Flush()
 

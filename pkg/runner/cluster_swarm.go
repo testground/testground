@@ -379,7 +379,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+func (*ClusterSwarmRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter, file io.Writer) error {
 	return errors.New("unimplemented")
 }
 

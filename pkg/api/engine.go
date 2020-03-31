@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io"
 
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/rpc"
@@ -18,7 +19,7 @@ type Engine interface {
 
 	DoBuild(context.Context, *Composition, *rpc.OutputWriter) ([]*BuildOutput, error)
 	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
-	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
+	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter, file io.Writer) error
 	DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error
 	DoHealthcheck(ctx context.Context, runner string, fix bool, ow *rpc.OutputWriter) (*HealthcheckReport, error)
 

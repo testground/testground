@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"io"
 	"reflect"
 
 	"github.com/ipfs/testground/pkg/config"
@@ -30,7 +31,7 @@ type Runner interface {
 
 	// CollectOutputs gathers the outputs from a run, and produces a zip file
 	// with the contents, writing it to the specified io.Writer.
-	CollectOutputs(context.Context, *CollectionInput, *rpc.OutputWriter) error
+	CollectOutputs(context.Context, *CollectionInput, *rpc.OutputWriter, io.Writer) error
 }
 
 // RunInput encapsulates the input options for running a test plan.

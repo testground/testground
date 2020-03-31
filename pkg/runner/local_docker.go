@@ -863,9 +863,9 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 	return container.ID, err
 }
 
-func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter, file io.Writer) error {
 	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
-	return zipRunOutputs(ctx, basedir, input, ow)
+	return zipRunOutputs(ctx, basedir, input, ow, file)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified

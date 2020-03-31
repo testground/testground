@@ -3,6 +3,7 @@ package daemon
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
@@ -25,9 +26,10 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			return
 		}
 
-		tgw := rpc.NewOutputWriter(w, r)
+		discard := httptest.NewRecorder()
+		tgw := rpc.NewOutputWriter(discard, r)
 
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
+		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw, w)
 		if err != nil {
 			log.Errorw("collect outputs error", "err", err.Error())
 			return
