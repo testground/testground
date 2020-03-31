@@ -69,7 +69,8 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 	})
 
 	ectx, events := kaddht.RegisterForLookupEvents(ctx)
-	log := sqlogger.With("node", node.host.ID().Pretty(), "target", target)
+	nodeID := node.host.ID()
+	log := sqlogger.With("node", nodeID, "nodeKad", kbucket.ConvertPeerID(nodeID) , "target", target)
 
 	go func() {
 		for e := range events {
@@ -85,10 +86,10 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 				case kaddht.LookupCompleted:
 					msg = "completed"
 				}
-				log.Infow("lookup termination", "eventID", e.ID, "targetKad", e.Key, "reason", msg)
+				log.Infow("lookup termination", "lookupID", e.ID, "targetKad", e.Key, "reason", msg)
 			}
 			if e.Update != nil {
-				log.Infow("update", "eventID", e.ID, "targetKad", e.Key,
+				log.Infow("update", "lookupID", e.ID, "targetKad", e.Key,
 					"cause", e.Update.Cause,
 					"source", e.Update.Source,
 					"heard", e.Update.Heard,

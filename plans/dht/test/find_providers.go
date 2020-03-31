@@ -124,6 +124,8 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	outputGraph(node.dht, "after_provide")
+
 	if err := stager.Begin(); err != nil {
 		return err
 	}

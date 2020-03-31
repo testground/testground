@@ -2,8 +2,8 @@ param($runID)
 
 $ErrorActionPreference = "Stop"
 
-$env:TESTGROUND_SRCDIR="$env:HOME/go/src/github.com/ipfs/testground"
-$outputDir = "$env:HOME/workspace/testground/stats"
+$env:TESTGROUND_SRCDIR="$env:USERPROFILE/go/src/github.com/ipfs/testground"
+$outputDir = "$env:USERPROFILE/workspace/testground/stats"
 $runner = "cluster:k8s"
 #$runner = "local:docker"
 $graphs = $true

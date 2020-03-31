@@ -12,6 +12,8 @@ import (
 	gosync "sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
@@ -237,10 +239,14 @@ func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, id
 		return nil, nil, fmt.Errorf("invalid datastore type")
 	}
 
+	runenv.RecordMessage("creating DHT")
+
 	dht, err := createDHT(ctx, node, ds, opts, info)
 	if err != nil {
+		runenv.RecordMessage("creating DHT error %v", err)
 		return nil, nil, err
 	}
+	runenv.RecordMessage("creating DHT successful")
 	return node, dht, nil
 }
 
@@ -377,14 +383,14 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 	otherNodes := make(map[peer.ID]*NodeInfo)
 
 	if _, err := ri.writer.Write(ctx, PeerAttribSubtree, testNode.info); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "peer attrib writer failure")
 	}
 
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	attribCh := make(chan *NodeInfo)
 	if err := ri.watcher.Subscribe(subCtx, PeerAttribSubtree, attribCh); err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "peer attrib subscription failure")
 	}
 
 	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
@@ -395,6 +401,8 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 			return nil, nil, ctx.Err()
 		}
 	}
+
+	ri.runenv.RecordMessage("finished setup function")
 
 	outputStart(testNode)
 
@@ -637,7 +645,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int,int) {
-		slope := 1
+		slope := 20
 		turnNum := int(math.Floor(float64(seq)/float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
