@@ -70,11 +70,6 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 		checkhc.Status = api.HealthcheckStatusFailed
 		checkhc.Message = fmt.Sprintf("%s: %s -- fixing: %t", li.Name, message, fix)
 
-		hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
-			Name:    li.Name,
-			Status:  api.HealthcheckStatusFailed,
-			Message: fmt.Sprintf("%s: %s", li.Name, message),
-		})
 		// Attempt fix if fix is enabled.
 		// The fix might result in a failure, a successful recovery.
 		if fix {

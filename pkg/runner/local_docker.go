@@ -118,9 +118,9 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			&ContainerFixerOpts{
 				ContainerName: "testground-sidecar",
 				ImageName:     "testground-sidecar:latest",
+				NetworkID:     r.controlNetworkID,
 				Pull:          false,
 				HostConfig: &container.HostConfig{
-					NetworkMode: container.NetworkMode(r.controlNetworkID),
 					// To lookup namespaces. Can't use SandboxKey for some reason.
 					PidMode: "host",
 					// We need _both_ to actually get a network namespace handle.
