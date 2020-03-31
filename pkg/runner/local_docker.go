@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -432,13 +431,12 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 		default:
 			_, err := ensureSidecarContainer(ctx, cli, r.outputsDir, log, r.controlNetworkID)
 			if err == nil {
-				msg := "control network created successfully"
+				msg := "sidecar container created successfully"
 				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusOK, Message: msg}
 				fixes = append(fixes, it)
 			} else {
-				msg := fmt.Sprintf("failed to create control network: %s", err)
-
-				if err == errors.New("image not found") {
+				msg := fmt.Sprintf("failed to create sidecar container: %s", err)
+				if strings.Contains(err.Error(), "image not found") {
 					msg += "; docker image ipfs/testground not found, run `make docker-ipfs-testground`"
 				}
 
