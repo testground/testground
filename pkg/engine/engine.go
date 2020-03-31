@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -448,7 +447,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	return out, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter, file io.Writer) error {
+func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -473,7 +472,7 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 		RunnerConfig: obj,
 	}
 
-	return run.CollectOutputs(ctx, input, ow, file)
+	return run.CollectOutputs(ctx, input, ow)
 }
 
 func (e *Engine) DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error {

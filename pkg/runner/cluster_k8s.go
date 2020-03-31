@@ -448,7 +448,7 @@ func (c *ClusterK8sRunner) initPool() {
 	})
 }
 
-func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter, file io.Writer) error {
+func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	c.initPool()
 
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
@@ -507,7 +507,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 
 	// Connect stdout of the above command to the output file
 	// Connect stderr to a buffer which we can read from to display any errors to the user.
-	outbuf := bufio.NewWriter(file)
+	outbuf := bufio.NewWriter(ow.BinaryWriter())
 	defer outbuf.Flush()
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: outbuf,

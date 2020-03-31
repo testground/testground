@@ -21,12 +21,11 @@ import (
 type OutputWriter struct {
 	sync.Mutex
 	*zap.SugaredLogger
-	*progressWriter
+	pw *progressWriter
+	bw *binaryWriter
 
 	out io.Writer
 }
-
-var _ io.Writer = (*OutputWriter)(nil)
 
 func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	w.Header().Set("Content-Type", "application/json")
@@ -35,6 +34,10 @@ func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 
 	// progressWriter will emit log output as progress messages.
 	progressWriter := &progressWriter{out: httpWriter}
+
+	// binaryWriter will emit binary chunks
+	binaryWriter := &binaryWriter{}
+
 	writeSyncer := zapcore.Lock(zapcore.AddSync(progressWriter))
 
 	// this logger has two sinks: stdout and the writeSyncer, wired to the HTTP
@@ -42,24 +45,28 @@ func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	logger := logging.NewLogger(writeSyncer).With(zap.String("req_id", r.Header.Get("X-Request-ID")))
 
 	ow := &OutputWriter{
-		SugaredLogger:  logger.Sugar(),
-		out:            httpWriter,
-		progressWriter: progressWriter,
+		SugaredLogger: logger.Sugar(),
+		out:           httpWriter,
+		pw:            progressWriter,
+		bw:            binaryWriter,
 	}
 
 	// we need to wire this back for the lock.
 	progressWriter.ow = ow
+
+	// we need to wire this back for the lock.
+	binaryWriter.ow = ow
 	return ow
 }
 
 func Discard() *OutputWriter {
 	pw := &progressWriter{out: ioutil.Discard}
 	ow := &OutputWriter{
-		SugaredLogger:  zap.NewNop().Sugar(),
-		out:            ioutil.Discard,
-		progressWriter: pw,
+		SugaredLogger: zap.NewNop().Sugar(),
+		out:           ioutil.Discard,
+		pw:            pw,
 	}
-	ow.progressWriter = pw
+	ow.pw = pw
 	pw.ow = ow
 	return ow
 }
@@ -114,7 +121,7 @@ var _ io.Writer = (*stdoutWriter)(nil)
 
 func (sw *stdoutWriter) Write(p []byte) (n int, err error) {
 	_, _ = os.Stdout.Write(p)
-	return sw.ow.progressWriter.Write(p)
+	return sw.ow.pw.Write(p)
 }
 
 // StdoutWriter returns an io.Writer that prints all writes into Stdout, and
@@ -123,31 +130,51 @@ func (ow *OutputWriter) StdoutWriter() io.Writer {
 	return &stdoutWriter{ow}
 }
 
+type binaryWriter struct{ ow *OutputWriter }
+
+var _ io.Writer = (*binaryWriter)(nil)
+
+func (bw *binaryWriter) Write(p []byte) (n int, err error) {
+	return bw.ow.WriteBinary(p)
+}
+
+func (ow *OutputWriter) BinaryWriter() io.Writer {
+	//return &binaryWriter{ow}
+	return ow.bw
+}
+
 // With returns a new OutputWriter, replacing the SugaredLogger with the result
 // from delegating to SugaredLogger.With.
 func (ow *OutputWriter) With(args ...interface{}) *OutputWriter {
 	return &OutputWriter{
-		SugaredLogger:  ow.SugaredLogger.With(args...),
-		out:            ow.out,
-		progressWriter: ow.progressWriter,
+		SugaredLogger: ow.SugaredLogger.With(args...),
+		out:           ow.out,
+		pw:            ow.pw,
 	}
 }
 
-func (ow *OutputWriter) WriteBinary(b []byte) {
+func (ow *OutputWriter) WriteProgress(b []byte) (n int, err error) {
+	return ow.pw.Write(b)
+}
+
+func (ow *OutputWriter) WriteBinary(b []byte) (n int, err error) {
 	msg := Chunk{Type: ChunkTypeBinary, Payload: base64.StdEncoding.EncodeToString(b)}
 	json, err := json.Marshal(msg)
 	if err != nil {
 		logging.S().Errorw("could not write binary", "err", err)
-		return
+		return 0, err
 	}
 
 	ow.Lock()
 	defer ow.Unlock()
 
-	_, err = ow.out.Write(json)
+	n, err = ow.out.Write(json)
 	if err != nil {
 		logging.S().Errorw("could not write binary", "err", err)
+		return 0, err
 	}
+
+	return n, err
 }
 
 func (ow *OutputWriter) WriteResult(res interface{}) {

@@ -1,8 +1,6 @@
 package daemon
 
 import (
-	"bufio"
-	"bytes"
 	"encoding/json"
 	"net/http"
 
@@ -34,16 +32,12 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			tgw.WriteResult(result)
 		}()
 
-		var file bytes.Buffer
-		fw := bufio.NewWriter(&file)
-
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw, fw)
+		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
 		if err != nil {
 			log.Warnw("collect outputs error", "err", err.Error())
 			return
 		}
 
-		tgw.WriteBinary(file.Bytes())
 		result = true
 	}
 }
