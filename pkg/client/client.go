@@ -129,7 +129,7 @@ func (c *Client) Healthcheck(ctx context.Context, r *HealthcheckRequest) (io.Rea
 	return c.request(ctx, "POST", "/healthcheck", bytes.NewReader(body.Bytes()))
 }
 
-func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
+func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
 	var chunk rpc.Chunk
 	var once sync.Once
 
@@ -158,6 +158,12 @@ func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error)
 			fmt.Println(aurora.Bold(aurora.BrightGreen("\n>>> Result:\n")))
 			return fnResult(chunk.Payload)
 
+		case rpc.ChunkTypeBinary:
+			err := fnBinary(chunk.Payload)
+			if err != nil {
+				return err
+			}
+
 		default:
 			return errors.New("unknown message type")
 		}
@@ -174,12 +180,36 @@ func printProgress(progress interface{}) error {
 	return nil
 }
 
+// ParseCollectResponse parses a response from a `collect` call
+func ParseCollectResponse(r io.ReadCloser, file io.Writer) (CollectResponse, error) {
+	var resp CollectResponse
+	err := parseGeneric(
+		r,
+		printProgress,
+		func(payload interface{}) error {
+			m, err := base64.StdEncoding.DecodeString(payload.(string))
+			if err != nil {
+				return err
+			}
+
+			_, err = file.Write(m)
+			return err
+		},
+		func(result interface{}) error {
+			resp.Exists = result.(bool)
+			return nil
+		},
+	)
+	return resp, err
+}
+
 // ParseRunResponse parses a response from a `run` call
 func ParseRunResponse(r io.ReadCloser) (RunResponse, error) {
 	var resp RunResponse
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},
@@ -192,6 +222,7 @@ func ParseListResponse(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -204,6 +235,7 @@ func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},
@@ -216,6 +248,7 @@ func ParseDescribeResponse(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -227,6 +260,7 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -240,6 +274,7 @@ func ParseHealthcheckResponse(r io.ReadCloser) (HealthcheckResponse, error) {
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},

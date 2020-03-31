@@ -1,6 +1,10 @@
 package client
 
-import "github.com/ipfs/testground/pkg/api"
+import (
+	"bytes"
+
+	"github.com/ipfs/testground/pkg/api"
+)
 
 // DescribeRequest is the request struct for the `describe` function.
 type DescribeRequest struct {
@@ -21,6 +25,11 @@ type RunRequest struct {
 }
 
 type RunResponse = api.RunOutput
+
+type CollectResponse struct {
+	File   bytes.Buffer
+	Exists bool
+}
 
 type OutputsRequest struct {
 	Runner string `json:"runner"`

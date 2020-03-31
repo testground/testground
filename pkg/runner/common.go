@@ -57,7 +57,7 @@ func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInp
 		return fmt.Errorf("internal error: not a directory when accessing run outputs")
 	}
 
-	wz := zip.NewWriter(ow)
+	wz := zip.NewWriter(ow.BinaryWriter())
 	defer wz.Close()
 	defer wz.Flush()
 

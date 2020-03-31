@@ -20,7 +20,7 @@ func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r 
 		plans := engine.TestCensus().ListPlans()
 		for _, tp := range plans {
 			for _, tc := range tp.TestCases {
-				_, err := tgw.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
+				_, err := tgw.WriteProgress([]byte(tp.Name + "/" + tc.Name + "\n"))
 				if err != nil {
 					log.Errorf("could not write response back", "err", err)
 				}

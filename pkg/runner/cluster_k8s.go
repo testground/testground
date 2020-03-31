@@ -508,7 +508,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 
 	// Connect stdout of the above command to the output file
 	// Connect stderr to a buffer which we can read from to display any errors to the user.
-	outbuf := bufio.NewWriter(ow)
+	outbuf := bufio.NewWriter(ow.BinaryWriter())
 	defer outbuf.Flush()
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: outbuf,

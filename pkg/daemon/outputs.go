@@ -27,10 +27,17 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		tgw := rpc.NewOutputWriter(w, r)
 
+		result := false
+		defer func() {
+			tgw.WriteResult(result)
+		}()
+
 		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
 		if err != nil {
-			log.Errorw("collect outputs error", "err", err.Error())
+			log.Warnw("collect outputs error", "err", err.Error())
 			return
 		}
+
+		result = true
 	}
 }
