@@ -61,13 +61,16 @@ func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 
 func Discard() *OutputWriter {
 	pw := &progressWriter{out: ioutil.Discard}
+	bw := &binaryWriter{}
 	ow := &OutputWriter{
 		SugaredLogger: zap.NewNop().Sugar(),
 		out:           ioutil.Discard,
 		pw:            pw,
+		bw:            bw,
 	}
 	ow.pw = pw
 	pw.ow = ow
+	bw.ow = ow
 	return ow
 }
 
@@ -130,6 +133,8 @@ func (ow *OutputWriter) StdoutWriter() io.Writer {
 	return &stdoutWriter{ow}
 }
 
+// binaryWriter implements io.Writer, and passes all writes to the OutputWriter.WriteBinary()
+// to marshal into chunk.Binary JSON messages.
 type binaryWriter struct{ ow *OutputWriter }
 
 var _ io.Writer = (*binaryWriter)(nil)
@@ -139,7 +144,6 @@ func (bw *binaryWriter) Write(p []byte) (n int, err error) {
 }
 
 func (ow *OutputWriter) BinaryWriter() io.Writer {
-	//return &binaryWriter{ow}
 	return ow.bw
 }
 
