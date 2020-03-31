@@ -52,28 +52,31 @@ func (hh *SequentialHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
 
 func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 	for _, li := range hh.toDo {
+		checkhc := api.HealthcheckItem{Name: li.Name}
+		fixhc := api.HealthcheckItem{Name: li.Name}
 		// Check succeeds.
 		succeed, message, err := li.Checker()
 		if err != nil {
 			return err
 		}
+		// if the check succeeds, add to the report and continue without fixes.
 		if succeed {
-			hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
-				Name:    li.Name,
-				Status:  api.HealthcheckStatusOK,
-				Message: fmt.Sprintf("%s: %s", li.Name, message),
-			})
+			checkhc.Status = api.HealthcheckStatusOK
+			checkhc.Message = fmt.Sprintf("%s: %s", li.Name, message)
+			hh.report.Checks = append(hh.report.Checks, checkhc)
 			continue
 		}
-		// Checker failed, Append the failure to the check report
+		// Checker failed. We will attempt a fix action.
+		checkhc.Status = api.HealthcheckStatusFailed
+		checkhc.Message = fmt.Sprintf("%s: %s -- fixing: %t", li.Name, message, fix)
+
 		hh.report.Checks = append(hh.report.Checks, api.HealthcheckItem{
 			Name:    li.Name,
 			Status:  api.HealthcheckStatusFailed,
-			Message: fmt.Sprintf("%s: FAILED. Fixing: %t", li.Name, fix),
+			Message: fmt.Sprintf("%s: %s", li.Name, message),
 		})
 		// Attempt fix if fix is enabled.
 		// The fix might result in a failure, a successful recovery.
-		fixhc := api.HealthcheckItem{Name: li.Name}
 		if fix {
 			fixmsg, err := li.Fixer()
 			if err != nil {
@@ -91,6 +94,7 @@ func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) 
 		}
 		// Fill the report with fix information.
 		hh.report.Fixes = append(hh.report.Fixes, fixhc)
+		hh.report.Checks = append(hh.report.Checks, checkhc)
 	}
 	return nil
 }
