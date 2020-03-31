@@ -1,13 +1,10 @@
-package runner
+package healthcheck
 
 import (
 	"context"
-	"fmt"
-	"net"
 	"os"
 	"os/exec"
 
-	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/rpc"
 
@@ -17,95 +14,6 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 )
-
-type Checker func() (bool, string, error)
-type Fixer func() (string, error)
-
-// HealthcheckHelper is a strategy interface for runners.
-// Each runner may have required elements -- infrastructure, etc. which should be checked prior to
-// running plans. Individual checks are registered to the HealthcheckHelper using the Enlist()
-// method. With all of the checks enlisted, execute the checks, and optionally fixes, using the
-// RunChecks() method. The details of how the checks are performed is implementation specific.
-// Typically, the checker and fixer passed to the enlist method will be closures. These methods will
-// be called when RunChecks is executed.
-type HealthcheckHelper interface {
-	Enlist(name string, c Checker, f Fixer)
-	RunChecks(ctx context.Context, fix bool) error
-}
-
-type toDoElement struct {
-	Name    string
-	Checker Checker
-	Fixer   Fixer
-}
-
-// SequentialHealthcheckHelper implements HealthcheckHelper. Runchecks runs each check and fix
-// sequentially, in the order they are Enlist()'ed.
-type SequentialHealthcheckHelper struct {
-	toDo   []*toDoElement
-	report *api.HealthcheckReport
-}
-
-func (hh *SequentialHealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
-	hh.toDo = append(hh.toDo, &toDoElement{name, c, f})
-}
-
-func (hh *SequentialHealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
-	for _, li := range hh.toDo {
-		checkhc := api.HealthcheckItem{Name: li.Name}
-		fixhc := api.HealthcheckItem{Name: li.Name}
-		// Check succeeds.
-		succeed, message, err := li.Checker()
-		if err != nil {
-			return err
-		}
-		// if the check succeeds, add to the report and continue without fixes.
-		if succeed {
-			checkhc.Status = api.HealthcheckStatusOK
-			checkhc.Message = fmt.Sprintf("%s: %s", li.Name, message)
-			hh.report.Checks = append(hh.report.Checks, checkhc)
-			continue
-		}
-		// Checker failed. We will attempt a fix action.
-		checkhc.Status = api.HealthcheckStatusFailed
-		checkhc.Message = fmt.Sprintf("%s: %s -- fixing: %t", li.Name, message, fix)
-
-		// Attempt fix if fix is enabled.
-		// The fix might result in a failure, a successful recovery.
-		if fix {
-			fixmsg, err := li.Fixer()
-			if err != nil {
-				// Oh no! the fix failed.
-				fixhc.Status = api.HealthcheckStatusFailed
-			} else {
-				// Fix succeeded.
-				fixhc.Status = api.HealthcheckStatusOK
-			}
-			fixhc.Message = fmt.Sprintf("%s: %s, %v", li.Name, fixmsg, err)
-		} else {
-			// don't attempt to fix.
-			fixhc.Status = api.HealthcheckStatusOmitted
-			fixhc.Message = fmt.Sprintf("%s recovery not attempted.", li.Name)
-		}
-		// Fill the report with fix information.
-		hh.report.Fixes = append(hh.report.Fixes, fixhc)
-		hh.report.Checks = append(hh.report.Checks, checkhc)
-	}
-	return nil
-}
-
-// DefaultContainerChecker returns a Checker, a method which when executed will check for the
-// existance of the container. This should be considered a sensible default for checking whether
-// docker containers are started.
-func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
-	return func() (bool, string, error) {
-		ci, err := docker.CheckContainer(ctx, ow, cli, name)
-		if err != nil || ci == nil {
-			return false, "container not running.", err
-		}
-		return ci.State.Running, "container already running.", nil
-	}
-}
 
 // Options used by the DefaultContainerFixer and the CustomContainerFixer
 // ContainerName and ImageName are requred fields.
@@ -196,22 +104,6 @@ func CustomContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client
 			return "failed to create custom image.", err
 		}
 		return DefaultContainerFixer(ctx, ow, cli, opts)()
-
-	}
-}
-
-// DockerNetworkChecker returns a Checker, a method which when executed will verify a docker network
-// exists with the passed networkID as its name.
-func DockerNetworkChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, networkID string) Checker {
-	return func() (bool, string, error) {
-		networks, err := docker.CheckBridgeNetwork(ctx, ow, cli, networkID)
-		if err != nil {
-			return false, "error when checking for network", err
-		}
-		if len(networks) > 0 {
-			return true, "network already exists.", nil
-		}
-		return false, "network does not exist.", nil
 	}
 }
 
@@ -241,20 +133,6 @@ func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.C
 	}
 }
 
-// DialableChecker returns a Checker, a method which when executed will tell us whether a
-// port is dialable. For TCP sockets, a false return could mean the network is unreachable,
-// or that a TCP socket is closed. For UDP sockets, being connectionless, may return a false
-// positive if the network is reachable.
-func DialableChecker(protocol string, address string) Checker {
-	return func() (bool, string, error) {
-		_, err := net.Dial(protocol, address)
-		if err != nil {
-			return false, "address not dialable.", err
-		}
-		return true, "address is already dialable.", err
-	}
-}
-
 // CommandStartFixer returns a Fixer, a method which when executed will start an executable
 // with the given parameters. Uses os/exec to start the command. Cancelling the passed context
 // will stop the executable.
@@ -266,28 +144,6 @@ func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 			return "command did not start successfully.", err
 		}
 		return "command started successfully.", err
-	}
-}
-
-// DirExistsChecker returns a Checker, a method which when executed will check whether a director
-// exists. A true value means the directory exists. A false value means it does not exist, or
-// that the path does not point to a directory. Aside from ErrNotExist, which is the error we expect
-// to handle, any file permission or I/O errors will will be returned to the caller.
-func DirExistsChecker(path string) Checker {
-	return func() (bool, string, error) {
-		fi, err := os.Stat(path)
-		if err != nil {
-			// ErrExist is the error we expect to see (and handle with DirExistsFixer)
-			// Any other kind of error will be returned.
-			if os.IsNotExist(err) {
-				return false, "directory does not exist. can recreate.", nil
-			}
-			return false, "filesystem error. cannot recreate.", err
-		}
-		if fi.IsDir() {
-			return true, "directory already exists.", nil
-		}
-		return false, "expected directory. found regular file. please fix manually.", fmt.Errorf("not a directory")
 	}
 }
 
