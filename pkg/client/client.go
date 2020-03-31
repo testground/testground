@@ -159,7 +159,7 @@ func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface
 			return fnResult(chunk.Payload)
 
 		case rpc.ChunkTypeBinary:
-			return fnBinary(chunk.Payload)
+			fnBinary(chunk.Payload)
 
 		default:
 			return errors.New("unknown message type")

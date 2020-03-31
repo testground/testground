@@ -30,7 +30,9 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 		tgw := rpc.NewOutputWriter(w, r)
 
 		result := false
-		defer tgw.WriteResult(result)
+		defer func() {
+			tgw.WriteResult(result)
+		}()
 
 		var file bytes.Buffer
 		fw := bufio.NewWriter(&file)
