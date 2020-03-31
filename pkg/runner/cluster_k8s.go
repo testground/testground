@@ -295,9 +295,10 @@ func (*ClusterK8sRunner) ID() string {
 
 func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
 	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
-	err := exec.Command("kops", "validate", "cluster").Run()
-	if err != nil {
-		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s", err)}
+	cmd := exec.Command("kops", "validate", "cluster")
+	if err := cmd.Run(); err != nil {
+		out, _ := cmd.CombinedOutput()
+		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s; output from kops: %s", err, string(out))}
 		return
 	}
 	return
