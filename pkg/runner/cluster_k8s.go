@@ -255,33 +255,35 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, err
 	}
 
-	var gg errgroup.Group
+	if input.TotalInstances <= 500 {
+		var gg errgroup.Group
 
-	for _, g := range input.Groups {
-		for i := 0; i < g.Instances; i++ {
-			i := i
-			g := g
-			sem <- struct{}{}
+		for _, g := range input.Groups {
+			for i := 0; i < g.Instances; i++ {
+				i := i
+				g := g
+				sem <- struct{}{}
 
-			gg.Go(func() error {
-				defer func() { <-sem }()
+				gg.Go(func() error {
+					defer func() { <-sem }()
 
-				podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
+					podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
-				logs, err := c.getPodLogs(ow, podName)
-				if err != nil {
-					return err
-				}
+					logs, err := c.getPodLogs(ow, podName)
+					if err != nil {
+						return err
+					}
 
-				fmt.Print(logs)
-				return nil
-			})
+					fmt.Print(logs)
+					return nil
+				})
+			}
 		}
-	}
 
-	err = gg.Wait()
-	if err != nil {
-		return nil, err
+		err = gg.Wait()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &api.RunOutput{RunID: input.RunID}, nil
@@ -293,9 +295,10 @@ func (*ClusterK8sRunner) ID() string {
 
 func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
 	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
-	err := exec.Command("kops", "validate", "cluster").Run()
-	if err != nil {
-		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s", err)}
+	cmd := exec.Command("kops", "validate", "cluster")
+	if err := cmd.Run(); err != nil {
+		out, _ := cmd.CombinedOutput()
+		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s; output from kops: %s", err, string(out))}
 		return
 	}
 	return
@@ -505,7 +508,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 
 	// Connect stdout of the above command to the output file
 	// Connect stderr to a buffer which we can read from to display any errors to the user.
-	outbuf := bufio.NewWriter(ow)
+	outbuf := bufio.NewWriter(ow.BinaryWriter())
 	defer outbuf.Flush()
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: outbuf,

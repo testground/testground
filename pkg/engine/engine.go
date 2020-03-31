@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -12,9 +13,8 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/pkg/runner"
 
-	"errors"
-
 	"github.com/google/uuid"
+	"github.com/logrusorgru/aurora"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -179,11 +179,15 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := bm.(api.Healthchecker); ok {
+		ow.Info("performing healthcheck on builder")
+
 		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
 		}
+
+		ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 	}
 
 	// This var compiles all configurations to coalesce.
@@ -337,11 +341,15 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := run.(api.Healthchecker); ok {
+		ow.Info("performing healthcheck on runner")
+
 		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
 		}
+
+		ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 	}
 
 	// Check if builder and runner are compatible
