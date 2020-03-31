@@ -7,14 +7,15 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/docker"
+	"github.com/ipfs/testground/pkg/rpc"
+
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/rpc"
 )
 
 type Checker func() (bool, error)
