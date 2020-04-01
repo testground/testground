@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math"
 	"math/rand"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -232,37 +232,40 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 	type testSpec struct {
 		Name    string
-		Data    []byte
+		Data    *string
 		Subtree *sync.Subtree
 		Summary runtime.Summary
 	}
 
-	// Create tests ranging from 64B to 64KiB.
+	// Create tests ranging from 64B to 4KiB.
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
-	for size := 64; size <= 64*1024; size = size << 1 {
-		name := fmt.Sprintf("subtree_time_%s_%d_bytes", mode, size)
-		desc := fmt.Sprintf("time to %s %d bytes", mode, size)
-		data := make([]byte, 0, size)
-		rand.Read(data)
+	for size := 64; size <= 4*1024; size = size << 1 {
+		name := fmt.Sprintf("subtree_time_%d_bytes", size)
+		d := make([]byte, 0, size)
+		rand.Read(d)
+		data := string(d)
 
 		ts := &testSpec{
 			Name: name,
-			Data: data,
+			Data: &data,
 			Subtree: &sync.Subtree{
 				GroupKey:    name,
 				PayloadType: reflect.TypeOf((*string)(nil)),
 			},
 			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
-				Name:       name,
-				Help:       desc,
+				Name:       name + "_" + mode,
+				Help:       fmt.Sprintf("time to %s %d bytes", mode, size),
 				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
 			}),
 		}
 		tests = append(tests, ts)
 	}
 
-	handoff := sync.State("handoff")
+	var (
+		handoff = sync.State("handoff")
+		end     = sync.State("end")
+	)
 
 	switch mode {
 	case "publish":
@@ -284,6 +287,19 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			return err
 		}
 
+		_, err = writer.SignalEntry(ctx, end)
+		if err != nil {
+			return err
+		}
+
+		// wait for everyone to be done; this is necessary because the sync
+		// service applies TTL by electing the first 5 publishers on the Redis
+		// Stream to own the keepalive. In this case, all 5 publishers will be
+		// THE publisher. In an ordinary test case, each instance will write a
+		// key and therefore the ownership will be distributed. That does not
+		// happen here, as all key publishing is concentrated on the publisher.
+		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
+
 	case "receive":
 		runenv.RecordMessage("i am a subscriber")
 
@@ -291,7 +307,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		<-watcher.Barrier(ctx, handoff, int64(1))
 
 		for _, tst := range tests {
-			ch := make(chan []byte, 1)
+			ch := make(chan *string, 1)
 			err = watcher.Subscribe(ctx, tst.Subtree, ch)
 			if err != nil {
 				return err
@@ -300,8 +316,11 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				t := prometheus.NewTimer(tst.Summary)
 				b := <-ch
 				t.ObserveDuration()
-				if !bytes.Equal(tst.Data, b) {
+				if strings.Compare(*b, *tst.Data) != 0 {
 					return fmt.Errorf("received unexpected value")
+				}
+				if i%500 == 0 {
+					runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
 				}
 			}
 		}
