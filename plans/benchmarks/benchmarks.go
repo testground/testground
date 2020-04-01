@@ -241,8 +241,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
 	for size := 64; size <= 64*1024; size = size << 1 {
-		name := fmt.Sprintf("subtree_time_%s_%d_bytes", mode, size)
-		desc := fmt.Sprintf("time to %s %d bytes", mode, size)
+		name := fmt.Sprintf("subtree_time_%d_bytes", size)
+		desc := fmt.Sprintf("time to %d bytes", size)
 		data := make([]byte, 0, size)
 		rand.Read(data)
 
@@ -250,12 +250,13 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			Name: name,
 			Data: data,
 			Subtree: &sync.Subtree{
-				GroupKey:    name,
-				PayloadType: reflect.TypeOf(data),
+				GroupKey: name,
+				//PayloadType: reflect.TypeOf(data),
+				PayloadType: reflect.TypeOf((*string)(nil)),
 			},
 			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
-				Name:       name,
-				Help:       desc,
+				Name:       mode + "_" + name,
+				Help:       mode + "_" + desc,
 				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
 			}),
 		}
@@ -269,12 +270,13 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("i am the publisher")
 
 		for j, tst := range tests {
+			d := string(tst.Data)
 			for i := 1; i <= iterations; i++ {
 				if i%1000 == 0 {
 					runenv.RecordMessage(fmt.Sprintf("publisher on test case %d iteration %d", j, i))
 				}
 				t := prometheus.NewTimer(tst.Summary)
-				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
+				_, err = writer.Write(ctx, tst.Subtree, &d)
 				if err != nil {
 					return err
 				}
@@ -296,7 +298,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for j, tst := range tests {
 			runenv.RecordMessage(fmt.Sprintf("subscriber on test case %d", j))
-			ch := make(chan []byte, 1)
+			ch := make(chan *string, 1)
 			err = watcher.Subscribe(ctx, tst.Subtree, ch)
 			if err != nil {
 				return err
@@ -308,7 +310,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				t := prometheus.NewTimer(tst.Summary)
 				b := <-ch
 				t.ObserveDuration()
-				if !bytes.Equal(tst.Data, b) {
+				if !bytes.Equal(tst.Data, []byte(*b)) {
 					return fmt.Errorf("received unexpected value")
 				}
 			}
