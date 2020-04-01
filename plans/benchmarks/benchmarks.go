@@ -251,7 +251,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			Data: data,
 			Subtree: &sync.Subtree{
 				GroupKey:    name,
-				PayloadType: reflect.TypeOf((*string)(nil)),
+				PayloadType: reflect.TypeOf(data),
 			},
 			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
 				Name:       name,
@@ -269,8 +269,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("i am the publisher")
 
 		for j, tst := range tests {
-			runenv.RecordMessage(fmt.Sprintf("publisher on test case %d", j))
 			for i := 1; i <= iterations; i++ {
+				if i%1000 == 0 {
+					runenv.RecordMessage(fmt.Sprintf("publisher on test case %d iteration %d", j, i))
+				}
 				t := prometheus.NewTimer(tst.Summary)
 				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
 				if err != nil {
@@ -300,6 +302,9 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				return err
 			}
 			for i := 1; i <= iterations; i++ {
+				if i%1000 == 0 {
+					runenv.RecordMessage(fmt.Sprintf("subscriber on test case %d, iteration %d", j, i))
+				}
 				t := prometheus.NewTimer(tst.Summary)
 				b := <-ch
 				t.ObserveDuration()
