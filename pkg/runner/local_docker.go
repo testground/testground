@@ -17,6 +17,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
+	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -100,22 +101,22 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 	r.controlNetworkID = "testground-control"
 
 	report := api.HealthcheckReport{}
-	hcHelper := SequentialHealthcheckHelper{report: &report}
+	hcHelper := hc.HealthcheckHelper{Report: &report}
 
 	// setup infra which is common between local:docker and local:exec
 	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
 	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
 	hcHelper.Enlist("local-sidecar",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"testground-sidecar"),
-		CustomContainerFixer(ctx,
+		hc.CustomContainerFixer(ctx,
 			ow,
 			cli,
 			engine.EnvConfig().SrcDir,
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "testground-sidecar",
 				ImageName:     "testground-sidecar:latest",
 				NetworkID:     r.controlNetworkID,

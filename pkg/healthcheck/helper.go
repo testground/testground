@@ -1,5 +1,10 @@
 package healthcheck
 
+import (
+	"context"
+
+	"github.com/ipfs/testground/pkg/api"
+)
 
 // Checker is a function that checks whether a precondition is met. It returns
 // whether the check succeeded, an optional message to present to the user, and
@@ -34,7 +39,7 @@ type item struct {
 // be called when RunChecks is executed.
 type HealthcheckHelper struct {
 	items  []*item
-	report *api.HealthcheckReport
+	Report *api.HealthcheckReport
 }
 
 func (hh *HealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
@@ -51,30 +56,29 @@ func (hh *HealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 		case err != nil:
 			check.Status = api.HealthcheckStatusAborted
 			check.Message = msg
-			hh.report.Checks = append(hh.report.Checks, check)
+			hh.Report.Checks = append(hh.Report.Checks, check)
 
 			if fix {
-				hh.report.Fixes = append(hh.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
 			}
 
 		case ok:
 			check.Status = api.HealthcheckStatusOK
 			check.Message = msg
-			hh.report.Checks = append(hh.report.Checks, check)
+			hh.Report.Checks = append(hh.Report.Checks, check)
 
 			if fix {
-				hh.report.Fixes = append(hh.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
 			}
 
 		default:
 			// Checker failed. We will attempt a fix action.
 			check.Status = api.HealthcheckStatusFailed
 			check.Message = msg
-
-			hh.report.Checks = append(hh.report.Checks, check)
+			hh.Report.Checks = append(hh.Report.Checks, check)
 
 			if !fix {
-				hh.report.Fixes = append(hh.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
 				break
 			}
 
@@ -83,14 +87,12 @@ func (hh *HealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 			var f api.HealthcheckItem
 			msg, err := li.Fixer()
 			if err != nil {
-				f = api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOK, Message: msg}
-			} else {
 				f = api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusFailed, Message: msg}
+			} else {
+				f = api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOK, Message: msg}
 			}
 
-			// Fill the report with fix information.
-			hh.report.Checks = append(hh.report.Checks, check)
-			hh.report.Fixes = append(hh.report.Fixes, f)
+			hh.Report.Fixes = append(hh.Report.Fixes, f)
 		}
 	}
 	return nil

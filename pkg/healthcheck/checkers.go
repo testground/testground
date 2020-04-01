@@ -5,18 +5,12 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/rpc"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
-	"github.com/docker/go-units"
 )
-
 
 // DefaultContainerChecker returns a Checker, a method which when executed will check for the
 // existance of the container. This should be considered a sensible default for checking whether
@@ -25,9 +19,9 @@ func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *cli
 	return func() (bool, string, error) {
 		ci, err := docker.CheckContainer(ctx, ow, cli, name)
 		if err != nil || ci == nil {
-			return false, "container not running.", err
+			return false, "container not found.", err
 		}
-		return ci.State.Running, "container already running.", nil
+		return ci.State.Running, fmt.Sprintf("container state %s", ci.State.Status), nil
 	}
 }
 
@@ -80,3 +74,4 @@ func DirExistsChecker(path string) Checker {
 		}
 		return false, "expected directory. found regular file. please fix manually.", fmt.Errorf("not a directory")
 	}
+}

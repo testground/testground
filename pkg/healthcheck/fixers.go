@@ -9,10 +9,8 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
-	"github.com/docker/go-units"
 )
 
 // Options used by the DefaultContainerFixer and the CustomContainerFixer
@@ -45,11 +43,11 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 	if opts.HostConfig == nil {
 		//	if reflect.DeepEqual(opts.HostConfig, container.HostConfig{}) {
 		hostConfig = container.HostConfig{
-			Resources: container.Resources{
-				Ulimits: []*units.Ulimit{
-					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
-				},
-			},
+			//			Resources: container.Resources{
+			//				Ulimits: []*units.Ulimit{
+			//					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+			//				},
+			//			},
 		}
 	} else {
 		hostConfig = *opts.HostConfig
@@ -84,7 +82,7 @@ func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *clien
 		if err != nil {
 			return "failed to start container.", err
 		}
-		return "container created.", err
+		return "container created.", nil
 	}
 }
 
@@ -121,15 +119,15 @@ func DockerNetworkFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.C
 			// we have sidecar overriding the default Docker ip routes, and
 			// suppressing such traffic, we're safe.
 			false,
-			network.IPAMConfig{
-				Subnet:  controlSubnet,
-				Gateway: controlGateway,
-			},
+			//			network.IPAMConfig{
+			//				Subnet:  controlSubnet,
+			//				Gateway: controlGateway,
+			//			},
 		)
 		if err != nil {
 			return "could not create network.", err
 		}
-		return "network created.", err
+		return "network created.", nil
 	}
 }
 
@@ -143,7 +141,7 @@ func CommandStartFixer(ctx context.Context, cmd string, args ...string) Fixer {
 		if err != nil {
 			return "command did not start successfully.", err
 		}
-		return "command started successfully.", err
+		return "command started successfully.", nil
 	}
 }
 
@@ -155,6 +153,6 @@ func DirExistsFixer(path string) Fixer {
 		if err != nil {
 			return "directory not created successfully.", err
 		}
-		return "directory created successfully.", err
+		return "directory created successfully.", nil
 	}
 }

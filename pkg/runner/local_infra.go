@@ -2,26 +2,29 @@ package runner
 
 import (
 	"context"
-	"github.com/docker/docker/client"
-	"github.com/ipfs/testground/pkg/rpc"
 	"path/filepath"
+
+	hc "github.com/ipfs/testground/pkg/healthcheck"
+	"github.com/ipfs/testground/pkg/rpc"
+
+	"github.com/docker/docker/client"
 )
 
-func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, controlNetworkID string, srcdir string, workdir string) {
+func healthcheck_common_local_infra(hcHelper *hc.HealthcheckHelper, ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, controlNetworkID string, srcdir string, workdir string) {
 
 	// ~/.testground
 	hcHelper.Enlist("local-outputs-dir",
-		DirExistsChecker(workdir),
-		DirExistsFixer(workdir),
+		hc.DirExistsChecker(workdir),
+		hc.DirExistsFixer(workdir),
 	)
 
 	// testground-control
 	hcHelper.Enlist(controlNetworkID,
-		DockerNetworkChecker(ctx,
+		hc.DockerNetworkChecker(ctx,
 			ow,
 			cli,
 			controlNetworkID),
-		DockerNetworkFixer(ctx,
+		hc.DockerNetworkFixer(ctx,
 			ow,
 			cli,
 			controlNetworkID),
@@ -29,15 +32,15 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 
 	// prometheus built from Dockerfile.
 	hcHelper.Enlist("local-prometheus",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"testground-prometheus"),
-		CustomContainerFixer(ctx,
+		hc.CustomContainerFixer(ctx,
 			ow,
 			cli,
 			filepath.Join(srcdir, "infra/docker/testground-prometheus"),
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "testground-prometheus",
 				ImageName:     "testground-prometheus:latest",
 				NetworkID:     controlNetworkID,
@@ -49,14 +52,14 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 
 	// pushgateway
 	hcHelper.Enlist("local-pushgateway",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"prometheus-pushgateway"),
-		DefaultContainerFixer(ctx,
+		hc.DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "prometheus-pushgateway",
 				ImageName:     "prom/pushgateway",
 				NetworkID:     controlNetworkID,
@@ -68,14 +71,14 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 
 	// grafana
 	hcHelper.Enlist("local-grafana",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"testground-grafana"),
-		DefaultContainerFixer(ctx,
+		hc.DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "testground-grafana",
 				ImageName:     "bitnami/grafana",
 				NetworkID:     controlNetworkID,
@@ -87,14 +90,14 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 
 	// redis
 	hcHelper.Enlist("local-redis",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"testground-redis"),
-		DefaultContainerFixer(ctx,
+		hc.DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "testground-redis",
 				ImageName:     "library/redis",
 				NetworkID:     controlNetworkID,
@@ -106,14 +109,14 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 
 	// metrics for redis, customized by commandline args
 	hcHelper.Enlist("local-redis-exporter",
-		DefaultContainerChecker(ctx,
+		hc.DefaultContainerChecker(ctx,
 			ow,
 			cli,
 			"testground-redis-exporter"),
-		DefaultContainerFixer(ctx,
+		hc.DefaultContainerFixer(ctx,
 			ow,
 			cli,
-			&ContainerFixerOpts{
+			&hc.ContainerFixerOpts{
 				ContainerName: "testground-redis-exporter",
 				ImageName:     "bitnami/redis-exporter",
 				NetworkID:     controlNetworkID,
@@ -126,5 +129,4 @@ func healthcheck_common_local_infra(hcHelper HealthcheckHelper, ctx context.Cont
 			},
 		),
 	)
-
 }

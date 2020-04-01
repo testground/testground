@@ -19,6 +19,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
+	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -58,7 +59,7 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc
 
 	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
 	report := api.HealthcheckReport{}
-	hcHelper := SequentialHealthcheckHelper{report: &report}
+	hcHelper := hc.HealthcheckHelper{Report: &report}
 
 	// setup infra which is common between local:docker and local:exec
 	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, "testground-control", engine.EnvConfig().SrcDir, r.outputsDir)
