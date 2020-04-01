@@ -12,6 +12,9 @@ spec:
   channel: stable
   cloudProvider: aws
   configBase: ${KOPS_STATE_STORE}/${NAME}
+  docker:
+    defaultUlimit:
+    - "nofile=1048576:1048576"
   etcdClusters:
   - cpuRequest: 200m
     etcdMembers:
