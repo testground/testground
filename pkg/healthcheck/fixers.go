@@ -22,7 +22,7 @@ type Fixer func() (msg string, err error)
 // container exists with some default paramaters which are appropriate for infra containers.
 // Unless containers require special consideration, this should be considered the sensible default
 // fixer for docker containers.
-func DefaultContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, opts *docker.EnsureContainerOpts) Fixer {
+func DockerContainerFixer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, opts *docker.EnsureContainerOpts) Fixer {
 	// Make sure this container is running when the closure is executed.
 	return func() (string, error) {
 		_, created, err := docker.EnsureContainer(ctx, ow, cli, opts)

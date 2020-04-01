@@ -103,50 +103,45 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 	report := api.HealthcheckReport{}
 	hcHelper := hc.HealthcheckHelper{Report: &report}
 
-	// setup infra which is common between local:docker and local:exec
+	// enlist healthchecks which are common between local:docker and local:exec
 	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
-	// sidecar, build it if necessary. This uses a customized HostConfig to bind mount
-	hcHelper.Enlist("local-sidecar",
-		hc.DefaultContainerChecker(ctx,
-			ow,
-			cli,
-			"testground-sidecar"),
-		hc.CustomContainerFixer(ctx,
-			ow,
-			cli,
-			engine.EnvConfig().SrcDir,
-			&hc.ContainerFixerOpts{
-				ContainerName: "testground-sidecar",
-				ImageName:     "testground-sidecar:latest",
-				NetworkID:     r.controlNetworkID,
-				Pull:          false,
-				HostConfig: &container.HostConfig{
-					// To lookup namespaces. Can't use SandboxKey for some reason.
-					PidMode: "host",
-					// We need _both_ to actually get a network namespace handle.
-					// We may be able to drop sys_admin if we drop netlink
-					// sockets that we're not using.
-					CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
-					// needed to talk to docker.
-					Mounts: []mount.Mount{{
-						Type:   mount.TypeBind,
-						Source: "/var/run/docker.sock",
-						Target: "/var/run/docker.sock",
-					}},
-					Resources: container.Resources{
-						Ulimits: []*units.Ulimit{
-							{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
-						},
-					},
-				},
-				Cmds: []string{
-					"sidecar",
-					"--runner",
-					"docker",
-					"--pprof",
+	sidecarImageOpts := docker.BuildImageOpts{
+		Name:     "testground-sidecar:latest",
+		BuildCtx: engine.EnvConfig().SrcDir,
+	}
+
+	sidecarContainerOpts := docker.EnsureContainerOpts{
+		ContainerName: "testground-sidecar",
+		ContainerConfig: &container.Config{
+			Image: "testground-sidecar:latest",
+			Cmd:   []string{"sidecar", "--runner", "docker", "--pprof"},
+		},
+		HostConfig: &container.HostConfig{
+			PidMode:     "host",
+			NetworkMode: "testground-control",
+			CapAdd:      []string{"NET_ADMIN", "SYS_ADMIN"},
+			Mounts: []mount.Mount{{
+				Type:   mount.TypeBind,
+				Source: "/var/run/docker.sock",
+				Target: "/var/run/docker.sock",
+			}},
+			Resources: container.Resources{
+				Ulimits: []*units.Ulimit{
+					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+		},
+		NetworkingConfig:   &network.NetworkingConfig{},
+		PullImageIfMissing: false,
+	}
+
+	// sidecar healthcheck will build the image if necessary and start the container if necessary.
+	hcHelper.Enlist("local-sidecar",
+		hc.DefaultContainerChecker(ctx, ow, cli, "testground-sidecar"),
+		hc.And(
+			hc.DockerImageFixer(ctx, ow, cli, &sidecarImageOpts),
+			hc.DockerContainerFixer(ctx, ow, cli, &sidecarContainerOpts),
 		),
 	)
 
