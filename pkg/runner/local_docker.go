@@ -912,9 +912,12 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	// Build query for runner infrastructure containers.
 	infraOpts := types.ContainerListOptions{}
 	infraOpts.Filters = filters.NewArgs()
-	infraOpts.Filters.Add("name", "testground-sidecar")
-	infraOpts.Filters.Add("name", "testground-redis")
-	infraOpts.Filters.Add("name", "testground-goproxy")
+	infraOpts.Filters.Add("name", "^prometheus-pushgateway$")
+	infraOpts.Filters.Add("name", "^testground-goproxy$")
+	infraOpts.Filters.Add("name", "^testground-grafana$")
+	infraOpts.Filters.Add("name", "^testground-redis$")
+	infraOpts.Filters.Add("name", "^testground-redis-exporter$")
+	infraOpts.Filters.Add("name", "^testground-sidecar$")
 
 	// Build query for testground plans that are still running.
 	planOpts := types.ContainerListOptions{}

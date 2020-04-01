@@ -26,10 +26,12 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 
 	ow.Debug("checking state of container")
 
+	// filter regex
+	exactMatch := fmt.Sprintf("^%s$", name)
 	// Check if a ${name} container exists.
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
-		Filters: filters.NewArgs(filters.Arg("name", name)),
+		Filters: filters.NewArgs(filters.Arg("name", exactMatch)),
 	})
 	if err != nil || len(containers) == 0 {
 		return nil, err
