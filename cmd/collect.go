@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ipfs/testground/pkg/client"
@@ -56,12 +55,16 @@ func collectCommand(c *cli.Context) error {
 		return err
 	}
 
+	return collect(ctx, api, runner, id, output)
+}
+
+func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
 	req := &client.OutputsRequest{
 		Runner: runner,
-		RunID:  id,
+		RunID:  runid,
 	}
 
-	resp, err := api.CollectOutputs(ctx, req)
+	resp, err := cl.CollectOutputs(ctx, req)
 	if err != nil {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
@@ -70,7 +73,7 @@ func collectCommand(c *cli.Context) error {
 	}
 	defer resp.Close()
 
-	file, err := os.Create(output)
+	file, err := os.Create(outputFile)
 	if err != nil {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
@@ -85,16 +88,11 @@ func collectCommand(c *cli.Context) error {
 	}
 
 	if !cr.Exists {
-		logging.S().Errorw("no such testplan run", "run_id", id, "runner", runner)
-		return nil
+		logging.S().Errorw("no such testplan run", "run_id", runid, "runner", runner)
+
+		return os.Remove(outputFile)
 	}
 
-	_, err = io.Copy(file, resp)
-	if err != nil {
-		return err
-	}
-
-	logging.S().Infof("created file: %s", output)
-
+	logging.S().Infof("created file: %s", outputFile)
 	return nil
 }
