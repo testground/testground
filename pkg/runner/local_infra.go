@@ -110,7 +110,7 @@ func healthcheck_common_local_infra(hcHelper *hc.HealthcheckHelper, ctx context.
 		hc.DockerContainerFixer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-redis-exporter",
 			ContainerConfig: &container.Config{
-				Image: "library/redis-exporter",
+				Image: "bitnami/redis-exporter",
 				Cmd:   []string{"--redis.addr", "redis://testground-redis:6379"},
 			},
 			HostConfig: &container.HostConfig{
