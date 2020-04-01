@@ -556,6 +556,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					Source: odir,
 					Target: runenv.TestOutputsPath,
 				}},
+				Resources: container.Resources{
+					Ulimits: []*units.Ulimit{
+						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+					},
+				},
 			}
 
 			// Create the container.
