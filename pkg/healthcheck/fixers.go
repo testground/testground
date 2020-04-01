@@ -2,6 +2,7 @@ package healthcheck
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 
@@ -12,6 +13,11 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 )
+
+// Fixer is a function that will be called to attempt to fix a failing check. It
+// returns an optional message to present to the user, and error in case the fix
+// failed.
+type Fixer func() (msg string, err error)
 
 // Options used by the DefaultContainerFixer and the CustomContainerFixer
 // ContainerName and ImageName are requred fields.
@@ -154,5 +160,37 @@ func DirExistsFixer(path string) Fixer {
 			return "directory not created successfully.", err
 		}
 		return "directory created successfully.", nil
+	}
+}
+
+// And returns a Fixer. This method takes Fixers as its parameters. When the returned Fixer is
+// executed. If any of the Fixers included encounter an error, no further action is taken and the
+// error is returned. Use when there is a set multiple fixes which should be executed to mitigate a
+// single failed Checker.
+func And(fixers ...Fixer) Fixer {
+	return func() (string, error) {
+		for _, fxr := range fixers {
+			msg, err := fxr()
+			if err != nil {
+				return msg, err
+			}
+		}
+		return "all fixes mitigated.", nil
+	}
+}
+
+// And returns a Fixer. This method takes Fixers as its parameters. When the returned Fixer is
+// executed. As soon as the first fixer returns without error, execution stops and a successful
+// status is returned. An error is returned if all passed Fixers return an error. Use when any of
+// several Fixes could be used to mitigate a failed Checker.
+func Or(fixers ...Fixer) Fixer {
+	return func() (string, error) {
+		for _, fxr := range fixers {
+			msg, err := fxr()
+			if err == nil {
+				return msg, err
+			}
+		}
+		return "all fixes failed.", fmt.Errorf("all fixes failed.")
 	}
 }

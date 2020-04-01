@@ -6,21 +6,6 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 )
 
-// Checker is a function that checks whether a precondition is met. It returns
-// whether the check succeeded, an optional message to present to the user, and
-// error in case the check logic itself failed.
-//
-//   (true, *, nil) => HealthcheckStatusOK
-//   (false, *, nil) => HealthcheckStatusFailed
-//   (false, *, not-nil) => HealthcheckStatusAborted
-//   checker doesn't run => HealthcheckStatusOmitted (e.g. dependent checks where the upstream failed)
-type Checker func() (ok bool, msg string, err error)
-
-// Fixer is a function that will be called to attempt to fix a failing check. It
-// returns an optional message to present to the user, and error in case the fix
-// failed.
-type Fixer func() (msg string, err error)
-
 type item struct {
 	Name    string
 	Checker Checker
