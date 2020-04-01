@@ -268,7 +268,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	case "publish":
 		runenv.RecordMessage("i am the publisher")
 
-		for _, tst := range tests {
+		for j, tst := range tests {
+			runenv.RecordMessage(fmt.Sprintf("publisher on test case %d", j))
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
 				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
@@ -279,6 +280,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			}
 		}
 		// signal to subscribers they can start.
+		runenv.RecordMessage("signal entry to handoff")
 		_, err = writer.SignalEntry(ctx, handoff)
 		if err != nil {
 			return err
@@ -290,7 +292,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// if we are receiving, wait for the publisher to be done.
 		<-watcher.Barrier(ctx, handoff, int64(1))
 
-		for _, tst := range tests {
+		for j, tst := range tests {
+			runenv.RecordMessage(fmt.Sprintf("subscriber on test case %d", j))
 			ch := make(chan []byte, 1)
 			err = watcher.Subscribe(ctx, tst.Subtree, ch)
 			if err != nil {
