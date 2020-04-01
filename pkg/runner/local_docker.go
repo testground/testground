@@ -138,7 +138,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 
 	// sidecar healthcheck will build the image if necessary and start the container if necessary.
 	hcHelper.Enlist("local-sidecar",
-		hc.DefaultContainerChecker(ctx, ow, cli, "testground-sidecar"),
+		hc.DockerContainerChecker(ctx, ow, cli, "testground-sidecar"),
 		hc.And(
 			hc.DockerImageFixer(ctx, ow, cli, &sidecarImageOpts),
 			hc.DockerContainerFixer(ctx, ow, cli, &sidecarContainerOpts),

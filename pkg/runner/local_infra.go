@@ -25,14 +25,14 @@ func healthcheck_common_local_infra(hcHelper *hc.HealthcheckHelper, ctx context.
 	// testground-control network
 	hcHelper.Enlist(controlNetworkID,
 		hc.DockerNetworkChecker(ctx, ow, cli, controlNetworkID),
-		hc.DockerNetworkFixer(ctx, ow, cli, controlNetworkID, network.IPAMConfig{}),
+		hc.DockerNetworkFixer(ctx, ow, cli, controlNetworkID, network.IPAMConfig{Subnet: controlSubnet, Gateway: controlGateway}),
 	)
 
 	// prometheus built from Dockerfile.
 	// Check if container exists, if not, build image AND start container.
 	_, exposed, _ := nat.ParsePortSpecs([]string{"9090:9090"})
 	hcHelper.Enlist("local-prometheus",
-		hc.DefaultContainerChecker(ctx, ow, cli, "testground-prometheus"),
+		hc.DockerContainerChecker(ctx, ow, cli, "testground-prometheus"),
 		hc.And(
 			hc.DockerImageFixer(ctx, ow, cli, &docker.BuildImageOpts{
 				Name:     "testground-prometheus:latest",
@@ -55,7 +55,7 @@ func healthcheck_common_local_infra(hcHelper *hc.HealthcheckHelper, ctx context.
 	// pushgateway run from downloaded image with no additional configuraiton
 	_, exposed, _ = nat.ParsePortSpecs([]string{"9091:9091"})
 	hcHelper.Enlist("local-pushgateway",
-		hc.DefaultContainerChecker(ctx, ow, cli, "prometheus-pushgateway"),
+		hc.DockerContainerChecker(ctx, ow, cli, "prometheus-pushgateway"),
 		hc.DockerContainerFixer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "prometheus-pushgateway",
 			ContainerConfig: &container.Config{
@@ -68,86 +68,56 @@ func healthcheck_common_local_infra(hcHelper *hc.HealthcheckHelper, ctx context.
 			PullImageIfMissing: true,
 		}),
 	)
-}
 
-/*
-	hcHelper.Enlist("local-pushgateway",
-		hc.DefaultContainerChecker(ctx,
-			ow,
-			cli,
-			"prometheus-pushgateway"),
-		hc.DefaultContainerFixer(ctx,
-			ow,
-			cli,
-			&hc.ContainerFixerOpts{
-				ContainerName: "prometheus-pushgateway",
-				ImageName:     "prom/pushgateway",
-				NetworkID:     controlNetworkID,
-				PortSpecs:     []string{"9091:9091"},
-				Pull:          true,
-			},
-		),
-	)
-
-	// grafana
+	// grafana grafana from downloaded image with no additional configuration
+	_, exposed, _ = nat.ParsePortSpecs([]string{"3000:3000"})
 	hcHelper.Enlist("local-grafana",
-		hc.DefaultContainerChecker(ctx,
-			ow,
-			cli,
-			"testground-grafana"),
-		hc.DefaultContainerFixer(ctx,
-			ow,
-			cli,
-			&hc.ContainerFixerOpts{
-				ContainerName: "testground-grafana",
-				ImageName:     "bitnami/grafana",
-				NetworkID:     controlNetworkID,
-				PortSpecs:     []string{"3000:3000"},
-				Pull:          true,
+		hc.DockerContainerChecker(ctx, ow, cli, "testground-grafana"),
+		hc.DockerContainerFixer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-grafana",
+			ContainerConfig: &container.Config{
+				Image: "bitnami/grafana",
 			},
-		),
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+			},
+			PullImageIfMissing: true,
+		}),
 	)
 
-	// redis
+	// Redis, using a downloaded image and no additional configuration
+	_, exposed, _ = nat.ParsePortSpecs([]string{"6379:6379"})
 	hcHelper.Enlist("local-redis",
-		hc.DefaultContainerChecker(ctx,
-			ow,
-			cli,
-			"testground-redis"),
-		hc.DefaultContainerFixer(ctx,
-			ow,
-			cli,
-			&hc.ContainerFixerOpts{
-				ContainerName: "testground-redis",
-				ImageName:     "library/redis",
-				NetworkID:     controlNetworkID,
-				PortSpecs:     []string{"6379:6379"},
-				Pull:          true,
+		hc.DockerContainerChecker(ctx, ow, cli, "testground-redis"),
+		hc.DockerContainerFixer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-redis",
+			ContainerConfig: &container.Config{
+				Image: "library/redis",
 			},
-		),
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+			},
+			PullImageIfMissing: true,
+		}),
 	)
 
-	// metrics for redis, customized by commandline args
+	// metrics exporter for redis, configured by commandline flags.
+	_, exposed, _ = nat.ParsePortSpecs([]string{"1921:1921"})
 	hcHelper.Enlist("local-redis-exporter",
-		hc.DefaultContainerChecker(ctx,
-			ow,
-			cli,
-			"testground-redis-exporter"),
-		hc.DefaultContainerFixer(ctx,
-			ow,
-			cli,
-			&hc.ContainerFixerOpts{
-				ContainerName: "testground-redis-exporter",
-				ImageName:     "bitnami/redis-exporter",
-				NetworkID:     controlNetworkID,
-				PortSpecs:     []string{"1921:1921"},
-				Pull:          true,
-				Cmds: []string{
-					"--redis.addr",
-					"redis://testground-redis:6379",
-				},
+		hc.DockerContainerChecker(ctx, ow, cli, "testground-redis-exporter"),
+		hc.DockerContainerFixer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-redis-exporter",
+			ContainerConfig: &container.Config{
+				Image: "library/redis-exporter",
+				Cmd:   []string{"--redis.addr", "redis://testground-redis:6379"},
 			},
-		),
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+			},
+			PullImageIfMissing: true,
+		}),
 	)
 }
-*/

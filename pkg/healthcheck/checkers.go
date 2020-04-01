@@ -25,7 +25,7 @@ type Checker func() (ok bool, msg string, err error)
 // DefaultContainerChecker returns a Checker, a method which when executed will check for the
 // existance of the container. This should be considered a sensible default for checking whether
 // docker containers are started.
-func DefaultContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
+func DockerContainerChecker(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) Checker {
 	return func() (bool, string, error) {
 		ci, err := docker.CheckContainer(ctx, ow, cli, name)
 		if err != nil || ci == nil {
