@@ -111,12 +111,12 @@ func (w *Watcher) Subscribe(ctx context.Context, subtree *Subtree, ch interface{
 		return err
 	}
 
-	root := w.root + ":" + subtree.GroupKey
+	key := w.root + ":" + subtree.GroupKey
 	sub := &subscription{
 		w:       w,
 		subtree: subtree,
 		client:  w.client.WithContext(ctx),
-		key:     root,
+		key:     key,
 		outCh:   chV,
 	}
 
