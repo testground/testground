@@ -191,7 +191,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	logging.S().Infof("finished run with ID: %s", rout.RunID)
 
 	// if the `collect` flag is not set, we are done, just return
-	collectBool := c.Bool("collect")
+	collectOpt := c.Bool("collect")
 	if !collectBool {
 		return nil
 	}
