@@ -214,7 +214,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 	st := &sync.Subtree{
 		GroupKey:    "instances",
-		PayloadType: reflect.TypeOf((*string)(nil)),
+		PayloadType: reflect.TypeOf(&runenv.TestRun),
 		KeyFunc: func(val interface{}) string {
 			return string(*val.(*string))
 		},

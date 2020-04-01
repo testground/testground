@@ -62,4 +62,4 @@ name = "subtree"
 instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10000 }
+  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 2000 }
