@@ -307,7 +307,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		<-watcher.Barrier(ctx, handoff, int64(1))
 
 		for _, tst := range tests {
-			ch := make(chan *string, 100)
+			ch := make(chan *string, 1)
 			err = watcher.Subscribe(ctx, tst.Subtree, ch)
 			if err != nil {
 				return err
@@ -320,7 +320,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 					return fmt.Errorf("received unexpected value")
 				}
 				if i%500 == 0 {
-					runenv.RecordMessage("received %d items", i)
+					runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
 				}
 			}
 		}
