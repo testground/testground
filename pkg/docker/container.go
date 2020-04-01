@@ -27,6 +27,7 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 	ow.Debug("checking state of container")
 
 	// Check if a ${name} container exists.
+	// N.B. docker filter is a substring search, not an exact match
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
 		Filters: filters.NewArgs(filters.Arg("name", name)),
