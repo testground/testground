@@ -279,6 +279,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 					return err
 				}
 				t.ObserveDuration()
+
+				if i%500 == 0 {
+					runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
+				}
 			}
 		}
 		// signal to subscribers they can start.
@@ -301,6 +305,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
 
 	case "receive":
+		defer writer.SignalEntry(ctx, end)
+
 		runenv.RecordMessage("i am a subscriber")
 
 		// if we are receiving, wait for the publisher to be done.
