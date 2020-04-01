@@ -126,7 +126,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 // BarrierBench tests the time it takes to wait on Barriers, waiting on a
 // different number of instances in each loop.
 func BarrierBench(runenv *runtime.RunEnv) error {
-	iterations := runenv.IntParam("iterations")
+	iterations := runenv.IntParam("barrier_iterations")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
@@ -199,7 +199,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 func SubtreeBench(runenv *runtime.RunEnv) error {
 	rand.Seed(time.Now().UnixNano())
 
-	iterations := runenv.IntParam("iterations")
+	iterations := runenv.IntParam("subtree_iterations")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()

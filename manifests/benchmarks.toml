@@ -36,7 +36,8 @@ name = "all"
 instances = { min = 1, max = 20000, default = 1 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  barrier_iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  subtree_iterations = { type = "int", desc = "number of iterations of the subtree test", unit = "iteration", default = 2000 }
 
 [[testcases]]
 name = "startup"
@@ -55,11 +56,11 @@ name = "barrier"
 instances = { min = 1, max = 50000, default = 1 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  barrier_iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
 
 [[testcases]]
 name = "subtree"
 instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10000 }
+  subtree_iterations = { type = "int", desc = "number of iterations of the subtree test", unit = "iteration", default = 2000 }
