@@ -35,7 +35,20 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 		return nil, err
 	}
 
-	c := containers[0]
+	var c *types.Container
+	for i, cont := range containers {
+		for _, contname := range cont.Names {
+			if contname == name || contname == "/"+name {
+				c = &containers[i]
+				break
+			}
+		}
+	}
+
+	// container not found
+	if c == nil {
+		return nil, nil
+	}
 
 	ow.Debugw("container found", "container_id", c.ID, "state", c.State)
 
@@ -46,7 +59,6 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 	}
 
 	return &ci, nil
-
 }
 
 // EnsureContainer ensures there's a container started of the specified kind.
