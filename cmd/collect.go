@@ -55,12 +55,7 @@ func collectCommand(c *cli.Context) error {
 		return err
 	}
 
-	err = collect(ctx, api, runner, id, output)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return collect(ctx, api, runner, id, output)
 }
 
 func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
