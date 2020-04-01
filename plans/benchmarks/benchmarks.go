@@ -128,7 +128,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 func BarrierBench(runenv *runtime.RunEnv) error {
 	iterations := runenv.IntParam("barrier_iterations")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
@@ -201,7 +201,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 	iterations := runenv.IntParam("subtree_iterations")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("subtree_test_timeout_secs"))*time.Second)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
