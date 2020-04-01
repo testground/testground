@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -30,16 +31,15 @@ func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 	log.Debug("checking state of volume")
 
 	// Check whether volume exists.
-	volumes, err := cli.VolumeList(ctx, filters.Args{})
+	exactName := fmt.Sprintf("^%s$", opts.Name)
+	volumes, err := cli.VolumeList(ctx, filters.NewArgs(filters.Arg("name", exactName)))
 	if err != nil {
 		return nil, false, err
 	}
 
-	for _, v := range volumes.Volumes {
-		if v.Name == opts.Name { // We found a match, volume exists.
-			log.Info("found existing volume")
-			return v, false, nil
-		}
+	if len(volumes.Volumes) > 0 {
+		log.Info("found existing volume")
+		return volumes.Volumes[0], false, err
 	}
 
 	log.Infof("creating new docker volume")
