@@ -94,7 +94,8 @@ func collect(ctx context.Context, cl *client.Client, runner string, runid string
 
 	if !cr.Exists {
 		logging.S().Errorw("no such testplan run", "run_id", runid, "runner", runner)
-		return nil
+
+		return os.Remove(outputFile)
 	}
 
 	logging.S().Infof("created file: %s", outputFile)

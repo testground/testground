@@ -192,7 +192,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	// if the `collect` flag is not set, we are done, just return
 	collectOpt := c.Bool("collect")
-	if !collectBool {
+	if !collectOpt {
 		return nil
 	}
 
@@ -201,10 +201,5 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
 	}
 
-	err = collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
 }
