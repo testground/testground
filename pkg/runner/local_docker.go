@@ -56,6 +56,8 @@ type LocalDockerRunnerConfig struct {
 	// Background avoids tailing the output of containers, and displaying it as
 	// log messages (default: false).
 	Background bool `toml:"background"`
+	// number of open files
+	Ulimits []string `toml: "ulimits"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -64,6 +66,7 @@ var defaultConfig = LocalDockerRunnerConfig{
 	KeepContainers: false,
 	Unstarted:      false,
 	Background:     false,
+	Ulimits:        []string{""},
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -548,6 +551,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				},
 			}
 
+			ulimits, err := conv.ToUlimits(cfg.Ulimits)
+			if err != nil {
+				ow.Warnf("invalid ulimit will be ignored %v", err)
+			}
+
 			hcfg := &container.HostConfig{
 				NetworkMode:     container.NetworkMode(r.controlNetworkID),
 				PublishAllPorts: true,
@@ -556,11 +564,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					Source: odir,
 					Target: runenv.TestOutputsPath,
 				}},
-				Resources: container.Resources{
-					Ulimits: []*units.Ulimit{
-						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
-					},
-				},
+				Resources: container.Resources{Ulimits: ulimits},
 			}
 
 			// Create the container.

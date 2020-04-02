@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/docker/go-units"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -81,4 +82,22 @@ func ToEnvVar(input map[string]string) []v1.EnvVar {
 		ind++
 	}
 	return out
+}
+
+// ToUlimits takes a slice of strings formatted in a particular way. It returns a new slice
+// with the strings parsed as Ulimits such that they can be used by docker. If any of the ulimit
+// strings are improperly formatted, they will be ignored.
+// Each element in the input should be formatted in one of the following ways:
+// nofile=512:1024
+// nofile=1024
+// cpu=2:4
+// cpu=6
+func ToUlimits(input []string) (out []*units.Ulimit, err error) {
+	for _, s := range input {
+		parsed, err := units.ParseUlimit(s)
+		if err == nil {
+			out = append(out, parsed)
+		}
+	}
+	return
 }
