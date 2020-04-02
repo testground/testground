@@ -134,6 +134,10 @@ redis:
   master:
     persistence:
       enabled: false
+    livenessProbe:
+      enabled: false
+    readinessProbe:
+      enabled: false
     extraFlags:
       - "--maxclients 100000"
     podAnnotations:
