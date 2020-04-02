@@ -803,6 +803,9 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, ow *rpc.Outpu
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
+			},
 		},
 		PullImageIfMissing: pull,
 	})
