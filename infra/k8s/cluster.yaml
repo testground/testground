@@ -14,7 +14,7 @@ spec:
   configBase: ${KOPS_STATE_STORE}/${NAME}
   docker:
     defaultUlimit:
-    - "nofile=2097152:2097152"
+    - "nofile=${ULIMIT_NOFILE}"
   etcdClusters:
   - cpuRequest: 200m
     etcdMembers:
