@@ -396,6 +396,9 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
 		select {
 		case info := <-attribCh:
+			if info.Seq == testNode.info.Seq {
+				continue
+			}
 			otherNodes[info.Addrs.ID] = info
 		case <-ctx.Done():
 			return nil, nil, ctx.Err()
@@ -645,7 +648,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int,int) {
-		slope := 20
+		slope := 200
 		turnNum := int(math.Floor(float64(seq)/float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
@@ -847,13 +850,23 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 	}
 
 	// Dial to all the other peers.
+	var err error
+	numFailedConnections := 0
+	numAttemptedConnections := 0
 	for _, ai := range toDial {
 		if ai.ID == dht.Host().ID() {
 			continue
 		}
-		if err := tryConnect(ctx, ai, 10); err != nil {
-			return err
+		numAttemptedConnections++
+		if err = tryConnect(ctx, ai, 10); err != nil {
+			numFailedConnections++
 		}
+	}
+	if float64(numFailedConnections)/float64(numAttemptedConnections) > 0.75 {
+		return errors.Wrap(err, "too high percentage of failed connections")
+	}
+	if numAttemptedConnections - numFailedConnections <= 1 {
+		return errors.Wrap(err, "insufficient connections formed")
 	}
 
 	return nil
