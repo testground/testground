@@ -45,7 +45,14 @@ func Invoke(tc func(*RunEnv) error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	setupHTTPListener(runenv)
-	metricsDoneCh := setupMetrics(ctx, runenv)
+	pushGatewayEnabled := false
+	var metricsDoneCh chan error
+	if pushGatewayEnabled {
+		metricsDoneCh = setupMetrics(ctx, runenv)
+	} else {
+		metricsDoneCh = make(chan error, 1)
+		metricsDoneCh <- nil
+	}
 
 	runenv.RecordStart()
 
