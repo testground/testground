@@ -187,11 +187,11 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 				return
 			}
 		}
+
 		if last > required {
-			resCh <- fmt.Errorf("when waiting on %s; too many elements, required %d, got %d", state, required, last)
-		} else {
-			resCh <- nil
+			log.Debugf("barrier on state %s: exceeded target count; required: %d, got: %d")
 		}
+		resCh <- nil
 	}()
 
 	return resCh
