@@ -25,6 +25,14 @@ spec:
       name: a
     memoryRequest: 100Mi
     name: events
+  hooks:
+    - name: disable-transparent-hugepages.service
+      before:
+      - docker.service
+      - kubelet.service
+      manifest: |
+        Type=oneshot
+        ExecStart=/bin/sh -c "echo never >/sys/kernel/mm/transparent_hugepage/enabled"
   iam:
     allowContainerRegistry: true
     legacy: false
