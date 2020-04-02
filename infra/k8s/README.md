@@ -238,7 +238,7 @@ $ kubectl get pods --namespace monitoring
 6. Get access to the Redis shell
 
 ```sh
-$ kubectl port-forward svc/redis-master 6379:6379 &
+$ kubectl port-forward svc/testground-infra-redis-master 6379:6379 &
 $ redis-cli -h localhost -p 6379
 ```
 
