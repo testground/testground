@@ -10,7 +10,6 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"go.uber.org/zap"
@@ -74,46 +73,9 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 
 	go func() {
 		for e := range events {
-			if e.Terminate != nil {
-				var msg string
-				switch e.Terminate.Reason {
-				case kaddht.LookupStopped:
-					msg = "stopped"
-				case kaddht.LookupCancelled:
-					msg = "cancelled"
-				case kaddht.LookupStarvation:
-					msg = "starvation"
-				case kaddht.LookupCompleted:
-					msg = "completed"
-				}
-				log.Infow("lookup termination", "lookupID", e.ID, "targetKad", e.Key, "reason", msg)
-			}
-			if e.Update != nil {
-				log.Infow("update", "lookupID", e.ID, "targetKad", e.Key,
-					"cause", e.Update.Cause,
-					"source", e.Update.Source,
-					"heard", e.Update.Heard,
-					"waiting", e.Update.Waiting,
-					"queried", e.Update.Queried,
-					"unreachable", e.Update.Unreachable,
-					"causeKad", kbucket.ConvertPeerID(e.Update.Cause),
-					"sourceKad", kbucket.ConvertPeerID(e.Update.Source),
-					"heardKad", peerIDsToKadIDs(e.Update.Heard),
-					"waitingKad", peerIDsToKadIDs(e.Update.Waiting),
-					"queriedKad", peerIDsToKadIDs(e.Update.Queried),
-					"unreachableKad", peerIDsToKadIDs(e.Update.Unreachable),
-				)
-			}
+			log.Infow("lookup event", "info", e)
 		}
 	}()
 
 	return ectx
-}
-
-func peerIDsToKadIDs(peers []peer.ID) []kbucket.ID {
-	kadIDs := make([]kbucket.ID, len(peers))
-	for i := range peers {
-		kadIDs[i] = kbucket.ConvertPeerID(peers[i])
-	}
-	return kadIDs
 }

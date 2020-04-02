@@ -167,9 +167,10 @@ function condense($fileDir) {
 	$lookupOut | %{
 		$_.ts = ($_.ts - $start)/$ns;
 		$_.node = -join $_.node[-4..-1];
+		$_.nodeKad = -join $_.nodeKad[0..4];
 		$_.target = -join $_.target[-4..-1];
-		$_.eventID = -join $_.eventID[0..4];
-		$_.targetKad = -join $_.targetKad[0..4];
+		$_.info.ID = -join $_.info.ID[0..4];
+		#$_.targetKad = -join $_.targetKad[0..4];
 
 		if ($null -ne $_.cause) {
 			sliceLast $_ cause
@@ -187,11 +188,11 @@ function condense($fileDir) {
 
 		}
 		$_} | Select-Object -Property * -ExcludeProperty heard,waiting,queried,unreachable |
-	 %{ $_ | ConvertTo-Json -Compress | Add-Content $fileDir/lookupcmp.json }
+	 %{ $_ | ConvertTo-Json -Compress -Depth 10 | Add-Content $fileDir/lookupcmp.json }
 
 	$runOut = gci $fileDir/run.out | gc | ConvertFrom-Json
 	$runOut | %{$_.ts = ($_.ts - $start)/$ns; $_} |
-	%{ $_ | ConvertTo-Json -Compress | Add-Content $fileDir/runcmp.json }
+	%{ $_ | ConvertTo-Json -Compress -Depth 10 | Add-Content $fileDir/runcmp.json }
 }
 
 function sliceFirst($obj, $field) {
