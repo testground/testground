@@ -305,7 +305,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
 
 	case "receive":
-		defer writer.SignalEntry(ctx, end)
+		defer func() { _, _ = writer.SignalEntry(ctx, end) }()
 
 		runenv.RecordMessage("i am a subscriber")
 
