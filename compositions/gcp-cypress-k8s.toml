@@ -13,29 +13,82 @@
     registry_type = "aws"
 
 [[groups]]
-  id = "cypress"
+  id = "cypress-passive"
   [groups.instances]
-    count = 0
-    percentage = 1.0
+    count = 775
+    percentage = 0.0
   [groups.build]
+    Selectors = ["cypress"]
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "v0.4.2-0.20200204202258-35d3e4a5d43e"
+      version = "12db17a86ca7f8be9b6166990fd874bf7d4e665e"
 
     [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p-autonat"
-      version = "v0.1.2-0.20200204200147-902af8cb7b6a"
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-dht:5490f54794b3"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:bb35ace44ee3"
     [groups.run.test_params]
+      alpha = "6"
+      beta = "3"
+      bs_strategy = "6"
       bucket_size = "10"
-      client_mode = "false"
-      dbg = "0"
-      f_undialable = "0.0"
-      n_bootstrap = "-4"
-      n_find_peers = "5"
-      n_paths = "1"
-      n_providing = "1"
-      record_count = "5"
+      group_order = "1"
+      latency = "100"
+      timeout_secs = "600"
+
+[[groups]]
+  id = "cypress-searcher"
+  [groups.instances]
+    count = 20
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "12db17a86ca7f8be9b6166990fd874bf7d4e665e"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
+  [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:bb35ace44ee3"
+    [groups.run.test_params]
+      alpha = "6"
+      beta = "3"
+      bs_strategy = "6"
+      bucket_size = "10"
+      group_order = "2"
+      latency = "100"
+      record_count = "1"
+      search_records = "true"
+      timeout_secs = "600"
+
+[[groups]]
+  id = "cypress-bs"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "12db17a86ca7f8be9b6166990fd874bf7d4e665e"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "v0.7.1-0.20200324235900-45048e60077c"
+  [groups.run]
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:bb35ace44ee3"
+    [groups.run.test_params]
+      alpha = "6"
+      beta = "3"
+      bootstrapper = "true"
+      bs_strategy = "6"
+      bucket_size = "10"
+      group_order = "0"
+      latency = "100"
       timeout_secs = "600"

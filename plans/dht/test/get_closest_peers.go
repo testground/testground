@@ -18,16 +18,16 @@ import (
 )
 
 func GetClosestPeers(runenv *runtime.RunEnv) error {
-	opts := GetCommonOpts(runenv)
+	commonOpts := GetCommonOpts(runenv)
 	recordCount := runenv.IntParam("record_count")
 	finder := runenv.BooleanParam("search_records")
 
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	//defer watcher.Close()
+	//defer writer.Close()
 
 	ri := &RunInfo{
 		runenv:  runenv,
@@ -35,7 +35,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 		writer:  writer,
 	}
 
-	node, peers, err := Setup(ctx, ri, opts)
+	node, others, err := Setup(ctx, ri, commonOpts)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	t := time.Now()
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, ri, opts, node, peers, stager, GetBootstrapNodes(opts, node, peers)); err != nil {
+	if err = Bootstrap(ctx, ri, commonOpts, node, others, stager, GetBootstrapNodes(commonOpts, node, others)); err != nil {
 		return err
 	}
 
@@ -57,7 +57,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 		ImprovementDir: -1,
 	}, float64(time.Since(t).Nanoseconds()))
 
-	if opts.RandomWalk {
+	if commonOpts.RandomWalk {
 		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
 			return err
 		}
@@ -65,7 +65,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 
 	t = time.Now()
 
-	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
+	if err := SetupNetwork(ctx, ri, commonOpts.Latency); err != nil {
 		return err
 	}
 
@@ -107,7 +107,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 				pids, err := node.dht.GetClosestPeers(ectx, c.KeyString())
 				cancel()
 
-				peers := make([]peer.ID, 0, opts.BucketSize)
+				peers := make([]peer.ID, 0, commonOpts.BucketSize)
 				for p := range pids {
 					peers = append(peers, p)
 				}
@@ -125,7 +125,8 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 						ImprovementDir: 1,
 					}, float64(len(pids)))
 
-					outputGCP(runenv, node.info.Addrs.ID, c, peers)
+					actualClosest := getClosestPeerRanking(node, others, c)
+					outputGCP(runenv, node.info.Addrs.ID, c, peers, actualClosest)
 				} else {
 					runenv.RecordMessage("Error during GCP %w", err)
 				}
@@ -156,7 +157,18 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func outputGCP(runenv *runtime.RunEnv, me peer.ID, target cid.Cid, peers []peer.ID) {
+func getClosestPeerRanking(me *NodeParams, others map[peer.ID]*NodeInfo, target cid.Cid) []peer.ID {
+	var allPeers []peer.ID
+	allPeers = append(allPeers, me.dht.PeerID())
+	for p := range others {
+		allPeers = append(allPeers, p)
+	}
+
+	kadTarget := kbucket.ConvertKey(target.KeyString())
+	return kbucket.SortClosestPeers(allPeers, kadTarget)
+}
+
+func outputGCP(runenv *runtime.RunEnv, me peer.ID, target cid.Cid, peers, rankedPeers []peer.ID) {
 	peerStrs := make([]string, len(peers))
 	kadPeerStrs := make([]string, len(peers))
 
@@ -165,13 +177,46 @@ func outputGCP(runenv *runtime.RunEnv, me peer.ID, target cid.Cid, peers []peer.
 		kadPeerStrs[i] = hex.EncodeToString(kbucket.ConvertKey(string(p)))
 	}
 
+	actualClosest := rankedPeers[:len(peers)]
+
 	nodeLogger.Infow("gcp-results",
 		"me", me.String(),
-		"KadMe", hex.EncodeToString(kbucket.ConvertKey(string(me))),
-		"target", target.String(),
-		"peers", peerStrs,
-		"KadTarget", hex.EncodeToString(kbucket.ConvertKey(target.KeyString())),
-		"KadPeers", kadPeerStrs,
+		"KadMe", kbucket.ConvertKey(string(me)),
+		"target", target,
+		"peers", peers,
+		"actual", actualClosest,
+		"KadTarget", kbucket.ConvertKey(target.KeyString()),
+		"KadPeers", peerIDsToKadIDs(peers),
+		"KadActual", peerIDsToKadIDs(actualClosest),
+		"Scores", gcpScore(peers, rankedPeers),
 	)
+
 	nodeLogger.Sync()
+}
+
+func gcpScore(peers, rankedPeers []peer.ID) []int {
+	getIndex := func(peers []peer.ID, target peer.ID) int {
+		for i, p := range peers {
+			if p == target {
+				return i
+			}
+		}
+		return -1
+	}
+
+	// score is distance between actual ranking and our ranking
+	var scores []int
+	for i, p := range peers {
+		diff := getIndex(rankedPeers, p) - i
+		scores = append(scores, diff)
+	}
+	return scores
+}
+
+func peerIDsToKadIDs(peers []peer.ID) []kbucket.ID {
+	kadIDs := make([]kbucket.ID, len(peers))
+	for i, p := range peers {
+		kadIDs[i] = kbucket.ConvertPeerID(p)
+	}
+	return kadIDs
 }
