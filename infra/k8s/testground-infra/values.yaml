@@ -132,6 +132,8 @@ redis:
       - name: net.netfilter.nf_conntrack_max
         value: "100000"
   master:
+    persistence:
+      enabled: false
     extraFlags:
       - "--maxclients 100000"
     podAnnotations:
