@@ -854,6 +854,9 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
+			},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
 	})
