@@ -803,6 +803,9 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, ow *rpc.Outpu
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
+			},
 		},
 		PullImageIfMissing: pull,
 	})
@@ -850,6 +853,9 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 				Ulimits: []*units.Ulimit{
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
+			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
 			},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
