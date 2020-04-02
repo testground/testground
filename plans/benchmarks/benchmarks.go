@@ -126,9 +126,9 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 // BarrierBench tests the time it takes to wait on Barriers, waiting on a
 // different number of instances in each loop.
 func BarrierBench(runenv *runtime.RunEnv) error {
-	iterations := runenv.IntParam("iterations")
+	iterations := runenv.IntParam("barrier_iterations")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
@@ -199,9 +199,9 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 func SubtreeBench(runenv *runtime.RunEnv) error {
 	rand.Seed(time.Now().UnixNano())
 
-	iterations := runenv.IntParam("iterations")
+	iterations := runenv.IntParam("subtree_iterations")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("subtree_test_timeout_secs"))*time.Second)
 	defer cancel()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
@@ -305,7 +305,12 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
 
 	case "receive":
-		defer func() { _, _ = writer.SignalEntry(ctx, end) }()
+		defer func() {
+			_, err := writer.SignalEntry(ctx, end)
+			if err != nil {
+				panic(err)
+			}
+		}()
 
 		runenv.RecordMessage("i am a subscriber")
 
