@@ -116,7 +116,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -146,7 +146,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -177,7 +177,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -208,7 +208,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"

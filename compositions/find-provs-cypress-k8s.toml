@@ -5,7 +5,7 @@
 [global]
   plan = "dht"
   case = "find-providers"
-  total_instances = 2170
+  total_instances = 1170
   builder = "docker:go"
   runner = "cluster:k8s"
   [global.build_config]
@@ -15,14 +15,14 @@
 [[groups]]
   id = "cypress-passive"
   [groups.instances]
-    count = 2020
+    count = 1020
     percentage = 0.0
   [groups.build]
     Selectors = ["cypress"]
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -32,7 +32,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -52,7 +52,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -62,7 +62,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -83,7 +83,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -93,7 +93,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -114,7 +114,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -124,7 +124,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -145,7 +145,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "d45f88d6ae51086aff9c97790c5859b9861e218f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -155,7 +155,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -176,13 +176,17 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "28ea636110d3177d60fa0f243cde67c288204f0f"
+      version = "1506cc0533d2548eccaf006ea4ab57c9134ad2ce"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
-      version = "v0.7.1-0.20200324235900-45048e60077c"
+      version = "v0.7.3-0.20200330204848-85060e8d229f"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-xor"
+      version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:2bb1237d3e09"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:7bddde45b226"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
