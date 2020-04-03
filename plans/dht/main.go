@@ -12,6 +12,7 @@ var testCases = []func(*runtime.RunEnv) error{
 	test.StoreGetValue,
 	test.GetClosestPeers,
 	test.BarrierTest,
+	test.BootstrapNetwork,
 }
 
 func main() {
