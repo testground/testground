@@ -1,6 +1,8 @@
 notifications:
   email: false
 
+dist: bionic
+
 language: go
 
 env:
