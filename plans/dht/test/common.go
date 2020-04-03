@@ -93,9 +93,9 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 		AutoRefresh: runenv.BooleanParam("auto_refresh"),
 		RandomWalk:  runenv.BooleanParam("random_walk"),
 
-		BucketSize:     runenv.IntParam("bucket_size"),
-		Alpha:          runenv.IntParam("alpha"),
-		Beta:           runenv.IntParam("beta"),
+		BucketSize: runenv.IntParam("bucket_size"),
+		Alpha:      runenv.IntParam("alpha"),
+		Beta:       runenv.IntParam("beta"),
 
 		ClientMode: runenv.BooleanParam("client_mode"),
 		Datastore:  OptDatastore(runenv.IntParam("datastore")),
@@ -124,9 +124,9 @@ type NodeInfo struct {
 }
 
 type NodeProperties struct {
-	Bootstrapper bool
-	Undialable   bool
-	ExpectedServer  bool
+	Bootstrapper   bool
+	Undialable     bool
+	ExpectedServer bool
 }
 
 var ConnManagerGracePeriod = 1 * time.Second
@@ -366,9 +366,9 @@ func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[
 			Seq:      testSeq,
 			GroupSeq: groupSeq,
 			Properties: NodeProperties{
-				Bootstrapper: opts.Bootstrapper,
-				Undialable:   opts.Undialable,
-				ExpectedServer:  opts.ExpectServer,
+				Bootstrapper:   opts.Bootstrapper,
+				Undialable:     opts.Undialable,
+				ExpectedServer: opts.ExpectServer,
 			},
 			Addrs: nil,
 		},
@@ -636,9 +636,9 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	expGrad := func(seq int) (int, int) {
 		switch seq {
 		case 0:
-			return 0,0
+			return 0, 0
 		case 1:
-			return 1,1
+			return 1, 1
 		default:
 			turnNum := int(math.Floor(math.Log2(float64(seq)))) + 1
 			waitFor := int(math.Exp2(float64(turnNum - 2)))
@@ -647,9 +647,9 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	}
 	_ = expGrad
 
-	linear := func(seq int) (int,int) {
+	linear := func(seq int) (int, int) {
 		slope := 200
-		turnNum := int(math.Floor(float64(seq)/float64(slope)))
+		turnNum := int(math.Floor(float64(seq) / float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
 			waitFor = 0
@@ -804,17 +804,16 @@ func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) 
 	for p, info := range peers {
 		if info.Properties.ExpectedServer {
 			k := kadPeerID(p)
-			kn = append(kn , k)
+			kn = append(kn, k)
 			knownNodes.Add(k)
 		}
 	}
 
 	rtPeerIDs := dht.RoutingTable().ListPeers()
 	rtPeers := make([]key.Key, len(rtPeerIDs))
-	for i , p := range rtPeerIDs {
+	for i, p := range rtPeerIDs {
 		rtPeers[i] = kadPeerID(p)
 	}
-
 
 	ri.runenv.RecordMessage("rt: %v | all: %v", rtPeers, kn)
 	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
@@ -824,7 +823,7 @@ func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) 
 }
 
 func kadPeerID(p peer.ID) key.Key {
-	return key.Key(kbucket.ConvertPeerID(p))
+	return key.KbucketIDToKey(kbucket.ConvertPeerID(p))
 }
 
 // Connect connects a host to a set of peers.
@@ -865,7 +864,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 	if float64(numFailedConnections)/float64(numAttemptedConnections) > 0.75 {
 		return errors.Wrap(err, "too high percentage of failed connections")
 	}
-	if numAttemptedConnections - numFailedConnections <= 1 {
+	if numAttemptedConnections-numFailedConnections <= 1 {
 		return errors.Wrap(err, "insufficient connections formed")
 	}
 
