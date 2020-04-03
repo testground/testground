@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/libp2p/go-libp2p-core/peer"
-	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
+
+	"github.com/libp2p/go-libp2p-core/peer"
+	kbucket "github.com/libp2p/go-libp2p-kbucket"
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
