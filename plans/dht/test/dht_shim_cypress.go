@@ -10,8 +10,12 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
+	"github.com/libp2p/go-libp2p-xor/kademlia"
+	"github.com/libp2p/go-libp2p-xor/key"
+	"github.com/libp2p/go-libp2p-xor/trie"
 	"go.uber.org/zap"
 )
 
@@ -57,7 +61,7 @@ var (
 	sqlogger *zap.SugaredLogger
 )
 
-func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
+func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
 	sqonce.Do(func() {
 		var err error
 		_, sqlogger, err = runenv.CreateStructuredAsset("dht_lookups.out", runtime.StandardJSONConfig())
@@ -68,8 +72,7 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 	})
 
 	ectx, events := kaddht.RegisterForLookupEvents(ctx)
-	nodeID := node.host.ID()
-	log := sqlogger.With("node", nodeID, "nodeKad", kbucket.ConvertPeerID(nodeID) , "target", target)
+	log := sqlogger
 
 	go func() {
 		for e := range events {
@@ -78,4 +81,34 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *No
 	}()
 
 	return ectx
+}
+
+// TableHealth computes health reports for a network of nodes, whose routing contacts are given.
+func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {
+	// Construct global network view trie
+	var kn []key.Key
+	knownNodes := trie.New()
+	for p, info := range peers {
+		if info.Properties.ExpectedServer {
+			k := kadPeerID(p)
+			kn = append(kn, k)
+			knownNodes.Add(k)
+		}
+	}
+
+	rtPeerIDs := dht.RoutingTable().ListPeers()
+	rtPeers := make([]key.Key, len(rtPeerIDs))
+	for i, p := range rtPeerIDs {
+		rtPeers[i] = kadPeerID(p)
+	}
+
+	ri.runenv.RecordMessage("rt: %v | all: %v", rtPeers, kn)
+	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
+	ri.runenv.RecordMessage("table health: %s", report.String())
+
+	return
+}
+
+func kadPeerID(p peer.ID) key.Key {
+	return key.KbucketIDToKey(kbucket.ConvertPeerID(p))
 }

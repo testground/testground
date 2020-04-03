@@ -39,6 +39,8 @@ func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {retur
 
 func getAllProvRecordsNum() int {return 100}
 
-func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
+func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
 	return ctx
 }
+
+func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {}

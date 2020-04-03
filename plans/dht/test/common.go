@@ -28,12 +28,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
-	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	swarm "github.com/libp2p/go-libp2p-swarm"
 	tptu "github.com/libp2p/go-libp2p-transport-upgrader"
-	"github.com/libp2p/go-libp2p-xor/kademlia"
-	"github.com/libp2p/go-libp2p-xor/key"
-	"github.com/libp2p/go-libp2p-xor/trie"
 	tcp "github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/multiformats/go-multiaddr-net"
@@ -796,36 +792,6 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	return nil
 }
 
-// TableHealth computes health reports for a network of nodes, whose routing contacts are given.
-func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {
-	// Construct global network view trie
-	var kn []key.Key
-	knownNodes := trie.New()
-	for p, info := range peers {
-		if info.Properties.ExpectedServer {
-			k := kadPeerID(p)
-			kn = append(kn, k)
-			knownNodes.Add(k)
-		}
-	}
-
-	rtPeerIDs := dht.RoutingTable().ListPeers()
-	rtPeers := make([]key.Key, len(rtPeerIDs))
-	for i, p := range rtPeerIDs {
-		rtPeers[i] = kadPeerID(p)
-	}
-
-	ri.runenv.RecordMessage("rt: %v | all: %v", rtPeers, kn)
-	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
-	ri.runenv.RecordMessage("table health: %s", report.String())
-
-	return
-}
-
-func kadPeerID(p peer.ID) key.Key {
-	return key.KbucketIDToKey(kbucket.ConvertPeerID(p))
-}
-
 // Connect connects a host to a set of peers.
 //
 // Automatically skips our own peer.
@@ -840,7 +806,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 				runenv.RecordMessage("failed to dial peer %v (attempt %d), err: %s", ai.ID, i, err)
 			}
 			select {
-			case <-time.After(time.Duration(rand.Intn(5000))*time.Millisecond + 8*time.Second):
+			case <-time.After(time.Duration(rand.Intn(3000))*time.Millisecond + 2*time.Second):
 			case <-ctx.Done():
 				return fmt.Errorf("error while dialing peer %v, attempts made: %d: %w", ai.Addrs, i, ctx.Err())
 			}
@@ -857,7 +823,7 @@ func Connect(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT, t
 			continue
 		}
 		numAttemptedConnections++
-		if err = tryConnect(ctx, ai, 10); err != nil {
+		if err = tryConnect(ctx, ai, 3); err != nil {
 			numFailedConnections++
 		}
 	}
@@ -963,7 +929,7 @@ func (s *BatchStager) End() error {
 
 	t = time.Now()
 
-	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total))
+	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total-5))
 	s.re.RecordMetric(&runtime.MetricDefinition{
 		Name:           "barrier" + string(stage),
 		Unit:           "ns",
@@ -1058,7 +1024,7 @@ func (s *GradualStager) End() error {
 		return err
 	}
 	s.re.RecordMessage("%d is done", s.seq)
-	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount))
+	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount-5))
 	return err
 }
 

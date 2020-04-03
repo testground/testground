@@ -74,6 +74,6 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, t
 		}
 	}()
 
-	retCtx := specializedTraceQuery(ectx, runenv, node, target)
+	retCtx := specializedTraceQuery(ectx, runenv)
 	return retCtx
 }

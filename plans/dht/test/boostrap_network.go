@@ -22,23 +22,25 @@ func BootstrapNetwork(runenv *runtime.RunEnv) error {
 		writer:  writer,
 	}
 
-	node, peers, err := Setup(ctx, ri, commonOpts)
+	ectx := specializedTraceQuery(ctx, ri.runenv)
+
+	node, peers, err := Setup(ectx, ri, commonOpts)
 	if err != nil {
 		return err
 	}
 
 	defer outputGraph(node.dht, "end")
-	defer Teardown(ctx, ri)
+	defer Teardown(ectx, ri)
 
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
+	stager := NewBatchStager(ectx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, ri, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
+	if err = Bootstrap(ectx, ri, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
 		return err
 	}
 
 	if commonOpts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
+		if err = RandomWalk(ectx, runenv, node.dht); err != nil {
 			return err
 		}
 	}
