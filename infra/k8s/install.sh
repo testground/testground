@@ -23,6 +23,12 @@ echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
+# Set default options (can be over-ridden by setting environment vars)
+if [ -z "$ULIMIT_NOFILE" ]
+then
+	export ULIMIT_NOFILE="1048576:1048576"
+fi
+
 CLUSTER_SPEC=$(mktemp)
 envsubst <$CLUSTER_SPEC_TEMPLATE >$CLUSTER_SPEC
 cat $CLUSTER_SPEC
