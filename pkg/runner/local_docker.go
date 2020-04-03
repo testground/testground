@@ -803,6 +803,9 @@ func ensureInfraContainer(ctx context.Context, cli *client.Client, ow *rpc.Outpu
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
+			},
 		},
 		PullImageIfMissing: pull,
 	})
@@ -850,6 +853,9 @@ func ensureSidecarContainer(ctx context.Context, cli *client.Client, workDir str
 				Ulimits: []*units.Ulimit{
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
+			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
 			},
 		},
 		PullImageIfMissing: false, // Don't pull from Docker Hub
@@ -912,9 +918,12 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	// Build query for runner infrastructure containers.
 	infraOpts := types.ContainerListOptions{}
 	infraOpts.Filters = filters.NewArgs()
-	infraOpts.Filters.Add("name", "testground-sidecar")
-	infraOpts.Filters.Add("name", "testground-redis")
-	infraOpts.Filters.Add("name", "testground-goproxy")
+	infraOpts.Filters.Add("name", "^prometheus-pushgateway$")
+	infraOpts.Filters.Add("name", "^testground-goproxy$")
+	infraOpts.Filters.Add("name", "^testground-grafana$")
+	infraOpts.Filters.Add("name", "^testground-redis$")
+	infraOpts.Filters.Add("name", "^testground-redis-exporter$")
+	infraOpts.Filters.Add("name", "^testground-sidecar$")
 
 	// Build query for testground plans that are still running.
 	planOpts := types.ContainerListOptions{}
