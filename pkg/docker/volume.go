@@ -37,9 +37,16 @@ func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Clien
 		return nil, false, err
 	}
 
-	if len(volumes.Volumes) > 0 {
+	switch l := len(volumes.Volumes); l {
+	case 0:
+		break
+	case 1:
 		log.Info("found existing volume")
 		return volumes.Volumes[0], false, err
+	default:
+		err := fmt.Errorf("unexpected number of volumes returned by docker; expected 0 or 1: got: %d; while searching for: %s", l, opts.Name)
+		log.Error(err)
+		return nil, false, err
 	}
 
 	log.Infof("creating new docker volume")
