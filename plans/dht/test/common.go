@@ -747,7 +747,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	// disconnected from us.
 	forgotten := 0
 	for _, p := range dht.Host().Peerstore().Peers() {
-		if dht.Host().Network().Connectedness(p) != network.Connected {
+		if dht.RoutingTable().Find(p) == "" && dht.Host().Network().Connectedness(p) != network.Connected {
 			forgotten++
 			dht.Host().Peerstore().ClearAddrs(p)
 		}
