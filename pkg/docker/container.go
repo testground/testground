@@ -26,8 +26,17 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 
 	ow.Debug("checking state of container")
 
-	// filter regex
-	exactMatch := fmt.Sprintf("^%s$", name)
+	// filter regex; container names have a preceding slash. Newer versions of
+	// the Docker daemon appear to test filters against slash-prefixed and
+	// non-slash-prefixed versions of the container name; older versions appear
+	// not to do this trickery. Since `docker inspect <container_id> -f
+	// '{{.Name}}'` returns a slash-prefixed name, we assume that's the
+	// canonical name. To be compatible with a wide range of Docker daemon
+	// versions, we choose to compare against that.
+	//
+	// More info:
+	// https://github.com/ipfs/testground/pull/782#issuecomment-608422093.
+	exactMatch := fmt.Sprintf("^/%s$", name)
 	// Check if a ${name} container exists.
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
