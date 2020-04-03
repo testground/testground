@@ -49,6 +49,7 @@ spec:
       - net.ipv4.tcp_max_syn_backlog
       - net.ipv4.tcp_tw_recycle
       - net.ipv4.tcp_tw_reuse
+      - net.ipv4.tcp_mem
       - net.ipv4.tcp_rmem
       - net.ipv4.tcp_wmem
       - net.ipv4.tcp_max_orphans
@@ -93,17 +94,18 @@ spec:
     content: |
       #!/bin/sh
       cat <<EOT >> /etc/sysctl.d/999-testground.conf
-      net.core.somaxconn = 100000
-      net.netfilter.nf_conntrack_max = 1000000
-      net.ipv4.tcp_max_syn_backlog = 100000
-      net.core.netdev_max_backlog = 100000
+      net.core.somaxconn = 131072
+      net.netfilter.nf_conntrack_max = 1048576
+      net.ipv4.tcp_max_syn_backlog = 65536
+      net.core.netdev_max_backlog = 524288
       net.ipv4.ip_local_port_range = 1024 65535
       net.ipv4.tcp_tw_recycle = 1
       net.ipv4.tcp_tw_reuse = 1
-      net.core.rmem_max = 134217728
-      net.core.wmem_max = 134217728
-      net.ipv4.tcp_rmem = 4096 12582912 67108864
-      net.ipv4.tcp_wmem = 4096 12582912 67108864
+      net.core.rmem_max = 131072
+      net.core.wmem_max = 131072
+      net.ipv4.tcp_mem = 262144 524288 1048576
+      net.ipv4.tcp_rmem = 4096 65536 131072
+      net.ipv4.tcp_wmem = 4096 65536 131072
       EOT
   image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
@@ -131,17 +133,18 @@ spec:
     content: |
       #!/bin/sh
       cat <<EOT >> /etc/sysctl.d/999-testground.conf
-      net.core.somaxconn = 100000
-      net.netfilter.nf_conntrack_max = 1000000
-      net.ipv4.tcp_max_syn_backlog = 100000
-      net.core.netdev_max_backlog = 100000
+      net.core.somaxconn = 131072
+      net.netfilter.nf_conntrack_max = 1048576
+      net.ipv4.tcp_max_syn_backlog = 65536
+      net.core.netdev_max_backlog = 524288
       net.ipv4.ip_local_port_range = 1024 65535
       net.ipv4.tcp_tw_recycle = 1
       net.ipv4.tcp_tw_reuse = 1
-      net.core.rmem_max = 134217728
-      net.core.wmem_max = 134217728
-      net.ipv4.tcp_rmem = 4096 12582912 67108864
-      net.ipv4.tcp_wmem = 4096 12582912 67108864
+      net.core.rmem_max = 131072
+      net.core.wmem_max = 131072
+      net.ipv4.tcp_mem = 262144 524288 1048576
+      net.ipv4.tcp_rmem = 4096 65536 131072
+      net.ipv4.tcp_wmem = 4096 65536 131072
       EOT
   image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
