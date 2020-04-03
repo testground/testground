@@ -57,7 +57,7 @@ type LocalDockerRunnerConfig struct {
 	// log messages (default: false).
 	Background bool `toml:"background"`
 	// number of open files
-	Ulimits []string `toml: "ulimits"`
+	Ulimits []string `toml:"ulimits"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
