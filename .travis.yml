@@ -1,8 +1,6 @@
 notifications:
   email: false
 
-dist: bionic
-
 language: go
 
 env:
@@ -17,11 +15,6 @@ cache:
 
 go:
   - 1.14.x
-
-addons:
-  apt:
-    packages:
-      - docker-ce
 
 services:
   - docker
