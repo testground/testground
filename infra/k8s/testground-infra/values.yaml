@@ -128,12 +128,14 @@ redis:
   securityContext:
     sysctls:
       - name: net.core.somaxconn
-        value: "100000"
+        value: "131072"
       - name: net.netfilter.nf_conntrack_max
-        value: "1000000"
+        value: "1048576"
   master:
+    persistence:
+      enabled: false
     extraFlags:
-      - "--maxclients 100000"
+      - "--maxclients 131072"
     podAnnotations:
       cni: flannel
     resources:
