@@ -156,7 +156,11 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 				if err != nil {
 					continue
 				}
-				_, _ = resp.Body.Read(b)
+				_, err = io.ReadFull(resp.Body, b)
+				resp.Body.Close()
+				if err != nil {
+					continue
+				}
 				if string(b) == "OK" {
 					break Outer
 				}
