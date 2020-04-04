@@ -120,12 +120,11 @@ kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
 # monitoring and redis.
-echo "installing helm infrastructure"
+echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
 pushd testground-infra
 helm dep build
-helm install --wait --timeout 2m testground-infra .
+helm install testground-infra .
 popd
-sleep 10
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
