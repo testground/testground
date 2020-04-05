@@ -644,7 +644,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int, int) {
-		slope := 200
+		slope := 10
 		turnNum := int(math.Floor(float64(seq) / float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
@@ -929,7 +929,7 @@ func (s *BatchStager) End() error {
 
 	t = time.Now()
 
-	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total-5))
+	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total-1))
 	s.re.RecordMetric(&runtime.MetricDefinition{
 		Name:           "barrier" + string(stage),
 		Unit:           "ns",
@@ -1024,7 +1024,7 @@ func (s *GradualStager) End() error {
 		return err
 	}
 	s.re.RecordMessage("%d is done", s.seq)
-	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount-5))
+	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount-1))
 	return err
 }
 

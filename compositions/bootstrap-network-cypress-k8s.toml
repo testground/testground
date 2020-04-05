@@ -7,10 +7,7 @@
   case = "bootstrap-network"
   total_instances = 100
   builder = "docker:go"
-  runner = "cluster:k8s"
-  [global.build_config]
-    push_registry = true
-    registry_type = "aws"
+  runner = "local:docker"
 
 [[groups]]
   id = "cypress-passive"
@@ -22,7 +19,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "f6c7c7d31cc38c03f90ab8dbadf495e1e592fbdc"
+      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -32,7 +29,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ae1fd85a8428"
+    artifact = "ad72a65769e3"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -52,7 +49,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "f6c7c7d31cc38c03f90ab8dbadf495e1e592fbdc"
+      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -62,7 +59,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ae1fd85a8428"
+    artifact = "ad72a65769e3"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -82,7 +79,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "f6c7c7d31cc38c03f90ab8dbadf495e1e592fbdc"
+      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p"
@@ -92,7 +89,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ae1fd85a8428"
+    artifact = "ad72a65769e3"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"

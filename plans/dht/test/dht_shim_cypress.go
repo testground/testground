@@ -58,7 +58,7 @@ func getAllProvRecordsNum() int {return 0}
 
 var (
 	sqonce   sync.Once
-	sqlogger *zap.SugaredLogger
+	sqlogger, rtlogger *zap.SugaredLogger
 )
 
 func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
@@ -69,14 +69,25 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.
 			runenv.RecordMessage("failed to initialize dht_lookups.out asset; nooping logger: %s", err)
 			sqlogger = zap.NewNop().Sugar()
 		}
+		_, rtlogger, err = runenv.CreateStructuredAsset("rt_evts.out", runtime.StandardJSONConfig())
+		if err != nil {
+			runenv.RecordMessage("failed to initialize dht_lookups.out asset; nooping logger: %s", err)
+			rtlogger = zap.NewNop().Sugar()
+		}
 	})
 
 	ectx, events := kaddht.RegisterForLookupEvents(ctx)
-	log := sqlogger
+	ectx, rtEvts := kaddht.RegisterForRoutingTableEvents(ectx)
 
 	go func() {
 		for e := range events {
-			log.Infow("lookup event", "info", e)
+			sqlogger.Infow("lookup event", "info", e)
+		}
+	}()
+
+	go func() {
+		for e := range rtEvts {
+			rtlogger.Infow("rt event", "info", e)
 		}
 	}()
 
