@@ -145,14 +145,14 @@ spec:
       net.ipv4.tcp_wmem = 4096 12582912 67108864
       EOT
   cloudLabels:
-    testground.purpose: plan-node
+    testground.nodetype: plan
   image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: ${WORKER_NODES}
   minSize: ${WORKER_NODES}
   nodeLabels:
     kops.k8s.io/instancegroup: nodes
-    testground.purpose: plan-node
+    testground.nodetype: plan
   role: Node
   subnets:
   - ${ZONE}
@@ -185,14 +185,14 @@ spec:
       net.ipv4.tcp_wmem = 4096 12582912 67108864
       EOT
   cloudLabels:
-    testground.purpose: infra-node
+    testground.nodetype: infra
   image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: 2
   minSize: 2
   nodeLabels:
     kops.k8s.io/instancegroup: tginfra
-    testground.purpose: infra-node
+    testground.nodetype: infra
   role: Node
   subnets:
   - ${ZONE}

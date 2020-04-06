@@ -52,10 +52,7 @@ kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
 
 # wait for worker nodes and master to be ready
-echo "Wait for Cluster nodes to be Ready..."
-echo
-READY_NODES=0
-while [ "$READY_NODES" -ne $(($WORKER_NODES + 1)) ]; do READY_NODES=$(kubectl get nodes 2>/dev/null | grep -v NotReady | grep Ready | wc -l || true); echo "Got $READY_NODES ready nodes"; sleep 5; done;
+kops validate cluster --wait 10m || echo cluster was not ready after 10 minutes. && exit 2
 
 echo "Cluster nodes are Ready"
 echo

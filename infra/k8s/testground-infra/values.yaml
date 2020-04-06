@@ -32,6 +32,8 @@ prometheus-operator:
     enabled: false
   grafana:
     adminPassword: testground
+    nodeSelector:
+      testground.nodetype: infra
     sidecar:
       dashboards:
         enabled: true
@@ -75,6 +77,8 @@ prometheus-operator:
       spec:
         serviceMonitorNamespaceSelector:
           any: true
+      nodeSelector:
+        testground.nodetype: infra
     resources:
       requests:
         memory: 2000Mi
@@ -99,6 +103,8 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+  nodeSelector:
+    testground.nodetype: infra
   podAnnotations:
     cni: flannel
   resources:
@@ -134,6 +140,8 @@ redis:
   master:
     extraFlags:
       - "--maxclients 100000"
+    nodeSelector:
+      testground.nodetype: infra 
     podAnnotations:
       cni: flannel
     resources:
