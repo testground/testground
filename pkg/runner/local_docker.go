@@ -145,7 +145,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		},
 		ImageStrategy: docker.ImageStrategyBuild,
 		BuildImageOpts: &docker.BuildImageOpts{
-			Name:     "testground-sidecar:latest",
+			Name:     "ipfs/testground:latest",
 			BuildCtx: engine.EnvConfig().SrcDir,
 		},
 	}
