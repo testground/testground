@@ -367,7 +367,7 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	defer c.pool.Release(client)
 
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "kubernetes.io/role=node",
+		LabelSelector: "testground.nodetype=plan",
 	})
 	if err != nil {
 		sidecarCheck.Message = err.Error()
@@ -836,6 +836,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
+			NodeSelector: map[string]string{"testground.nodetype": "plan"},
 		},
 	}
 
