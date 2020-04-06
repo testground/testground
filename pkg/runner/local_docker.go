@@ -17,7 +17,7 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/docker"
-	hc "github.com/ipfs/testground/pkg/healthcheck"
+	"github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 
@@ -100,16 +100,10 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
 	r.controlNetworkID = "testground-control"
 
-	report := api.HealthcheckReport{}
-	hcHelper := hc.HealthcheckHelper{Report: &report}
+	hh := &healthcheck.Helper{}
 
 	// enlist healthchecks which are common between local:docker and local:exec
-	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
-
-	sidecarImageOpts := docker.BuildImageOpts{
-		Name:     "testground-sidecar:latest",
-		BuildCtx: engine.EnvConfig().SrcDir,
-	}
+	localCommonHealthcheck(ctx, hh, cli, ow, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
@@ -132,23 +126,22 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 				},
 			},
 		},
-		NetworkingConfig:   &network.NetworkingConfig{},
-		PullImageIfMissing: false,
+		NetworkingConfig: &network.NetworkingConfig{},
+		ImageStrategy:    docker.ImageStrategyBuild,
+		BuildImageOpts: &docker.BuildImageOpts{
+			Name:     "testground-sidecar:latest",
+			BuildCtx: engine.EnvConfig().SrcDir,
+		},
 	}
 
-	// sidecar healthcheck will build the image if necessary and start the container if necessary.
-	hcHelper.Enlist("local-sidecar",
-		hc.DockerContainerChecker(ctx, ow, cli, "testground-sidecar"),
-		hc.And(
-			hc.DockerImageFixer(ctx, ow, cli, &sidecarImageOpts),
-			hc.DockerContainerFixer(ctx, ow, cli, &sidecarContainerOpts),
-		),
+	// sidecar healthcheck.
+	hh.Enlist("sidecar-container",
+		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-sidecar"),
+		healthcheck.StartContainer(ctx, ow, cli, &sidecarContainerOpts),
 	)
 
 	// RunChecks will fill the report and return any errors.
-	err = hcHelper.RunChecks(ctx, fix)
-
-	return &report, err
+	return hh.RunChecks(ctx, fix)
 }
 
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {

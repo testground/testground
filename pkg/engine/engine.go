@@ -501,7 +501,7 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, ow *rpc.OutputW
 		return err
 	}
 
-	ow.Infof("all jobs terminated on runner: ", runner)
+	ow.Infof("all jobs terminated on runner: %s", runner)
 	return nil
 }
 

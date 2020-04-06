@@ -2,11 +2,13 @@ package docker
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
+
 	"github.com/ipfs/testground/pkg/rpc"
 )
 
@@ -59,23 +61,13 @@ func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client
 // BuildImageOpts applies here. Returns a bool depending on whether the image had to be created and
 // any errors that were encountered.
 func EnsureImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) (created bool, err error) {
-	// Unfortunately we can't filter for RepoTags
-	// Find out if we have any images with a RepoTag which matches the name of the image.
-	// the RepoTag will be something like "name:latest" and I want to match any that have "name"
-	listOpts := types.ImageListOptions{All: true}
-	images, err := client.ImageList(ctx, listOpts)
+	_, exists, err := FindImage(ctx, ow, client, opts.Name)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed while listing images: %w", err)
 	}
-	for _, image := range images {
-		for _, rt := range image.RepoTags {
-			if strings.HasPrefix(rt, opts.Name) {
-				ow.Infof("found existing image: %s; continuing", rt)
-				return false, nil
-			}
-		}
+	if exists {
+		return false, nil
 	}
-
 	ow.Infof("image %s not found; building", opts.Name)
 	err = BuildImage(ctx, ow, client, opts)
 	if err != nil {
@@ -83,4 +75,29 @@ func EnsureImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Clien
 		return false, err
 	}
 	return true, err
+}
+
+// FindImage looks for an image with name `name` in our local daemon.
+//
+// If found, it returns the image summary and true.
+// If absent, it returns a nil image summary, and false.
+// If an internal error occurs, it returns a nil image summary, false, and a non-nil error.
+func FindImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, name string) (*types.ImageSummary, bool, error) {
+	// Find out if we have any images with a RepoTag which matches the name of the image.
+	// the RepoTag will be something like "name:latest" and I want to match any that have "name"
+	imageListOpts := types.ImageListOptions{All: true}
+	images, err := client.ImageList(ctx, imageListOpts)
+	if err != nil {
+		ow.Errorw("retrieving list of images failed")
+		return nil, false, err
+	}
+	for _, image := range images {
+		for _, rt := range image.RepoTags {
+			if strings.HasPrefix(rt, name) {
+				ow.Infof("found existing image: %s", rt)
+				return &image, true, nil
+			}
+		}
+	}
+	return nil, false, nil
 }

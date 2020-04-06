@@ -2,9 +2,26 @@ package healthcheck
 
 import (
 	"context"
+	"fmt"
+	"sync"
 
 	"github.com/ipfs/testground/pkg/api"
 )
+
+// Checker is a function that checks whether a precondition is met. It returns
+// whether the check succeeded, an optional message to present to the user, and
+// error in case the check logic itself failed.
+//
+//   (true, *, nil) => HealthcheckStatusOK
+//   (false, *, nil) => HealthcheckStatusFailed
+//   (false, *, not-nil) => HealthcheckStatusAborted
+//   checker doesn't run => HealthcheckStatusOmitted (e.g. dependent checks where the upstream failed)
+type Checker func() (ok bool, msg string, err error)
+
+// Fixer is a function that will be called to attempt to fix a failing check. It
+// returns an optional message to present to the user, and error in case the fix
+// failed.
+type Fixer func() (msg string, err error)
 
 type item struct {
 	Name    string
@@ -12,27 +29,49 @@ type item struct {
 	Fixer   Fixer
 }
 
-// HealthcheckHelper implements HealthcheckHelper. Runchecks runs each check and fix
-// sequentially, in the order they are Enlist()'ed.
+// Helper is a utility that facilitates the execution of healthchecks.
 //
-// HealthcheckHelper is a strategy interface for runners.
-// Each runner may have required elements -- infrastructure, etc. which should be checked prior to
-// running plans. Individual checks are registered to the HealthcheckHelper using the Enlist()
-// method. With all of the checks enlisted, execute the checks, and optionally fixes, using the
-// RunChecks() method. The details of how the checks are performed is implementation specific.
-// Typically, the checker and fixer passed to the enlist method will be closures. These methods will
-// be called when RunChecks is executed.
-type HealthcheckHelper struct {
+// Healthchecks are registered via the Enlist() method, which takes a name, a
+// Checker, and a Fixer function. Common Checker and Fixer functions can be
+// found in this package.
+//
+// To run the healthchecks and obtain an api.HealthcheckReport, call RunChecks.
+//
+// Healthchecks are run sequentially, in the same order they were listed.
+//
+// For each item, the Checker runs first. If it results in a "failed" status,
+// and an associated Fixer is registered, we run the Fixer, if and only if
+// "fix" mode is requested when calling RunChecks.
+type Helper struct {
+	sync.Mutex
+
 	items  []*item
-	Report *api.HealthcheckReport
+	report *api.HealthcheckReport
+	err    error
 }
 
-func (hh *HealthcheckHelper) Enlist(name string, c Checker, f Fixer) {
-	hh.items = append(hh.items, &item{name, c, f})
+// Enlist registers a new healthcheck, supplying its name, a compulsory Checker,
+// and an optional Fixer.
+func (h *Helper) Enlist(name string, c Checker, f Fixer) {
+	h.Lock()
+	defer h.Unlock()
+
+	h.items = append(h.items, &item{name, c, f})
 }
 
-func (hh *HealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
-	for _, li := range hh.items {
+// RunChecks runs the checks and returns an api.HealthcheckReport, or a non-nil
+// error if an internal error occured. See godocs on the Helper type for
+// additional information.
+func (h *Helper) RunChecks(_ context.Context, fix bool) (*api.HealthcheckReport, error) {
+	h.Lock()
+	defer h.Unlock()
+
+	if h.report != nil {
+		return h.report, h.err
+	}
+
+	h.report = new(api.HealthcheckReport)
+	for _, li := range h.items {
 		check := api.HealthcheckItem{Name: li.Name}
 
 		// Check succeeds.
@@ -40,30 +79,35 @@ func (hh *HealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 		switch {
 		case err != nil:
 			check.Status = api.HealthcheckStatusAborted
-			check.Message = msg
-			hh.Report.Checks = append(hh.Report.Checks, check)
+			check.Message = fmt.Sprintf("%s; error: %s", msg, err)
+			h.report.Checks = append(h.report.Checks, check)
 
-			if fix {
-				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+			if fix && li.Fixer != nil {
+				h.report.Fixes = append(h.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
 			}
 
 		case ok:
 			check.Status = api.HealthcheckStatusOK
 			check.Message = msg
-			hh.Report.Checks = append(hh.Report.Checks, check)
+			h.report.Checks = append(h.report.Checks, check)
 
-			if fix {
-				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+			if fix && li.Fixer != nil {
+				h.report.Fixes = append(h.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusUnnecessary})
 			}
 
 		default:
 			// Checker failed. We will attempt a fix action.
 			check.Status = api.HealthcheckStatusFailed
 			check.Message = msg
-			hh.Report.Checks = append(hh.Report.Checks, check)
+			h.report.Checks = append(h.report.Checks, check)
+
+			if li.Fixer == nil {
+				// no fixer; move on to next check.
+				continue
+			}
 
 			if !fix {
-				hh.Report.Fixes = append(hh.Report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
+				h.report.Fixes = append(h.report.Fixes, api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOmitted})
 				break
 			}
 
@@ -77,8 +121,9 @@ func (hh *HealthcheckHelper) RunChecks(ctx context.Context, fix bool) error {
 				f = api.HealthcheckItem{Name: li.Name, Status: api.HealthcheckStatusOK, Message: msg}
 			}
 
-			hh.Report.Fixes = append(hh.Report.Fixes, f)
+			h.report.Fixes = append(h.report.Fixes, f)
 		}
 	}
-	return nil
+
+	return h.report, h.err
 }

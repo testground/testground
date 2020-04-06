@@ -14,12 +14,21 @@ import (
 	"github.com/docker/docker/client"
 )
 
+type ImageStrategy int
+
+const (
+	ImageStrategyNone ImageStrategy = iota
+	ImageStrategyPull
+	ImageStrategyBuild
+)
+
 type EnsureContainerOpts struct {
-	ContainerName      string
-	ContainerConfig    *container.Config
-	HostConfig         *container.HostConfig
-	NetworkingConfig   *network.NetworkingConfig
-	PullImageIfMissing bool
+	ContainerName    string
+	ContainerConfig  *container.Config
+	HostConfig       *container.HostConfig
+	NetworkingConfig *network.NetworkingConfig
+	ImageStrategy    ImageStrategy
+	BuildImageOpts   *BuildImageOpts
 }
 
 func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) (container *types.ContainerJSON, err error) {
@@ -50,9 +59,9 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 
 }
 
-// EnsureContainer ensures there's a container started of the specified kind.
-func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
-	opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
+// EnsureContainerStarted ensures there's a container started of the specified
+// kind, resorting to building it if necessary and so indicated.
+func EnsureContainerStarted(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
 	log := ow.With("container_name", opts.ContainerName)
 
 	log.Debug("checking state of container")
@@ -81,34 +90,32 @@ func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clie
 
 	log.Infow("container not found; creating")
 
-	if opts.PullImageIfMissing {
+	switch opts.ImageStrategy {
+	case ImageStrategyNone:
+		_, found, err := FindImage(ctx, log, cli, opts.ContainerConfig.Image)
+		if err != nil {
+			log.Warnw("failed to check if image exists", "image", opts.ContainerConfig.Image, "error", err)
+			return nil, false, err
+		}
+		if !found {
+			log.Warnw("image not found", "image", opts.ContainerConfig.Image)
+			err := errors.New("image not found")
+			return nil, false, err
+		}
+
+	case ImageStrategyPull:
 		out, err := cli.ImagePull(ctx, opts.ContainerConfig.Image, types.ImagePullOptions{})
 		if err != nil {
 			return nil, false, err
 		}
-
 		if err := PipeOutput(out, ow.StdoutWriter()); err != nil {
 			return nil, false, err
 		}
-	} else {
-		imageListOpts := types.ImageListOptions{
-			All: true,
-		}
-		images, err := cli.ImageList(ctx, imageListOpts)
+
+	case ImageStrategyBuild:
+		_, err := EnsureImage(ctx, ow, cli, opts.BuildImageOpts)
 		if err != nil {
-			log.Errorw("retrieving list of images failed")
-			return nil, false, err
-		}
-		found := false
-		for _, summary := range images {
-			if len(summary.RepoTags) > 0 && summary.RepoTags[0] == opts.ContainerConfig.Image {
-				found = true
-				break
-			}
-		}
-		if !found {
-			log.Errorw("image not found", "image", opts.ContainerConfig.Image)
-			err := errors.New("image not found")
+			err = fmt.Errorf("failed to check/build image: %w", err)
 			return nil, false, err
 		}
 	}

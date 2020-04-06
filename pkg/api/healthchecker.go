@@ -7,8 +7,8 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 )
 
-// Healthchecker is the interface to be implemented by a runner that supports
-// healthchecks and fixes.
+// Healthchecker is the interface to be implemented by a runner or builder that
+// supports healthchecks and fixes.
 type Healthchecker interface {
 	Healthcheck(fix bool, engine Engine, ow *rpc.OutputWriter) (*HealthcheckReport, error)
 }
@@ -28,6 +28,9 @@ var (
 	// HealthcheckStatusOmitted indicates that a healthcheck or a fix was not
 	// carried out due to previous errors.
 	HealthcheckStatusOmitted = HealthcheckStatus("omitted")
+	// HealthcheckStatusUnnecessary indicates that a check or fix was not
+	// needed.
+	HealthcheckStatusUnnecessary = HealthcheckStatus("unnecessary")
 )
 
 // HealthcheckItem represents an entry in a HealthcheckReport. It is used to

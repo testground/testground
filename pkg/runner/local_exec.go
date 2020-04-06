@@ -58,16 +58,14 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc
 	}
 
 	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
-	report := api.HealthcheckReport{}
-	hcHelper := hc.HealthcheckHelper{Report: &report}
+	srcDir := engine.EnvConfig().SrcDir
+	hh := &hc.Helper{}
 
 	// setup infra which is common between local:docker and local:exec
-	healthcheck_common_local_infra(&hcHelper, ctx, ow, cli, "testground-control", engine.EnvConfig().SrcDir, r.outputsDir)
+	localCommonHealthcheck(ctx, hh, cli, ow, "testground-control", srcDir, r.outputsDir)
 
 	// RunChecks will fill the report and return any errors.
-	err = hcHelper.RunChecks(ctx, fix)
-
-	return &report, err
+	return hh.RunChecks(ctx, fix)
 }
 
 func (r *LocalExecutableRunner) Close() error {
