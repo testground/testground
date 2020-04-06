@@ -21,7 +21,7 @@ type EnsureVolumeOpts struct {
 	Driver     string
 }
 
-// EnsureContainerStarted ensures the volume is created.
+// EnsureVolume ensures the volume is created.
 // If another volume exists with the same name, nothing is created, regardless of
 // any other options passed.
 func EnsureVolume(ctx context.Context, log *zap.SugaredLogger, cli *client.Client,
