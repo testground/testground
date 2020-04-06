@@ -105,7 +105,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, ow, cli, buildNetworkID, cfg)
+	proxyURL, warn := setupGoProxy(ctx, ow, cli, cfg)
 	if warn != nil {
 		ow.Warnf("warning while setting up the go proxy: %s", warn)
 	}
@@ -372,7 +372,7 @@ func setupLocalGoProxyVol(ctx context.Context, ow *rpc.OutputWriter, cli *client
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
-func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
 	var mnt *mount.Mount
 
 	switch strings.TrimSpace(cfg.GoProxyMode) {
