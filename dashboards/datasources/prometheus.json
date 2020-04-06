@@ -1,1 +1,1 @@
-{"id":1,"orgId":1,"name":"prometheus","type":"prometheus","access":"proxy","url":"http://prometheus-k8s.monitoring.svc:9090","password":"","user":"","database":"","basicAuth":false,"isDefault":false,"jsonData":{},"secureJsonData":null}
+{"id":1,"orgId":1,"name":"Prometheus","type":"prometheus","access":"proxy","url":"http://testground-infra-prometheu-prometheus:9090/","password":"","user":"","database":"","basicAuth":false,"isDefault":true,"jsonData":{},"secureJsonData":null}

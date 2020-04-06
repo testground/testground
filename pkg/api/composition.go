@@ -3,6 +3,8 @@ package api
 import (
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -108,6 +110,29 @@ type Build struct {
 	// Dependencies specifies any upstream dependency overrides to apply to this
 	// build.
 	Dependencies Dependencies `toml:"dependencies" json:"dependencies"`
+}
+
+// BuildKey returns a composite key that identifies this build, suitable for
+// deduplication.
+func (b Build) BuildKey() string {
+	var sb strings.Builder
+
+	// canonicalise selectors.
+	selectors := append(b.Selectors[:0:0], b.Selectors...)
+	sort.Strings(selectors)
+	sb.WriteString(fmt.Sprintf("selectors=%s;", strings.Join(selectors, ",")))
+
+	// canonicalise dependencies.
+	dependencies := append(b.Dependencies[:0:0], b.Dependencies...)
+	sort.SliceStable(dependencies, func(i, j int) bool {
+		return strings.Compare(dependencies[i].Module, dependencies[j].Module) < 0
+	})
+	sb.WriteString("dependencies=")
+	for _, d := range dependencies {
+		sb.WriteString(fmt.Sprintf("%s:%s|", d.Module, d.Version))
+	}
+
+	return sb.String()
 }
 
 func (d Dependencies) AsMap() map[string]string {

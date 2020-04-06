@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ipfs/testground/pkg/logging"
@@ -179,7 +178,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	case context.Canceled:
 		return fmt.Errorf("interrupted")
 	default:
-		return fmt.Errorf("fatal error from daemon: %w", err)
+		return err
 	}
 
 	defer resp.Close()
@@ -192,8 +191,8 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	logging.S().Infof("finished run with ID: %s", rout.RunID)
 
 	// if the `collect` flag is not set, we are done, just return
-	collect := c.Bool("collect")
-	if !collect {
+	collectOpt := c.Bool("collect")
+	if !collectOpt {
 		return nil
 	}
 
@@ -202,27 +201,5 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
 	}
 
-	or := &client.OutputsRequest{
-		Runner: comp.Global.Runner,
-		RunID:  rout.RunID,
-	}
-
-	rc, err := cl.CollectOutputs(ctx, or)
-
-	file, err := os.Create(collectFile)
-	if err != nil {
-		if err == context.Canceled {
-			return fmt.Errorf("interrupted")
-		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, rc)
-	if err != nil {
-		return err
-	}
-
-	logging.S().Infof("created file: %s", collectFile)
-	return nil
+	return collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
 }

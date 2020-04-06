@@ -33,8 +33,8 @@ spec:
           ip route &&
           ip route add 100.64.0.0/16 via $GW &&
           ip route || true;
-          nslookup redis-headless;
-          while [ $? -ne 0 ]; do echo "redis-headless doesn't resolve."; sleep 5; nslookup redis-headless; done;
+          nslookup testground-infra-redis-headless;
+          while [ $? -ne 0 ]; do echo "redis-headless doesn't resolve."; sleep 5; nslookup testground-infra-redis-headless; done;
           echo "redis-headless resolved."
       containers:
       - name: testground-sidecar
@@ -48,7 +48,7 @@ spec:
           privileged: true
         env:
         - name: REDIS_HOST
-          value: "redis-headless"
+          value: "testground-infra-redis-headless"
         ports:
         - name: pprof
           containerPort: 6060
@@ -70,4 +70,6 @@ spec:
       - name: cnibin
         hostPath:
           path: /opt/cni/bin
+      nodeSelector:
+        testground.nodetype: plan
 

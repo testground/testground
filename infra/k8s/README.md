@@ -29,12 +29,12 @@ In order to have two different networks attached to pods in Kubernetes, we run t
 1. [kops](https://github.com/kubernetes/kops/releases) >= 1.17.0-alpha.1
 2. [terraform](https://terraform.io) >= 0.12.21
 3. [AWS CLI](https://aws.amazon.com/cli)
-4. [helm](https://github.com/helm/helm)
+4. [helm](https://github.com/helm/helm) >= 3.0
 
 ## Set up cloud credentials, cluster specification and repositories for dependencies
 
 1. [Generate your AWS IAM credentials](https://console.aws.amazon.com/iam/home#/security_credentials).
-   
+
     * [Configure the aws-cli tool with your credentials](https://docs.aws.amazon.com/cli/).
     * Create a `.env.toml` file (copying over the [`env-example.toml`](https://github.com/ipfs/testground/blob/master/env-example.toml) at the root of this repo as a template), and add your region to the `[aws]` section.
 
@@ -97,6 +97,7 @@ If you haven't, [install helm now](https://helm.sh/docs/intro/install/).
 
 ```sh
 $ helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+$ helm repo add bitnami https://charts.bitnami.com/bitnami
 $ helm repo update
 ```
 
@@ -184,6 +185,22 @@ $ watch 'kubectl get pods'
 
 Do not forget to delete the cluster once you are done running test plans.
 
+## Testground observability
+
+1. Access to Grafana (initial credentials are `username: admin` ; `password: testground`):
+
+```sh
+$ kubectl port-forward service/testground-infra-grafana 3000:80
+```
+
+2. Access the Prometheus Web UI
+
+```sh
+$ kubectl port-forward service/testground-infra-prometheu-prometheus 9090:9090
+```
+
+Direct your web browser to [http://localhost:9090](http://localhost:9090).
+
 ## Cleanup after Testground and other useful commands
 
 Testground is still in very early stage of development. It is possible that it crashes, or doesn't properly clean-up after a testplan run. Here are a few commands that could be helpful for you to inspect the state of your Kubernetes cluster and clean up after Testground.
@@ -221,14 +238,8 @@ $ kubectl get pods --namespace monitoring
 6. Get access to the Redis shell
 
 ```sh
-$ kubectl port-forward svc/redis-master 6379:6379 &
+$ kubectl port-forward svc/testground-infra-redis-master 6379:6379 &
 $ redis-cli -h localhost -p 6379
-```
-
-7. Get access to Grafana (initial credentials are admin/admin):
-
-```sh
-$ kubectl -n monitoring port-forward service/grafana 3000:3000
 ```
 
 ## Use a Kubernetes context for another cluster
@@ -240,14 +251,6 @@ If you want to let other people on your team connect to your Kubernetes cluster,
 ```sh
 $ kops export kubecfg --state $KOPS_STATE_STORE --name=$NAME
 ```
-
-## How to access the prometheus web UI (for metrics observability)
-
-```sh
-$ kubectl -n monitoring port-forward service/prometheus-k8s 9090:9090
-```
-
-Direct your web browser to [http://localhost:9090](http://localhost:9090).
 
 ## Known issues and future improvements
 

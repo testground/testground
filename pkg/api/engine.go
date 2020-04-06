@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
-	"io"
 
 	"github.com/ipfs/testground/pkg/config"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 type Engine interface {
@@ -16,11 +16,11 @@ type Engine interface {
 	ListBuilders() map[string]Builder
 	ListRunners() map[string]Runner
 
-	DoBuild(context.Context, *Composition, io.Writer) ([]*BuildOutput, error)
-	DoRun(context.Context, *Composition, io.Writer) (*RunOutput, error)
-	DoCollectOutputs(ctx context.Context, runner string, runID string, w io.Writer) error
-	DoTerminate(ctx context.Context, runner string, w io.Writer) error
-	DoHealthcheck(ctx context.Context, runner string, fix bool, w io.Writer) (*HealthcheckReport, error)
+	DoBuild(context.Context, *Composition, *rpc.OutputWriter) ([]*BuildOutput, error)
+	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
+	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
+	DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error
+	DoHealthcheck(ctx context.Context, runner string, fix bool, ow *rpc.OutputWriter) (*HealthcheckReport, error)
 
 	EnvConfig() config.EnvConfig
 	Context() context.Context

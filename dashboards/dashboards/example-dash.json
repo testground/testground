@@ -1,5 +1,5 @@
 {
-    "id": 58,
+    "id": 12,
     "uid": "Fu22gr_Wz",
     "slug": "example-dash",
     "title": "Example Dash",
@@ -41,8 +41,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 5,
@@ -120,8 +120,8 @@
             "valueName": "avg"
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -194,8 +194,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -212,67 +212,84 @@
             "CustomPanel": {
                 "CustomPanel": {
                     "CustomPanel": {
-                        "cards": {
-                            "cardPadding": null,
-                            "cardRound": null
+                        "CustomPanel": {
+                            "cards": {
+                                "cardPadding": null,
+                                "cardRound": null
+                            },
+                            "color": {
+                                "cardColor": "#b4ff00",
+                                "colorScale": "sqrt",
+                                "colorScheme": "interpolateOranges",
+                                "exponent": 0.5,
+                                "mode": "spectrum"
+                            },
+                            "dataFormat": "timeseries",
+                            "datasource": "prometheus",
+                            "gridPos": {
+                                "h": 9,
+                                "w": 12,
+                                "x": 12,
+                                "y": 5
+                            },
+                            "heatmap": {},
+                            "highlightCards": true,
+                            "id": 8,
+                            "legend": {
+                                "show": false
+                            },
+                            "links": [],
+                            "targets": [
+                                {
+                                    "expr": "example_gauge",
+                                    "format": "heatmap",
+                                    "intervalFactor": 1,
+                                    "legendFormat": "",
+                                    "refId": "A"
+                                }
+                            ],
+                            "title": "gauge heatmap",
+                            "tooltip": {
+                                "show": true,
+                                "showHistogram": false
+                            },
+                            "type": "heatmap",
+                            "xAxis": {
+                                "show": true
+                            },
+                            "xBucketNumber": null,
+                            "xBucketSize": null,
+                            "yAxis": {
+                                "decimals": null,
+                                "format": "short",
+                                "logBase": 1,
+                                "max": null,
+                                "min": null,
+                                "show": true,
+                                "splitFactor": null
+                            },
+                            "yBucketBound": "auto",
+                            "yBucketNumber": null,
+                            "yBucketSize": null
                         },
-                        "color": {
-                            "cardColor": "#b4ff00",
-                            "colorScale": "sqrt",
-                            "colorScheme": "interpolateOranges",
-                            "exponent": 0.5,
-                            "mode": "spectrum"
-                        },
-                        "dataFormat": "timeseries",
-                        "datasource": "prometheus",
+                        "datasource": "Prometheus",
+                        "editable": true,
+                        "error": false,
                         "gridPos": {
                             "h": 9,
                             "w": 12,
                             "x": 12,
                             "y": 5
                         },
-                        "heatmap": {},
-                        "highlightCards": true,
                         "id": 8,
-                        "legend": {
-                            "show": false
-                        },
-                        "links": [],
-                        "targets": [
-                            {
-                                "expr": "example_gauge",
-                                "format": "heatmap",
-                                "intervalFactor": 1,
-                                "legendFormat": "",
-                                "refId": "A"
-                            }
-                        ],
+                        "isNew": false,
+                        "span": 0,
                         "title": "gauge heatmap",
-                        "tooltip": {
-                            "show": true,
-                            "showHistogram": false
-                        },
-                        "type": "heatmap",
-                        "xAxis": {
-                            "show": true
-                        },
-                        "xBucketNumber": null,
-                        "xBucketSize": null,
-                        "yAxis": {
-                            "decimals": null,
-                            "format": "short",
-                            "logBase": 1,
-                            "max": null,
-                            "min": null,
-                            "show": true,
-                            "splitFactor": null
-                        },
-                        "yBucketBound": "auto",
-                        "yBucketNumber": null,
-                        "yBucketSize": null
+                        "transparent": false,
+                        "type": "heatmap"
                     },
-                    "datasource": "prometheus",
-                    "editable": false,
+                    "datasource": "Prometheus",
+                    "editable": true,
                     "error": false,
                     "gridPos": {
                         "h": 9,
@@ -287,8 +304,8 @@
                     "transparent": false,
                     "type": "heatmap"
                 },
-                "datasource": "prometheus",
-                "editable": false,
+                "datasource": "Prometheus",
+                "editable": true,
                 "error": false,
                 "gridPos": {
                     "h": 9,
@@ -305,8 +322,8 @@
             }
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -397,8 +414,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -471,8 +488,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -545,8 +562,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -657,8 +674,8 @@
             "styles": null
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,
@@ -731,8 +748,8 @@
             ]
         },
         {
-            "datasource": "prometheus",
-            "editable": false,
+            "datasource": "Prometheus",
+            "editable": true,
             "error": false,
             "gridPos": {
                 "h": 9,

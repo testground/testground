@@ -5,7 +5,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
 )
 
 func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -15,12 +15,12 @@ func (srv *Daemon) listHandler(engine api.Engine) func(w http.ResponseWriter, r 
 		log.Debugw("handle request", "command", "list")
 		defer log.Debugw("request handled", "command", "list")
 
-		tgw := tgwriter.New(w, log)
+		tgw := rpc.NewOutputWriter(w, r)
 
 		plans := engine.TestCensus().ListPlans()
 		for _, tp := range plans {
 			for _, tc := range tp.TestCases {
-				_, err := tgw.Write([]byte(tp.Name + "/" + tc.Name + "\n"))
+				_, err := tgw.WriteProgress([]byte(tp.Name + "/" + tc.Name + "\n"))
 				if err != nil {
 					log.Errorf("could not write response back", "err", err)
 				}

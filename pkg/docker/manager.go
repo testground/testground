@@ -181,7 +181,9 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 
 	listFilter := filters.NewArgs()
 	for _, l := range labels {
-		listFilter.Add("label", l)
+		// Filter by exact label names using a regex.
+		exactLabel := fmt.Sprintf("^%s$", l)
+		listFilter.Add("label", exactLabel)
 	}
 	nodes, err := m.Client.ContainerList(ctx, types.ContainerListOptions{
 		Quiet:   true,

@@ -33,33 +33,38 @@ enabled = true
 
 [[testcases]]
 name = "all"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  barrier_iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  subtree_iterations = { type = "int", desc = "number of iterations of the subtree test", unit = "iteration", default = 2000 }
+  subtree_test_timeout_secs  = { type = "int", desc = "subtree testcase timeout", unit = "seconds", default = 300 }
+  barrier_test_timeout_secs  = { type = "int", desc = "barrier testcase timeout", unit = "seconds", default = 300 }
 
 [[testcases]]
 name = "startup"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "netinit"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "netlinkshape"
-instances = { min = 1, max = 200, default = 1 }
+instances = { min = 1, max = 20000, default = 1 }
 
 [[testcases]]
 name = "barrier"
-instances = { min = 1, max = 5000, default = 1 }
+instances = { min = 1, max = 50000, default = 1 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  barrier_iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10 }
+  barrier_test_timeout_secs  = { type = "int", desc = "barrier testcase timeout", unit = "seconds", default = 300 }
 
 [[testcases]]
 name = "subtree"
-instances = { min = 1, max = 32, default = 2 }
+instances = { min = 1, max = 20000, default = 2 }
 
   [testcases.params]
-  iterations = { type = "int", desc = "number of iterations of the barrier test", unit = "iteration", default = 10000 }
+  subtree_iterations = { type = "int", desc = "number of iterations of the subtree test", unit = "iteration", default = 2000 }
+  subtree_test_timeout_secs  = { type = "int", desc = "subtree testcase timeout", unit = "seconds", default = 300 }

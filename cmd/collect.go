@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ipfs/testground/pkg/client"
@@ -56,35 +55,44 @@ func collectCommand(c *cli.Context) error {
 		return err
 	}
 
+	return collect(ctx, api, runner, id, output)
+}
+
+func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
 	req := &client.OutputsRequest{
 		Runner: runner,
-		RunID:  id,
+		RunID:  runid,
 	}
 
-	resp, err := api.CollectOutputs(ctx, req)
+	resp, err := cl.CollectOutputs(ctx, req)
 	if err != nil {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer resp.Close()
 
-	file, err := os.Create(output)
+	file, err := os.Create(outputFile)
 	if err != nil {
 		if err == context.Canceled {
 			return fmt.Errorf("interrupted")
 		}
-		return fmt.Errorf("fatal error from daemon: %s", err)
+		return err
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, resp)
+	cr, err := client.ParseCollectResponse(resp, file)
 	if err != nil {
 		return err
 	}
 
-	logging.S().Infof("created file: %s", output)
+	if !cr.Exists {
+		logging.S().Errorw("no such testplan run", "run_id", runid, "runner", runner)
 
+		return os.Remove(outputFile)
+	}
+
+	logging.S().Infof("created file: %s", outputFile)
 	return nil
 }

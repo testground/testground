@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/tgwriter"
+	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/logrusorgru/aurora"
 
 	"github.com/mitchellh/mapstructure"
 )
@@ -127,27 +129,40 @@ func (c *Client) Healthcheck(ctx context.Context, r *HealthcheckRequest) (io.Rea
 	return c.request(ctx, "POST", "/healthcheck", bytes.NewReader(body.Bytes()))
 }
 
-func parseGeneric(r io.ReadCloser, fnProgress, fnResult func(interface{}) error) error {
-	var msg tgwriter.Msg
+func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
+	var chunk rpc.Chunk
+	var once sync.Once
 
 	for dec := json.NewDecoder(r); ; {
-		err := dec.Decode(&msg)
+		err := dec.Decode(&chunk)
 		if err != nil {
 			return err
 		}
 
-		switch msg.Type {
-		case "progress":
-			err = fnProgress(msg.Payload)
+		switch chunk.Type {
+		case rpc.ChunkTypeProgress:
+			once.Do(func() {
+				fmt.Println(aurora.Bold(aurora.Cyan("\n>>> Server output:\n")))
+			})
+
+			err = fnProgress(chunk.Payload)
 			if err != nil {
 				return err
 			}
 
-		case "error":
-			return errors.New(msg.Error.Message)
+		case rpc.ChunkTypeError:
+			fmt.Println(aurora.Bold(aurora.BrightRed("\n>>> Error:\n")))
+			return errors.New(chunk.Error.Msg)
 
-		case "result":
-			return fnResult(msg.Payload)
+		case rpc.ChunkTypeResult:
+			fmt.Println(aurora.Bold(aurora.BrightGreen("\n>>> Result:\n")))
+			return fnResult(chunk.Payload)
+
+		case rpc.ChunkTypeBinary:
+			err := fnBinary(chunk.Payload)
+			if err != nil {
+				return err
+			}
 
 		default:
 			return errors.New("unknown message type")
@@ -165,12 +180,36 @@ func printProgress(progress interface{}) error {
 	return nil
 }
 
+// ParseCollectResponse parses a response from a `collect` call
+func ParseCollectResponse(r io.ReadCloser, file io.Writer) (CollectResponse, error) {
+	var resp CollectResponse
+	err := parseGeneric(
+		r,
+		printProgress,
+		func(payload interface{}) error {
+			m, err := base64.StdEncoding.DecodeString(payload.(string))
+			if err != nil {
+				return err
+			}
+
+			_, err = file.Write(m)
+			return err
+		},
+		func(result interface{}) error {
+			resp.Exists = result.(bool)
+			return nil
+		},
+	)
+	return resp, err
+}
+
 // ParseRunResponse parses a response from a `run` call
 func ParseRunResponse(r io.ReadCloser) (RunResponse, error) {
 	var resp RunResponse
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},
@@ -183,6 +222,7 @@ func ParseListResponse(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -195,6 +235,7 @@ func ParseBuildResponse(r io.ReadCloser) (BuildResponse, error) {
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},
@@ -207,6 +248,7 @@ func ParseDescribeResponse(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -218,6 +260,7 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 	return parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return nil
 		},
@@ -231,6 +274,7 @@ func ParseHealthcheckResponse(r io.ReadCloser) (HealthcheckResponse, error) {
 	err := parseGeneric(
 		r,
 		printProgress,
+		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
 		},

@@ -46,7 +46,7 @@ func (s *subscription) process() {
 		return
 	}
 
-	log := s.w.re.SLogger().With("subtree", s.subtree, "start_seq", startSeq)
+	log := s.w.re.SLogger().With("key", key, "start_seq", startSeq)
 
 	// Get a connection and store its connection ID, so we can unblock it when canceling.
 	conn := s.client.Conn()
@@ -57,6 +57,9 @@ func (s *subscription) process() {
 		s.w.re.SLogger().Errorf("failed to fetch get client ID: %w", err)
 		return
 	}
+
+	log.Debugw("subscribing to subtree", "conn_id", connID)
+
 	done := make(chan struct{})
 	closed := make(chan struct{})
 	go func() {
@@ -72,7 +75,9 @@ func (s *subscription) process() {
 		client := s.client.WithContext(context.Background())
 		err := client.ClientUnblockWithError(connID).Err()
 		if err != nil {
-			log.Errorw("failed to kill connection", "error", err)
+			log.Errorw("failed to kill connection", "error", err, "conn_id", connID)
+		} else {
+			log.Debugw("killed subscription connection", "conn_id", connID)
 		}
 	}()
 

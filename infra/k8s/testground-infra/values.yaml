@@ -1,0 +1,152 @@
+---
+# Testground values overrides:
+
+# Changes from defaults:
+# * Disabled the alertmanager.
+# * We do not manage certificates. In order to prevent scrape errors caused by
+#   certificate malfunction, skip TLS checks or disable https.
+# * The grafana username and password are stored in a kubernetes secret called
+#   <RELEASE>-grafana. Changed from the default (prom-operator) to testground.
+# * Enable the grafana sidecar. This will watch for secrets or configmaps which
+#   have the label grafana_dashboard or grafana_datasource, and adds them
+#   automatically to the grafana dashboard.
+# * I configured the scraper to look for ServiceMonitors in any namespace. This
+#   allows a single prometheus to scrape plan as well as kube-system metrics.
+# * createCustomResource is configured to false. For helm v3, custom resources
+#   are still created. By including this option, users won't see a confusing
+#   error message about CRDs not being created.
+#   See the following for a description of this option:
+#   https://github.com/helm/charts/blob/master/stable/prometheus-operator/
+#   for an explanation of this option.
+# * podAnnotations is set to flannel to force it to be ont he control network.
+prometheus-operator:
+  prometheusOperator:
+    createCustomResource: false
+    admissionWebooks:
+      patch:
+        podAnnotations:
+          cni: flannel
+    podAnnotations:
+      cni: flannel
+  alertmanager:
+    enabled: false
+  grafana:
+    adminPassword: testground
+    nodeSelector:
+      testground.nodetype: infra
+    sidecar:
+      dashboards:
+        enabled: true
+      datasources:
+        enabled: true
+    podAnnotations:
+      cni: flannel
+  kube-state-metrics:
+    prometheus:
+      monitor:
+        enabled: true
+    podAnnotations:
+      cni: flannel
+  kubeProxy:
+    serviceMonitor:
+      https: false
+  kubelet:
+    serviceMonitor:
+      https: false
+  kubeApiServer:
+    tlsConfig:
+      insecureSkipVerify: true
+    serviceMonitor:
+      https: false
+  kubeControllerManager:
+    serviceMonitor:
+      insecureSkipVerify: true
+      https: false
+  kubeEtcd:
+    serviceMonitor:
+      insecureSkipVerify: true
+      https: false
+  prometheus-node-exporter:
+    prometheus:
+      monitor:
+        enables: true
+    podAnnotations:
+      cni: flannel
+  prometheus:
+    prometheusSpec:
+      spec:
+        serviceMonitorNamespaceSelector:
+          any: true
+      nodeSelector:
+        testground.nodetype: infra
+    resources:
+      requests:
+        memory: 2000Mi
+        cpu: 2000m
+
+
+# Changes from defaults:
+# * override "fullname" so it is resolves with http://prometheus-pushgateway
+#   This matches the behavior from the kops addon, but we don't need to do this
+#   once we make this a configurable option.
+# * enable the serviceMonitor, so it will be picked up by the prometheus
+#   operator. Move the serviceMonitor to the default namespace.
+# * Change the scrape interval to a short value. This should be set to the same
+#   value with which plans push to the pushgatway. See the runner sdk.
+# * Permissive network policy.
+# * podAnnotations is set to flannel to force it to be ont he control network.
+prometheus-pushgateway:
+  fullnameOverride: prometheus-pushgateway
+  serviceMonitor:
+    enabled: true
+    interval: 5s
+    namespace: default
+  networkPolicy:
+    allowAll: true
+  nodeSelector:
+    testground.nodetype: infra
+  podAnnotations:
+    cni: flannel
+  resources:
+    requests:
+      memory: 2000Mi
+      cpu: 2000m
+
+
+# Changes from defaults:
+# * enable redis exporter
+# * enable the serviceMonitor so it will be picked up by prometheus
+# * Disable cluster mode -- there are failure modes which could result in
+#   dataloss after acknowledgement.
+# * SecurityContext and sysctlImage provides tuning for redis to provide for 10k
+# * Master resources is setup to be a large value so redis will be mostly
+#   singele-tenant.
+# * podAnnotations is set to flannel to force it to be on the control network.
+redis:
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: default
+  cluster:
+    enabled: false
+  usePassword: false
+  securityContext:
+    sysctls:
+      - name: net.core.somaxconn
+        value: "131072"
+      - name: net.netfilter.nf_conntrack_max
+        value: "1048576"
+  master:
+    persistence:
+      enabled: false
+    extraFlags:
+      - "--maxclients 131072"
+    nodeSelector:
+      testground.nodetype: infra 
+    podAnnotations:
+      cni: flannel
+    resources:
+      requests:
+        memory: 13000Mi
+        cpu: 6500m

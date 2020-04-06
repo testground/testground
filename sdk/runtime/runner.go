@@ -105,7 +105,9 @@ func Invoke(tc func(*RunEnv) error) {
 
 	_ = rd.Close()
 	<-ioDoneCh
+	runenv.RecordMessage("io closed")
 	<-metricsDoneCh
+	runenv.RecordMessage("metrics done")
 }
 
 // setupMetrics tracks the test duration, and sets up Prometheus metrics push.
@@ -193,7 +195,10 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 		// defer a final push.
 		defer func() {
 			<-durationCh
+			runenv.RecordMessage("test run completed. waiting a few seconds for the metrics scraper.")
 			push()
+			time.Sleep(2 * MetricsPushInterval)
+			_ = pusher.Delete()
 		}()
 
 		// Push every MetricsPushInterval.

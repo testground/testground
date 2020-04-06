@@ -7,13 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
-
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/engine"
+	"github.com/ipfs/testground/pkg/rpc"
 
+	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -58,7 +58,7 @@ func TestBuildSelector(t *testing.T) {
 			}
 
 			// this build is using the "foo" and "bar" selectors; it will fail.
-			_, err = engine.DoBuild(context.TODO(), comp, ioutil.Discard)
+			_, err = engine.DoBuild(context.TODO(), comp, rpc.Discard())
 			assertion(err)
 		}
 
