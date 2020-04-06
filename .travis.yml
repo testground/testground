@@ -18,7 +18,7 @@ go:
 
 services:
   - docker
-  - redis-server
+#  - redis-server
 
 before_install:
   - |
@@ -28,24 +28,27 @@ before_install:
         exit
       fi
 
-# NOTE: The smoke test itself will fail because the Travis redis instance does
-# not have keyspace notifications enabled. But we're interested in exercising
-# the testground logic, not the test plan itself. So it's fine.
 jobs:
   include:
-    - stage: lint_build_check_test_run
+    - stage: "tidy and prepare cache"
       os: linux
       script:
         - make tidy
         - git diff --exit-code
-        - go mod download
-        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
-        - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd
-        - make lint           # run a bunch of code checkers/linters in parallel
-        - make test-build     # build the project
-        - make test           # Run all the tests with the race detector enabled
+        - make mod-download
+        - go mod graph
+    - stage: "lint, build, test on linux"
+      os: linux
+      name: "lint"
+      script: "pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd && make lint"
+    - name: "build recursive"
+      script: make build-all
+    - name: "build docker image"
+      script: make docker
+    - name: "test recursive"
+      script: make test
         
-    - stage: lint_build_check_test_run
+    - stage: "build on windows"
       os: windows
       script:
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'

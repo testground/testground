@@ -16,11 +16,16 @@ docker-ipfs-testground:
 tidy:
 	$(call eachmod,go mod tidy)
 
+mod-download:
+	$(call eachmod,go mod download)
+
 lint:
 	$(call eachmod,GOGC=75 golangci-lint run --concurrency 32 --deadline 4m ./...)
 
-test-build:
+build-all:
 	$(call eachmod,go build -o /dev/null ./...)
+
+docker:
 	docker build -t ipfs/testground .
 
 test:
