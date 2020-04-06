@@ -52,7 +52,12 @@ kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
 
 # wait for worker nodes and master to be ready
-kops validate cluster --wait 10m || echo cluster was not ready after 10 minutes. && exit 2
+kops validate cluster --wait 10m
+if [ $? -ne 0 ]
+then
+	echo "cluster was not ready after 10 minutes."
+	exit 3
+fi
 
 echo "Cluster nodes are Ready"
 echo
