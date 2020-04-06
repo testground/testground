@@ -8,10 +8,10 @@ env:
     - GOTFLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
     - GO111MODULE=on
 
-cache:
-  directories:
-    - $HOME/.cache/go-build
-    - $HOME/gopath/pkg/mod
+#cache:
+#  directories:
+#    - $HOME/.cache/go-build
+#    - $HOME/gopath/pkg/mod
 
 go:
   - 1.14.x
@@ -22,17 +22,20 @@ services:
 
 jobs:
   include:
-    - stage: "tidy and prepare cache"
+#    - stage: "tidy and prepare cache"
+#      os: linux
+#      script:
+#        - make tidy
+#        - git diff --exit-code
+#        - make mod-download
+#        - go mod graph
+    - stage: "lint, build, test"
       os: linux
+      name: "tidy and lint"
       script:
         - make tidy
         - git diff --exit-code
-        - make mod-download
-        - go mod graph
-    - stage: "lint, build, test"
-      os: linux
-      name: "lint"
-      script: "pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd && make lint"
+        - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd && make lint
     - name: "build recursive"
       os: linux
       script: make build-all
