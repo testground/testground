@@ -22,7 +22,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
@@ -48,7 +48,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
@@ -75,7 +75,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
@@ -102,7 +102,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
@@ -129,7 +129,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
@@ -156,7 +156,7 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "47eb0e17eb07165b7e92e751e4b6ceeb58dde10c"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"

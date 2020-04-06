@@ -5,30 +5,27 @@
 [global]
   plan = "dht"
   case = "get-closest-peers"
-  total_instances = 800
+  total_instances = 100
   builder = "docker:go"
-  runner = "cluster:k8s"
-  [global.build_config]
-    push_registry = true
-    registry_type = "aws"
+  runner = "local:docker"
 
 [[groups]]
   id = "cypress-passive"
   [groups.instances]
-    count = 775
+    count = 75
     percentage = 0.0
   [groups.build]
     Selectors = ["cypress"]
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
-      
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
+
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:95c6d1b9c02d"
+    artifact = "bc8c24b2524d"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -48,13 +45,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:95c6d1b9c02d"
+    artifact = "bc8c24b2524d"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -76,13 +73,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:95c6d1b9c02d"
+    artifact = "bc8c24b2524d"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -92,4 +89,3 @@
       group_order = "0"
       latency = "100"
       timeout_secs = "600"
-

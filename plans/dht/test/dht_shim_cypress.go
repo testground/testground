@@ -22,6 +22,7 @@ import (
 func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error) {
 	dhtOptions := []kaddht.Option{
 		kaddht.ProtocolPrefix("/testground"),
+		kaddht.V1CompatibleMode(false),
 		kaddht.Datastore(ds),
 		kaddht.BucketSize(opts.BucketSize),
 		kaddht.RoutingTableRefreshQueryTimeout(opts.Timeout),
@@ -54,10 +55,10 @@ func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {
 	}
 }
 
-func getAllProvRecordsNum() int {return 0}
+func getAllProvRecordsNum() int { return 0 }
 
 var (
-	sqonce   sync.Once
+	sqonce             sync.Once
 	sqlogger, rtlogger *zap.SugaredLogger
 )
 
