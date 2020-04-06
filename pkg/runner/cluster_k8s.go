@@ -398,7 +398,8 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	return
 }
 
-func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
+func (c *ClusterK8sRunner) Healthcheck(_ context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
+	// TODO how does one pass the context to k8s API calls?
 	c.initPool()
 
 	report := api.HealthcheckReport{}
@@ -411,7 +412,7 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Outp
 	}
 
 	if fix {
-		fakeFixes := []api.HealthcheckItem{}
+		var fakeFixes []api.HealthcheckItem
 		for _, chk := range report.Checks {
 			if chk.Status != api.HealthcheckStatusOK {
 				fakeFixes = append(fakeFixes, api.HealthcheckItem{
