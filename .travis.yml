@@ -20,14 +20,6 @@ services:
   - docker
 #  - redis-server
 
-before_install:
-  - |
-      if ! git diff --name-only $TRAVIS_COMMIT_RANGE | grep -qvE '(.md)|(.html)|^(LICENSE)|^(docs)'
-      then
-        echo "Only docs were updated, not running the CI."
-        exit
-      fi
-
 jobs:
   include:
     - stage: "tidy and prepare cache"
@@ -37,18 +29,20 @@ jobs:
         - git diff --exit-code
         - make mod-download
         - go mod graph
-    - stage: "lint, build, test on linux"
+    - stage: "lint, build, test"
       os: linux
       name: "lint"
       script: "pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd && make lint"
     - name: "build recursive"
+      os: linux
       script: make build-all
     - name: "build docker image"
+      os: linux
       script: make docker
     - name: "test recursive"
+      os: linux
       script: make test
-        
-    - stage: "build on windows"
+    - name: "build on windows"
       os: windows
       script:
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
