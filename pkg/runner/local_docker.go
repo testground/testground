@@ -82,14 +82,9 @@ type LocalDockerRunner struct {
 	outputsDir       string
 }
 
-func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
+func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
-
-	// This context must be long, because some fixes will end up downloading
-	// Docker images.
-	ctx, cancel := context.WithCancel(engine.Context())
-	defer cancel()
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())

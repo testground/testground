@@ -181,7 +181,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 	if hc, ok := bm.(api.Healthchecker); ok {
 		ow.Info("performing healthcheck on builder")
 
-		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
+		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -343,7 +343,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	if hc, ok := run.(api.Healthchecker); ok {
 		ow.Info("performing healthcheck on runner")
 
-		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
+		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -518,7 +518,7 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, ow 
 
 	ow.Infof("checking runner: %s", runner)
 
-	return hc.Healthcheck(fix, e, ow)
+	return hc.Healthcheck(ctx, e, ow, fix)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

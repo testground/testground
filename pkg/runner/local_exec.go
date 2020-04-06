@@ -3,15 +3,14 @@ package runner
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"time"
-
 	"net"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -20,7 +19,6 @@ import (
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
 	hc "github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 )
@@ -38,18 +36,14 @@ type LocalExecutableRunner struct {
 	lk sync.RWMutex
 
 	outputsDir string
-	closeFn    context.CancelFunc
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
 type LocalExecutableRunnerCfg struct{}
 
-func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
+func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
 	defer r.lk.Unlock()
-
-	ctx, cancel := context.WithCancel(engine.Context())
-	r.closeFn = cancel
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -69,11 +63,6 @@ func (r *LocalExecutableRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc
 }
 
 func (r *LocalExecutableRunner) Close() error {
-	if r.closeFn != nil {
-		r.closeFn()
-		logging.S().Info("temporary redis instance stopped")
-	}
-
 	return nil
 }
 

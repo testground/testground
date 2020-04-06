@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 // Healthchecker is the interface to be implemented by a runner or builder that
 // supports healthchecks and fixes.
 type Healthchecker interface {
-	Healthcheck(fix bool, engine Engine, ow *rpc.OutputWriter) (*HealthcheckReport, error)
+	Healthcheck(ctx context.Context, engine Engine, ow *rpc.OutputWriter, fix bool) (*HealthcheckReport, error)
 }
 
 // HealthcheckStatus is an enum that represents
