@@ -180,29 +180,32 @@ func (*LocalExecutableRunner) CompatibleBuilders() []string {
 }
 
 func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
-	ow.Info("terminate local:docker requested")
+	// TODO: we're only stopping infrastructure/dependency containers.
+	//  We are not kill the test plan processes started by this runner.
+	//  It's possible that it's entirely unnecessary to do so, because we use
+	//  exec.CommandContext, associating the request context.
+	//  So assuming the user has cancelled the request context, those processes
+	//  should die consequently. However, it's possible that the termination
+	//  call is received while a run is inflight.
+	//  To cater for that, and also to play it safe, this method should find all
+	//  children processes of the daemon, and send them a SIGKILL.
+	ow.Info("terminate local:exec requested")
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}
 
-	// Build two separate queries: one for infrastructure containers, another
-	// for test plan containers. The former, we match by container name. The
-	// latter, we match by the `testground.purpose` label, which we apply to all
-	// plan containers managed by testground label.
-
 	// Build query for runner infrastructure containers.
-	infraOpts := types.ContainerListOptions{}
-	infraOpts.Filters = filters.NewArgs()
-	infraOpts.Filters.Add("name", "prometheus-pushgateway")
-	infraOpts.Filters.Add("name", "testground-goproxy")
-	infraOpts.Filters.Add("name", "testground-grafana")
-	infraOpts.Filters.Add("name", "testground-prometheus")
-	infraOpts.Filters.Add("name", "testground-redis")
-	infraOpts.Filters.Add("name", "testground-sidecar")
+	opts := types.ContainerListOptions{}
+	opts.Filters = filters.NewArgs()
+	opts.Filters.Add("name", "prometheus-pushgateway")
+	opts.Filters.Add("name", "testground-grafana")
+	opts.Filters.Add("name", "testground-prometheus")
+	opts.Filters.Add("name", "testground-redis")
+	opts.Filters.Add("name", "testground-sidecar")
 
-	infracontainers, err := cli.ContainerList(ctx, infraOpts)
+	infracontainers, err := cli.ContainerList(ctx, opts)
 	if err != nil {
 		return fmt.Errorf("failed to list infrastructure containers: %w", err)
 	}

@@ -18,6 +18,7 @@ go:
 
 services:
   - docker
+#  - redis-server // the local:exec runner starts redis as a Docker container.
 
 before_install:
   - |
@@ -37,9 +38,11 @@ jobs:
       script:
         - make tidy
         - git diff --exit-code
+        - go mod download
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
         - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd
         - make lint           # run a bunch of code checkers/linters in parallel
+        - make test-build     # build the project
         - make test           # Run all the tests with the race detector enabled
         
     - stage: lint_build_check_test_run

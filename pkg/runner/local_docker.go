@@ -509,7 +509,6 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	infraOpts := types.ContainerListOptions{}
 	infraOpts.Filters = filters.NewArgs()
 	infraOpts.Filters.Add("name", "prometheus-pushgateway")
-	infraOpts.Filters.Add("name", "testground-goproxy")
 	infraOpts.Filters.Add("name", "testground-grafana")
 	infraOpts.Filters.Add("name", "testground-prometheus")
 	infraOpts.Filters.Add("name", "testground-redis")
