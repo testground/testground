@@ -70,4 +70,6 @@ spec:
       - name: cnibin
         hostPath:
           path: /opt/cni/bin
+      nodeSelector:
+        testground.nodetype: plan
 
