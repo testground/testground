@@ -111,12 +111,12 @@ func (w *Watcher) Subscribe(ctx context.Context, subtree *Subtree, ch interface{
 		return err
 	}
 
-	root := w.root + ":" + subtree.GroupKey
+	key := w.root + ":" + subtree.GroupKey
 	sub := &subscription{
 		w:       w,
 		subtree: subtree,
 		client:  w.client.WithContext(ctx),
-		key:     root,
+		key:     key,
 		outCh:   chV,
 	}
 
@@ -187,11 +187,11 @@ func (w *Watcher) Barrier(ctx context.Context, state State, required int64) <-ch
 				return
 			}
 		}
+
 		if last > required {
-			resCh <- fmt.Errorf("when waiting on %s; too many elements, required %d, got %d", state, required, last)
-		} else {
-			resCh <- nil
+			log.Debugf("barrier on state %s: exceeded target count; required: %d, got: %d")
 		}
+		resCh <- nil
 	}()
 
 	return resCh

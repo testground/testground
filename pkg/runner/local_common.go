@@ -4,6 +4,8 @@ import (
 	"context"
 	"path/filepath"
 
+	"github.com/docker/go-units"
+
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/rpc"
@@ -94,6 +96,14 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 			HostConfig: &container.HostConfig{
 				PortBindings: exposed,
 				NetworkMode:  container.NetworkMode(controlNetworkID),
+				Resources: container.Resources{
+					Ulimits: []*units.Ulimit{
+						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+					},
+				},
+				RestartPolicy: container.RestartPolicy{
+					Name: "unless-stopped",
+				},
 			},
 			ImageStrategy: docker.ImageStrategyPull,
 		}),

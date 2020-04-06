@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -100,19 +102,36 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	// enlist healthchecks which are common between local:docker and local:exec
 	localCommonHealthcheck(ctx, hh, cli, ow, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
 
+	dockerSock := "/var/run/docker.sock"
+	if host := cli.DaemonHost(); strings.HasPrefix(host, "unix://") {
+		dockerSock = host[len("unix://"):]
+	} else {
+		ow.Warnf("guessing docker socket as %s", dockerSock)
+	}
+
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
-			Image: "testground-sidecar:latest",
-			Cmd:   []string{"sidecar", "--runner", "docker", "--pprof"},
+			Image:      "ipfs/testground:latest",
+			Entrypoint: []string{"testground"},
+			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
+			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
-			PidMode:     "host",
-			NetworkMode: "testground-control",
-			CapAdd:      []string{"NET_ADMIN", "SYS_ADMIN"},
+			PublishAllPorts: true,
+			// Port binding for pprof.
+			PortBindings: nat.PortMap{"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
+			NetworkMode:  container.NetworkMode(r.controlNetworkID),
+			// To lookup namespaces. Can't use SandboxKey for some reason.
+			PidMode: "host",
+			// We need _both_ to actually get a network namespace handle.
+			// We may be able to drop sys_admin if we drop netlink
+			// sockets that we're not using.
+			CapAdd: []string{"NET_ADMIN", "SYS_ADMIN"},
+			// needed to talk to docker.
 			Mounts: []mount.Mount{{
 				Type:   mount.TypeBind,
-				Source: "/var/run/docker.sock",
+				Source: dockerSock,
 				Target: "/var/run/docker.sock",
 			}},
 			Resources: container.Resources{
@@ -120,9 +139,11 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 					{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 				},
 			},
+			RestartPolicy: container.RestartPolicy{
+				Name: "unless-stopped",
+			},
 		},
-		NetworkingConfig: &network.NetworkingConfig{},
-		ImageStrategy:    docker.ImageStrategyBuild,
+		ImageStrategy: docker.ImageStrategyBuild,
 		BuildImageOpts: &docker.BuildImageOpts{
 			Name:     "testground-sidecar:latest",
 			BuildCtx: engine.EnvConfig().SrcDir,

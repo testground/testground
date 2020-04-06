@@ -23,6 +23,12 @@ echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
+# Set default options (can be over-ridden by setting environment vars)
+if [ -z "$ULIMIT_NOFILE" ]
+then
+	export ULIMIT_NOFILE="1048576:1048576"
+fi
+
 CLUSTER_SPEC=$(mktemp)
 envsubst <$CLUSTER_SPEC_TEMPLATE >$CLUSTER_SPEC
 cat $CLUSTER_SPEC
@@ -114,12 +120,11 @@ kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
 # monitoring and redis.
-echo "installing helm infrastructure"
+echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
 pushd testground-infra
 helm dep build
-helm install --wait --timeout 2m testground-infra .
+helm install testground-infra .
 popd
-sleep 10
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo
