@@ -10,9 +10,6 @@ pre-commit:
 	python -m pip install pre-commit --upgrade --user
 	pre-commit install --install-hooks
 
-docker-ipfs-testground:
-	docker build -t ipfs/testground .
-
 tidy:
 	$(call eachmod,go mod tidy)
 

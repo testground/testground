@@ -437,7 +437,7 @@ func (r *LocalDockerRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Out
 			} else {
 				msg := fmt.Sprintf("failed to create sidecar container: %s", err)
 				if strings.Contains(err.Error(), "image not found") {
-					msg += "; docker image ipfs/testground not found, run `make docker-ipfs-testground`"
+					msg += "; docker image ipfs/testground not found, run `make docker`"
 				}
 
 				it := api.HealthcheckItem{Name: "sidecar-container", Status: api.HealthcheckStatusFailed, Message: msg}
