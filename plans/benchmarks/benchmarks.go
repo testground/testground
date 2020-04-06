@@ -13,6 +13,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sync/errgroup"
 )
 
 // This method emits the time as output. It does *not* emit a prometheus metric.
@@ -240,7 +241,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	// Create tests ranging from 64B to 4KiB.
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
-	for size := 64; size <= 4*1024; size = size << 1 {
+	for size := 64; size <= 664; size++ {
 		name := fmt.Sprintf("subtree_time_%d_bytes", size)
 		d := make([]byte, 0, size)
 		rand.Read(d)
@@ -317,24 +318,37 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// if we are receiving, wait for the publisher to be done.
 		<-watcher.Barrier(ctx, handoff, int64(1))
 
+		runenv.RecordMessage("after barrier")
+
+		var eg errgroup.Group
+
 		for _, tst := range tests {
-			ch := make(chan *string, 1)
-			err = watcher.Subscribe(ctx, tst.Subtree, ch)
-			if err != nil {
-				return err
-			}
-			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
-				b := <-ch
-				t.ObserveDuration()
-				if strings.Compare(*b, *tst.Data) != 0 {
-					return fmt.Errorf("received unexpected value")
+			tst := tst
+			eg.Go(func() error {
+				ch := make(chan *string, 1)
+				err = watcher.Subscribe(ctx, tst.Subtree, ch)
+				if err != nil {
+					return err
 				}
-				if i%500 == 0 {
-					runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
+				for i := 1; i <= iterations; i++ {
+					t := prometheus.NewTimer(tst.Summary)
+					b := <-ch
+					t.ObserveDuration()
+					if strings.Compare(*b, *tst.Data) != 0 {
+						return fmt.Errorf("received unexpected value")
+					}
+					if i%500 == 0 {
+						runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
+					}
 				}
-			}
+				return nil
+			})
 		}
+
+		runenv.RecordMessage("sleeping 30sec")
+		time.Sleep(30 * time.Second)
+
+		eg.Wait()
 	}
 
 	return nil
