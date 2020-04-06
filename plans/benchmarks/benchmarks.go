@@ -241,8 +241,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	// Create tests ranging from 64B to 4KiB.
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
-	for size := 64; size <= 664; size++ {
-		name := fmt.Sprintf("subtree_time_%d_bytes", size)
+	//for size := 64; size <= 664; size++ {
+	for testid := 1; testid <= 600; testid++ {
+		size := 16
+		name := fmt.Sprintf("subtree_time_%d_%d_bytes", testid, size)
 		d := make([]byte, 0, size)
 		rand.Read(d)
 		data := string(d)
@@ -345,10 +347,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			})
 		}
 
+		eg.Wait()
+
 		runenv.RecordMessage("sleeping 30sec")
 		time.Sleep(30 * time.Second)
-
-		eg.Wait()
 	}
 
 	return nil
