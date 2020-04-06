@@ -19,17 +19,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p"
-      version = "v0.7.3-0.20200330204848-85060e8d229f"
+      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ad72a65769e3"
+    artifact = "50d479c47eaf"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -49,17 +45,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p"
-      version = "v0.7.3-0.20200330204848-85060e8d229f"
+      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ad72a65769e3"
+    artifact = "50d479c47eaf"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -79,17 +71,13 @@
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-kad-dht"
-      version = "1ab4d8c22c612bb07ccde38be9eca0e3ff1aa5f3"
-
-    [[groups.build.dependencies]]
-      module = "github.com/libp2p/go-libp2p"
-      version = "v0.7.3-0.20200330204848-85060e8d229f"
+      version = "b1ebd558b50ca155fb2e519ce119695fe1918a63"
 
     [[groups.build.dependencies]]
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "ad72a65769e3"
+    artifact = "50d479c47eaf"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
