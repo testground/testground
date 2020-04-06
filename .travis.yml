@@ -18,13 +18,13 @@ env:
 cache:
   directories:
     - $HOME/gopath/pkg/mod
-    - docker_images  # https://github.com/travis-ci/travis-ci/issues/5358#issuecomment-542672812
+    - $HOME/docker_images  # https://github.com/travis-ci/travis-ci/issues/5358#issuecomment-542672812
 
 before_install:
-  - docker load -i docker_images/images.tar || true
+  - docker load -i $HOME/docker_images/images.tar || true
 
 before_cache:
-  - docker save -o docker_images/images.tar $(docker images -a -q)
+  - docker save -o $HOME/docker_images/images.tar $(docker images -a -q)
 
 jobs:
   include:
