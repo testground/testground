@@ -57,7 +57,10 @@ type HealthcheckReport struct {
 
 func (hr *HealthcheckReport) ChecksSucceeded() bool {
 	for _, c := range hr.Checks {
-		if c.Status != HealthcheckStatusOK && c.Status != HealthcheckStatusOmitted {
+		switch c.Status {
+		case HealthcheckStatusOK, HealthcheckStatusOmitted, HealthcheckStatusUnnecessary:
+			continue
+		default:
 			return false
 		}
 	}
@@ -66,7 +69,10 @@ func (hr *HealthcheckReport) ChecksSucceeded() bool {
 
 func (hr *HealthcheckReport) FixesSucceeded() bool {
 	for _, f := range hr.Fixes {
-		if f.Status != HealthcheckStatusOK && f.Status != HealthcheckStatusOmitted {
+		switch f.Status {
+		case HealthcheckStatusOK, HealthcheckStatusOmitted, HealthcheckStatusUnnecessary:
+			continue
+		default:
 			return false
 		}
 	}
