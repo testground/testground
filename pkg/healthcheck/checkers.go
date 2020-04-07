@@ -11,6 +11,8 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // CheckContainerStarted returns a Checker that succeeds if a container is
@@ -94,6 +96,25 @@ func CheckCommandStatus(ctx context.Context, cmd string, args ...string) Checker
 		}
 		// command returns with a zero exit code.
 		return true, fmt.Sprintf("command completed successfully `%s`", cmd), nil
+	}
+}
+
+// CheckK8sPods returns a checker which verifies the number of pods found matches the number
+// expected. If Listing the pods returns an error, the error is returned. The boolean value returned
+// by the check follows whether the number of pods observed in the list matches the expected count.
+func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label string, namespace string, count int) Checker {
+	return func() (bool, string, error) {
+		listOpts := metav1.ListOptions{LabelSelector: label}
+		pods, err := client.CoreV1().Pods(namespace).List(listOpts)
+		if err != nil {
+			return false, fmt.Sprintf("failed to list pods %s", label), err
+		}
+		found := len(pods.Items)
+		msg := fmt.Sprintf("expected %d pods; found %d", count, found)
+		if found != count {
+			return false, msg, nil
+		}
+		return true, msg, nil
 	}
 }
 
