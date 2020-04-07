@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,9 +56,11 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
+	t := time.Now()
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
+	metrics.GetOrRegisterResettingTimer("network.init", nil).UpdateSince(t)
 
 	elapsed := time.Since(startupTime)
 	emitTime(runenv, "Time to network init", elapsed)
@@ -209,9 +213,11 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	defer watcher.Close()
 	defer writer.Close()
 
+	t := time.Now()
 	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
 		return err
 	}
+	metrics.GetOrRegisterResettingTimer("network.init", nil).UpdateSince(t)
 
 	st := &sync.Subtree{
 		GroupKey:    "instances",
@@ -241,8 +247,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	// Create tests ranging from 64B to 4KiB.
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
-	for testid := 1; testid <= 500; testid++ {
-		size := 1
+	for testid := 1; testid <= 10; testid++ {
+		size := 4
 		name := fmt.Sprintf("subtree_time_%d_%d_bytes", testid, size)
 		d := make([]byte, 0, size)
 		rand.Read(d)
@@ -271,22 +277,34 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 	switch mode {
 	case "publish":
+		t := time.Now()
 		runenv.RecordMessage("i am the publisher")
 
+		var eg errgroup.Group
 		for _, tst := range tests {
-			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
-				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
-				if err != nil {
-					return err
-				}
-				t.ObserveDuration()
+			tst := tst
+			eg.Go(func() error {
+				for i := 1; i <= iterations; i++ {
+					now := time.Now()
+					t := prometheus.NewTimer(tst.Summary)
+					_, err = writer.Write(ctx, tst.Subtree, tst.Data)
+					if err != nil {
+						return err
+					}
+					t.ObserveDuration()
 
-				if i%500 == 0 {
-					runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
+					if i%500 == 0 {
+						runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
+					}
+
+					metrics.GetOrRegisterResettingTimer("publisher.test.iteration.ok", nil).UpdateSince(now)
 				}
-			}
+				return nil
+			})
 		}
+
+		eg.Wait()
+
 		// signal to subscribers they can start.
 		_, err = writer.SignalEntry(ctx, handoff)
 		if err != nil {
@@ -298,6 +316,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			return err
 		}
 
+		metrics.GetOrRegisterResettingTimer("publisher.signal", nil).UpdateSince(t)
+
 		// wait for everyone to be done; this is necessary because the sync
 		// service applies TTL by electing the first 5 publishers on the Redis
 		// Stream to own the keepalive. In this case, all 5 publishers will be
@@ -305,6 +325,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// key and therefore the ownership will be distributed. That does not
 		// happen here, as all key publishing is concentrated on the publisher.
 		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
+
+		metrics.GetOrRegisterResettingTimer("publisher.end", nil).UpdateSince(t)
 
 	case "receive":
 		defer func() {
@@ -316,16 +338,35 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("i am a subscriber")
 
+		t := time.Now()
 		// if we are receiving, wait for the publisher to be done.
 		<-watcher.Barrier(ctx, handoff, int64(1))
+
+		metrics.GetOrRegisterResettingTimer("subscriber.after-barrier", nil).UpdateSince(t)
 
 		runenv.RecordMessage("after barrier")
 
 		var eg errgroup.Group
 
+		alltests := time.Now()
+
 		for _, tst := range tests {
 			tst := tst
 			eg.Go(func() error {
+				randomSleepMs := rand.Int31n(10000)
+				time.Sleep(time.Duration(randomSleepMs) * time.Millisecond)
+
+				subscrtime := time.Now()
+				iserror := true
+
+				defer func() {
+					if iserror {
+						metrics.GetOrRegisterResettingTimer("subscriber.test.fail", nil).UpdateSince(subscrtime)
+					} else {
+						metrics.GetOrRegisterResettingTimer("subscriber.test.success", nil).UpdateSince(subscrtime)
+					}
+				}()
+
 				ch := make(chan *string, 1)
 				runenv.RecordMessage("subscribing (series: %s)", tst.Name)
 				err = watcher.Subscribe(ctx, tst.Subtree, ch)
@@ -334,25 +375,37 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				}
 				runenv.RecordMessage("subscribed (series: %s)", tst.Name)
 				for i := 1; i <= iterations; i++ {
+					now := time.Now()
 					t := prometheus.NewTimer(tst.Summary)
 					b := <-ch
 					t.ObserveDuration()
+					if b == nil {
+						metrics.GetOrRegisterResettingTimer("subscriber.test.iteration.fail.nil", nil).UpdateSince(now)
+						return errors.New("nil b")
+					}
+
 					if strings.Compare(*b, *tst.Data) != 0 {
+						metrics.GetOrRegisterResettingTimer("subscriber.test.iteration.fail", nil).UpdateSince(now)
 						return fmt.Errorf("received unexpected value")
 					}
 
-					if i%10 == 0 {
+					if i%500 == 0 {
 						runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
 					}
+					metrics.GetOrRegisterResettingTimer("subscriber.test.iteration.ok", nil).UpdateSince(now)
 				}
+
+				iserror = false
 				return nil
 			})
 		}
 
 		eg.Wait()
 
-		runenv.RecordMessage("sleeping 30sec")
-		time.Sleep(30 * time.Second)
+		metrics.GetOrRegisterResettingTimer("subscriber.all-tests", nil).UpdateSince(alltests)
+
+		runenv.RecordMessage("done")
+		//time.Sleep(30 * time.Second)
 	}
 
 	return nil

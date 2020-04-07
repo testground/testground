@@ -47,9 +47,9 @@ fi
 
 # The remainder of this script creates the cluster using the generated template
 
-kops create -f $CLUSTER_SPEC
-kops create secret --name $NAME sshpublickey admin -i $PUBKEY
-kops update cluster $NAME --yes
+#kops create -f $CLUSTER_SPEC
+#kops create secret --name $NAME sshpublickey admin -i $PUBKEY
+#kops update cluster $NAME --yes
 
 # wait for worker nodes and master to be ready
 kops validate cluster --wait 10m
@@ -96,11 +96,11 @@ pushd efs-terraform
 # extract s3 bucket from kops state store
 S3_BUCKET="${KOPS_STATE_STORE:5:100}"
 
-terraform init -backend-config=bucket=$S3_BUCKET \
-               -backend-config=key=tf-efs-$NAME \
-               -backend-config=region=$AWS_REGION
+#terraform init -backend-config=bucket=$S3_BUCKET \
+               #-backend-config=key=tf-efs-$NAME \
+               #-backend-config=region=$AWS_REGION
 
-terraform apply -var aws_region=$AWS_REGION -var fs_subnet_id=$subnetId -var fs_sg_id=$securityGroupId -auto-approve
+#terraform apply -var aws_region=$AWS_REGION -var fs_subnet_id=$subnetId -var fs_sg_id=$securityGroupId -auto-approve
 
 export EFS_DNSNAME=`terraform output dns_name`
 
@@ -110,10 +110,10 @@ popd
 
 echo "Install EFS Kubernetes provisioner..."
 
-kubectl create configmap efs-provisioner \
---from-literal=file.system.id=$fsId \
---from-literal=aws.region=$AWS_REGION \
---from-literal=provisioner.name=testground.io/aws-efs
+#kubectl create configmap efs-provisioner \
+#--from-literal=file.system.id=$fsId \
+#--from-literal=aws.region=$AWS_REGION \
+#--from-literal=provisioner.name=testground.io/aws-efs
 
 EFS_MANIFEST_SPEC=$(mktemp)
 envsubst <./efs/manifest.yaml.spec >$EFS_MANIFEST_SPEC

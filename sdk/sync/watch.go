@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
@@ -94,6 +95,8 @@ func NewWatcher(ctx context.Context, runenv *runtime.RunEnv) (w *Watcher, err er
 // canceling the passed context. The subscription will die if an internal error
 // occurs.
 func (w *Watcher) Subscribe(ctx context.Context, subtree *Subtree, ch interface{}) error {
+	defer metrics.GetOrRegisterResettingTimer("watcher.subscribe", nil).UpdateSince(time.Now())
+
 	if err := ctx.Err(); err != nil {
 		return err
 	}

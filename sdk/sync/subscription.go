@@ -3,7 +3,9 @@ package sync
 import (
 	"context"
 	"reflect"
+	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/go-redis/redis/v7"
@@ -94,7 +96,9 @@ func (s *subscription) process() {
 
 	var last redis.XMessage
 	for {
+		t := time.Now()
 		streams, err := conn.XRead(args).Result()
+		metrics.GetOrRegisterResettingTimer("conn.xread", nil).UpdateSince(t)
 		if err != nil && err != redis.Nil {
 			select {
 			case <-s.w.close:

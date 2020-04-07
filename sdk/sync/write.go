@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/go-redis/redis/v7"
@@ -133,6 +134,8 @@ func (w *Writer) keepAlive(ctx context.Context) error {
 // Else, if all succeeds, it returns the ordinal sequence number of this entry
 // within the subtree (starting at 1).
 func (w *Writer) Write(ctx context.Context, subtree *Subtree, payload interface{}) (seq int64, err error) {
+	defer metrics.GetOrRegisterResettingTimer("writer.write", nil).UpdateSince(time.Now())
+
 	if err = subtree.AssertType(reflect.ValueOf(payload).Type()); err != nil {
 		return -1, err
 	}

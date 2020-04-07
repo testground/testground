@@ -14,6 +14,8 @@ func main() {
 // Pick a different example function to run
 // depending on the name of the test case.
 func run(runenv *runtime.RunEnv) error {
+	Setup()
+	defer EmitMetrics()
 	switch c := runenv.TestCase; c {
 	case "startup":
 		return StartTimeBench(runenv)

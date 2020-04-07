@@ -34,6 +34,7 @@ var (
 
 type K8sReactor struct {
 	redis   net.IP
+	influx  net.IP
 	manager *docker.Manager
 }
 
@@ -45,6 +46,11 @@ func NewK8sReactor() (Reactor, error) {
 		return nil, fmt.Errorf("failed to resolve redis: %w", err)
 	}
 
+	influxdb, err := net.ResolveIPAddr("ip4", "influxdb")
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve influxdb: %w", err)
+	}
+
 	docker, err := docker.NewManager()
 	if err != nil {
 		return nil, err
@@ -53,6 +59,7 @@ func NewK8sReactor() (Reactor, error) {
 	return &K8sReactor{
 		manager: docker,
 		redis:   redisIp.IP,
+		influx:  influxdb.IP,
 	}, nil
 }
 
@@ -165,12 +172,19 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 	}
 	logging.S().Debugw("got redis route", "route.Src", redisRoute.Src, "route.Dst", redisRoute.Dst, "gw", redisRoute.Gw.String(), "container", container.ID)
 
+	influxRoute, err := getRedisRoute(netlinkHandle, d.influx)
+	if err != nil {
+		return nil, fmt.Errorf("cant get route to influx: %s", err)
+	}
+	logging.S().Debugw("got influx route", "route.Src", influxRoute.Src, "route.Dst", influxRoute.Dst, "gw", influxRoute.Gw.String(), "container", container.ID)
+
 	controlLinkRoutes, err := netlinkHandle.RouteList(controlLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
 
 	redisIP := redisRoute.Dst.IP
+	influxIP := influxRoute.Dst.IP
 
 	routesToBeDeleted := []netlink.Route{}
 
@@ -198,6 +212,20 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 				}
 
 				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
+					logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+				} else {
+					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+				}
+			}
+			if route.Dst.Contains(influxIP) {
+				newroute := route
+				newroute.Dst = &net.IPNet{
+					IP:   influxIP,
+					Mask: net.CIDRMask(32, 32),
+				}
+
+				logging.S().Debugw("adding influx route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
 				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
 					logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
 				} else {
