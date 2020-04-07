@@ -756,6 +756,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			return nil
 		}
 
+		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
+			return nil
+		}
+
 	}
 }
 
