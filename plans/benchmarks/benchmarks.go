@@ -241,9 +241,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	// Create tests ranging from 64B to 4KiB.
 	// Note: anything over 1500 is likely to have ethernet fragmentation.
 	var tests []*testSpec
-	//for size := 64; size <= 664; size++ {
-	for testid := 1; testid <= 600; testid++ {
-		size := 16
+	for testid := 1; testid <= 500; testid++ {
+		size := 256
 		name := fmt.Sprintf("subtree_time_%d_%d_bytes", testid, size)
 		d := make([]byte, 0, size)
 		rand.Read(d)
@@ -328,10 +327,12 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			tst := tst
 			eg.Go(func() error {
 				ch := make(chan *string, 1)
+				runenv.RecordMessage("subscribing (series: %s)", tst.Name)
 				err = watcher.Subscribe(ctx, tst.Subtree, ch)
 				if err != nil {
 					return err
 				}
+				runenv.RecordMessage("subscribed (series: %s)", tst.Name)
 				for i := 1; i <= iterations; i++ {
 					t := prometheus.NewTimer(tst.Summary)
 					b := <-ch
@@ -339,7 +340,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 					if strings.Compare(*b, *tst.Data) != 0 {
 						return fmt.Errorf("received unexpected value")
 					}
-					if i%500 == 0 {
+
+					if i%10 == 0 {
 						runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
 					}
 				}

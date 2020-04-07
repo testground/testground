@@ -89,6 +89,7 @@ func (s *subscription) process() {
 	args := &redis.XReadArgs{
 		Streams: []string{key, "0"},
 		Block:   0,
+		Count:   5,
 	}
 
 	var last redis.XMessage
