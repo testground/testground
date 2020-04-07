@@ -24,6 +24,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
+	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -398,33 +399,43 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	return
 }
 
-func (c *ClusterK8sRunner) Healthcheck(_ context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
+func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	// TODO how does one pass the context to k8s API calls?
-	c.initPool()
 
-	report := api.HealthcheckReport{}
+	// c.initPool()
 
-	report.Checks = []api.HealthcheckItem{
-		c.healthcheckK8s(),
-		c.healthcheckEFS(),
-		c.healthcheckRedis(),
-		c.healthcheckSidecar(),
-	}
+	hh := &hc.Helper{}
 
-	if fix {
-		var fakeFixes []api.HealthcheckItem
-		for _, chk := range report.Checks {
-			if chk.Status != api.HealthcheckStatusOK {
-				fakeFixes = append(fakeFixes, api.HealthcheckItem{
-					Name:    chk.Name,
-					Status:  chk.Status,
-					Message: "Fix not implemented yet for this check.",
-				})
-			}
-			report.Fixes = fakeFixes
+	hh.Enlist("kops validate",
+		hc.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
+		hc.NotImplemented(),
+	)
+
+	return hh.RunChecks(ctx, fix)
+
+	/*
+		report.Checks = []api.HealthcheckItem{
+			c.healthcheckK8s(),
+			c.healthcheckEFS(),
+			c.healthcheckRedis(),
+			c.healthcheckSidecar(),
 		}
-	}
-	return &report, nil
+
+		if fix {
+			var fakeFixes []api.HealthcheckItem
+			for _, chk := range report.Checks {
+				if chk.Status != api.HealthcheckStatusOK {
+					fakeFixes = append(fakeFixes, api.HealthcheckItem{
+						Name:    chk.Name,
+						Status:  chk.Status,
+						Message: "Fix not implemented yet for this check.",
+					})
+				}
+				report.Fixes = fakeFixes
+			}
+		}
+		return &report, nil
+	*/
 }
 
 func (*ClusterK8sRunner) ConfigType() reflect.Type {
