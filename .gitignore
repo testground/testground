@@ -37,3 +37,5 @@ plans/**/go.sum
 # End of https://www.gitignore.io/api/go,visualstudiocode
 
 LAST-TAG
+
+plans/lotus

@@ -471,6 +471,10 @@ func run(runenv *runtime.RunEnv) error {
 
 		var localWalletAddr *address.Address
 		addrs, err := api.WalletList(ctx)
+		if err != nil {
+			return err
+		}
+
 		for _, addr := range addrs {
 			localWalletAddr = &addr
 		}
@@ -478,16 +482,17 @@ func run(runenv *runtime.RunEnv) error {
 			return fmt.Errorf("Couldn't find wallet")
 		}
 
+		runenv.Message("Setting default wallet: %v", *localWalletAddr)
+		err = api.WalletSetDefault(ctx, *localWalletAddr)
 		if err != nil {
-			cancel()
 			return err
 		}
 
 		walletAddressCh := make(chan *string, 0)
-		subscribeCtx, cancel := context.WithCancel(ctx)
+		subscribeCtx, cancelSub := context.WithCancel(ctx)
 		err = watcher.Subscribe(subscribeCtx, walletAddressSubtree, walletAddressCh)
+		defer cancelSub()
 		if err != nil {
-			cancel()
 			return err
 		}
 		for i := 1; i < runenv.TestInstanceCount; i++ {
@@ -498,13 +503,11 @@ func run(runenv *runtime.RunEnv) error {
 				// Send funds - see cli/send.go in Lotus
 				toAddr, err := address.NewFromString(*walletAddress)
 				if err != nil {
-					cancel()
 					return err
 				}
 
 				val, err := types.ParseFIL("0.00001")
 				if err != nil {
-					cancel()
 					return err
 				}
 
@@ -518,12 +521,11 @@ func run(runenv *runtime.RunEnv) error {
 
 				_, err = api.MpoolPushMessage(ctx, msg)
 				if err != nil {
-					cancel()
 					return err
 				}
 			}
 		}
-		cancel()
+		cancelSub()
 
 		// Wait until nodeReady state is signalled by all secondary nodes
 		runenv.RecordMessage("Waiting for nodeReady from other nodes")
@@ -604,15 +606,14 @@ func run(runenv *runtime.RunEnv) error {
 		var genesisAddrInfo *peer.AddrInfo
 
 		genesisAddrCh := make(chan *string, 0)
-		subscribeCtx, cancel := context.WithCancel(ctx)
+		subscribeCtx, cancelSub := context.WithCancel(ctx)
+		defer cancelSub()
 		err = watcher.Subscribe(subscribeCtx, genesisAddrSubtree, genesisAddrCh)
 		if err != nil {
-			cancel()
 			return err
 		}
 		select {
 		case genesisAddr := <-genesisAddrCh:
-			cancel()
 			genesisMultiaddr, err := multiaddr.NewMultiaddr(*genesisAddr)
 			if err != nil {
 				return err
@@ -622,7 +623,6 @@ func run(runenv *runtime.RunEnv) error {
 				return err
 			}
 		case <-time.After(1 * time.Second):
-			cancel()
 			return fmt.Errorf("timeout fetching genesisAddr")
 		}
 
@@ -685,7 +685,6 @@ func run(runenv *runtime.RunEnv) error {
 
 		localWalletAddr, err := api.WalletDefaultAddress(ctx)
 		if err != nil {
-			cancel()
 			return err
 		}
 
