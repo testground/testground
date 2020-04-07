@@ -39,7 +39,13 @@ type LocalExecutableRunner struct {
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
-type LocalExecutableRunnerCfg struct{}
+type LocalExecutableRunnerCfg struct {
+	// How to reach influxdb
+	InfluxURL    string `toml:"influx_url"`
+	InfluxToken  string `toml:"influx_token"`
+	InfluxOrg    string `toml:"influx_org"`
+	InfluxBucket string `toml:"influx_bucket"`
+}
 
 func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
@@ -76,6 +82,8 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		name = plan.Name
 	)
 
+	cfg := *input.RunnerConfig.(*LocalExecutableRunnerCfg)
+
 	if seq >= len(plan.TestCases) {
 		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
 	}
@@ -89,6 +97,10 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
 		TestSubnet:        &runtime.IPNet{IPNet: *localSubnet},
+		TestInfluxURL:     cfg.InfluxURL,
+		TestInfluxToken:   cfg.InfluxToken,
+		TestInfluxOrg:     cfg.InfluxOrg,
+		TestInfluxBucket:  cfg.InfluxBucket,
 	}
 
 	// Spawn as many instances as the input parameters require.

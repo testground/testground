@@ -30,6 +30,10 @@ const (
 	EnvTestStartTime          = "TEST_START_TIME"
 	EnvTestSubnet             = "TEST_SUBNET"
 	EnvTestTag                = "TEST_TAG"
+	EnvTestInfluxURL          = "TEST_INFLUX_URL"
+	EnvTestInfluxToken        = "TEST_INFLUX_TOKEN"
+	EnvTestInfluxOrg          = "TEST_INFLUX_ORG"
+	EnvTestInfluxBucket       = "TEST_INFLUX_BUCKET"
 )
 
 type IPNet struct {
@@ -94,6 +98,12 @@ type RunParams struct {
 	// This will be 127.1.0.0/16 when using the local exec runner.
 	TestSubnet    *IPNet    `json:"network,omitempty"`
 	TestStartTime time.Time `json:"start_time,omitempty"`
+
+	// InfluxDB for metrics collection
+	TestInfluxURL    string `json:"influx_url,omitempty"`
+	TestInfluxToken  string `json:"influx_token,omitempty"`
+	TestInfluxOrg    string `json:"influx_org,omitempty"`
+	TestInfluxBucket string `json:"influx_bucket,omitempty"`
 }
 
 // RunEnv encapsulates the context for this test run.
@@ -169,6 +179,10 @@ func (re *RunParams) ToEnvVars() map[string]string {
 		EnvTestStartTime:          re.TestStartTime.Format(time.RFC3339),
 		EnvTestSubnet:             re.TestSubnet.String(),
 		EnvTestTag:                re.TestTag,
+		EnvTestInfluxURL:          re.TestInfluxURL,
+		EnvTestInfluxToken:        re.TestInfluxToken,
+		EnvTestInfluxOrg:          re.TestInfluxOrg,
+		EnvTestInfluxBucket:       re.TestInfluxBucket,
 	}
 
 	return out
@@ -249,6 +263,10 @@ func ParseRunParams(env []string) (*RunParams, error) {
 		TestStartTime:          toTime(EnvTestStartTime),
 		TestSubnet:             toNet(m[EnvTestSubnet]),
 		TestTag:                m[EnvTestTag],
+		TestInfluxURL:          m[EnvTestInfluxURL],
+		TestInfluxToken:        m[EnvTestInfluxToken],
+		TestInfluxOrg:          m[EnvTestInfluxOrg],
+		TestInfluxBucket:       m[EnvTestInfluxBucket],
 	}, nil
 }
 

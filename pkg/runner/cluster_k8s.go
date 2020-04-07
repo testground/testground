@@ -104,6 +104,12 @@ type ClusterK8sRunnerConfig struct {
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
+
+	// How to reach influxdb
+	InfluxURL    string `toml:"influx_url"`
+	InfluxToken  string `toml:"influx_token"`
+	InfluxOrg    string `toml:"influx_org"`
+	InfluxBucket string `toml:"influx_bucket"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -154,6 +160,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
 		TestStartTime:     time.Now(),
+		TestInfluxURL:     cfg.InfluxURL,
+		TestInfluxToken:   cfg.InfluxToken,
+		TestInfluxOrg:     cfg.InfluxOrg,
+		TestInfluxBucket:  cfg.InfluxBucket,
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to

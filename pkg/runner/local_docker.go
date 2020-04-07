@@ -57,6 +57,11 @@ type LocalDockerRunnerConfig struct {
 	// Background avoids tailing the output of containers, and displaying it as
 	// log messages (default: false).
 	Background bool `toml:"background"`
+	// How to reach influxdb
+	InfluxURL    string `toml:"influx_url"`
+	InfluxToken  string `toml:"influx_token"`
+	InfluxOrg    string `toml:"influx_org"`
+	InfluxBucket string `toml:"influx_bucket"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -65,6 +70,10 @@ var defaultConfig = LocalDockerRunnerConfig{
 	KeepContainers: false,
 	Unstarted:      false,
 	Background:     false,
+	InfluxURL:      "",
+	InfluxToken:    "",
+	InfluxOrg:      "",
+	InfluxBucket:   "",
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -186,6 +195,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return nil, err
 	}
 
+	// Merge the incoming configuration with the default configuration.
+	cfg := defaultConfig
+	if err := mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
+		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	}
+
 	// Build a template runenv.
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
@@ -196,6 +211,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
 		TestStartTime:     time.Now(),
+		TestInfluxURL:     cfg.InfluxURL,
+		TestInfluxToken:   cfg.InfluxToken,
+		TestInfluxOrg:     cfg.InfluxOrg,
+		TestInfluxBucket:  cfg.InfluxBucket,
 	}
 
 	// Create a data network.
@@ -205,12 +224,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
-
-	// Merge the incoming configuration with the default configuration.
-	cfg := defaultConfig
-	if err := mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("error while merging configurations: %w", err)
-	}
 
 	var containers []string
 	for _, g := range input.Groups {
