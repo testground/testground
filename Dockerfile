@@ -2,12 +2,10 @@
 #::: BUILD CONTAINER
 #:::
 
-# GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.14
-
 # Dynamically select the golang version.
-# TODO: Not sure how this interplays with image caching.
-FROM golang:${GO_VERSION}-buster
+FROM golang:1.14-buster
+
+ARG GOPROXY
 
 # Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
 # inside sdk.
@@ -16,11 +14,14 @@ COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.
-RUN cd / && go mod download
+RUN cd / && \
+    go env -w GOPROXY=${GOPROXY} && \
+    go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
-RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
+RUN cd / && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
 
 #:::
 #::: RUNTIME CONTAINER
