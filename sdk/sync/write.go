@@ -17,7 +17,7 @@ import (
 
 var (
 	// TTL is the expiry of the records this writer inserts.
-	TTL = 10 * time.Second
+	TTL = 900 * time.Second
 
 	// KeepAlivePeriod is half the TTL. The Writer extends the TTL of the
 	// records it owns with this frequency.

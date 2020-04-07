@@ -3,6 +3,7 @@ module github.com/ipfs/testground/sdk/sync
 go 1.14
 
 require (
+	github.com/ethereum/go-ethereum v1.9.12
 	github.com/go-redis/redis/v7 v7.2.0
 	github.com/ipfs/testground v0.1.0
 	github.com/ipfs/testground/sdk/runtime v0.3.0
