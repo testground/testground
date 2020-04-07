@@ -4,12 +4,12 @@ go 1.13
 
 require (
 	github.com/filecoin-project/go-address v0.0.2-0.20200218010043-eb9bb40ed5be
-	github.com/filecoin-project/lotus v0.2.8
+	github.com/filecoin-project/lotus v0.2.10
 	github.com/ipfs/testground/sdk/runtime v0.1.0
 	github.com/ipfs/testground/sdk/sync v0.1.0
-	github.com/libp2p/go-libp2p-core v0.3.0
-	github.com/multiformats/go-multiaddr v0.2.0
-	github.com/multiformats/go-multiaddr-net v0.1.2
+	github.com/libp2p/go-libp2p-core v0.5.0
+	github.com/multiformats/go-multiaddr v0.2.1
+	github.com/multiformats/go-multiaddr-net v0.1.3
 	github.com/rs/cors v1.7.0
 )
 
