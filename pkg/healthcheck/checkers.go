@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/rpc"
@@ -73,6 +74,26 @@ func CheckDirectoryExists(path string) Checker {
 			return true, "directory exists.", nil
 		}
 		return false, "expected directory. found regular file. please fix manually.", fmt.Errorf("not a directory")
+	}
+}
+
+// CheckCommandStatus returns a checker which executes a command and returns successfully or
+// unsuccessfully depending on the exit status of the command.
+func CheckCommandStatus(ctx context.Context, cmd string, args ...string) Checker {
+	return func() (bool, string, error) {
+		cmd := exec.CommandContext(ctx, cmd, args...)
+		err := cmd.Start()
+		if err != nil {
+			// for example, command does not exist. This is an error with the check.
+			return false, fmt.Sprintf("failed to start command. `%s` (%v)", cmd, err), err
+		}
+		err = cmd.Wait()
+		if err != nil {
+			// command returns with a non-zero exit code. Return nil error, and false for the check.
+			return false, fmt.Sprintf("command failed `%s` (%v)", cmd, err), nil
+		}
+		// command returns with a zero exit code.
+		return true, fmt.Sprintf("command completed successfully `%s`", cmd), nil
 	}
 }
 
