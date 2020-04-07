@@ -34,9 +34,9 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 	expGrad := func(seq int) (int, int) {
 		switch seq {
 		case 0:
-			return 0,0
+			return 0, 0
 		case 1:
-			return 1,1
+			return 1, 1
 		default:
 			turnNum := int(math.Floor(math.Log2(float64(seq)))) + 1
 			waitFor := int(math.Exp2(float64(turnNum - 2)))
@@ -45,9 +45,9 @@ func BarrierTest(runenv *runtime.RunEnv) error {
 	}
 	_ = expGrad
 
-	linear := func(seq int) (int,int) {
+	linear := func(seq int) (int, int) {
 		slope := 10
-		turnNum := int(math.Floor(float64(seq)/float64(slope)))
+		turnNum := int(math.Floor(float64(seq) / float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
 			waitFor = 0

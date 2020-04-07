@@ -571,13 +571,21 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			}
 		}
 		return toDial
-	case 6: // connect to log(n) of the network
+	case 6: // connect to log(n) of the network, where n is the number of dialable nodes
 		plist := make([]*NodeInfo, len(peers)+1)
 		for _, info := range peers {
 			plist[info.Seq] = info
 		}
 		plist[node.info.Seq] = node.info
-		targetSize := int(math.Log2(float64(len(plist)))/2) + 1
+
+		numDialable := 0
+		for _, info := range plist {
+			if !info.Properties.Undialable {
+				numDialable++
+			}
+		}
+
+		targetSize := int(math.Log2(float64(numDialable)/2)) + 1
 
 		nodeLst := make([]*NodeInfo, len(plist))
 		copy(nodeLst, plist)
@@ -595,11 +603,66 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 				toDial = append(toDial, *info.Addrs)
 			}
 		}
+	case 7: // connect to log(server nodes) and log(other dialable nodes)
+		plist := make([]*NodeInfo, len(peers)+1)
+		for _, info := range peers {
+			plist[info.Seq] = info
+		}
+		plist[node.info.Seq] = node.info
+
+		numServer := 0
+		numOtherDialable := 0
+		for _, info := range plist {
+			if info.Properties.ExpectedServer {
+				numServer++
+			} else if !info.Properties.Undialable {
+				numOtherDialable++
+			}
+		}
+
+		targetServerNodes := int(math.Log2(float64(numServer/2))) + 1
+		targetOtherNodes := int(math.Log2(float64(numOtherDialable/2))) + 1
+
+		serverAddrs := getBootstrapAddrs(plist, node, targetServerNodes, 0, func(info *NodeInfo) bool {
+			if info.Seq != node.info.Seq && info.Properties.ExpectedServer {
+				return true
+			}
+			return false
+		})
+
+		otherAddrs := getBootstrapAddrs(plist, node, targetOtherNodes, 0, func(info *NodeInfo) bool {
+			if info.Seq != node.info.Seq && info.Properties.ExpectedServer {
+				return true
+			}
+			return false
+		})
+		toDial = append(toDial, serverAddrs...)
+		toDial = append(toDial, otherAddrs...)
 	default:
 		panic(fmt.Errorf("invalid number of bootstrap strategy %d", opts.BootstrapStrategy))
 	}
 
 	return toDial
+}
+
+func getBootstrapAddrs(plist []*NodeInfo, node *NodeParams, targetSize int, rngSeed int64, valid func(info *NodeInfo) bool) (toDial []peer.AddrInfo) {
+	nodeLst := make([]*NodeInfo, len(plist))
+	copy(nodeLst, plist)
+	rng := rand.New(rand.NewSource(rngSeed))
+	rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.Seq)))
+	rng.Shuffle(len(nodeLst), func(i, j int) {
+		nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
+	})
+
+	for _, info := range nodeLst {
+		if len(toDial) > targetSize {
+			break
+		}
+		if valid(info) {
+			toDial = append(toDial, *info.Addrs)
+		}
+	}
+	return
 }
 
 // Bootstrap brings the network into a completely bootstrapped and ready state.
@@ -644,7 +707,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	_ = expGrad
 
 	linear := func(seq int) (int, int) {
-		slope := 10
+		slope := 100
 		turnNum := int(math.Floor(float64(seq) / float64(slope)))
 		waitFor := slope
 		if turnNum == 0 {
@@ -671,6 +734,20 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	// Wait for Autonat to kick in
 	time.Sleep(time.Second * 30)
 
+	if err := Connect(ctx, runenv, dht, bootstrapNodes...); err != nil {
+		return err
+	}
+
+	go func() {
+		ticker := time.NewTicker(time.Second * 5)
+		for {
+			<-ticker.C
+			if node.dht.RoutingTable().Size() < 2 {
+				Connect(ctx, runenv, dht, bootstrapNodes...)
+			}
+		}
+	}()
+
 	////////////////
 	// 2: ROUTING //
 	////////////////
@@ -689,15 +766,27 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	rrt := func() error {
 		if err := <-dht.RefreshRoutingTable(); err != nil {
 			runenv.RecordMessage("bootstrap: refresh failure - rt size %d", dht.RoutingTable().Size())
-			outputGraph(dht, "failedrefresh")
 			return err
 		}
 		return nil
 	}
 
 	// Setup our routing tables.
-	if err := rrt(); err != nil {
-		return err
+	ready := false
+	numTries, maxNumTries := 1, 3
+	for !ready {
+		if err := rrt(); err != nil {
+			if numTries >= maxNumTries {
+				outputGraph(dht, "failedrefresh")
+				return err
+			}
+			numTries++
+			if err := Connect(ctx, runenv, dht, bootstrapNodes...); err != nil {
+				return err
+			}
+		} else {
+			ready = true
+		}
 	}
 
 	runenv.RecordMessage("bootstrap: table ready")
@@ -713,7 +802,9 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	// 3: TRIM //
 	/////////////
 
-	outputGraph(node.dht, "bt")
+	if err := gradualBsStager.End(); err != nil {
+		return err
+	}
 
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
@@ -723,10 +814,6 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	// Force the connection manager to do it's dirty work. DIE CONNECTIONS
 	// DIE!
 	dht.Host().ConnManager().TrimOpenConns(ctx)
-
-	if err := gradualBsStager.End(); err != nil {
-		return err
-	}
 
 	outputGraph(node.dht, "at")
 
@@ -1023,8 +1110,10 @@ func (s *GradualStager) End() error {
 	if err != nil {
 		return err
 	}
-	s.re.RecordMessage("%d is done", s.seq)
-	err = <-s.watcher.Barrier(s.ctx, lastStage, int64(s.re.TestInstanceCount-1))
+	total := int64(s.re.TestInstanceCount - 1)
+	s.re.RecordMessage("%d is done - waiting for %d", s.seq, total)
+	err = <-s.watcher.Barrier(s.ctx, lastStage, total)
+	s.re.RecordMessage("%d passed the barrier", s.seq)
 	return err
 }
 

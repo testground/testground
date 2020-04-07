@@ -7,7 +7,10 @@
   case = "bootstrap-network"
   total_instances = 100
   builder = "docker:go"
-  runner = "local:docker"
+  runner = "cluster:k8s"
+  [global.build_config]
+    push_registry = true
+    registry_type = "aws"
 
 [[groups]]
   id = "cypress-passive"
@@ -25,7 +28,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "45b11aa112d1"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:adaa263d3b51"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -51,7 +54,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "45b11aa112d1"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:adaa263d3b51"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"
@@ -77,7 +80,7 @@
       module = "github.com/libp2p/go-libp2p-xor"
       version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
   [groups.run]
-    artifact = "45b11aa112d1"
+    artifact = "909427826938.dkr.ecr.us-east-1.amazonaws.com/testground-us-east-1-dht:adaa263d3b51"
     [groups.run.test_params]
       alpha = "6"
       beta = "3"

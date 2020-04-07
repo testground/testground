@@ -8,6 +8,7 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 )
@@ -35,9 +36,9 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 	return dht, nil
 }
 
-func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {return nil}
+func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option { return nil }
 
-func getAllProvRecordsNum() int {return 100}
+func getAllProvRecordsNum() int { return 1000 }
 
 func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
 	return ctx

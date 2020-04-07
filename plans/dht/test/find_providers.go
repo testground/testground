@@ -148,7 +148,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					status := "done"
 
 					var tLastFound time.Time
-					provLoop:
+				provLoop:
 					for {
 						select {
 						case _, ok := <-provsCh:
@@ -191,7 +191,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 					}, float64(time.Since(t).Nanoseconds()))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found|%s|%s|%d", status, groupID, i, ),
+						Name:           fmt.Sprintf("peers-found|%s|%s|%d", status, groupID, i),
 						Unit:           "peers",
 						ImprovementDir: 1,
 					}, float64(numProvs))
@@ -200,7 +200,7 @@ func FindProviders(runenv *runtime.RunEnv) error {
 						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", status, groupID, i),
 						Unit:           "peers",
 						ImprovementDir: -1,
-					}, float64(ri.groupSizes[groupID] - numProvs))
+					}, float64(ri.groupSizes[groupID]-numProvs))
 
 					return nil
 				})
