@@ -81,6 +81,13 @@ func CreateDirectory(path string) Fixer {
 	}
 }
 
+// NotImplemented is a placeholder Fixer which always returns successfully.
+func NotImplemented() Fixer {
+	return func() (string, error) {
+		return "fix is not implemented", nil
+	}
+}
+
 // And returns a Fixer that executes all fixes sequentially, short-circuiting at
 // the first error.
 func And(fixers ...Fixer) Fixer {
