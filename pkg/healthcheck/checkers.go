@@ -76,6 +76,13 @@ func CheckDirectoryExists(path string) Checker {
 	}
 }
 
+// Always is a checker which always fails. Use this checker when a Fixer should always be executed.
+func Always() Checker {
+	return func() (bool, string, error) {
+		return false, "always fix", nil
+	}
+}
+
 // All returns a Checker that succeeds when all provided Checkers succeed.
 // If a Checker fails, it short-circuits and returns the first failure.
 func All(checkers ...Checker) Checker {
