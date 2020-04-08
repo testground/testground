@@ -9,6 +9,7 @@ replace github.com/ipfs/testground/sdk/iptb => ../../sdk/iptb
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 
 require (
+	github.com/gogo/protobuf v1.3.1
 	github.com/ipfs/go-cid v0.0.3
 	github.com/ipfs/go-datastore v0.4.1
 	github.com/ipfs/go-ds-leveldb v0.4.1

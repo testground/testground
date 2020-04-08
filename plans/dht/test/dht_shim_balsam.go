@@ -42,7 +42,7 @@ func getTaggedLibp2pOpts(opts *SetupOpts, info *DHTNodeInfo) []libp2p.Option { r
 
 func getAllProvRecordsNum() int { return 1000 }
 
-func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
+func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, tag string) context.Context {
 	return ctx
 }
 

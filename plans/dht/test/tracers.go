@@ -40,7 +40,7 @@ func TraceConnections(runenv *runtime.RunEnv, node host.Host) error {
 
 // TraceQuery returns a context.Context that can be used in a DHT query to
 // cause query events to be traced. It initialises the output asset once.
-func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string) context.Context {
+func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, target string, tag string) context.Context {
 	qonce.Do(func() {
 		var err error
 		_, qlogger, err = runenv.CreateStructuredAsset("dht_queries.out", runtime.StandardJSONConfig())
@@ -51,7 +51,7 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, t
 	})
 
 	ectx, events := routing.RegisterForQueryEvents(ctx)
-	log := qlogger.With("node", node.host.ID().Pretty(), "target", target)
+	log := qlogger.With("tag", tag, "node", node.host.ID().Pretty(), "target", target)
 
 	go func() {
 		for e := range events {
@@ -74,6 +74,6 @@ func TraceQuery(ctx context.Context, runenv *runtime.RunEnv, node *NodeParams, t
 		}
 	}()
 
-	retCtx := specializedTraceQuery(ectx, runenv)
+	retCtx := specializedTraceQuery(ectx, runenv, tag)
 	return retCtx
 }

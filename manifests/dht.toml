@@ -179,4 +179,4 @@ instances = { min = 16, max = 10000, default = 16 }
   record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
   record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
   search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }
-  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
+  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 0 }

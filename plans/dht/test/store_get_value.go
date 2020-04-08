@@ -12,7 +12,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/ipfs/go-ipns"
+	ipns_pb "github.com/ipfs/go-ipns/pb"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -48,11 +50,9 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 
 	fpOpts := getFindProvsParams(ri.RunEnv.RunParams.TestInstanceParams)
 
-	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri.RunInfo)
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "ipns-records", ri.RunInfo)
 
-	stager.Reset("lookup")
-
-	emitRecords, searchRecords, err := getIPNSRecords(ri, fpOpts)
+	emitRecords, searchRecords, err := generateIPNSRecords(ri, fpOpts)
 	if err != nil {
 		return err
 	}
@@ -65,19 +65,34 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 		emitRecordsKeys[i] = ipns.RecordKey(pid)
 	}
 
+	runenv.RecordMessage("start put loop")
+
+	for i := 0; i < 5; i++ {
+		if err := putIPNSRecord(ctx, ri, fpOpts, stager, i, emitRecords, emitRecordsKeys); err != nil {
+			return err
+		}
+
+		if err := getIPNSRecord(ctx, ri, fpOpts, stager, i, searchRecords); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func putIPNSRecord(ctx context.Context, ri *DHTRunInfo, fpOpts findProvsParams, stager utils.Stager, recNum int, emitRecords []crypto.PrivKey, emitRecordsKeys []string) error {
+	runenv := ri.RunEnv
+	node := ri.Node
+
 	if err := stager.Begin(); err != nil {
 		return err
 	}
 
-	runenv.RecordMessage("start provide loop")
-
-	// If we're a member of the providing cohort, let's provide those CIDs to
-	// the network.
+	// If we're a member of the putting cohort, let's put those IPNS records to the network.
 	if fpOpts.RecordCount > 0 {
 		g := errgroup.Group{}
 		for index, privKey := range emitRecords {
 			i := index
-			record, err := ipns.Create(privKey, []byte("/path/to/stuff"), 0, time.Now().Add(time.Hour))
+			record, err := ipns.Create(privKey, []byte(fmt.Sprintf("/path/to/stuff/%d", recNum)), uint64(recNum), time.Now().Add(time.Hour))
 			if err != nil {
 				return err
 			}
@@ -85,40 +100,50 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 				return err
 			}
 			recordKey := emitRecordsKeys[i]
-			recordBytes, err := record.Marshal()
+			recordBytes, err := proto.Marshal(record)
 			if err != nil {
 				return err
 			}
 			g.Go(func() error {
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, node, recordKey)
+				ectx = TraceQuery(ctx, runenv, node, recordKey, "ipns-records")
 				t := time.Now()
 				err := node.dht.PutValue(ectx, recordKey, recordBytes)
 				cancel()
 				if err == nil {
-					runenv.RecordMessage("Provided IPNS Key: %s", recordKey)
+					runenv.RecordMessage("Put IPNS Key: %s", recordKey)
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-provide-%d", i),
+						Name:           fmt.Sprintf("time-to-put-%d", i),
+						Unit:           "ns",
+						ImprovementDir: -1,
+					}, float64(time.Since(t).Nanoseconds()))
+				} else {
+					runenv.RecordMessage("Failed to Put IPNS Key: %s : err: %s", recordKey, err)
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("time-to-failed-put-%d", i),
 						Unit:           "ns",
 						ImprovementDir: -1,
 					}, float64(time.Since(t).Nanoseconds()))
 				}
 
-				return err
+				return nil
 			})
 		}
 
 		if err := g.Wait(); err != nil {
-			_ = stager.End()
-			return fmt.Errorf("failed while providing: %s", err)
+			panic("how is there an error here?")
 		}
 	}
 
 	if err := stager.End(); err != nil {
 		return err
 	}
+	return nil
+}
 
-	outputGraph(node.dht, "after_provide")
+func getIPNSRecord(ctx context.Context, ri *DHTRunInfo, fpOpts findProvsParams, stager utils.Stager, recNum int, searchRecords []*RecordSubmission) error {
+	runenv := ri.RunEnv
+	node := ri.Node
 
 	if err := stager.Begin(); err != nil {
 		return err
@@ -133,70 +158,91 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 				groupID := record.GroupID
 				g.Go(func() error {
 					ectx, cancel := context.WithCancel(ctx)
-					ectx = TraceQuery(ctx, runenv, node, k)
+					ectx = TraceQuery(ctx, runenv, node, k, "ipns-records")
 					t := time.Now()
 
-					numProvs := 0
-					provsCh, err := node.dht.SearchValue(ectx, k)
+					runenv.RecordMessage("Searching for IPNS Key: %s", k)
+					numRecs := 0
+					recordCh, err := node.dht.SearchValue(ectx, k)
 					if err != nil {
-						return err
+						runenv.RecordMessage("Failed to Search for IPNS Key: %s : err: %s", k, err)
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("time-to-failed-put-%d", i),
+							Unit:           "ns",
+							ImprovementDir: -1,
+						}, float64(time.Since(t).Nanoseconds()))
+						return nil
 					}
 					status := "done"
 
 					var tLastFound time.Time
-				provLoop:
+					var lastRec []byte
+				searchLoop:
 					for {
 						select {
-						case _, ok := <-provsCh:
+						case rec, ok := <-recordCh:
 							if !ok {
-								break provLoop
+								break searchLoop
 							}
+							lastRec = rec
 
 							tLastFound = time.Now()
 
-							if numProvs == 0 {
+							if numRecs == 0 {
 								runenv.RecordMetric(&runtime.MetricDefinition{
-									Name:           fmt.Sprintf("time-to-find-first|%s|%d", groupID, i),
+									Name:           fmt.Sprintf("time-to-get-first|%s|%d", groupID, i),
 									Unit:           "ns",
 									ImprovementDir: -1,
 								}, float64(tLastFound.Sub(t).Nanoseconds()))
 							}
 
-							numProvs++
+							numRecs++
 						case <-ctx.Done():
-							status = "incomplete"
-							break provLoop
+							break searchLoop
 						}
 					}
 					cancel()
 
-					if numProvs > 0 {
+					if numRecs > 0 {
 						runenv.RecordMetric(&runtime.MetricDefinition{
-							Name:           fmt.Sprintf("time-to-find-last|%s|%s|%d", status, groupID, i),
+							Name:           fmt.Sprintf("time-to-get-last|%s|%s|%d", status, groupID, i),
 							Unit:           "ns",
 							ImprovementDir: -1,
 						}, float64(tLastFound.Sub(t).Nanoseconds()))
-					} else if status != "incomplete" {
+
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("record-updates|%s|%s|%d|%d", status, groupID, recNum, i),
+							Unit:           "records",
+							ImprovementDir: -1,
+						}, float64(numRecs))
+
+						if len(lastRec) == 0 {
+							panic("this should not be possible")
+						}
+
+						recordResult := &ipns_pb.IpnsEntry{}
+						if err := recordResult.Unmarshal(lastRec); err != nil {
+							panic(fmt.Errorf("received invalid IPNS record: err %v", err))
+						}
+
+						if diff := int(*recordResult.Sequence) - recNum; diff > 0 {
+							runenv.RecordMetric(&runtime.MetricDefinition{
+								Name:           fmt.Sprintf("incomplete-get|%s|%d|%d", groupID, recNum, i),
+								Unit:           "records",
+								ImprovementDir: -1,
+							}, float64(diff))
+							status = "fail"
+						}
+
+					} else {
 						status = "fail"
 					}
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", status, groupID, i),
+						Name:           fmt.Sprintf("time-to-get|%s|%s|%d|%d", status, groupID, recNum, i),
 						Unit:           "ns",
 						ImprovementDir: -1,
 					}, float64(time.Since(t).Nanoseconds()))
-
-					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found|%s|%s|%d", status, groupID, i),
-						Unit:           "peers",
-						ImprovementDir: 1,
-					}, float64(numProvs))
-
-					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", status, groupID, i),
-						Unit:           "peers",
-						ImprovementDir: -1,
-					}, float64(ri.GroupProperties[groupID].Size-numProvs))
 
 					return nil
 				})
@@ -204,8 +250,7 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 		}
 
 		if err := g.Wait(); err != nil {
-			_ = stager.End()
-			return fmt.Errorf("failed while finding providerss: %s", err)
+			panic("how is this possible?")
 		}
 	}
 
@@ -215,17 +260,19 @@ func TestIPNSRecords(ctx context.Context, ri *DHTRunInfo) error {
 	return nil
 }
 
-// getIPNSRecords returns the records we plan to store and those we plan to search for. It also tells other nodes via the
-// sync service which nodes our group plans on advertising
-func getIPNSRecords(ri *DHTRunInfo, fpOpts findProvsParams) (emitRecords []crypto.PrivKey, searchRecords []*RecordSubmission, err error) {
+// generateIPNSRecords returns the records we plan to store and those we plan to search for
+func generateIPNSRecords(ri *DHTRunInfo, fpOpts findProvsParams) (emitRecords []crypto.PrivKey, searchRecords []*RecordSubmission, err error) {
 	recGen := func(groupID string, groupFPOpts findProvsParams) (out []crypto.PrivKey, err error) {
+		// Calculate key based on seed
 		rng := rand.New(rand.NewSource(int64(fpOpts.RecordSeed)))
+		// Calculate key based on group (run through the rng to do this)
 		for _, g := range ri.Groups {
 			rng.Int63()
 			if g == groupID {
 				break
 			}
 		}
+		// Unique key per record is generated since the rng is mutated by creating the new key
 		for i := 0; i < groupFPOpts.RecordCount; i++ {
 			priv, _, err := crypto.GenerateEd25519Key(rng)
 			if err != nil {
@@ -236,7 +283,7 @@ func getIPNSRecords(ri *DHTRunInfo, fpOpts findProvsParams) (emitRecords []crypt
 		return out, nil
 	}
 
-	if fpOpts.RecordCount > 0 {
+	if fpOpts.RecordCount > 0 && ri.Node.info.GroupSeq == 0 {
 		// Calculate the CIDs we're dealing with.
 		emitRecords, err = recGen(ri.Node.info.Group, fpOpts)
 		if err != nil {

@@ -817,30 +817,25 @@ func RandomWalk(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT
 	return nil
 }
 
-type testInfo struct {
-	runInfo    *DHTRunInfo
-	node       *NodeParams
-	otherNodes map[peer.ID]*DHTNodeInfo
-}
-
 func Base(ctx context.Context, runenv *runtime.RunEnv, commonOpts *SetupOpts) (*DHTRunInfo, error) {
-	ri, err := Setup(ctx, runenv, commonOpts)
+	ectx := specializedTraceQuery(ctx, runenv, "bootstrap-network")
+	ri, err := Setup(ectx, runenv, commonOpts)
 	if err != nil {
 		return nil, err
 	}
 
 	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, ri, GetBootstrapNodes(ri)); err != nil {
+	if err = Bootstrap(ectx, ri, GetBootstrapNodes(ri)); err != nil {
 		return nil, err
 	}
 
 	if commonOpts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, ri.Node.dht); err != nil {
+		if err = RandomWalk(ectx, runenv, ri.Node.dht); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := SetupNetwork(ctx, ri, commonOpts.Latency); err != nil {
+	if err := SetupNetwork(ectx, ri, commonOpts.Latency); err != nil {
 		return nil, err
 	}
 

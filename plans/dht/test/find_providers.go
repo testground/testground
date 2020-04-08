@@ -60,7 +60,7 @@ func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
 
 	fpOpts := getFindProvsParams(ri.RunEnv.RunParams.TestInstanceParams)
 
-	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "lookup", ri.RunInfo)
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "provider-records", ri.RunInfo)
 
 	emitRecords, searchRecords := getRecords(ri, fpOpts)
 
@@ -80,7 +80,7 @@ func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, node, p.Pretty())
+				ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
 				t := time.Now()
 				err := node.dht.Provide(ectx, c, true)
 				cancel()
@@ -123,7 +123,7 @@ func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
 				g.Go(func() error {
 					p := peer.ID(c.Bytes())
 					ectx, cancel := context.WithCancel(ctx)
-					ectx = TraceQuery(ctx, runenv, node, p.Pretty())
+					ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
 					t := time.Now()
 
 					numProvs := 0

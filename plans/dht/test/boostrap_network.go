@@ -11,9 +11,7 @@ func BootstrapNetwork(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
-	ectx := specializedTraceQuery(ctx, runenv)
-
-	_, err := Base(ectx, runenv, commonOpts)
+	_, err := Base(ctx, runenv, commonOpts)
 	if err != nil {
 		return err
 	}

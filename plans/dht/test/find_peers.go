@@ -40,7 +40,7 @@ func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
 	node := ri.Node
 	peers := ri.Others
 
-	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri.RunInfo)
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "peer-records", ri.RunInfo)
 
 	// Ok, we're _finally_ ready.
 	// TODO: Dump routing table stats. We should dump:
@@ -53,7 +53,6 @@ func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
 
 	// Perform FIND_PEER N times.
 
-	stager.Reset("lookup")
 	if err := stager.Begin(); err != nil {
 		return err
 	}
@@ -69,14 +68,14 @@ func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
 			continue
 		}
 
-		if info.Properties.Undialable {
+		if info.Properties.Undialable || node.info.Addrs.ID == info.Addrs.ID {
 			continue
 		}
 
 		runenv.RecordMessage("start find peer number %d", found+1)
 
 		ectx, cancel := context.WithCancel(ctx)
-		ectx = TraceQuery(ectx, runenv, node, p.Pretty())
+		ectx = TraceQuery(ectx, runenv, node, p.Pretty(), "peer-records")
 
 		t := time.Now()
 
@@ -86,15 +85,19 @@ func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
 		_, err := node.dht.FindPeer(ectx, p)
 		cancel()
 		if err != nil {
-			_ = stager.End()
-			return fmt.Errorf("find peer failed: peer %s : %s", p, err)
+			runenv.RecordMessage("find peer failed: peer %s : %s", p, err)
+			runenv.RecordMetric(&runtime.MetricDefinition{
+				Name:           fmt.Sprintf("time-to-failed-peer-%d", found),
+				Unit:           "ns",
+				ImprovementDir: -1,
+			}, float64(time.Since(t).Nanoseconds()))
+		} else {
+			runenv.RecordMetric(&runtime.MetricDefinition{
+				Name:           fmt.Sprintf("time-to-peer-%d", found),
+				Unit:           "ns",
+				ImprovementDir: -1,
+			}, float64(time.Since(t).Nanoseconds()))
 		}
-
-		runenv.RecordMetric(&runtime.MetricDefinition{
-			Name:           fmt.Sprintf("time-to-find-%d", found),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(t).Nanoseconds()))
 
 		found++
 	}

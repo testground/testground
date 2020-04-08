@@ -16,8 +16,6 @@ func All(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	defer Teardown(ctx, ri.RunInfo)
-
 	if err := TestFindPeers(ctx, ri); err != nil {
 		return err
 	}
@@ -31,5 +29,6 @@ func All(runenv *runtime.RunEnv) error {
 		return err
 	}
 
+	Teardown(ctx, ri.RunInfo)
 	return nil
 }

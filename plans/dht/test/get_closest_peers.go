@@ -41,11 +41,18 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 	fpOpts := getFindProvsParams(ri.RunEnv.RunParams.TestInstanceParams)
 	runenv := ri.RunEnv
 
-	t := time.Now()
+	// TODO: This is hacky we should probably thread through a separate GCPRecordCount variable
+	maxRecCount := 0
+	for _, g := range ri.GroupProperties {
+		gOpts := getFindProvsParams(g.Params)
+		if gOpts.RecordCount > maxRecCount {
+			maxRecCount = gOpts.RecordCount
+		}
+	}
 
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {
-		for i := 0; i < fpOpts.RecordCount; i++ {
+		for i := 0; i < maxRecCount; i++ {
 			c := fmt.Sprintf("CID %d - seeded with %d", i, fpOpts.RecordSeed)
 			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
 		}
@@ -55,7 +62,7 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 	node := ri.Node
 	others := ri.Others
 
-	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "lookup", ri.RunInfo)
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "get-closest-peers", ri.RunInfo)
 	if err := stager.Begin(); err != nil {
 		return err
 	}
@@ -69,7 +76,7 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, node, p.Pretty())
+				ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "get-closest-peers")
 				t := time.Now()
 				pids, err := node.dht.GetClosestPeers(ectx, c.KeyString())
 				cancel()
@@ -81,13 +88,13 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 
 				if err == nil {
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find-%d", i),
+						Name:           fmt.Sprintf("time-to-gcp-%d", i),
 						Unit:           "ns",
 						ImprovementDir: -1,
 					}, float64(time.Since(t).Nanoseconds()))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found-%d", i),
+						Name:           fmt.Sprintf("gcp-peers-found-%d", i),
 						Unit:           "peers",
 						ImprovementDir: 1,
 					}, float64(len(pids)))
@@ -107,19 +114,11 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 		}
 	}
 
-	runenv.RecordMessage("done provide loop")
+	runenv.RecordMessage("done gcp loop")
 
 	if err := stager.End(); err != nil {
 		return err
 	}
-
-	runenv.RecordMetric(&runtime.MetricDefinition{
-		Name:           fmt.Sprintf("search"),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(t).Nanoseconds()))
-
-	outputGraph(node.dht, "end")
 
 	return nil
 }

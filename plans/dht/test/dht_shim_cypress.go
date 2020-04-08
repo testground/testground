@@ -6,16 +6,21 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/testground/sdk/runtime"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/ipfs/go-datastore"
+	"github.com/ipfs/go-ipns"
+
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 	"github.com/libp2p/go-libp2p-xor/kademlia"
 	"github.com/libp2p/go-libp2p-xor/key"
 	"github.com/libp2p/go-libp2p-xor/trie"
+
 	"go.uber.org/zap"
 )
 
@@ -28,6 +33,7 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 		kaddht.RoutingTableRefreshQueryTimeout(opts.Timeout),
 		kaddht.Concurrency(opts.Alpha),
 		kaddht.Resiliency(opts.Beta),
+		kaddht.NamespacedValidator("ipns", ipns.Validator{KeyBook: h.Peerstore()}),
 	}
 
 	if !opts.AutoRefresh {
@@ -62,7 +68,7 @@ var (
 	sqlogger, rtlogger *zap.SugaredLogger
 )
 
-func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.Context {
+func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv, tag string) context.Context {
 	sqonce.Do(func() {
 		var err error
 		_, sqlogger, err = runenv.CreateStructuredAsset("dht_lookups.out", runtime.StandardJSONConfig())
@@ -80,15 +86,18 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.
 	ectx, events := kaddht.RegisterForLookupEvents(ctx)
 	ectx, rtEvts := kaddht.RegisterForRoutingTableEvents(ectx)
 
+	lookupLogger := sqlogger.With("tag", tag)
+	routingTableLogger := rtlogger.With("tag", tag)
+
 	go func() {
 		for e := range events {
-			sqlogger.Infow("lookup event", "info", e)
+			lookupLogger.Infow("lookup event", "info", e)
 		}
 	}()
 
 	go func() {
 		for e := range rtEvts {
-			rtlogger.Infow("rt event", "info", e)
+			routingTableLogger.Infow("rt event", "info", e)
 		}
 	}()
 
@@ -114,9 +123,8 @@ func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*DHTNodeInfo, ri *DHTRun
 		rtPeers[i] = kadPeerID(p)
 	}
 
-	ri.runenv.RecordMessage("rt: %v | all: %v", rtPeers, kn)
 	report := kademlia.TableHealth(kadPeerID(dht.PeerID()), rtPeers, knownNodes)
-	ri.runenv.RecordMessage("table health: %s", report.String())
+	ri.RunEnv.RecordMessage("table health: %s", report.String())
 
 	return
 }
