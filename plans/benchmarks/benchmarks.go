@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math"
 	"math/rand"
@@ -10,10 +11,33 @@ import (
 	"strings"
 	"time"
 
+	"github.com/influxdata/influxdb-client-go"
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	"github.com/prometheus/client_golang/prometheus"
 )
+
+func metricsWriter(runenv *runtime.RunEnv) influxdb2.WriteApi {
+	tlsConfig := tls.Config{
+		InsecureSkipVerify: true,
+	}
+	opts := influxdb2.DefaultOptions()
+	opts.SetTlsConfig(&tlsConfig)
+
+	client := influxdb2.NewClientWithOptions(runenv.TestInfluxURL, runenv.TestInfluxToken, opts)
+	return client.WriteApi(runenv.TestInfluxOrg, runenv.TestInfluxBucket)
+}
+
+func makePoint(runenv *runtime.RunEnv, measurement string, fields map[string]interface{}) *influxdb2.Point {
+	tags := map[string]string{
+		"TestCase":   runenv.TestCase,
+		"TestPlan":   runenv.TestPlan,
+		"TestRun":    runenv.TestRun,
+		"TestCommit": runenv.TestCommit,
+		"TestBranch": runenv.TestBranch,
+		"TestRepo":   runenv.TestRepo,
+	}
+	return influxdb2.NewPoint(measurement, tags, fields, time.Now())
+}
 
 // This method emits the time as output. It does *not* emit a prometheus metric.
 func emitTime(runenv *runtime.RunEnv, name string, duration time.Duration) {
@@ -31,8 +55,10 @@ func StartTimeBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(runenv.TestStartTime)
 	emitTime(runenv, "Time to start", elapsed)
 
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "start_time", Help: "time from plan scheduled to plan booted"})
-	gauge.Set(float64(elapsed))
+	w := metricsWriter(runenv)
+	w.WritePoint(makePoint(runenv, "time to start", map[string]interface{}{"start_time": elapsed}))
+	w.Flush()
+
 	return nil
 }
 
@@ -49,6 +75,9 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
+	w := metricsWriter(runenv)
+	defer w.Flush()
+
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
@@ -60,8 +89,9 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(startupTime)
 	emitTime(runenv, "Time to network init", elapsed)
 
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "net_init_time", Help: "Time waiting for network initialization"})
-	gauge.Set(float64(elapsed))
+	p := makePoint(runenv, "time waiting for network initialization",
+		map[string]interface{}{"net_init_time": float64(elapsed)})
+	w.WritePoint(p)
 	return nil
 }
 
@@ -75,6 +105,9 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
+
+	w := metricsWriter(runenv)
+	defer w.Flush()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
@@ -117,8 +150,10 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	}
 	duration := time.Since(beforeNetConfig)
 	emitTime(runenv, "Time to configure link shape", duration)
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "link_shape_time", Help: "time waiting for change in network link shape"})
-	gauge.Set(float64(duration))
+
+	p := makePoint(runenv, "time waiting for change in network link shape",
+		map[string]interface{}{"link_shape_time": float64(duration)})
+	w.WritePoint(p)
 
 	return nil
 }
@@ -131,6 +166,9 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
 	defer cancel()
 
+	w := metricsWriter(runenv)
+	defer w.Flush()
+
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
 	defer writer.Close()
@@ -141,7 +179,6 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 
 	type cfg struct {
 		Name    string
-		Gauge   prometheus.Gauge
 		Percent float64
 	}
 
@@ -150,7 +187,6 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 		name := fmt.Sprintf("barrier_time_%d_percent", int(percent*100))
 		t := cfg{
 			Name:    name,
-			Gauge:   runenv.M().NewGauge(runtime.GaugeOpts{Name: name, Help: fmt.Sprintf("time waiting for %f barrier", percent)}),
 			Percent: percent,
 		}
 		tests = append(tests, &t)
@@ -188,7 +224,12 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 			// I picked `Add` here instead of `Set` so the measurement will have to be rated.
 			// The reason I did this is so the rate will drop to zero after the end of the test
 			// Use rate(barrier_time_XX_percent) in prometheus graphs.
-			tst.Gauge.Add(float64(duration))
+			p := makePoint(runenv, "time spent waitng for barrier",
+				map[string]interface{}{
+					"barrier_percent": tst.Percent,
+					"duration":        duration,
+				})
+			w.WritePoint(p)
 		}
 	}
 
@@ -203,6 +244,9 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("subtree_test_timeout_secs"))*time.Second)
 	defer cancel()
+
+	w := metricsWriter(runenv)
+	defer w.Flush()
 
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
 	defer watcher.Close()
@@ -234,7 +278,6 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		Name    string
 		Data    *string
 		Subtree *sync.Subtree
-		Summary runtime.Summary
 	}
 
 	// Create tests ranging from 64B to 4KiB.
@@ -253,11 +296,6 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				GroupKey:    name,
 				PayloadType: reflect.TypeOf((*string)(nil)),
 			},
-			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
-				Name:       name + "_" + mode,
-				Help:       fmt.Sprintf("time to %s %d bytes", mode, size),
-				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
-			}),
 		}
 		tests = append(tests, ts)
 	}
@@ -273,12 +311,18 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				before := time.Now()
 				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
 				if err != nil {
 					return err
 				}
-				t.ObserveDuration()
+				duration := time.Since(before)
+				p := makePoint(runenv, "subtree publish time",
+					map[string]interface{}{
+						"size":         len(*tst.Data),
+						"publish_time": int64(duration),
+					})
+				w.WritePoint(p)
 
 				if i%500 == 0 {
 					runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
@@ -317,6 +361,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// if we are receiving, wait for the publisher to be done.
 		<-watcher.Barrier(ctx, handoff, int64(1))
 
+		errcount := 0
+
 		for _, tst := range tests {
 			ch := make(chan *string, 1)
 			err = watcher.Subscribe(ctx, tst.Subtree, ch)
@@ -324,15 +370,22 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				return err
 			}
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				before := time.Now()
 				b := <-ch
-				t.ObserveDuration()
+				duration := time.Since(before)
 				if strings.Compare(*b, *tst.Data) != 0 {
-					return fmt.Errorf("received unexpected value")
+					errcount += 1
 				}
 				if i%500 == 0 {
 					runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
 				}
+				p := makePoint(runenv, "subtree subscribe time",
+					map[string]interface{}{
+						"size":           len(*tst.Data),
+						"subscribe_time": int64(duration),
+						"error_count":    errcount,
+					})
+				w.WritePoint(p)
 			}
 		}
 	}
