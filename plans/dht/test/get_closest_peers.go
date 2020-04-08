@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/ipfs/testground/plans/dht/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -15,87 +16,52 @@ import (
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 
 	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 )
 
 func GetClosestPeers(runenv *runtime.RunEnv) error {
 	commonOpts := GetCommonOpts(runenv)
-	recordCount := runenv.IntParam("record_count")
-	finder := runenv.BooleanParam("search_records")
 
 	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	//defer watcher.Close()
-	//defer writer.Close()
-
-	ri := &RunInfo{
-		runenv:  runenv,
-		watcher: watcher,
-		writer:  writer,
-	}
-
-	node, others, err := Setup(ctx, ri, commonOpts)
+	ri, err := Base(ctx, runenv, commonOpts)
 	if err != nil {
 		return err
 	}
 
-	defer Teardown(ctx, ri)
+	if err := TestGetClosestPeers(ctx, ri); err != nil {
+		return err
+	}
+	Teardown(ctx, ri.RunInfo)
 
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
+	return nil
+}
+
+func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
+	fpOpts := getFindProvsParams(ri.RunEnv.RunParams.TestInstanceParams)
+	runenv := ri.RunEnv
 
 	t := time.Now()
 
-	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, ri, commonOpts, node, others, stager, GetBootstrapNodes(commonOpts, node, others)); err != nil {
-		return err
-	}
-
-	runenv.RecordMetric(&runtime.MetricDefinition{
-		Name:           fmt.Sprintf("bs"),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(t).Nanoseconds()))
-
-	if commonOpts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
-			return err
-		}
-	}
-
-	t = time.Now()
-
-	if err := SetupNetwork(ctx, ri, commonOpts.Latency); err != nil {
-		return err
-	}
-
-	runenv.RecordMetric(&runtime.MetricDefinition{
-		Name:           fmt.Sprintf("reset"),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(t).Nanoseconds()))
-
-	t = time.Now()
-
 	// Calculate the CIDs we're dealing with.
 	cids := func() (out []cid.Cid) {
-		for i := 0; i < recordCount; i++ {
-			c := fmt.Sprintf("CID %d", i)
+		for i := 0; i < fpOpts.RecordCount; i++ {
+			c := fmt.Sprintf("CID %d - seeded with %d", i, fpOpts.RecordSeed)
 			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
 		}
 		return out
 	}()
 
-	stager.Reset("lookup")
+	node := ri.Node
+	others := ri.Others
+
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "lookup", ri.RunInfo)
 	if err := stager.Begin(); err != nil {
 		return err
 	}
 
 	runenv.RecordMessage("start gcp loop")
-	runenv.RecordMessage(fmt.Sprintf("isFinder: %v, seqNo: %v, numFPeers %d, numRecords: %d", finder, node.info.Seq, recordCount, len(cids)))
-
-	if finder {
+	if fpOpts.SearchRecords {
 		g := errgroup.Group{}
 		for index, cid := range cids {
 			i := index
@@ -108,7 +74,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 				pids, err := node.dht.GetClosestPeers(ectx, c.KeyString())
 				cancel()
 
-				peers := make([]peer.ID, 0, commonOpts.BucketSize)
+				peers := make([]peer.ID, 0, node.info.Properties.BucketSize)
 				for p := range pids {
 					peers = append(peers, p)
 				}
@@ -158,7 +124,7 @@ func GetClosestPeers(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func getClosestPeerRanking(me *NodeParams, others map[peer.ID]*NodeInfo, target cid.Cid) []peer.ID {
+func getClosestPeerRanking(me *NodeParams, others map[peer.ID]*DHTNodeInfo, target cid.Cid) []peer.ID {
 	var allPeers []peer.ID
 	allPeers = append(allPeers, me.dht.PeerID())
 	for p := range others {

@@ -5,28 +5,12 @@ import (
 	"reflect"
 )
 
-// GroupIDSubtree represents a subtree under the test run's sync tree where peers
-// participating in this distributed test advertise their groups.
-var GroupIDSubtree = &sync.Subtree{
-	GroupKey:    "groupIDs",
-	PayloadType: reflect.TypeOf(&GroupInfo{}),
-	KeyFunc: func(val interface{}) string {
-		return val.(*GroupInfo).ID
-	},
-}
-
-type GroupInfo struct {
-	ID    string
-	Size  int
-	Order int
-}
-
 // PeerAttribSubtree represents a subtree under the test run's sync tree where peers
 // participating in this distributed test advertise their attributes.
 var PeerAttribSubtree = &sync.Subtree{
 	GroupKey:    "attribs",
-	PayloadType: reflect.TypeOf(&NodeInfo{}),
+	PayloadType: reflect.TypeOf(&DHTNodeInfo{}),
 	KeyFunc: func(val interface{}) string {
-		return val.(*NodeInfo).Addrs.ID.Pretty()
+		return val.(*DHTNodeInfo).Addrs.ID.Pretty()
 	},
 }

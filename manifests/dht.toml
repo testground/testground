@@ -131,31 +131,6 @@ instances = { min = 16, max = 10000, default = 16 }
   record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
   record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
   search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }
-# seq 4
-[[testcases]]
-name = "barrier"
-instances = { min = 16, max = 10000, default = 16 }
-
-[testcases.params]
-  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
-  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
-  auto_refresh = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
-  random_walk  = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
-  bucket_size  = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
-  alpha        = { type = "int", desc = "dht concurrency parameter", unit = "int", default = 3 }
-  beta         = { type = "int", desc = "dht resiliency parameter", unit = "int", default = 3 }
-  client_mode  = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
-  datastore    = { type = "int", desc = "datastore type", unit = "int", default = 0 }
-  peer_id_seed = { type = "int", desc = "seed used to generate all peer IDs - must be smaller than MaxInt-instances", default = 0 }
-  bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
-  bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
-  undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
-  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
-  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
-
-  record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
-  record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
-  search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }
 
 # seq 5
 [[testcases]]
@@ -178,3 +153,30 @@ bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap st
 undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
 group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
 expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
+
+# seq 6
+[[testcases]]
+name = "all"
+instances = { min = 16, max = 10000, default = 16 }
+
+[testcases.params]
+  timeout_secs = { type = "int", desc = "test timeout", unit = "seconds", default = 300 }
+  latency      = { type = "int", desc = "latency between peers", unit = "ms", default = 100 }
+  auto_refresh = { type = "bool", desc = "enable DHT routing table autorefresh", unit = "bool", default = true }
+  random_walk  = { type = "bool", desc = "run 5 random walks before the test", unit = "bool", default = false }
+  bucket_size  = { type = "int", desc = "routing table bucket size", unit = "peers", default = 2 }
+  alpha        = { type = "int", desc = "dht concurrency parameter", unit = "int", default = 3 }
+  beta         = { type = "int", desc = "dht resiliency parameter", unit = "int", default = 3 }
+  client_mode  = { type = "bool", desc = "all undialable nodes are clients", unit = "bool", default = "false" }
+  datastore    = { type = "int", desc = "datastore type", unit = "int", default = 0 }
+  peer_id_seed = { type = "int", desc = "seed used to generate all peer IDs - must be smaller than MaxInt-instances", default = 0 }
+  bootstrapper = { type = "bool", desc = "node is a bootstrapper", unit = "bool", default = false}
+  bs_strategy  = { type = "int", desc = "the identifier for the nodes bootstrap strategy", unit = "int", default = 0}
+  undialable   = { type = "bool", desc = "node is undialable", unit = "bool", default = false}
+  group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
+  expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
+
+  record_seed    = { type = "int", desc = "the seed used to generate records", unit = "int", default = 0 }
+  record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
+  search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }
+  n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }

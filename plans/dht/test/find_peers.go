@@ -3,57 +3,44 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/testground/plans/dht/utils"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {
 	commonOpts := GetCommonOpts(runenv)
+
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
+	defer cancel()
+
+	ri, err := Base(ctx, runenv, commonOpts)
+	if err != nil {
+		return err
+	}
+
+	if err := TestFindPeers(ctx, ri); err != nil {
+		return err
+	}
+	Teardown(ctx, ri.RunInfo)
+
+	return nil
+}
+
+func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
+	runenv := ri.RunEnv
+
 	nFindPeers := runenv.IntParam("n_find_peers")
 
 	if nFindPeers > runenv.TestInstanceCount {
 		return fmt.Errorf("NFindPeers greater than the number of test instances")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
-	defer cancel()
+	node := ri.Node
+	peers := ri.Others
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	ri := &RunInfo{
-		runenv:  runenv,
-		watcher: watcher,
-		writer:  writer,
-	}
-
-	node, peers, err := Setup(ctx, ri, commonOpts)
-	if err != nil {
-		return err
-	}
-
-	defer outputGraph(node.dht, "end")
-	defer Teardown(ctx, ri)
-
-	stager := NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri)
-
-	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, ri, commonOpts, node, peers, stager, GetBootstrapNodes(commonOpts, node, peers)); err != nil {
-		return err
-	}
-
-	if commonOpts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, node.dht); err != nil {
-			return err
-		}
-	}
-
-	if err := SetupNetwork(ctx, ri, 100*time.Millisecond); err != nil {
-		return err
-	}
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "default", ri.RunInfo)
 
 	// Ok, we're _finally_ ready.
 	// TODO: Dump routing table stats. We should dump:

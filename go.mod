@@ -26,26 +26,39 @@ require (
 	github.com/gosimple/slug v1.9.0
 	github.com/grafana-tools/sdk v0.0.0-20200305194735-ebfd6e29db74
 	github.com/hashicorp/go-getter v1.4.0
-	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/imdario/mergo v0.3.8
+	github.com/ipfs/go-ds-leveldb v0.4.2 // indirect
+	github.com/ipfs/testground/plans/dht v0.0.0-20200407195235-527339880e54 // indirect
 	github.com/ipfs/testground/sdk/runtime v0.3.0
 	github.com/ipfs/testground/sdk/sync v0.3.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
-	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
+	github.com/libp2p/go-conn-security v0.1.0 // indirect
+	github.com/libp2p/go-libp2p v6.0.23+incompatible // indirect
+	github.com/libp2p/go-libp2p-host v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-interface-connmgr v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-interface-pnet v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-kad-dht v0.6.2 // indirect
+	github.com/libp2p/go-libp2p-metrics v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-net v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-protocol v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-transport v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-xor v0.0.0-20200403055834-df24f5b04bcb // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/onsi/ginkgo v1.11.0 // indirect
-	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+	github.com/whyrusleeping/go-smux-multiplex v3.0.16+incompatible // indirect
+	github.com/whyrusleeping/go-smux-multistream v2.0.2+incompatible // indirect
+	github.com/whyrusleeping/go-smux-yamux v2.0.9+incompatible // indirect
+	github.com/whyrusleeping/yamux v1.2.0 // indirect
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	google.golang.org/appengine v1.6.5 // indirect

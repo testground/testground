@@ -7,8 +7,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"sort"
-	"strconv"
 	gosync "sync"
 	"time"
 
@@ -16,6 +14,9 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
+
+	tglibp2p "github.com/ipfs/testground/plans/dht/libp2p"
+	"github.com/ipfs/testground/plans/dht/utils"
 
 	leveldb "github.com/ipfs/go-ds-leveldb"
 
@@ -70,16 +71,14 @@ type SetupOpts struct {
 	BootstrapStrategy int
 	Undialable        bool
 	GroupOrder        int
-	ExpectServer      bool
+	ExpectedServer    bool
 }
 
-type RunInfo struct {
-	runenv  *runtime.RunEnv
-	watcher *sync.Watcher
-	writer  *sync.Writer
-
-	groups     []string
-	groupSizes map[string]int
+type DHTRunInfo struct {
+	*utils.RunInfo
+	DHTGroupProperties map[string]*SetupOpts
+	Node               *NodeParams
+	Others             map[peer.ID]*DHTNodeInfo
 }
 
 func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
@@ -101,7 +100,7 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 		BootstrapStrategy: runenv.IntParam("bs_strategy"),
 		Undialable:        runenv.BooleanParam("undialable"),
 		GroupOrder:        runenv.IntParam("group_order"),
-		ExpectServer:      runenv.BooleanParam("expect_dht"),
+		ExpectedServer:    runenv.BooleanParam("expect_dht"),
 	}
 	return opts
 }
@@ -109,14 +108,12 @@ func GetCommonOpts(runenv *runtime.RunEnv) *SetupOpts {
 type NodeParams struct {
 	host host.Host
 	dht  *kaddht.IpfsDHT
-	info *NodeInfo
+	info *DHTNodeInfo
 }
 
-type NodeInfo struct {
-	Seq        int // sequence number within the test
-	GroupSeq   int // sequence number within the test group
-	Properties NodeProperties
-	Addrs      *peer.AddrInfo
+type DHTNodeInfo struct {
+	*tglibp2p.NodeInfo
+	Properties *SetupOpts
 }
 
 type NodeProperties struct {
@@ -128,9 +125,8 @@ type NodeProperties struct {
 var ConnManagerGracePeriod = 1 * time.Second
 
 // NewDHTNode creates a libp2p Host, and a DHT instance on top of it.
-func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, info *NodeInfo) (host.Host, *kaddht.IpfsDHT, error) {
+func NewDHTNode(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts, idKey crypto.PrivKey, info *DHTNodeInfo) (host.Host, *kaddht.IpfsDHT, error) {
 	swarm.DialTimeoutLocal = opts.Timeout
-
 	var min, max int
 
 	if info.Properties.Bootstrapper {
@@ -269,17 +265,16 @@ var networkSetupMx gosync.Mutex
 
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this
 // test case.
-func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error {
-	if !ri.runenv.TestSidecar {
+func SetupNetwork(ctx context.Context, ri *DHTRunInfo, latency time.Duration) error {
+	if !ri.RunEnv.TestSidecar {
 		return nil
 	}
-
 	networkSetupMx.Lock()
 	defer networkSetupMx.Unlock()
 
 	if networkSetupNum == 0 {
 		// Wait for the network to be initialized.
-		if err := sync.WaitNetworkInitialized(ctx, ri.runenv, ri.watcher); err != nil {
+		if err := sync.WaitNetworkInitialized(ctx, ri.RunEnv, ri.Watcher); err != nil {
 			return err
 		}
 	}
@@ -294,7 +289,7 @@ func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error
 
 	state := sync.State(fmt.Sprintf("network-configured-%d", networkSetupNum))
 
-	ri.writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	ri.Writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -304,9 +299,9 @@ func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error
 		State: state,
 	})
 
-	ri.runenv.RecordMessage("finished resetting network latency")
+	ri.RunEnv.RecordMessage("finished resetting network latency")
 
-	err = <-ri.watcher.Barrier(ctx, state, int64(ri.runenv.TestInstanceCount))
+	err = <-ri.Watcher.Barrier(ctx, state, int64(ri.RunEnv.TestInstanceCount))
 	if err != nil {
 		return fmt.Errorf("failed to configure network: %w", err)
 	}
@@ -314,202 +309,111 @@ func SetupNetwork(ctx context.Context, ri *RunInfo, latency time.Duration) error
 }
 
 // Setup sets up the elements necessary for the test cases
-func Setup(ctx context.Context, ri *RunInfo, opts *SetupOpts) (*NodeParams, map[peer.ID]*NodeInfo, error) {
-	if err := initAssets(ri.runenv); err != nil {
-		return nil, nil, err
+func Setup(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (*DHTRunInfo, error) {
+	if err := initAssets(runenv); err != nil {
+		return nil, err
+	}
+
+	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	//defer watcher.Close()
+	//defer writer.Close()
+
+	ri := &DHTRunInfo{
+		RunInfo: &utils.RunInfo{
+			RunEnv:  runenv,
+			Watcher: watcher,
+			Writer:  writer,
+		},
+		DHTGroupProperties: make(map[string]*SetupOpts),
 	}
 
 	// TODO: Take opts.NFindPeers into account when setting a minimum?
-	if ri.runenv.TestInstanceCount < minTestInstances {
-		return nil, nil, fmt.Errorf(
+	if ri.RunEnv.TestInstanceCount < minTestInstances {
+		return nil, fmt.Errorf(
 			"requires at least %d instances, only %d started",
-			minTestInstances, ri.runenv.TestInstanceCount,
+			minTestInstances, ri.RunEnv.TestInstanceCount,
 		)
 	}
 
 	err := SetupNetwork(ctx, ri, 0)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	ri.runenv.RecordMessage("past the setup network barrier")
+	ri.RunEnv.RecordMessage("past the setup network barrier")
 
-	groupSeq, err := getGroupSeq(ctx, ri)
+	groupSeq, testSeq, err := utils.GetGroupsAndSeqs(ctx, ri.RunInfo, opts.GroupOrder)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	if err := setGroupInfo(ctx, ri, opts, groupSeq); err != nil {
-		return nil, nil, err
+	for g, props := range ri.GroupProperties {
+		fakeEnv := &runtime.RunEnv{
+			RunParams: runtime.RunParams{TestInstanceParams: props.Params},
+		}
+		ri.DHTGroupProperties[g] = GetCommonOpts(fakeEnv)
 	}
 
-	ri.runenv.RecordMessage("past group info")
-
-	testSeq := getNodeID(ctx, ri, groupSeq)
-
-	ri.runenv.RecordMessage("past nodeid")
+	ri.RunEnv.RecordMessage("past nodeid")
 
 	rng := rand.New(rand.NewSource(int64(testSeq)))
 	priv, _, err := crypto.GenerateEd25519Key(rng)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	testNode := &NodeParams{
 		host: nil,
 		dht:  nil,
-		info: &NodeInfo{
-			Seq:      testSeq,
-			GroupSeq: groupSeq,
-			Properties: NodeProperties{
-				Bootstrapper:   opts.Bootstrapper,
-				Undialable:     opts.Undialable,
-				ExpectedServer: opts.ExpectServer,
+		info: &DHTNodeInfo{
+			NodeInfo: &tglibp2p.NodeInfo{
+				Seq:      testSeq,
+				GroupSeq: groupSeq,
+				Group:    ri.RunEnv.TestGroupID,
+				Addrs:    nil,
 			},
-			Addrs: nil,
+			Properties: opts,
 		},
 	}
 
-	testNode.host, testNode.dht, err = NewDHTNode(ctx, ri.runenv, opts, priv, testNode.info)
+	testNode.host, testNode.dht, err = NewDHTNode(ctx, ri.RunEnv, opts, priv, testNode.info)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	testNode.info.Addrs = host.InfoFromHost(testNode.host)
 
-	otherNodes := make(map[peer.ID]*NodeInfo)
-
-	if _, err := ri.writer.Write(ctx, PeerAttribSubtree, testNode.info); err != nil {
-		return nil, nil, errors.Wrap(err, "peer attrib writer failure")
+	otherNodes, err := tglibp2p.ShareAddresses(ctx, ri.RunInfo, testNode.info.NodeInfo)
+	if err != nil {
+		return nil, err
 	}
 
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	attribCh := make(chan *NodeInfo)
-	if err := ri.watcher.Subscribe(subCtx, PeerAttribSubtree, attribCh); err != nil {
-		return nil, nil, errors.Wrap(err, "peer attrib subscription failure")
-	}
-
-	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
-		select {
-		case info := <-attribCh:
-			if info.Seq == testNode.info.Seq {
-				continue
-			}
-			otherNodes[info.Addrs.ID] = info
-		case <-ctx.Done():
-			return nil, nil, ctx.Err()
-		}
-	}
-
-	ri.runenv.RecordMessage("finished setup function")
+	ri.RunEnv.RecordMessage("finished setup function")
 
 	outputStart(testNode)
 
-	return testNode, otherNodes, nil
-}
-
-// getGroupSeq returns the sequence number of this test instance within its group
-func getGroupSeq(ctx context.Context, ri *RunInfo) (int, error) {
-	// Set a state barrier.
-	seqNumCh := ri.watcher.Barrier(ctx, sync.State(ri.runenv.TestGroupID), int64(ri.runenv.TestGroupInstanceCount))
-
-	// Signal we're in the same state.
-	seq, err := ri.writer.SignalEntry(ctx, sync.State(ri.runenv.TestGroupID))
-	if err != nil {
-		return 0, err
-	}
-
-	// make sequence number 0 indexed
-	seq--
-
-	// Wait until all others have signalled.
-	if err := <-seqNumCh; err != nil {
-		return 0, err
-	}
-
-	return int(seq), nil
-}
-
-// setGroupInfo uses the sync service to determine which groups are part of the test and to get their sizes.
-// This information is set on the passed in RunInfo.
-func setGroupInfo(ctx context.Context, ri *RunInfo, opts *SetupOpts, seq int) error {
-	gi := &GroupInfo{
-		ID:   ri.runenv.TestGroupID,
-		Size: ri.runenv.TestGroupInstanceCount,
-	}
-
-	gi.Order = opts.GroupOrder
-
-	if _, err := ri.writer.Write(ctx, GroupIDSubtree, gi); err != nil {
-		return err
-	}
-
-	subCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	groupInfoCh := make(chan *GroupInfo)
-	if err := ri.watcher.Subscribe(subCtx, GroupIDSubtree, groupInfoCh); err != nil {
-		return err
-	}
-
-	groupOrder := make(map[int][]string)
-	groups := make(map[string]int)
-	for i := 0; i < ri.runenv.TestInstanceCount; i++ {
-		select {
-		case g, more := <-groupInfoCh:
-			if !more {
-				break
-			}
-			if _, ok := groups[g.ID]; !ok {
-				groups[g.ID] = g.Size
-				groupOrder[g.Order] = append(groupOrder[g.Order], g.ID)
-			}
-		case <-ctx.Done():
-			return ctx.Err()
+	otherDHTNodes := make(map[peer.ID]*DHTNodeInfo, len(otherNodes))
+	for pid, nodeInfo := range otherNodes {
+		otherDHTNodes[pid] = &DHTNodeInfo{
+			NodeInfo:   nodeInfo,
+			Properties: ri.DHTGroupProperties[nodeInfo.Group],
 		}
 	}
 
-	ri.runenv.RecordMessage("there are %d groups %v", len(groups), groups)
-
-	sortedGroups := make([]string, 0, len(groups))
-	sortedOrderNums := make([]int, 0, len(groupOrder))
-	for order := range groupOrder {
-		sortedOrderNums = append(sortedOrderNums, order)
-	}
-	sort.Ints(sortedOrderNums)
-
-	for i := 0; i < len(sortedOrderNums); i++ {
-		sort.Strings(groupOrder[i])
-		sortedGroups = append(sortedGroups, groupOrder[i]...)
-	}
-
-	ri.groups = sortedGroups
-	ri.groupSizes = groups
-
-	ri.runenv.RecordMessage("sortedGroup order %v", sortedGroups)
-
-	return nil
+	ri.Node = testNode
+	ri.Others = otherDHTNodes
+	return ri, nil
 }
 
-// getNodeID returns the sequence number of this test instance within the test
-func getNodeID(ctx context.Context, ri *RunInfo, seq int) int {
-	id := seq
-	for _, g := range ri.groups {
-		if g == ri.runenv.TestGroupID {
-			break
-		}
-		id += ri.groupSizes[g]
-	}
-
-	return id
-}
-
-func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo) []peer.AddrInfo {
+func GetBootstrapNodes(ri *DHTRunInfo) []peer.AddrInfo {
 	var toDial []peer.AddrInfo
-	switch opts.BootstrapStrategy {
+	nodeInfo := ri.Node.info
+	otherNodes := ri.Others
+
+	switch nodeInfo.Properties.BootstrapStrategy {
 	case 0: // Do nothing
 		return toDial
 	case 1: // Connect to all bootstrappers
-		for _, info := range peers {
+		for _, info := range otherNodes {
 			if info.Properties.Bootstrapper {
 				toDial = append(toDial, *info.Addrs)
 			}
@@ -517,19 +421,19 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 	case 2: // Connect to a random bootstrapper (based on our sequence number)
 		// List all the bootstrappers.
 		var bootstrappers []peer.AddrInfo
-		for _, info := range peers {
+		for _, info := range otherNodes {
 			if info.Properties.Bootstrapper {
 				bootstrappers = append(bootstrappers, *info.Addrs)
 			}
 		}
 
 		if len(bootstrappers) > 0 {
-			toDial = append(toDial, bootstrappers[node.info.Seq%len(bootstrappers)])
+			toDial = append(toDial, bootstrappers[nodeInfo.Seq%len(bootstrappers)])
 		}
 	case 3: // Connect to log(n) random bootstrappers (based on our sequence number)
 		// List all the bootstrappers.
 		var bootstrappers []peer.AddrInfo
-		for _, info := range peers {
+		for _, info := range otherNodes {
 			if info.Properties.Bootstrapper {
 				bootstrappers = append(bootstrappers, *info.Addrs)
 			}
@@ -538,7 +442,7 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 		added := make(map[int]struct{})
 		if len(bootstrappers) > 0 {
 			targetSize := int(math.Log2(float64(len(bootstrappers)))/2) + 1
-			rng := rand.New(rand.NewSource(int64(node.info.Seq)))
+			rng := rand.New(rand.NewSource(int64(nodeInfo.Seq)))
 			for i := 0; i < targetSize; i++ {
 				bsIndex := rng.Int() % len(bootstrappers)
 				if _, found := added[bsIndex]; found {
@@ -549,34 +453,34 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			}
 		}
 	case 4: // dial the _next_ peer in the ring
-		mySeqNo := node.info.Seq
+		mySeqNo := nodeInfo.Seq
 		var targetSeqNo int
-		if mySeqNo == len(peers) {
+		if mySeqNo == len(otherNodes) {
 			targetSeqNo = 0
 		} else {
 			targetSeqNo = mySeqNo + 1
 		}
 		// look for the node with sequence number 0
-		for _, info := range peers {
+		for _, info := range otherNodes {
 			if info.Seq == targetSeqNo {
 				toDial = append(toDial, *info.Addrs)
 				break
 			}
 		}
 	case 5: // Connect to all dialable peers
-		toDial = make([]peer.AddrInfo, 0, len(peers))
-		for _, info := range peers {
+		toDial = make([]peer.AddrInfo, 0, len(otherNodes))
+		for _, info := range otherNodes {
 			if !info.Properties.Undialable {
 				toDial = append(toDial, *info.Addrs)
 			}
 		}
 		return toDial
 	case 6: // connect to log(n) of the network, where n is the number of dialable nodes
-		plist := make([]*NodeInfo, len(peers)+1)
-		for _, info := range peers {
+		plist := make([]*DHTNodeInfo, len(otherNodes)+1)
+		for _, info := range otherNodes {
 			plist[info.Seq] = info
 		}
-		plist[node.info.Seq] = node.info
+		plist[nodeInfo.Seq] = nodeInfo
 
 		numDialable := 0
 		for _, info := range plist {
@@ -587,10 +491,10 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 
 		targetSize := int(math.Log2(float64(numDialable)/2)) + 1
 
-		nodeLst := make([]*NodeInfo, len(plist))
+		nodeLst := make([]*DHTNodeInfo, len(plist))
 		copy(nodeLst, plist)
 		rng := rand.New(rand.NewSource(0))
-		rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.Seq)))
+		rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(nodeInfo.Seq)))
 		rng.Shuffle(len(nodeLst), func(i, j int) {
 			nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
 		})
@@ -599,16 +503,16 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 			if len(toDial) > targetSize {
 				break
 			}
-			if info.Seq != node.info.Seq && !info.Properties.Undialable {
+			if info.Seq != nodeInfo.Seq && !info.Properties.Undialable {
 				toDial = append(toDial, *info.Addrs)
 			}
 		}
 	case 7: // connect to log(server nodes) and log(other dialable nodes)
-		plist := make([]*NodeInfo, len(peers)+1)
-		for _, info := range peers {
+		plist := make([]*DHTNodeInfo, len(otherNodes)+1)
+		for _, info := range otherNodes {
 			plist[info.Seq] = info
 		}
-		plist[node.info.Seq] = node.info
+		plist[nodeInfo.Seq] = nodeInfo
 
 		numServer := 0
 		numOtherDialable := 0
@@ -623,15 +527,15 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 		targetServerNodes := int(math.Log2(float64(numServer/2))) + 1
 		targetOtherNodes := int(math.Log2(float64(numOtherDialable/2))) + 1
 
-		serverAddrs := getBootstrapAddrs(plist, node, targetServerNodes, 0, func(info *NodeInfo) bool {
-			if info.Seq != node.info.Seq && info.Properties.ExpectedServer {
+		serverAddrs := getBootstrapAddrs(plist, nodeInfo, targetServerNodes, 0, func(info *DHTNodeInfo) bool {
+			if info.Seq != nodeInfo.Seq && info.Properties.ExpectedServer {
 				return true
 			}
 			return false
 		})
 
-		otherAddrs := getBootstrapAddrs(plist, node, targetOtherNodes, 0, func(info *NodeInfo) bool {
-			if info.Seq != node.info.Seq && info.Properties.ExpectedServer {
+		otherAddrs := getBootstrapAddrs(plist, nodeInfo, targetOtherNodes, 0, func(info *DHTNodeInfo) bool {
+			if info.Seq != nodeInfo.Seq && info.Properties.ExpectedServer {
 				return true
 			}
 			return false
@@ -639,17 +543,17 @@ func GetBootstrapNodes(opts *SetupOpts, node *NodeParams, peers map[peer.ID]*Nod
 		toDial = append(toDial, serverAddrs...)
 		toDial = append(toDial, otherAddrs...)
 	default:
-		panic(fmt.Errorf("invalid number of bootstrap strategy %d", opts.BootstrapStrategy))
+		panic(fmt.Errorf("invalid number of bootstrap strategy %d", ri.Node.info.Properties.BootstrapStrategy))
 	}
 
 	return toDial
 }
 
-func getBootstrapAddrs(plist []*NodeInfo, node *NodeParams, targetSize int, rngSeed int64, valid func(info *NodeInfo) bool) (toDial []peer.AddrInfo) {
-	nodeLst := make([]*NodeInfo, len(plist))
+func getBootstrapAddrs(plist []*DHTNodeInfo, nodeInfo *DHTNodeInfo, targetSize int, rngSeed int64, valid func(info *DHTNodeInfo) bool) (toDial []peer.AddrInfo) {
+	nodeLst := make([]*DHTNodeInfo, len(plist))
 	copy(nodeLst, plist)
 	rng := rand.New(rand.NewSource(rngSeed))
-	rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(node.info.Seq)))
+	rng = rand.New(rand.NewSource(int64(rng.Int31()) + int64(nodeInfo.Seq)))
 	rng.Shuffle(len(nodeLst), func(i, j int) {
 		nodeLst[i], nodeLst[j] = nodeLst[j], nodeLst[i]
 	})
@@ -676,12 +580,15 @@ func getBootstrapAddrs(plist []*NodeInfo, node *NodeParams, targetSize int, rngS
 //   a. Forget the addresses of all peers we've disconnected from. Otherwise, FindPeer is useless.
 //   b. Re-connect to at least one node if we've disconnected from _all_ nodes.
 //      We may want to make this an error in the future?
-func Bootstrap(ctx context.Context, ri *RunInfo,
-	opts *SetupOpts, node *NodeParams, peers map[peer.ID]*NodeInfo, stager Stager, bootstrapNodes []peer.AddrInfo) error {
-	runenv := ri.runenv
+func Bootstrap(ctx context.Context, ri *DHTRunInfo, bootstrapNodes []peer.AddrInfo) error {
+	runenv := ri.RunEnv
 
 	defer runenv.RecordMessage("bootstrap phase ended")
-	stager.Reset("bootstrapping")
+
+	node := ri.Node
+	dht := node.dht
+
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "bootstrapping", ri.RunInfo)
 
 	////////////////
 	// 1: CONNECT //
@@ -689,34 +596,10 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 
 	runenv.RecordMessage("bootstrap: begin connect")
 
-	dht := node.dht
-
 	// Wait until it's our turn to bootstrap
-	expGrad := func(seq int) (int, int) {
-		switch seq {
-		case 0:
-			return 0, 0
-		case 1:
-			return 1, 1
-		default:
-			turnNum := int(math.Floor(math.Log2(float64(seq)))) + 1
-			waitFor := int(math.Exp2(float64(turnNum - 2)))
-			return turnNum, waitFor
-		}
-	}
-	_ = expGrad
 
-	linear := func(seq int) (int, int) {
-		slope := 100
-		turnNum := int(math.Floor(float64(seq) / float64(slope)))
-		waitFor := slope
-		if turnNum == 0 {
-			waitFor = 0
-		}
-		return turnNum, waitFor
-	}
-
-	gradualBsStager := NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount, "boostrap-gradual", ri, linear)
+	gradualBsStager := utils.NewGradualStager(ctx, node.info.Seq, runenv.TestInstanceCount,
+		"boostrap-gradual", ri.RunInfo, utils.LinearGradualStaging(100))
 	if err := gradualBsStager.Begin(); err != nil {
 		return err
 	}
@@ -809,7 +692,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 	// Need to wait for connections to exit the grace period.
 	time.Sleep(2 * ConnManagerGracePeriod)
 
-	runenv.Message("bootstrap: begin trim")
+	runenv.RecordMessage("bootstrap: begin trim")
 
 	// Force the connection manager to do it's dirty work. DIE CONNECTIONS
 	// DIE!
@@ -873,7 +756,7 @@ func Bootstrap(ctx context.Context, ri *RunInfo,
 		dht.RoutingTable().Size(),
 	)
 
-	TableHealth(dht, peers, ri)
+	TableHealth(dht, ri.Others, ri)
 
 	runenv.RecordMessage("bootstrap: done")
 	return nil
@@ -934,17 +817,47 @@ func RandomWalk(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.IpfsDHT
 	return nil
 }
 
+type testInfo struct {
+	runInfo    *DHTRunInfo
+	node       *NodeParams
+	otherNodes map[peer.ID]*DHTNodeInfo
+}
+
+func Base(ctx context.Context, runenv *runtime.RunEnv, commonOpts *SetupOpts) (*DHTRunInfo, error) {
+	ri, err := Setup(ctx, runenv, commonOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Bring the network into a nice, stable, bootstrapped state.
+	if err = Bootstrap(ctx, ri, GetBootstrapNodes(ri)); err != nil {
+		return nil, err
+	}
+
+	if commonOpts.RandomWalk {
+		if err = RandomWalk(ctx, runenv, ri.Node.dht); err != nil {
+			return nil, err
+		}
+	}
+
+	if err := SetupNetwork(ctx, ri, commonOpts.Latency); err != nil {
+		return nil, err
+	}
+
+	return ri, nil
+}
+
 // Sync synchronizes all test instances around a single sync point.
 func Sync(
 	ctx context.Context,
-	ri *RunInfo,
+	ri *utils.RunInfo,
 	state sync.State,
 ) error {
 	// Set a state barrier.
-	doneCh := ri.watcher.Barrier(ctx, state, int64(ri.runenv.TestInstanceCount))
+	doneCh := ri.Watcher.Barrier(ctx, state, int64(ri.RunEnv.TestInstanceCount))
 
 	// Signal we're in the same state.
-	_, err := ri.writer.SignalEntry(ctx, state)
+	_, err := ri.Writer.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}
@@ -952,178 +865,6 @@ func Sync(
 	// Wait until all others have signalled.
 	return <-doneCh
 }
-
-type Stager interface {
-	Begin() error
-	End() error
-	Reset(name string)
-}
-
-type stager struct {
-	ctx     context.Context
-	seq     int
-	total   int
-	name    string
-	stage   int
-	watcher *sync.Watcher
-	writer  *sync.Writer
-
-	re *runtime.RunEnv
-	t  time.Time
-}
-
-func (s *stager) Reset(name string) {
-	s.name = name
-	s.stage = 0
-}
-
-func NewBatchStager(ctx context.Context, seq int, total int, name string, ri *RunInfo) *BatchStager {
-	return &BatchStager{stager{
-		ctx:     ctx,
-		seq:     seq,
-		total:   total,
-		name:    name,
-		stage:   0,
-		watcher: ri.watcher,
-		writer:  ri.writer,
-		re:      ri.runenv,
-		t:       time.Now(),
-	}}
-}
-
-type BatchStager struct{ stager }
-
-func (s *BatchStager) Begin() error {
-	s.stage += 1
-	s.t = time.Now()
-	return nil
-}
-func (s *BatchStager) End() error {
-	// Signal that we're done
-	stage := sync.State(s.name + strconv.Itoa(s.stage))
-
-	t := time.Now()
-	_, err := s.writer.SignalEntry(s.ctx, stage)
-	if err != nil {
-		return err
-	}
-
-	s.re.RecordMetric(&runtime.MetricDefinition{
-		Name:           "signal " + string(stage),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(t).Nanoseconds()))
-
-	t = time.Now()
-
-	err = <-s.watcher.Barrier(s.ctx, stage, int64(s.total-1))
-	s.re.RecordMetric(&runtime.MetricDefinition{
-		Name:           "barrier" + string(stage),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(t).Nanoseconds()))
-
-	s.re.RecordMetric(&runtime.MetricDefinition{
-		Name:           "full " + string(stage),
-		Unit:           "ns",
-		ImprovementDir: -1,
-	}, float64(time.Since(s.t).Nanoseconds()))
-	return err
-}
-func (s *BatchStager) Reset(name string) { s.stager.Reset(name) }
-
-func NewSinglePeerStager(ctx context.Context, seq int, total int, name string, ri *RunInfo) *SinglePeerStager {
-	return &SinglePeerStager{BatchStager{stager{
-		ctx:     ctx,
-		seq:     seq,
-		total:   total,
-		name:    name,
-		stage:   0,
-		watcher: ri.watcher,
-		writer:  ri.writer,
-		re:      ri.runenv,
-		t:       time.Now(),
-	}}}
-}
-
-type SinglePeerStager struct{ BatchStager }
-
-func (s *SinglePeerStager) Begin() error {
-	if err := s.BatchStager.Begin(); err != nil {
-		return err
-	}
-
-	// Wait until it's out turn
-	stage := sync.State(s.name + string(s.stage))
-	return <-s.watcher.Barrier(s.ctx, stage, int64(s.seq))
-}
-func (s *SinglePeerStager) End() error {
-	return s.BatchStager.End()
-}
-func (s *SinglePeerStager) Reset(name string) { s.stager.Reset(name) }
-
-func NewGradualStager(ctx context.Context, seq int, total int, name string, ri *RunInfo, gradFn gradualFn) *GradualStager {
-	return &GradualStager{BatchStager{stager{
-		ctx:     ctx,
-		seq:     seq,
-		total:   total,
-		name:    name,
-		stage:   0,
-		watcher: ri.watcher,
-		writer:  ri.writer,
-		re:      ri.runenv,
-		t:       time.Now(),
-	}}, gradFn}
-}
-
-type gradualFn func(seq int) (int, int)
-
-type GradualStager struct {
-	BatchStager
-	gradualFn
-}
-
-func (s *GradualStager) Begin() error {
-	if err := s.BatchStager.Begin(); err != nil {
-		return err
-	}
-
-	// Wait until it's out turn
-	ourTurn, waitFor := s.gradualFn(s.seq)
-
-	stageWait := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn))
-	stageNext := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn+1))
-	s.re.RecordMessage("%d is waiting on %d from state %d", s.seq, waitFor, ourTurn)
-	err := <-s.watcher.Barrier(s.ctx, stageWait, int64(waitFor))
-	if err != nil {
-		return err
-	}
-	s.re.RecordMessage("%d is running", s.seq)
-	_, err = s.writer.SignalEntry(s.ctx, stageNext)
-
-	return err
-}
-
-func (s *GradualStager) End() error {
-	lastStage := sync.State(fmt.Sprintf("%s%d-end", s.name, s.stage))
-	_, err := s.writer.SignalEntry(s.ctx, lastStage)
-	if err != nil {
-		return err
-	}
-	total := int64(s.re.TestInstanceCount - 1)
-	s.re.RecordMessage("%d is done - waiting for %d", s.seq, total)
-	err = <-s.watcher.Barrier(s.ctx, lastStage, total)
-	s.re.RecordMessage("%d passed the barrier", s.seq)
-	return err
-}
-
-func (s *GradualStager) Reset(name string) { s.stager.Reset(name) }
-
-type NoStager struct{}
-
-func (s *NoStager) Begin() error      { return nil }
-func (s *NoStager) End() error        { return nil }
-func (s *NoStager) Reset(name string) {}
 
 func WaitMyTurn(
 	ctx context.Context,
@@ -1170,10 +911,10 @@ func WaitRoutingTable(ctx context.Context, runenv *runtime.RunEnv, dht *kaddht.I
 
 // Teardown concludes this test case, waiting for all other instances to reach
 // the 'end' state first.
-func Teardown(ctx context.Context, ri *RunInfo) {
+func Teardown(ctx context.Context, ri *utils.RunInfo) {
 	err := Sync(ctx, ri, "end")
 	if err != nil {
-		ri.runenv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
+		ri.RunEnv.RecordFailure(fmt.Errorf("end sync failed: %w", err))
 		panic(err)
 	}
 }

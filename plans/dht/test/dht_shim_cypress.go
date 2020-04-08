@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *NodeInfo) (*kaddht.IpfsDHT, error) {
+func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *SetupOpts, info *DHTNodeInfo) (*kaddht.IpfsDHT, error) {
 	dhtOptions := []kaddht.Option{
 		kaddht.ProtocolPrefix("/testground"),
 		kaddht.V1CompatibleMode(false),
@@ -47,7 +47,7 @@ func createDHT(ctx context.Context, h host.Host, ds datastore.Batching, opts *Se
 	return dht, nil
 }
 
-func getTaggedLibp2pOpts(opts *SetupOpts, info *NodeInfo) []libp2p.Option {
+func getTaggedLibp2pOpts(opts *SetupOpts, info *DHTNodeInfo) []libp2p.Option {
 	if info.Properties.Bootstrapper {
 		return []libp2p.Option{libp2p.EnableNATService(), libp2p.WithReachability(true)}
 	} else {
@@ -96,7 +96,7 @@ func specializedTraceQuery(ctx context.Context, runenv *runtime.RunEnv) context.
 }
 
 // TableHealth computes health reports for a network of nodes, whose routing contacts are given.
-func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*NodeInfo, ri *RunInfo) {
+func TableHealth(dht *kaddht.IpfsDHT, peers map[peer.ID]*DHTNodeInfo, ri *DHTRunInfo) {
 	// Construct global network view trie
 	var kn []key.Key
 	knownNodes := trie.New()
