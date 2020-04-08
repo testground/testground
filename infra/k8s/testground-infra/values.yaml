@@ -128,6 +128,13 @@ redis:
     serviceMonitor:
       enabled: true
       namespace: default
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 200m
+      limits:
+        memory: 256Mi
+        cpu: 200m
   cluster:
     enabled: false
   usePassword: false
@@ -143,10 +150,13 @@ redis:
     extraFlags:
       - "--maxclients 131072"
     nodeSelector:
-      testground.nodetype: infra 
+      testground.nodetype: infra
     podAnnotations:
       cni: flannel
     resources:
       requests:
+        memory: 13000Mi
+        cpu: 6500m
+      limits:
         memory: 13000Mi
         cpu: 6500m
