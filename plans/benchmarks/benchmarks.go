@@ -12,7 +12,6 @@ import (
 
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // This method emits the time as output. It does *not* emit a prometheus metric.
@@ -30,9 +29,6 @@ func emitTime(runenv *runtime.RunEnv, name string, duration time.Duration) {
 func StartTimeBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(runenv.TestStartTime)
 	emitTime(runenv, "Time to start", elapsed)
-
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "start_time", Help: "time from plan scheduled to plan booted"})
-	gauge.Set(float64(elapsed))
 	return nil
 }
 
@@ -60,8 +56,6 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(startupTime)
 	emitTime(runenv, "Time to network init", elapsed)
 
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "net_init_time", Help: "Time waiting for network initialization"})
-	gauge.Set(float64(elapsed))
 	return nil
 }
 
@@ -141,7 +135,6 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 
 	type cfg struct {
 		Name    string
-		Gauge   prometheus.Gauge
 		Percent float64
 	}
 
@@ -150,7 +143,6 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 		name := fmt.Sprintf("barrier_time_%d_percent", int(percent*100))
 		t := cfg{
 			Name:    name,
-			Gauge:   runenv.M().NewGauge(runtime.GaugeOpts{Name: name, Help: fmt.Sprintf("time waiting for %f barrier", percent)}),
 			Percent: percent,
 		}
 		tests = append(tests, &t)
@@ -184,11 +176,6 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 
 			duration := time.Since(barrierTestStart)
 			emitTime(runenv, tst.Name, duration)
-
-			// I picked `Add` here instead of `Set` so the measurement will have to be rated.
-			// The reason I did this is so the rate will drop to zero after the end of the test
-			// Use rate(barrier_time_XX_percent) in prometheus graphs.
-			tst.Gauge.Add(float64(duration))
 		}
 	}
 
@@ -273,13 +260,12 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				before := time.Now()
 				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
 				if err != nil {
 					return err
 				}
-				t.ObserveDuration()
-
+				emitTime(runenv, "publish_time", time.Since(before))
 				if i%500 == 0 {
 					runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
 				}
@@ -324,9 +310,9 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				return err
 			}
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				before := time.Now()
 				b := <-ch
-				t.ObserveDuration()
+				emitTime(runenv, "subscribe_time", time.Since(before))
 				if strings.Compare(*b, *tst.Data) != 0 {
 					return fmt.Errorf("received unexpected value")
 				}
