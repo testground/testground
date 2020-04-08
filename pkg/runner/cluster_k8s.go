@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"net"
 	"os"
@@ -51,14 +50,12 @@ const (
 	// as well as to copy archives from it, since it has EFS attached to it
 	collectOutputsPodName = "collect-outputs"
 
-	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
-	redisCPUs = 2.0
 	// number of CPUs allocated to each Sidecar. should be same as what is set in sidecar.yaml
 	sidecarCPUs = 0.2
 
 	// utilisation is how many CPUs from the remainder shall we allocate to Testground
 	// note that there are other services running on the Kubernetes cluster such as
-	// api proxy, kubedns, s3bucket, etc.
+	// api proxy, node_exporter, dummy, etc.
 	utilisation = 0.85
 
 	// magic values that we monitor on the Testground runner side to detect when Testground
@@ -168,16 +165,13 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	// currently we are CPU-bound, so we pass only the CPU requirements for an individiual testplan instance.
-	// in the future we might want to update `maxPods` to also take `podResourceMemory` and
-	// calculate `maxAllowedPods` based on it.
-	maxAllowedPods, err := c.maxPods(podResourceCPU)
+	enoughResources, err := c.checkClusterResources(ow, input.Groups, podResourceMemory, podResourceCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
+		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
 	}
 
-	if maxAllowedPods < input.TotalInstances {
-		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", maxAllowedPods)
+	if !enoughResources {
+		return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -861,22 +855,23 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 	return fw.w.Write(p)
 }
 
-// maxPods returns the max allowed pods for the current cluster size
-// at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
-func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error) {
-	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+// checkClusterResources returns whether we can fit the input groups in the current cluster
+func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) (bool, error) {
+	neededCPUs := 0.0
+
+	defaultPodCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "kubernetes.io/role=node",
+		LabelSelector: "testground.nodetype=plan",
 	})
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 
 	nodes := len(res.Items)
@@ -886,11 +881,28 @@ func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error
 	nodeCPUs, _ := item.AsInt64()
 
 	totalCPUs := nodes * int(nodeCPUs)
-	availableCPUs := float64(totalCPUs) - redisCPUs - float64(nodes)*sidecarCPUs
-	podsCPUs := availableCPUs * utilisation
-	pods := int(math.Round(podsCPUs/podCPU - 0.5))
+	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
 
-	return pods, nil
+	for _, g := range groups {
+		var podCPU float64
+		if g.Resources.CPU != "" {
+			podCPU, err = strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+			if err != nil {
+				return false, err
+			}
+		} else {
+			podCPU = defaultPodCPU
+		}
+
+		neededCPUs += podCPU * float64(g.Instances)
+	}
+
+	if (availableCPUs * utilisation) > neededCPUs {
+		return true, nil
+	}
+
+	ow.Warnw("not enough resources on cluster", "availableCPUs", availableCPUs, "neededCPUs", neededCPUs, "utilisation", utilisation)
+	return false, nil
 }
 
 // Terminates all pods for with the label testground.purpose: plan
