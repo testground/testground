@@ -28,10 +28,48 @@ prometheus-operator:
           cni: flannel
     podAnnotations:
       cni: flannel
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - redis
+          topologyKey: "kubernetes.io/hostname"
+    nodeSelector:
+      testground.nodetype: infra
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 500m
+      limits:
+        memory: 512Mi
+        cpu: 500m
   alertmanager:
     enabled: false
   grafana:
     adminPassword: testground
+    affinity:
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - redis
+          topologyKey: "kubernetes.io/hostname"
+      podAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - prometheus-operator-operator
+          topologyKey: "kubernetes.io/hostname"
     nodeSelector:
       testground.nodetype: infra
     sidecar:
@@ -47,6 +85,16 @@ prometheus-operator:
         enabled: true
     podAnnotations:
       cni: flannel
+    affinity:
+      podAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchExpressions:
+            - key: app
+              operator: In
+              values:
+              - prometheus-operator-operator
+          topologyKey: "kubernetes.io/hostname"
   kubeProxy:
     serviceMonitor:
       https: false
@@ -77,12 +125,34 @@ prometheus-operator:
       spec:
         serviceMonitorNamespaceSelector:
           any: true
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - redis
+            topologyKey: "kubernetes.io/hostname"
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - prometheus-operator-operator
+            topologyKey: "kubernetes.io/hostname"
       nodeSelector:
         testground.nodetype: infra
       resources:
         requests:
-          memory: 2000Mi
-          cpu: 2000m
+          memory: 4000Mi
+          cpu: 4000m
+        limits:
+          memory: 4000Mi
+          cpu: 4000m
 
 
 # Changes from defaults:
@@ -103,6 +173,25 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - redis
+        topologyKey: "kubernetes.io/hostname"
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - prometheus-operator-operator
+        topologyKey: "kubernetes.io/hostname"
   nodeSelector:
     testground.nodetype: infra
   podAnnotations:
@@ -110,7 +199,10 @@ prometheus-pushgateway:
   resources:
     requests:
       memory: 2000Mi
-      cpu: 2000m
+      cpu: 1000m
+    limits:
+      memory: 2000Mi
+      cpu: 1000m
 
 
 # Changes from defaults:
