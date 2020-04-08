@@ -28,6 +28,7 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
+	github.com/influxdata/influxdb-client-go v1.0.0
 	github.com/ipfs/testground/sdk/runtime v0.3.0
 	github.com/ipfs/testground/sdk/sync v0.3.0
 	github.com/kubernetes/client-go v11.0.0+incompatible

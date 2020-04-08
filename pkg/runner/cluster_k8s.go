@@ -104,6 +104,11 @@ type ClusterK8sRunnerConfig struct {
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
+
+	InfluxURL    string `toml:"influx_url"`
+	InfluxToken  string `toml:"influx_token"`
+	InfluxOrg    string `toml:"influx_org"`
+	InfluxBucket string `toml:"influx_bucket"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -453,6 +458,8 @@ func (c *ClusterK8sRunner) initPool() {
 func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	c.initPool()
 
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 	err := c.ensureCollectOutputsPod(ctx)
 	if err != nil {
@@ -509,7 +516,10 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 
 	// Connect stdout of the above command to the output file
 	// Connect stderr to a buffer which we can read from to display any errors to the user.
-	outbuf := bufio.NewWriter(ow.BinaryWriter())
+	var cbuf bytes.Buffer
+	metrictar := bufio.NewReadWriter(bufio.NewReader(&cbuf), bufio.NewWriter(&cbuf))
+	outbuf := bufio.NewWriter(io.MultiWriter(metrictar, ow.BinaryWriter()))
+
 	defer outbuf.Flush()
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: outbuf,
@@ -518,6 +528,9 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		log.Warnf("failed to collect results from remote collection command: %v", err)
 		return err
 	}
+
+	MetricsWalkTarfile(metrictar, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
+
 	return nil
 }
 
