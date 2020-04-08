@@ -148,10 +148,10 @@ prometheus-operator:
         testground.nodetype: infra
       resources:
         requests:
-          memory: 4000Mi
+          memory: 8000Mi
           cpu: 4000m
         limits:
-          memory: 4000Mi
+          memory: 8000Mi
           cpu: 4000m
 
 
