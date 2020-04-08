@@ -520,7 +520,6 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	metrictar := bufio.NewReadWriter(bufio.NewReader(&cbuf), bufio.NewWriter(&cbuf))
 	outbuf := bufio.NewWriter(io.MultiWriter(metrictar, ow.BinaryWriter()))
 
-	defer outbuf.Flush()
 	err = exec.Stream(remotecommand.StreamOptions{
 		Stdout: outbuf,
 	})
@@ -528,8 +527,9 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		log.Warnf("failed to collect results from remote collection command: %v", err)
 		return err
 	}
+	outbuf.Flush()
 
-	MetricsWalkTarfile(metrictar, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
+	MetricsWalkTarfile(metrictar, ow, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
 
 	return nil
 }

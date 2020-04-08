@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
 
 	"github.com/influxdata/influxdb-client-go"
@@ -79,9 +80,10 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, url string, token string,
 // used for outputs. This function creates buffers for each file in the tar file and uses it
 // to generate metrics. The collection tarfile consists of files named "run.out" and "run.err".
 // This method filters out error files.
-func MetricsWalkTarfile(src io.Reader, url string, token string, org string, bucket string) {
+func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token string, org string, bucket string) {
 	rowCh := make(chan logRow)
 	doneCh := make(chan int)
+	ow.Info("Uploading events to %s, %url")
 	go eventRecorder(rowCh, doneCh, url, token, org, bucket)
 
 	dec, err := gzip.NewReader(src)
@@ -112,6 +114,9 @@ func MetricsWalkTarfile(src io.Reader, url string, token string, org string, buc
 		wg.Add(1)
 		go filterMetrics(buf, &wg, rowCh)
 	}
+	ow.Info("waiting for filter metrics")
 	wg.Wait()
+	close(rowCh)
+	ow.Info("waiting for eventRecorder")
 	<-doneCh
 }
