@@ -48,10 +48,15 @@ func filterMetrics(buf *bytes.Buffer, wg *sync.WaitGroup, rowCh chan logRow) {
 
 // eventRecorder creates an influx client. This method creates points from log rows it receives from
 // the channel.
-func eventRecorder(rowCh chan logRow, doneCh chan int, url string, token string, org string, bucket string) {
+func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url string, token string, org string, bucket string) {
 	client := influxdb2.NewClient(url, token)
 	defer client.Close()
 	writeApi := client.WriteApi(org, bucket)
+	go func() {
+		for err := range writeApi.Errors() {
+			ow.Warnw("Error writing message to influx", "err", err)
+		}
+	}()
 	for row := range rowCh {
 		// Pull out the important bits of the log message and create an influxdb event
 		event := *(row.Event)
@@ -84,7 +89,7 @@ func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token s
 	rowCh := make(chan logRow)
 	doneCh := make(chan int)
 	ow.Info("Uploading events to %s", url)
-	go eventRecorder(rowCh, doneCh, url, token, org, bucket)
+	go eventRecorder(rowCh, doneCh, ow, url, token, org, bucket)
 
 	dec, err := gzip.NewReader(src)
 	if err != nil {
