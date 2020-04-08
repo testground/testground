@@ -79,10 +79,10 @@ prometheus-operator:
           any: true
       nodeSelector:
         testground.nodetype: infra
-    resources:
-      requests:
-        memory: 2000Mi
-        cpu: 2000m
+      resources:
+        requests:
+          memory: 2000Mi
+          cpu: 2000m
 
 
 # Changes from defaults:
