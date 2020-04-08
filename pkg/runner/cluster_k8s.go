@@ -514,22 +514,32 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 		return err
 	}
 
-	// Connect stdout of the above command to the output file
-	// Connect stderr to a buffer which we can read from to display any errors to the user.
-	var cbuf bytes.Buffer
-	metrictar := bufio.NewReadWriter(bufio.NewReader(&cbuf), bufio.NewWriter(&cbuf))
-	outbuf := bufio.NewWriter(io.MultiWriter(metrictar, ow.BinaryWriter()))
+	// The output from the tar container gets sent to two places
+	// 1. To the client using rpc.BinaryWriter, so the client can perform offline analysis of the
+	// outputs
+	// 2. To the MetricsWalkTarfile method, which parses out metrics and sends them into influxdb.
+
+	var metricsbuf bytes.Buffer
+	metricsWriter := bufio.NewWriter(&metricsbuf)
+	outWriter := bufio.NewWriter(ow.BinaryWriter())
+	multi := io.MultiWriter(metricsWriter, outWriter)
+	bufferedMulti := bufio.NewWriter(multi)
 
 	err = exec.Stream(remotecommand.StreamOptions{
-		Stdout: outbuf,
+		Stdout: bufferedMulti,
 	})
 	if err != nil {
 		log.Warnf("failed to collect results from remote collection command: %v", err)
 		return err
 	}
-	outbuf.Flush()
 
-	MetricsWalkTarfile(metrictar, ow, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
+	bufferedMulti.Flush()
+	outWriter.Flush()
+	metricsWriter.Flush()
+
+	metricsReader := bufio.NewReader(&metricsbuf)
+
+	MetricsWalkTarfile(metricsReader, ow, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
 
 	return nil
 }
