@@ -70,6 +70,10 @@ const (
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
+
+	// resource requests and limits for the `collect-outputs` pod
+	collectOutputsResourceCPU    = resource.MustParse("2000m")
+	collectOutputsResourceMemory = resource.MustParse("1024Mi")
 )
 
 var k8sSubnetIdx uint64 = 0
@@ -953,6 +957,12 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceCPU:    collectOutputsResourceCPU,
+							v1.ResourceMemory: collectOutputsResourceMemory,
 						},
 					},
 				},
