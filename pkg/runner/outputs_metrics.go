@@ -83,7 +83,7 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, url string, token string,
 func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token string, org string, bucket string) {
 	rowCh := make(chan logRow)
 	doneCh := make(chan int)
-	ow.Info("Uploading events to %s, %url")
+	ow.Info("Uploading events to %s", url)
 	go eventRecorder(rowCh, doneCh, url, token, org, bucket)
 
 	dec, err := gzip.NewReader(src)
@@ -114,9 +114,10 @@ func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token s
 		wg.Add(1)
 		go filterMetrics(buf, &wg, rowCh)
 	}
-	ow.Info("waiting for filter metrics")
+	ow.Info("waiting for filterMetrics runners")
 	wg.Wait()
 	close(rowCh)
 	ow.Info("waiting for eventRecorder")
 	<-doneCh
+	ow.Info("metrics upload complete")
 }
