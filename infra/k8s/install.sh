@@ -62,6 +62,12 @@ fi
 echo "Cluster nodes are Ready"
 echo
 
+echo "Install default container limits"
+echo
+
+kubectl apply -f ./limit-range/limit-range.yaml
+
+
 echo "Install EFS..."
 
 vpcId=`aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`

@@ -398,7 +398,8 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	return
 }
 
-func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
+func (c *ClusterK8sRunner) Healthcheck(_ context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
+	// TODO how does one pass the context to k8s API calls?
 	c.initPool()
 
 	report := api.HealthcheckReport{}
@@ -411,7 +412,7 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Outp
 	}
 
 	if fix {
-		fakeFixes := []api.HealthcheckItem{}
+		var fakeFixes []api.HealthcheckItem
 		for _, chk := range report.Checks {
 			if chk.Status != api.HealthcheckStatusOK {
 				fakeFixes = append(fakeFixes, api.HealthcheckItem{
@@ -753,6 +754,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		if counters["Succeeded"] == input.TotalInstances {
 			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			return nil
+		}
+
+		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
 			return nil
 		}
 

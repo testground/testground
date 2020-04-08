@@ -3,10 +3,10 @@ package docker
 import (
 	"context"
 
-	"github.com/docker/docker/api/types/filters"
 	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )

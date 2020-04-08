@@ -82,8 +82,10 @@ In addition to the initial cluster setup, these variables should be accessible t
 manually set or you source them manually, you should make sure to do so before starting the testground daemon.
 
 ```sh
-# NAME needs be a subdomain of an existing Route53 domain name. The testground team uses .testground.ipfs.team, which is set up by our Terraform configs.
-export NAME=<desired kubernetes cluster name (cluster name must be a fully-qualified DNS name (e.g. mycluster.myzone.com)>
+# `NAME` needs to be a subdomain of an existing Route53 domain name.
+# The Testground team uses `.testground.ipfs.team`, which is already set up for our Testground AWS account.
+# Alternatively you could use `name.k8s.local` and use Gossip DNS.
+export NAME=<desired kubernetes cluster name (cluster name must be a fully-qualified DNS name (e.g. mycluster.k8s.local or mycluster.testground.ipfs.team)>
 export KOPS_STATE_STORE=s3://<kops state s3 bucket>
 export AWS_REGION=<aws region, for example eu-central-1>
 export ZONE=<aws availability zone, for example eu-central-1a>
