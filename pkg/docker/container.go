@@ -5,20 +5,30 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ipfs/testground/pkg/rpc"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
-	"github.com/ipfs/testground/pkg/rpc"
+)
+
+type ImageStrategy int
+
+const (
+	ImageStrategyNone ImageStrategy = iota
+	ImageStrategyPull
+	ImageStrategyBuild
 )
 
 type EnsureContainerOpts struct {
-	ContainerName      string
-	ContainerConfig    *container.Config
-	HostConfig         *container.HostConfig
-	NetworkingConfig   *network.NetworkingConfig
-	PullImageIfMissing bool
+	ContainerName    string
+	ContainerConfig  *container.Config
+	HostConfig       *container.HostConfig
+	NetworkingConfig *network.NetworkingConfig
+	ImageStrategy    ImageStrategy
+	BuildImageOpts   *BuildImageOpts
 }
 
 func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, name string) (container *types.ContainerJSON, err error) {
@@ -26,10 +36,21 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 
 	ow.Debug("checking state of container")
 
+	// filter regex; container names have a preceding slash. Newer versions of
+	// the Docker daemon appear to test filters against slash-prefixed and
+	// non-slash-prefixed versions of the container name; older versions appear
+	// not to do this trickery. Since `docker inspect <container_id> -f
+	// '{{.Name}}'` returns a slash-prefixed name, we assume that's the
+	// canonical name. To be compatible with a wide range of Docker daemon
+	// versions, we choose to compare against that.
+	//
+	// More info:
+	// https://github.com/ipfs/testground/pull/782#issuecomment-608422093.
+	exactMatch := fmt.Sprintf("^/%s$", name)
 	// Check if a ${name} container exists.
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
 		All:     true,
-		Filters: filters.NewArgs(filters.Arg("name", name)),
+		Filters: filters.NewArgs(filters.Arg("name", exactMatch)),
 	})
 	if err != nil || len(containers) == 0 {
 		return nil, err
@@ -49,9 +70,9 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 
 }
 
-// EnsureContainer ensures there's a container started of the specified kind.
-func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
-	opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
+// EnsureContainerStarted ensures there's a container started of the specified
+// kind, resorting to building it if necessary and so indicated.
+func EnsureContainerStarted(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, opts *EnsureContainerOpts) (container *types.ContainerJSON, created bool, err error) {
 	log := ow.With("container_name", opts.ContainerName)
 
 	log.Debug("checking state of container")
@@ -70,7 +91,7 @@ func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clie
 
 		err := cli.ContainerStart(ctx, ci.ID, types.ContainerStartOptions{})
 		if err != nil {
-			log.Errorw("starting container failed", "container_id", container.ID)
+			log.Errorw("starting container failed", "container_name", opts.ContainerName, "error", err)
 			return nil, false, err
 		}
 
@@ -80,34 +101,32 @@ func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clie
 
 	log.Infow("container not found; creating")
 
-	if opts.PullImageIfMissing {
+	switch opts.ImageStrategy {
+	case ImageStrategyNone:
+		_, found, err := FindImage(ctx, log, cli, opts.ContainerConfig.Image)
+		if err != nil {
+			log.Warnw("failed to check if image exists", "image", opts.ContainerConfig.Image, "error", err)
+			return nil, false, err
+		}
+		if !found {
+			log.Warnw("image not found", "image", opts.ContainerConfig.Image)
+			err := errors.New("image not found")
+			return nil, false, err
+		}
+
+	case ImageStrategyPull:
 		out, err := cli.ImagePull(ctx, opts.ContainerConfig.Image, types.ImagePullOptions{})
 		if err != nil {
 			return nil, false, err
 		}
-
 		if err := PipeOutput(out, ow.StdoutWriter()); err != nil {
 			return nil, false, err
 		}
-	} else {
-		imageListOpts := types.ImageListOptions{
-			All: true,
-		}
-		images, err := cli.ImageList(ctx, imageListOpts)
+
+	case ImageStrategyBuild:
+		_, err := EnsureImage(ctx, ow, cli, opts.BuildImageOpts)
 		if err != nil {
-			log.Errorw("retrieving list of images failed")
-			return nil, false, err
-		}
-		found := false
-		for _, summary := range images {
-			if len(summary.RepoTags) > 0 && summary.RepoTags[0] == opts.ContainerConfig.Image {
-				found = true
-				break
-			}
-		}
-		if !found {
-			log.Errorw("image not found", "image", opts.ContainerConfig.Image)
-			err := errors.New("image not found")
+			err = fmt.Errorf("failed to check/build image: %w", err)
 			return nil, false, err
 		}
 	}
@@ -123,7 +142,8 @@ func EnsureContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clie
 		return nil, false, err
 	}
 
-	log.Infow("starting new container", "id", res.ID)
+	log.Infow("created container", "id", res.ID)
+	log.Infow("starting container", "id", res.ID)
 
 	err = cli.ContainerStart(ctx, res.ID, types.ContainerStartOptions{})
 	if err != nil {

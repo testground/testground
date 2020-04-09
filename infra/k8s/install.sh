@@ -23,6 +23,12 @@ echo "Public key: $PUBKEY"
 echo "Worker nodes: $WORKER_NODES"
 echo
 
+# Set default options (can be over-ridden by setting environment vars)
+if [ -z "$ULIMIT_NOFILE" ]
+then
+	export ULIMIT_NOFILE="1048576:1048576"
+fi
+
 CLUSTER_SPEC=$(mktemp)
 envsubst <$CLUSTER_SPEC_TEMPLATE >$CLUSTER_SPEC
 cat $CLUSTER_SPEC
@@ -46,13 +52,21 @@ kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
 
 # wait for worker nodes and master to be ready
-echo "Wait for Cluster nodes to be Ready..."
-echo
-READY_NODES=0
-while [ "$READY_NODES" -ne $(($WORKER_NODES + 1)) ]; do READY_NODES=$(kubectl get nodes 2>/dev/null | grep -v NotReady | grep Ready | wc -l || true); echo "Got $READY_NODES ready nodes"; sleep 5; done;
+kops validate cluster --wait 10m
+if [ $? -ne 0 ]
+then
+	echo "cluster was not ready after 10 minutes."
+	exit 3
+fi
 
 echo "Cluster nodes are Ready"
 echo
+
+echo "Install default container limits"
+echo
+
+kubectl apply -f ./limit-range/limit-range.yaml
+
 
 echo "Install EFS..."
 
@@ -114,12 +128,11 @@ kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
 # monitoring and redis.
-echo "installing helm infrastructure"
+echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
 pushd testground-infra
 helm dep build
-helm install --wait --timeout 2m testground-infra .
+helm install testground-infra .
 popd
-sleep 10
 
 echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
 echo

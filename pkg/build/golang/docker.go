@@ -410,9 +410,9 @@ func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 				Mounts:      []mount.Mount{*mnt},
 				NetworkMode: container.NetworkMode(buildNetworkID),
 			},
-			PullImageIfMissing: true,
+			ImageStrategy: docker.ImageStrategyPull,
 		}
-		_, _, warn = docker.EnsureContainer(ctx, ow, cli, &containerOpts)
+		_, _, warn = docker.EnsureContainerStarted(ctx, ow, cli, &containerOpts)
 		if warn != nil {
 			proxyURL = "direct"
 			warn = fmt.Errorf("encountered an error when creating the goproxy container; falling back to go_proxy_mode=direct; err: %w", warn)
