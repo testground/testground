@@ -78,10 +78,10 @@ grafana:
       enabled: true
   podAnnotations:
     cni: flannel
-kube-state-metrics:
-  prometheus:
-    monitor:
-      enabled: true
+    #kube-state-metrics:
+    #  prometheus:
+    #    monitor:
+    #      enabled: true
   podAnnotations:
     cni: flannel
   affinity:
