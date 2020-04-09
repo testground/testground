@@ -84,20 +84,21 @@ func ToEnvVar(input map[string]string) []v1.EnvVar {
 	return out
 }
 
-// ToUlimits takes a slice of strings formatted in a particular way. It returns a new slice
-// with the strings parsed as Ulimits such that they can be used by docker. If any of the ulimit
-// strings are improperly formatted, they will be ignored.
-// Each element in the input should be formatted in one of the following ways:
-// nofile=512:1024
-// nofile=1024
-// cpu=2:4
-// cpu=6
-func ToUlimits(input []string) (out []*units.Ulimit, err error) {
+// ToUlimits converts a slice of strings following the Docker ulimit format, to
+// the appropriate type. If parsing fails, this function shortcircuits and
+// returns an error.
+//
+// See
+// https://docs.docker.com/engine/reference/commandline/run/#set-ulimits-in-container---ulimit
+// for more info on format.
+func ToUlimits(input []string) ([]*units.Ulimit, error) {
+	out := make([]*units.Ulimit, 0, len(input))
 	for _, s := range input {
 		parsed, err := units.ParseUlimit(s)
-		if err == nil {
-			out = append(out, parsed)
+		if err != nil {
+			return nil, err
 		}
+		out = append(out, parsed)
 	}
-	return
+	return out, nil
 }
