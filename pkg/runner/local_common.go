@@ -92,6 +92,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 			ContainerName: "testground-redis",
 			ContainerConfig: &container.Config{
 				Image: "library/redis",
+				Cmd:   []string{"--save", "\"\"", "--appendonly", "no", "--maxclients", "120000"},
 			},
 			HostConfig: &container.HostConfig{
 				PortBindings: exposed,
@@ -100,6 +101,10 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 					Ulimits: []*units.Ulimit{
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 					},
+				},
+				Sysctls: map[string]string{
+					"net.core.somaxconn":             "150000",
+					"net.netfilter.nf_conntrack_max": "120000",
 				},
 				RestartPolicy: container.RestartPolicy{
 					Name: "unless-stopped",
