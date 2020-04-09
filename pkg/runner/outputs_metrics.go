@@ -59,9 +59,13 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 	// Hitting the write limit is very easy.
 	// Free influxdb cloud account is 5.1 MB/ 5 minutes.
 	// each point is about 250 bytes. We can send about 4080 points per minute
+	var counter int
+	var size int
 	ticker := time.Tick(time.Second / 68)
 	for row := range rowCh {
 		<-ticker
+		counter++
+		// approximate size
 		// Pull out the important bits of the log message and create an influxdb event
 		event := *(row.Event)
 		timestamp := row.Ts
@@ -78,6 +82,8 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 		fields := map[string]interface{}{
 			event.Metric.Unit: event.Metric.Value,
 		}
+		// Keep track of the size, approximately.
+		size += len(measurement + row.GroupId + row.RunId)
 		// timestamp is formatted as ssssssssssnnnnnnnnn
 		// For example 1586397665879924824
 		// Of course, just dividing this will not work forever.
@@ -85,10 +91,15 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 		nsec := timestamp % 1000000000
 		pt := influxdb2.NewPoint(measurement, tags, fields, time.Unix(sec, nsec))
 		writeApi.WritePoint(pt)
+		// Make sure we flush sometimes.
+		if counter%10000 == 0 {
+			ow.Info("flushing about %d bytes to influxdb", size)
+			writeApi.Flush()
+			size = 0
+		}
 	}
 	writeApi.Flush()
 	close(doneCh)
-
 }
 
 // MetricsWalkTarfilea takes a Reader which should be a gzipped tarball. This is the file format
