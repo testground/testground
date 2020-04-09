@@ -542,7 +542,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 
 	metricsReader := bufio.NewReader(&metricsbuf)
 
-	go MetricsWalkTarfile(metricsReader, ow, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
+	MetricsWalkTarfile(metricsReader, ow, cfg.InfluxURL, cfg.InfluxToken, cfg.InfluxOrg, cfg.InfluxBucket)
 
 	return nil
 }
