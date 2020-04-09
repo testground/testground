@@ -142,6 +142,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
+	ow.Info("url in run", cfg.InfluxURL)
+
 	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
 	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
@@ -459,6 +461,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	c.initPool()
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+	ow.Info("url in collectoutputs", cfg.InfluxURL)
 
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 	err := c.ensureCollectOutputsPod(ctx)

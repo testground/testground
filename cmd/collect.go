@@ -55,13 +55,18 @@ func collectCommand(c *cli.Context) error {
 		return err
 	}
 
-	return collect(ctx, api, runner, id, output)
+	return collect(ctx, c, api, runner, id, output)
 }
 
-func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
+func collect(ctx context.Context, c *cli.Context, cl *client.Client, runner string, runid string, outputFile string) error {
+	comp, err := createSingletonComposition(c)
+	if err != nil {
+		return err
+	}
 	req := &client.OutputsRequest{
-		Runner: runner,
-		RunID:  runid,
+		Composition: *comp,
+		Runner:      runner,
+		RunID:       runid,
 	}
 
 	resp, err := cl.CollectOutputs(ctx, req)

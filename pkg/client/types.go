@@ -32,8 +32,9 @@ type CollectResponse struct {
 }
 
 type OutputsRequest struct {
-	Runner string `json:"runner"`
-	RunID  string `json:"run_id"`
+	Composition api.Composition `json:"composition"`
+	Runner      string          `json:"runner"`
+	RunID       string          `json:"run_id"`
 }
 
 type TerminateRequest struct {

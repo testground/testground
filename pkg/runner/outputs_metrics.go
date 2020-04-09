@@ -29,13 +29,12 @@ type logRow struct {
 
 // filterMetrics is processes a single run.out file. When it finds a Metric type,
 // it writes the the unmarshaled log row to the channel.
-func filterMetrics(buf *bytes.Buffer, wg *sync.WaitGroup, rowCh chan logRow) {
+func filterMetrics(buf *bytes.Buffer, wg *sync.WaitGroup, ow *rpc.OutputWriter, rowCh chan logRow) {
 	var row logRow
 	scnr := bufio.NewScanner(buf)
 	for scnr.Scan() {
 		err := json.Unmarshal(scnr.Bytes(), &row)
 		if err != nil {
-			continue
 		}
 		event := *(row.Event)
 		if event.Type != runtime.EventTypeMetric {
@@ -61,6 +60,7 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 		// Pull out the important bits of the log message and create an influxdb event
 		event := *(row.Event)
 		timestamp := row.Ts
+		// This causes the measurements to look something like this:
 		measurement := fmt.Sprintf("%s (%s)", event.Metric.Name, event.Metric.Unit)
 
 		// Unfortunately? the gitsha, etc is not included in the logs.
@@ -88,7 +88,7 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token string, org string, bucket string) {
 	rowCh := make(chan logRow)
 	doneCh := make(chan int)
-	ow.Info("Uploading events to %s", url)
+	ow.Info(fmt.Sprintf("Uploading events to %s", url))
 	go eventRecorder(rowCh, doneCh, ow, url, token, org, bucket)
 
 	dec, err := gzip.NewReader(src)
@@ -110,14 +110,13 @@ func MetricsWalkTarfile(src io.Reader, ow *rpc.OutputWriter, url string, token s
 			continue
 		}
 
-		s := make([]byte, hdr.Size)
-		buf := bytes.NewBuffer(s)
-		_, err := io.Copy(buf, tf)
+		var buf bytes.Buffer
+		_, err := io.Copy(&buf, tf)
 		if err != nil {
 			panic(err)
 		}
 		wg.Add(1)
-		go filterMetrics(buf, &wg, rowCh)
+		go filterMetrics(&buf, &wg, ow.With(hdr.Name), rowCh)
 	}
 	ow.Info("waiting for filterMetrics runners")
 	wg.Wait()

@@ -18,7 +18,7 @@ type Engine interface {
 
 	DoBuild(context.Context, *Composition, *rpc.OutputWriter) ([]*BuildOutput, error)
 	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
-	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
+	DoCollectOutputs(ctx context.Context, comp *Composition, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error
 	DoHealthcheck(ctx context.Context, runner string, fix bool, ow *rpc.OutputWriter) (*HealthcheckReport, error)
 

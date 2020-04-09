@@ -201,5 +201,5 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
 	}
 
-	return collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
+	return collect(ctx, c, cl, comp.Global.Runner, rout.RunID, collectFile)
 }

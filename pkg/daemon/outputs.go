@@ -32,7 +32,7 @@ func (srv *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter,
 			tgw.WriteResult(result)
 		}()
 
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
+		err = engine.DoCollectOutputs(r.Context(), &req.Composition, req.Runner, req.RunID, tgw)
 		if err != nil {
 			log.Warnw("collect outputs error", "err", err.Error())
 			return

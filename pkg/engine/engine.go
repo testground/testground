@@ -455,7 +455,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	return out, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error {
+func (e *Engine) DoCollectOutputs(ctx context.Context, comp *api.Composition, runner string, runID string, ow *rpc.OutputWriter) error {
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)
@@ -465,6 +465,7 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 
 	// Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+	cfg = cfg.Append(comp.Global.RunConfig)
 
 	// Coalesce all configurations and deserialise into the config type
 	// mandated by the builder.
