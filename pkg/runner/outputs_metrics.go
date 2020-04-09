@@ -93,7 +93,7 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 		writeApi.WritePoint(pt)
 		// Make sure we flush sometimes.
 		if counter%10000 == 0 {
-			ow.Info("flushing about %d bytes to influxdb", size)
+			ow.Info(fmt.Sprintf("flushing about %d bytes to influxdb", size))
 			writeApi.Flush()
 			size = 0
 		}
