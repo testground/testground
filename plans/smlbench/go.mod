@@ -5,7 +5,8 @@ go 1.14
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/ipfs/testground/sdk/iptb v0.0.0-00010101000000-000000000000
-	github.com/ipfs/testground/sdk/runtime v0.3.0
+	github.com/ipfs/testground/sdk/runtime v0.4.0
+	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d // indirect
 	golang.org/x/tools v0.0.0-20200227222343-706bc42d1f0d // indirect
 )
