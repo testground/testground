@@ -56,7 +56,12 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 			ow.Warnw("Error writing message to influx", "err", err)
 		}
 	}()
+	// Hitting the write limit is very easy.
+	// Free influxdb cloud account is 5.1 MB/ 5 minutes.
+	// each point is about 250 bytes. We can send about 4080 points per minute
+	ticker := time.Tick(time.Second / 68)
 	for row := range rowCh {
+		<-ticker
 		// Pull out the important bits of the log message and create an influxdb event
 		event := *(row.Event)
 		timestamp := row.Ts
@@ -73,7 +78,12 @@ func eventRecorder(rowCh chan logRow, doneCh chan int, ow *rpc.OutputWriter, url
 		fields := map[string]interface{}{
 			event.Metric.Unit: event.Metric.Value,
 		}
-		pt := influxdb2.NewPoint(measurement, tags, fields, time.Unix(timestamp, 0))
+		// timestamp is formatted as ssssssssssnnnnnnnnn
+		// For example 1586397665879924824
+		// Of course, just dividing this will not work forever.
+		sec := timestamp / 1000000000
+		nsec := timestamp % 1000000000
+		pt := influxdb2.NewPoint(measurement, tags, fields, time.Unix(sec, nsec))
 		writeApi.WritePoint(pt)
 	}
 	writeApi.Flush()
