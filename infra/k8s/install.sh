@@ -129,6 +129,7 @@ kubectl apply -f ./efs/rbac.yaml \
 
 # monitoring and redis.
 echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
+helm install prometheus-operator stable/prometheus-operator -f prom-operator.yml
 pushd testground-infra
 helm dep build
 helm install testground-infra .
