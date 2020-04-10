@@ -60,8 +60,8 @@ type Metadata struct {
 }
 
 type Resources struct {
-	Memory string `toml:"memory"`
-	CPU    string `toml:"cpu"`
+	Memory string `toml:"memory" json:"memory"`
+	CPU    string `toml:"cpu" json:"cpu"`
 }
 
 type Group struct {
@@ -69,7 +69,7 @@ type Group struct {
 	ID string `toml:"id" json:"id"`
 
 	// Resources requested for each pod from the Kubernetes cluster
-	Resources Resources `toml:"resources"`
+	Resources Resources `toml:"resources" json:"resources"`
 
 	// Instances defines the number of instances that belong to this group.
 	Instances Instances `toml:"instances" json:"instances"`
