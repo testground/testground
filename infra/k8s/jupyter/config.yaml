@@ -1,0 +1,17 @@
+proxy:
+  secretToken: 39f9a0b3f7cb7110e82369a5932a2d875241aaf6bb833b5d96f4d8b3ce22cd05
+
+singleuser:
+  image:
+    # Get the latest image tag at:
+    # https://hub.docker.com/r/jupyter/datascience-notebook/tags/
+    # Inspect the Dockerfile at:
+    # https://github.com/jupyter/docker-stacks/tree/master/datascience-notebook/Dockerfile
+    name: nonsens3/testground-jupyter-base
+    tag: latest
+  memory:
+    limit: 2G
+    guarantee: 2G
+  cpu:
+    limit: 2
+    guarantee: 2

@@ -1,0 +1,16 @@
+toml
+jinja2
+ndjson
+pandas
+numpy
+matplotlib
+jupyter
+ipywidgets
+bunch
+stringcase
+papermill
+jupyter-ui-poll
+jupyter_contrib_nbextensions
+durations
+seaborn
+ipywidgets
