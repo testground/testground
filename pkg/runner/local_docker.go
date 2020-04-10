@@ -57,6 +57,11 @@ type LocalDockerRunnerConfig struct {
 	// Background avoids tailing the output of containers, and displaying it as
 	// log messages (default: false).
 	Background bool `toml:"background"`
+	// Ulimits that should be applied on this run, in Docker format.
+	// See
+	// https://docs.docker.com/engine/reference/commandline/run/#set-ulimits-in-container---ulimit
+	// (default: ["nofile=1048576:1048576"]).
+	Ulimits []string `toml:"ulimits"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -65,6 +70,7 @@ var defaultConfig = LocalDockerRunnerConfig{
 	KeepContainers: false,
 	Unstarted:      false,
 	Background:     false,
+	Ulimits:        []string{"nofile=1048576:1048576"},
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -260,6 +266,15 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					Source: odir,
 					Target: runenv.TestOutputsPath,
 				}},
+			}
+
+			if len(cfg.Ulimits) > 0 {
+				ulimits, err := conv.ToUlimits(cfg.Ulimits)
+				if err == nil {
+					hcfg.Resources = container.Resources{Ulimits: ulimits}
+				} else {
+					ow.Warnf("invalid ulimit will be ignored %v", err)
+				}
 			}
 
 			// Create the container.

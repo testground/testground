@@ -318,8 +318,8 @@ func (re *RunEnv) FloatParam(name string) float64 {
 
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
 func (re *RunParams) BooleanParam(name string) bool {
-	s := re.TestInstanceParams[name]
-	return s == "true"
+	s, ok := re.TestInstanceParams[name]
+	return ok && strings.ToLower(s) == "true"
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array
