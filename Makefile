@@ -20,7 +20,7 @@ lint:
 	$(call eachmod,GOGC=75 golangci-lint run --concurrency 32 --deadline 4m ./...)
 
 test-build:
-	$(call eachmod,go build -o /dev/null ./...)
+	$(call eachmod,go build -tags balsam -o /dev/null ./...)
 	docker build -t ipfs/testground .
 
 test:
