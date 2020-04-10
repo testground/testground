@@ -69,6 +69,10 @@ const (
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
+
+	// resource requests and limits for the `collect-outputs` pod
+	collectOutputsResourceCPU    = resource.MustParse("2000m")
+	collectOutputsResourceMemory = resource.MustParse("1024Mi")
 )
 
 var k8sSubnetIdx uint64 = 0
@@ -386,7 +390,8 @@ func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckIte
 	return
 }
 
-func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
+func (c *ClusterK8sRunner) Healthcheck(_ context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
+	// TODO how does one pass the context to k8s API calls?
 	c.initPool()
 
 	report := api.HealthcheckReport{}
@@ -398,7 +403,7 @@ func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.Outp
 	}
 
 	if fix {
-		fakeFixes := []api.HealthcheckItem{}
+		var fakeFixes []api.HealthcheckItem
 		for _, chk := range report.Checks {
 			if chk.Status != api.HealthcheckStatusOK {
 				fakeFixes = append(fakeFixes, api.HealthcheckItem{
@@ -743,6 +748,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			return nil
 		}
 
+		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
+			return nil
+		}
+
 	}
 }
 
@@ -934,6 +944,12 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceCPU:    collectOutputsResourceCPU,
+							v1.ResourceMemory: collectOutputsResourceMemory,
 						},
 					},
 				},

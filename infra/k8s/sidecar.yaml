@@ -54,6 +54,7 @@ spec:
           containerPort: 6060
         resources:
           limits:
+            cpu: 200m
             memory: 1024Mi
           requests:
             cpu: 200m

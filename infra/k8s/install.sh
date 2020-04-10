@@ -62,6 +62,12 @@ fi
 echo "Cluster nodes are Ready"
 echo
 
+echo "Install default container limits"
+echo
+
+kubectl apply -f ./limit-range/limit-range.yaml
+
+
 echo "Install EFS..."
 
 vpcId=`aws ec2 describe-vpcs --region=$AWS_REGION --filters Name=tag:Name,Values=$NAME --output text | awk '/VPCS/ { print $8 }'`
@@ -121,23 +127,28 @@ envsubst <./efs/manifest.yaml.spec >$EFS_MANIFEST_SPEC
 kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
-# monitoring and redis.
-echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
+echo "Install Weave, CNI-Genie, Sidecar Daemonset..."
+echo
+
+kubectl apply -f ./kops-weave/weave.yml \
+              -f ./kops-weave/genie-plugin.yaml \
+              -f ./kops-weave/dummy.yml \
+              -f ./sidecar.yaml
+
+echo "Installing Prometheus"
+helm install prometheus-operator stable/prometheus-operator -f prom-operator.yml
+
+echo "Installing Prometheus Pushgateway, Redis, Grafana dashboards"
 pushd testground-infra
 helm dep build
 helm install testground-infra .
 popd
 
-echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
+echo "Install Weave service monitor..."
 echo
 
-kubectl apply -f ./kops-weave/weave.yml \
-              -f ./kops-weave/genie-plugin.yaml \
-              -f ./kops-weave/weave-metrics-service.yml \
-              -f ./kops-weave/weave-service-monitor.yml \
-              -f ./kops-weave/dummy.yml \
-              -f ./sidecar.yaml
-
+kubectl apply -f ./kops-weave/weave-metrics-service.yml \
+              -f ./kops-weave/weave-service-monitor.yml
 
 echo "Wait for Sidecar to be Ready..."
 echo
