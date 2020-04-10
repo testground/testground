@@ -24,4 +24,4 @@ test-build:
 	docker build -t ipfs/testground .
 
 test:
-	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
+	$(call eachmod,go test -tags balsam -p 1 -v $(GOTFLAGS) ./...)
