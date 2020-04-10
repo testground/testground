@@ -274,7 +274,7 @@ func SetupNetwork(ctx context.Context, ri *DHTRunInfo, latency time.Duration) er
 
 	if networkSetupNum == 0 {
 		// Wait for the network to be initialized.
-		if err := sync.WaitNetworkInitialized(ctx, ri.RunEnv, ri.Watcher); err != nil {
+		if err := ri.Client.WaitNetworkInitialized(ctx, ri.RunEnv); err != nil {
 			return err
 		}
 	}
@@ -289,7 +289,7 @@ func SetupNetwork(ctx context.Context, ri *DHTRunInfo, latency time.Duration) er
 
 	state := sync.State(fmt.Sprintf("network-configured-%d", networkSetupNum))
 
-	_, _ = ri.Writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, _ = ri.Client.Publish(ctx, sync.NetworkTopic(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -301,7 +301,7 @@ func SetupNetwork(ctx context.Context, ri *DHTRunInfo, latency time.Duration) er
 
 	ri.RunEnv.RecordMessage("finished resetting network latency")
 
-	err = <-ri.Watcher.Barrier(ctx, state, int64(ri.RunEnv.TestInstanceCount))
+	err = <-ri.Client.MustBarrier(ctx, state, ri.RunEnv.TestInstanceCount).C
 	if err != nil {
 		return fmt.Errorf("failed to configure network: %w", err)
 	}
@@ -314,15 +314,14 @@ func Setup(ctx context.Context, runenv *runtime.RunEnv, opts *SetupOpts) (*DHTRu
 		return nil, err
 	}
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	client := sync.MustBoundClient(ctx, runenv)
 	//defer watcher.Close()
 	//defer writer.Close()
 
 	ri := &DHTRunInfo{
 		RunInfo: &utils.RunInfo{
-			RunEnv:  runenv,
-			Watcher: watcher,
-			Writer:  writer,
+			RunEnv: runenv,
+			Client: client,
 		},
 		DHTGroupProperties: make(map[string]*SetupOpts),
 	}
@@ -850,34 +849,16 @@ func Sync(
 	state sync.State,
 ) error {
 	// Set a state barrier.
-	doneCh := ri.Watcher.Barrier(ctx, state, int64(ri.RunEnv.TestInstanceCount))
+	doneCh := ri.Client.MustBarrier(ctx, state, ri.RunEnv.TestInstanceCount).C
 
 	// Signal we're in the same state.
-	_, err := ri.Writer.SignalEntry(ctx, state)
+	_, err := ri.Client.SignalEntry(ctx, state)
 	if err != nil {
 		return err
 	}
 
 	// Wait until all others have signalled.
 	return <-doneCh
-}
-
-func WaitMyTurn(
-	ctx context.Context,
-	runenv *runtime.RunEnv,
-	watcher *sync.Watcher,
-	writer *sync.Writer,
-	state sync.State,
-	seq int,
-) (func() error, error) {
-	// Wait until it's out turn
-	err := <-watcher.Barrier(ctx, state, int64(seq))
-
-	return func() error {
-		// Signal that we're done
-		_, err := writer.SignalEntry(ctx, state)
-		return err
-	}, err
 }
 
 // WaitRoutingTable waits until the routing table is not empty.

@@ -13,7 +13,7 @@ import (
 
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this
 // test case.
-func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer,
+func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client,
 	nodetp NodeType, tpindex int) (time.Duration, int, error) {
 
 	if !runenv.TestSidecar {
@@ -21,7 +21,7 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 	}
 
 	// Wait for the network to be initialized.
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return 0, 0, err
 	}
 
@@ -38,7 +38,8 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 
 	jitterPct := runenv.IntParam("jitter_pct")
 	bandwidth := runenv.IntParam("bandwidth_mb")
-	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+
+	cfg := &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -47,17 +48,15 @@ func SetupNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Wat
 			Jitter:    (time.Duration(jitterPct) * latency) / 100,
 		},
 		State: "network-configured",
-	})
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
 	}
 
 	runenv.RecordMessage("%s %d has %s latency (%d%% jitter) and %dMB bandwidth", nodetp, tpindex, latency, jitterPct, bandwidth)
 
-	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
+	_, err = client.PublishAndWait(ctx, sync.NetworkTopic(hostname), cfg, "network-configured", runenv.TestInstanceCount)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to configure network: %w", err)
 	}
+
 	return latency, bandwidth, nil
 }
 

@@ -52,18 +52,17 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	client := sync.MustBoundClient(ctx, runenv)
 
 	/// --- Tear down
 	defer func() {
-		err := utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "end", watcher, writer)
+		_, err := client.SignalAndWait(ctx, "end", runenv.TestInstanceCount)
 		if err != nil {
 			runenv.RecordFailure(err)
 		} else {
 			runenv.RecordSuccess()
 		}
-		watcher.Close()
-		writer.Close()
+		defer client.Close()
 	}()
 
 	// Create libp2p node
@@ -73,8 +72,10 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	}
 	defer h.Close()
 
+	peers := &sync.Topic{Name: "peers", Type: reflect.TypeOf(&peer.AddrInfo{})}
+
 	// Get sequence number of this host
-	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
+	seq, err := client.Publish(ctx, peers, host.InfoFromHost(h))
 	if err != nil {
 		return err
 	}
@@ -82,10 +83,8 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
 	sctx, cancelSub := context.WithCancel(ctx)
-	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
-		cancelSub()
-		return err
-	}
+	client.MustSubscribe(sctx, peers, peerCh)
+
 	addrInfos, err := utils.AddrInfosFromChan(peerCh, runenv.TestInstanceCount)
 	if err != nil {
 		cancelSub()
@@ -98,7 +97,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
 	// Set up network (with traffic shaping)
-	err = setupFuzzNetwork(ctx, runenv, watcher, writer)
+	err = setupFuzzNetwork(ctx, runenv, client)
 	if err != nil {
 		return fmt.Errorf("Failed to set up network: %w", err)
 	}
@@ -106,7 +105,8 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	// Signal that this node is in the given state, and wait for all peers to
 	// send the same signal
 	signalAndWaitForAll := func(state string) error {
-		return utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
+		_, err := client.SignalAndWait(ctx, sync.State(state), runenv.TestInstanceCount)
+		return err
 	}
 
 	// Wait for all nodes to be ready to start
@@ -117,12 +117,9 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 	runenv.RecordMessage("Starting")
 	var bsnode *utils.Node
-	rootCidSubtree := &sync.Subtree{
-		GroupKey:    "root-cid",
-		PayloadType: reflect.TypeOf(&cid.Cid{}),
-		KeyFunc: func(val interface{}) string {
-			return val.(*cid.Cid).String()
-		},
+	rootCidTopic := &sync.Topic{
+		Name: "root-cid",
+		Type: reflect.TypeOf(&cid.Cid{}),
 	}
 
 	// Create a new blockstore
@@ -142,8 +139,8 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	rootCidCh := make(chan *cid.Cid, 1)
 	sctx, cancelRootCidSub := context.WithCancel(ctx)
 	defer cancelRootCidSub()
-	if err := watcher.Subscribe(sctx, rootCidSubtree, rootCidCh); err != nil {
-		return fmt.Errorf("Failed to subscribe to rootCidSubtree %w", err)
+	if _, err := client.Subscribe(sctx, rootCidTopic, rootCidCh); err != nil {
+		return fmt.Errorf("Failed to subscribe to rootCidTopic %w", err)
 	}
 
 	seedGenerated := sync.State("seed-generated")
@@ -154,7 +151,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	if seedIndex > 0 {
 		// Wait for the seeds with an index lower than this one
 		// to generate their seed data
-		doneCh := watcher.Barrier(ctx, seedGenerated, int64(seedIndex))
+		doneCh := client.MustBarrier(ctx, seedGenerated, int(seedIndex)).C
 		if err = <-doneCh; err != nil {
 			return err
 		}
@@ -174,14 +171,14 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 	// Signal we've completed generating the seed data
-	_, err = writer.SignalEntry(ctx, seedGenerated)
+	_, err = client.SignalEntry(ctx, seedGenerated)
 	if err != nil {
 		return fmt.Errorf("Failed to signal seed generated: %w", err)
 	}
 
 	// Inform other nodes of the root CID
-	if _, err = writer.Write(ctx, rootCidSubtree, &rootCid); err != nil {
-		return fmt.Errorf("Failed to get Redis Sync rootCidSubtree %w", err)
+	if _, err = client.Publish(ctx, rootCidTopic, &rootCid); err != nil {
+		return fmt.Errorf("Failed to get Redis Sync rootCidTopic %w", err)
 	}
 
 	// Get seed cid from all nodes
@@ -369,13 +366,13 @@ func Fuzz(runenv *runtime.RunEnv) error {
 }
 
 // Set up traffic shaping with random latency and bandwidth
-func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync.Watcher, writer *sync.Writer) error {
+func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client) error {
 	if !runenv.TestSidecar {
 		return nil
 	}
 
 	// Wait for the network to be initialized.
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
@@ -388,7 +385,10 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	latency := time.Duration(2+rnd.Intn(100)) * time.Millisecond
 	bandwidth := 1 + rnd.Intn(100)
-	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+
+	state := sync.State("network-configured")
+	topic := sync.NetworkTopic(hostname)
+	cfg := &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -396,15 +396,10 @@ func setupFuzzNetwork(ctx context.Context, runenv *runtime.RunEnv, watcher *sync
 			Bandwidth: uint64(bandwidth * 1024 * 1024),
 			Jitter:    (latency * 10) / 100,
 		},
-		State: "network-configured",
-	})
-	if err != nil {
-		return err
+		State: state,
 	}
 
-	runenv.RecordMessage("I have %s latency and %dMB bandwidth", latency, bandwidth)
-
-	err = <-watcher.Barrier(ctx, "network-configured", int64(runenv.TestInstanceCount))
+	_, err = client.PublishAndWait(ctx, topic, cfg, state, runenv.TestInstanceCount)
 	if err != nil {
 		return fmt.Errorf("failed to configure network: %w", err)
 	}

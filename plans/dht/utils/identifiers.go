@@ -26,24 +26,9 @@ func GetGroupsAndSeqs(ctx context.Context, ri *RunInfo, groupOrder int) (groupSe
 
 // getGroupSeq returns the sequence number of this test instance within its group
 func getGroupSeq(ctx context.Context, ri *RunInfo) (int, error) {
-	// Set a state barrier.
-	seqNumCh := ri.Watcher.Barrier(ctx, sync.State(ri.RunEnv.TestGroupID), int64(ri.RunEnv.TestGroupInstanceCount))
-
-	// Signal we're in the same state.
-	seq, err := ri.Writer.SignalEntry(ctx, sync.State(ri.RunEnv.TestGroupID))
-	if err != nil {
-		return 0, err
-	}
-
-	// make sequence number 0 indexed
-	seq--
-
-	// Wait until all others have signalled.
-	if err := <-seqNumCh; err != nil {
-		return 0, err
-	}
-
-	return int(seq), nil
+	seq, err := ri.Client.SignalAndWait(ctx, sync.State(ri.RunEnv.TestGroupID), ri.RunEnv.TestGroupInstanceCount)
+	seq-- // make 0-indexed
+	return int(seq), err
 }
 
 // setGroupInfo uses the sync service to determine which groups are part of the test and to get their sizes.
@@ -56,16 +41,10 @@ func setGroupInfo(ctx context.Context, ri *RunInfo, groupOrder int) error {
 		Params: ri.RunEnv.TestInstanceParams,
 	}
 
-	if _, err := ri.Writer.Write(ctx, GroupIDSubtree, gi); err != nil {
-		return err
-	}
-
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	groupInfoCh := make(chan *GroupInfo)
-	if err := ri.Watcher.Subscribe(subCtx, GroupIDSubtree, groupInfoCh); err != nil {
-		return err
-	}
+	ri.Client.MustPublishSubscribe(subCtx, GroupIDTopic, gi, groupInfoCh)
 
 	groupOrderMap := make(map[int][]string)
 	groups := make(map[string]*GroupInfo)
@@ -119,14 +98,11 @@ func getNodeID(ri *RunInfo, seq int) int {
 	return id
 }
 
-// GroupIDSubtree represents a subtree under the test run's sync tree where peers
+// GroupIDTopic represents a subtree under the test run's sync tree where peers
 // participating in this distributed test advertise their groups.
-var GroupIDSubtree = &sync.Subtree{
-	GroupKey:    "groupIDs",
-	PayloadType: reflect.TypeOf(&GroupInfo{}),
-	KeyFunc: func(val interface{}) string {
-		return val.(*GroupInfo).ID
-	},
+var GroupIDTopic = &sync.Topic{
+	Name: "groupIDs",
+	Type: reflect.TypeOf(&GroupInfo{}),
 }
 
 type GroupInfo struct {

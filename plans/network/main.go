@@ -30,16 +30,15 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	runenv.RecordMessage("before sync.MustWatcherWriter")
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
 	if !runenv.TestSidecar {
 		return nil
 	}
 
 	runenv.RecordMessage("before sync.WaitNetworkInitialized")
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
@@ -68,13 +67,13 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	runenv.RecordMessage("before writer config")
-	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
+	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
 	if err != nil {
 		return err
 	}
 
 	runenv.RecordMessage("before barrier")
-	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
+	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 	if err != nil {
 		return err
 	}
@@ -92,12 +91,9 @@ func run(runenv *runtime.RunEnv) error {
 
 	// Get a sequence number
 	runenv.RecordMessage("get a sequence number")
-	seq, err := writer.Write(ctx, &sync.Subtree{
-		GroupKey:    "ip-allocation",
-		PayloadType: reflect.TypeOf(""),
-		KeyFunc: func(val interface{}) string {
-			return val.(string)
-		},
+	seq, err := client.Publish(ctx, &sync.Topic{
+		Name:    "ip-allocation",
+		Type: reflect.TypeOf(""),
 	}, hostname)
 	if err != nil {
 		return err
@@ -129,13 +125,13 @@ func run(runenv *runtime.RunEnv) error {
 	}
 
 	logging.S().Debug("before writing changed ip config to redis")
-	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
+	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
 	if err != nil {
 		return err
 	}
 
 	logging.S().Debug("waiting for barrier")
-	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
+	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 	if err != nil {
 		return err
 	}
@@ -225,11 +221,11 @@ func run(runenv *runtime.RunEnv) error {
 		state := sync.State("ping-pong-" + test)
 
 		// Don't reconfigure the network until we're done with the first test.
-		_, err = writer.SignalEntry(ctx, state)
+		_, err = client.SignalEntry(ctx, state)
 		if err != nil {
 			return err
 		}
-		err = <-watcher.Barrier(ctx, state, int64(runenv.TestInstanceCount))
+		err = <-client.MustBarrier(ctx, state, runenv.TestInstanceCount).C
 		if err != nil {
 			return err
 		}
@@ -244,13 +240,13 @@ func run(runenv *runtime.RunEnv) error {
 	config.State = "latency-reduced"
 
 	logging.S().Debug("writing new config with latency reduced")
-	_, err = writer.Write(ctx, sync.NetworkSubtree(hostname), &config)
+	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
 	if err != nil {
 		return err
 	}
 
 	logging.S().Debug("waiting at barrier")
-	err = <-watcher.Barrier(ctx, config.State, int64(runenv.TestInstanceCount))
+	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 	if err != nil {
 		return err
 	}

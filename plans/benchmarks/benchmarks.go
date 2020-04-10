@@ -49,11 +49,10 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
@@ -76,11 +75,10 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
@@ -106,12 +104,12 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	beforeNetConfig := time.Now()
 
 	// Send configuration to the sidecar.
-	_, err = writer.Write(ctx, sync.NetworkSubtree(name), &netConfig)
+	_, err = client.Publish(ctx, sync.NetworkTopic(name), &netConfig)
 	if err != nil {
 		return err
 	}
 	// Wait for the signal that the network change is completed.
-	err = <-watcher.Barrier(ctx, doneState, 1)
+	err = <-client.MustBarrier(ctx, doneState, 1).C
 	if err != nil {
 		return err
 	}
@@ -131,11 +129,10 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
@@ -162,25 +159,25 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 		for _, tst := range tests {
 			readyState := sync.State(fmt.Sprintf("ready_%d_%s", i, tst.Name))
 			testState := sync.State(fmt.Sprintf("test_%d_%s", i, tst.Name))
-			testInstanceNum := int64(math.Floor(float64(runenv.TestInstanceCount) * tst.Percent))
+			testInstanceNum := int(math.Floor(float64(runenv.TestInstanceCount) * tst.Percent))
 
 			if testInstanceNum == 0.0 {
 				testInstanceNum = 1.0
 			}
 
-			_, err := writer.SignalEntry(ctx, readyState)
+			_, err := client.SignalEntry(ctx, readyState)
 			if err != nil {
 				return err
 			}
 
-			<-watcher.Barrier(ctx, readyState, int64(runenv.TestInstanceCount))
+			<-client.MustBarrier(ctx, readyState, runenv.TestInstanceCount).C
 
 			barrierTestStart := time.Now()
-			_, err = writer.SignalEntry(ctx, testState)
+			_, err = client.SignalEntry(ctx, testState)
 			if err != nil {
 				return err
 			}
-			<-watcher.Barrier(ctx, sync.State(testState), testInstanceNum)
+			<-client.MustBarrier(ctx, sync.State(testState), testInstanceNum).C
 
 			duration := time.Since(barrierTestStart)
 			emitTime(runenv, tst.Name, duration)
@@ -204,23 +201,16 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("subtree_test_timeout_secs"))*time.Second)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 
-	st := &sync.Subtree{
-		GroupKey:    "instances",
-		PayloadType: reflect.TypeOf((*string)(nil)),
-		KeyFunc: func(val interface{}) string {
-			return string(*val.(*string))
-		},
-	}
+	topic := &sync.Topic{Name: "instances", Type: reflect.TypeOf("")}
 
-	seq, err := writer.Write(ctx, st, &runenv.TestRun)
+	seq, err := client.Publish(ctx, topic, &runenv.TestRun)
 	if err != nil {
 		return err
 	}
@@ -233,7 +223,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	type testSpec struct {
 		Name    string
 		Data    *string
-		Subtree *sync.Subtree
+		Topic   *sync.Topic
 		Summary runtime.Summary
 	}
 
@@ -249,10 +239,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		ts := &testSpec{
 			Name: name,
 			Data: &data,
-			Subtree: &sync.Subtree{
-				GroupKey:    name,
-				PayloadType: reflect.TypeOf((*string)(nil)),
-			},
+			Topic: &sync.Topic{Name: name, Type: reflect.TypeOf("")},
 			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
 				Name:       name + "_" + mode,
 				Help:       fmt.Sprintf("time to %s %d bytes", mode, size),
@@ -274,7 +261,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
 				t := prometheus.NewTimer(tst.Summary)
-				_, err = writer.Write(ctx, tst.Subtree, tst.Data)
+				_, err = client.Publish(ctx, tst.Topic, tst.Data)
 				if err != nil {
 					return err
 				}
@@ -286,12 +273,12 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			}
 		}
 		// signal to subscribers they can start.
-		_, err = writer.SignalEntry(ctx, handoff)
+		_, err = client.SignalEntry(ctx, handoff)
 		if err != nil {
 			return err
 		}
 
-		_, err = writer.SignalEntry(ctx, end)
+		_, err = client.SignalEntry(ctx, end)
 		if err != nil {
 			return err
 		}
@@ -302,11 +289,11 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// THE publisher. In an ordinary test case, each instance will write a
 		// key and therefore the ownership will be distributed. That does not
 		// happen here, as all key publishing is concentrated on the publisher.
-		<-watcher.Barrier(ctx, end, int64(runenv.TestGroupInstanceCount))
+		<-client.MustBarrier(ctx, end, runenv.TestGroupInstanceCount).C
 
 	case "receive":
 		defer func() {
-			_, err := writer.SignalEntry(ctx, end)
+			_, err := client.SignalEntry(ctx, end)
 			if err != nil {
 				panic(err)
 			}
@@ -315,11 +302,11 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("i am a subscriber")
 
 		// if we are receiving, wait for the publisher to be done.
-		<-watcher.Barrier(ctx, handoff, int64(1))
+		<-client.MustBarrier(ctx, handoff, 1).C
 
 		for _, tst := range tests {
 			ch := make(chan *string, 1)
-			err = watcher.Subscribe(ctx, tst.Subtree, ch)
+			_, err = client.Subscribe(ctx, tst.Topic, ch)
 			if err != nil {
 				return err
 			}

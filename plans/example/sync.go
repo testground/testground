@@ -19,24 +19,18 @@ import (
 func ExampleSync(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
+	client := sync.MustBoundClient(ctx, runenv)
+	defer client.Close()
 
 	runenv.RecordMessage("Waiting for network initialization")
-	if err := sync.WaitNetworkInitialized(ctx, runenv, watcher); err != nil {
+	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
 		return err
 	}
 	runenv.RecordMessage("Network initilization complete")
 
-	st := sync.Subtree{
-		GroupKey:    "messages",
-		PayloadType: reflect.TypeOf(""),
-		KeyFunc: func(val interface{}) string {
-			return val.(string)
-		}}
+	topic := &sync.Topic{Name: "messages", Type: reflect.TypeOf("")}
 
-	seq, err := writer.Write(ctx, &st, runenv.TestRun)
+	seq, err := client.Publish(ctx, topic, runenv.TestRun)
 	if err != nil {
 		return err
 	}
@@ -50,7 +44,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("I'm the boss.")
 		numFollowers := runenv.TestInstanceCount - 1
 		runenv.RecordMessage("Waiting for %d instances to become ready", numFollowers)
-		err := <-watcher.Barrier(ctx, readyState, int64(numFollowers))
+		err := <-client.MustBarrier(ctx, readyState, numFollowers).C
 		if err != nil {
 			return err
 		}
@@ -60,7 +54,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("Set...")
 		time.Sleep(5 * time.Second)
 		runenv.RecordMessage("Go!")
-		_, err = writer.SignalEntry(ctx, startState)
+		_, err = client.SignalEntry(ctx, startState)
 		return err
 	} else {
 
@@ -68,11 +62,11 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		sleepTime := rand.Intn(10)
 		runenv.RecordMessage("I'm a follower. Signaling ready after %d seconds", sleepTime)
 		time.Sleep(time.Duration(sleepTime) * time.Second)
-		_, err = writer.SignalEntry(ctx, readyState)
+		_, err = client.SignalEntry(ctx, readyState)
 		if err != nil {
 			return err
 		}
-		err = <-watcher.Barrier(ctx, startState, 1)
+		err = <-client.MustBarrier(ctx, startState, 1).C
 		if err != nil {
 			return err
 		}
