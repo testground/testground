@@ -1,0 +1,58 @@
+[definition]
+name = "find-peers"
+source_path = "git://github.com/nonsense/dht"
+
+[definition.build_strategies."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/dht"
+exec_pkg = "."
+go_ipfs_version = "0.4.22"
+
+[definition.run_strategies."cluster:k8s"]
+enabled = true
+
+[[definition.testcases]]
+name = "find-peers"
+instances = { min = 2, max = 50, default = 2 }
+
+[metadata]
+name    = "dht"
+author  = "nonsense"
+
+[global]
+plan    = "dht"
+case    = "find-peers"
+builder = "docker:go"
+runner  = "cluster:k8s"
+
+total_instances = 50
+
+[global.build_config]
+  go_proxy_mode = "direct"
+  push_registry = true
+  registry_type = "aws"
+
+[[groups]]
+id = "bootstrappers"
+instances = { count = 1 }
+
+  [groups.build]
+  selectors = ["foo"]
+  dependencies = [
+      { module = "github.com/libp2p/go-libp2p-kad-dht", version = "995fee9e5345fdd7c151a5fe871252262db4e788"},
+      { module = "github.com/libp2p/go-libp2p", version = "76944c4fc848530530f6be36fb22b70431ca506c"},
+  ]
+
+  [groups.run]
+  test_params = { random_walk = "true", n_bootstrap = "1" }
+
+[[groups]]
+id = "peers"
+instances = { count = 49 }
+
+  [groups.run]
+  test_params = { random_walk = "true", n_bootstrap = "1" }
+
+  [groups.build]
+  selectors = ["bar", "bee"]
