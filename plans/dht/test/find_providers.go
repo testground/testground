@@ -3,74 +3,87 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/testground/plans/dht/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
-
 	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 )
 
-func FindProviders(runenv *runtime.RunEnv) error {
-	opts := &SetupOpts{
-		Timeout:        time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:     runenv.BooleanParam("random_walk"),
-		NBootstrap:     runenv.IntParam("n_bootstrap"),
-		NFindPeers:     runenv.IntParam("n_find_peers"),
-		BucketSize:     runenv.IntParam("bucket_size"),
-		AutoRefresh:    runenv.BooleanParam("auto_refresh"),
-		NodesProviding: runenv.IntParam("nodes_providing"),
-		RecordCount:    runenv.IntParam("record_count"),
+type findProvsParams struct {
+	RecordSeed    int
+	RecordCount   int
+	SearchRecords bool
+}
+
+func getFindProvsParams(params map[string]string) findProvsParams {
+	tmpRunEnv := runtime.RunEnv{RunParams: runtime.RunParams{
+		TestInstanceParams: params,
+	}}
+
+	fpOpts := findProvsParams{
+		RecordSeed:    tmpRunEnv.IntParam("record_seed"),
+		RecordCount:   tmpRunEnv.IntParam("record_count"),
+		SearchRecords: tmpRunEnv.BooleanParam("search_records"),
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	return fpOpts
+}
+
+func FindProviders(runenv *runtime.RunEnv) error {
+	commonOpts := GetCommonOpts(runenv)
+
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
+	ri, err := Base(ctx, runenv, commonOpts)
 	if err != nil {
 		return err
 	}
 
-	defer Teardown(ctx, runenv, watcher, writer)
+	if err := TestProviderRecords(ctx, ri); err != nil {
+		return err
+	}
+	Teardown(ctx, ri.RunInfo)
 
-	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
+	return nil
+}
+
+func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
+	runenv := ri.RunEnv
+	node := ri.Node
+
+	fpOpts := getFindProvsParams(ri.RunEnv.RunParams.TestInstanceParams)
+
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "provider-records", ri.RunInfo)
+
+	emitRecords, searchRecords := getRecords(ri, fpOpts)
+
+	if err := stager.Begin(); err != nil {
 		return err
 	}
 
-	if opts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, dht); err != nil {
-			return err
-		}
-	}
-
-	// Calculate the CIDs we're dealing with.
-	cids := func() (out []cid.Cid) {
-		for i := 0; i < opts.RecordCount; i++ {
-			c := fmt.Sprintf("CID %d", i)
-			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
-		}
-		return out
-	}()
+	runenv.RecordMessage("start provide loop")
 
 	// If we're a member of the providing cohort, let's provide those CIDs to
 	// the network.
-	switch {
-	case seq <= int64(opts.NodesProviding):
+	if fpOpts.RecordCount > 0 {
 		g := errgroup.Group{}
-		for i, cid := range cids {
+		for index, cid := range emitRecords {
+			i := index
 			c := cid
 			g.Go(func() error {
+				p := peer.ID(c.Bytes())
+				ectx, cancel := context.WithCancel(ctx) //nolint
+				ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
 				t := time.Now()
-				err := dht.Provide(ctx, c, true)
-
+				err := node.dht.Provide(ectx, c, true)
+				cancel()
 				if err == nil {
 					runenv.RecordMessage("Provided CID: %s", c)
 					runenv.RecordMetric(&runtime.MetricDefinition{
@@ -85,38 +98,145 @@ func FindProviders(runenv *runtime.RunEnv) error {
 		}
 
 		if err := g.Wait(); err != nil {
+			_ = stager.End()
 			return fmt.Errorf("failed while providing: %s", err)
 		}
+	}
 
-	default:
+	if err := stager.End(); err != nil {
+		return err
+	}
+
+	outputGraph(node.dht, "after_provide")
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
+	if fpOpts.SearchRecords {
 		g := errgroup.Group{}
-		for i, cid := range cids {
-			c := cid
-			g.Go(func() error {
-				t := time.Now()
-				pids, err := dht.FindProviders(ctx, c)
+		for _, record := range searchRecords {
+			for index, cid := range record.RecordIDs {
+				i := index
+				c := cid
+				groupID := record.GroupID
+				g.Go(func() error {
+					p := peer.ID(c.Bytes())
+					ectx, cancel := context.WithCancel(ctx) //nolint
+					ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
+					t := time.Now()
 
-				if err == nil {
+					numProvs := 0
+					provsCh := node.dht.FindProvidersAsync(ectx, c, getAllProvRecordsNum())
+					status := "done"
+
+					var tLastFound time.Time
+				provLoop:
+					for {
+						select {
+						case _, ok := <-provsCh:
+							if !ok {
+								break provLoop
+							}
+
+							tLastFound = time.Now()
+
+							if numProvs == 0 {
+								runenv.RecordMetric(&runtime.MetricDefinition{
+									Name:           fmt.Sprintf("time-to-find-first|%s|%d", groupID, i),
+									Unit:           "ns",
+									ImprovementDir: -1,
+								}, float64(tLastFound.Sub(t).Nanoseconds()))
+							}
+
+							numProvs++
+						case <-ctx.Done():
+							status = "incomplete"
+							break provLoop
+						}
+					}
+					cancel()
+
+					if numProvs > 0 {
+						runenv.RecordMetric(&runtime.MetricDefinition{
+							Name:           fmt.Sprintf("time-to-find-last|%s|%s|%d", status, groupID, i),
+							Unit:           "ns",
+							ImprovementDir: -1,
+						}, float64(tLastFound.Sub(t).Nanoseconds()))
+					} else if status != "incomplete" {
+						status = "fail"
+					}
+
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("time-to-find-%d", i),
+						Name:           fmt.Sprintf("time-to-find|%s|%s|%d", status, groupID, i),
 						Unit:           "ns",
 						ImprovementDir: -1,
 					}, float64(time.Since(t).Nanoseconds()))
 
 					runenv.RecordMetric(&runtime.MetricDefinition{
-						Name:           fmt.Sprintf("peers-found-%d", i),
+						Name:           fmt.Sprintf("peers-found|%s|%s|%d", status, groupID, i),
 						Unit:           "peers",
 						ImprovementDir: 1,
-					}, float64(len(pids)))
-				}
+					}, float64(numProvs))
 
-				return err
-			})
+					runenv.RecordMetric(&runtime.MetricDefinition{
+						Name:           fmt.Sprintf("peers-missing|%s|%s|%d", status, groupID, i),
+						Unit:           "peers",
+						ImprovementDir: -1,
+					}, float64(ri.GroupProperties[groupID].Size-numProvs))
+
+					return nil
+				})
+			}
 		}
 
 		if err := g.Wait(); err != nil {
+			_ = stager.End()
 			return fmt.Errorf("failed while finding providerss: %s", err)
 		}
 	}
+
+	if err := stager.End(); err != nil {
+		return err
+	}
 	return nil
+}
+
+// getRecords returns the records we plan to store and those we plan to search for. It also tells other nodes via the
+// sync service which nodes our group plans on advertising
+func getRecords(ri *DHTRunInfo, fpOpts findProvsParams) ([]cid.Cid, []*ProviderRecordSubmission) {
+	recGen := func(groupID string, groupFPOpts findProvsParams) (out []cid.Cid) {
+		for i := 0; i < groupFPOpts.RecordCount; i++ {
+			c := fmt.Sprintf("CID %d - group %s - seeded with %d", i, groupID, groupFPOpts.RecordSeed)
+			out = append(out, cid.NewCidV0(u.Hash([]byte(c))))
+		}
+		return out
+	}
+
+	var emitRecords []cid.Cid
+	if fpOpts.RecordCount > 0 {
+		// Calculate the CIDs we're dealing with.
+		emitRecords = recGen(ri.Node.info.Group, fpOpts)
+	}
+
+	var searchRecords []*ProviderRecordSubmission
+	if fpOpts.SearchRecords {
+		for _, g := range ri.Groups {
+			gOpts := ri.GroupProperties[g]
+			groupFPOpts := getFindProvsParams(gOpts.Params)
+			if groupFPOpts.RecordCount > 0 {
+				searchRecords = append(searchRecords, &ProviderRecordSubmission{
+					RecordIDs: recGen(g, groupFPOpts),
+					GroupID:   g,
+				})
+			}
+		}
+	}
+
+	return emitRecords, searchRecords
+}
+
+type ProviderRecordSubmission struct {
+	RecordIDs []cid.Cid
+	GroupID   string
 }

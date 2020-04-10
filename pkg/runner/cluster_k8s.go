@@ -700,7 +700,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		default:
 		}
 
-		if time.Since(start) > 10*time.Minute {
+		if time.Since(start) > 100*time.Minute {
 			return errors.New("global timeout")
 		}
 		time.Sleep(2000 * time.Millisecond)

@@ -3,50 +3,44 @@ package test
 import (
 	"context"
 	"fmt"
+	"github.com/ipfs/testground/plans/dht/utils"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {
-	opts := &SetupOpts{
-		Timeout:     time.Duration(runenv.IntParam("timeout_secs")) * time.Second,
-		RandomWalk:  runenv.BooleanParam("random_walk"),
-		NBootstrap:  runenv.IntParam("n_bootstrap"),
-		NFindPeers:  runenv.IntParam("n_find_peers"),
-		BucketSize:  runenv.IntParam("bucket_size"),
-		AutoRefresh: runenv.BooleanParam("auto_refresh"),
-	}
+	commonOpts := GetCommonOpts(runenv)
 
-	if opts.NFindPeers > runenv.TestInstanceCount {
-		return fmt.Errorf("NFindPeers greater than the number of test instances")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), commonOpts.Timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
-	defer watcher.Close()
-	defer writer.Close()
-
-	_, dht, peers, seq, err := Setup(ctx, runenv, watcher, writer, opts)
+	ri, err := Base(ctx, runenv, commonOpts)
 	if err != nil {
 		return err
 	}
 
-	defer Teardown(ctx, runenv, watcher, writer)
-
-	// Bring the network into a nice, stable, bootstrapped state.
-	if err = Bootstrap(ctx, runenv, watcher, writer, opts, dht, peers, seq); err != nil {
+	if err := TestFindPeers(ctx, ri); err != nil {
 		return err
 	}
+	Teardown(ctx, ri.RunInfo)
 
-	if opts.RandomWalk {
-		if err = RandomWalk(ctx, runenv, dht); err != nil {
-			return err
-		}
+	return nil
+}
+
+func TestFindPeers(ctx context.Context, ri *DHTRunInfo) error {
+	runenv := ri.RunEnv
+
+	nFindPeers := runenv.IntParam("n_find_peers")
+
+	if nFindPeers > runenv.TestInstanceCount {
+		return fmt.Errorf("NFindPeers greater than the number of test instances")
 	}
+
+	node := ri.Node
+	peers := ri.Others
+
+	stager := utils.NewBatchStager(ctx, node.info.Seq, runenv.TestInstanceCount, "peer-records", ri.RunInfo)
 
 	// Ok, we're _finally_ ready.
 	// TODO: Dump routing table stats. We should dump:
@@ -58,38 +52,59 @@ func FindPeers(runenv *runtime.RunEnv) error {
 	// * How many of our connected peers are actually useful to us?
 
 	// Perform FIND_PEER N times.
+
+	if err := stager.Begin(); err != nil {
+		return err
+	}
+
 	found := 0
-	for _, p := range peers {
-		if found >= opts.NFindPeers {
+	for p, info := range peers {
+		if found >= nFindPeers {
 			break
 		}
-		if len(dht.Host().Peerstore().Addrs(p.ID)) > 0 {
+		if len(node.host.Peerstore().Addrs(p)) > 0 {
 			// Skip peer's we've already found (even if we've
 			// disconnected for some reason).
 			continue
 		}
 
-		t := time.Now()
+		if info.Properties.Undialable || node.info.Addrs.ID == info.Addrs.ID {
+			continue
+		}
+
+		runenv.RecordMessage("start find peer number %d", found+1)
 
 		ectx, cancel := context.WithCancel(ctx)
-		ectx = TraceQuery(ectx, runenv, p.ID.Pretty())
+		ectx = TraceQuery(ectx, runenv, node, p.Pretty(), "peer-records")
+
+		t := time.Now()
 
 		// TODO: Instrument libp2p dht to get:
 		// - Number of peers dialed
 		// - Number of dials along the way that failed
-		_, err := dht.FindPeer(ectx, p.ID)
+		_, err := node.dht.FindPeer(ectx, p)
 		cancel()
 		if err != nil {
-			return fmt.Errorf("find peer failed: %s", err)
+			runenv.RecordMessage("find peer failed: peer %s : %s", p, err)
+			runenv.RecordMetric(&runtime.MetricDefinition{
+				Name:           fmt.Sprintf("time-to-failed-peer-%d", found),
+				Unit:           "ns",
+				ImprovementDir: -1,
+			}, float64(time.Since(t).Nanoseconds()))
+		} else {
+			runenv.RecordMetric(&runtime.MetricDefinition{
+				Name:           fmt.Sprintf("time-to-peer-%d", found),
+				Unit:           "ns",
+				ImprovementDir: -1,
+			}, float64(time.Since(t).Nanoseconds()))
 		}
-
-		runenv.RecordMetric(&runtime.MetricDefinition{
-			Name:           fmt.Sprintf("time-to-find-%d", found),
-			Unit:           "ns",
-			ImprovementDir: -1,
-		}, float64(time.Since(t).Nanoseconds()))
 
 		found++
 	}
+
+	if err := stager.End(); err != nil {
+		return err
+	}
+
 	return nil
 }
