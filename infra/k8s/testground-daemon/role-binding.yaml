@@ -8,8 +8,8 @@ rules:
   #
   # at the HTTP level, the name of the resource for accessing Secret
   # objects is "secrets"
-  resources: ["pods", "nodes"]
-  verbs: ["get", "watch", "list", "edit", "create"]
+  resources: ["pods", "nodes", "pods/log"]
+  verbs: ["get", "watch", "list", "edit", "create", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

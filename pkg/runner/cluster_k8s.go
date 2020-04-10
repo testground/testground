@@ -431,6 +431,7 @@ func (c *ClusterK8sRunner) initPool() {
 		log := logging.S().With("runner", "cluster:k8s")
 
 		//c.config = defaultKubernetesConfig()
+		c.config.Namespace = "default"
 
 		var err error
 		workers := 20
