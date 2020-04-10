@@ -76,7 +76,7 @@ func TestGetClosestPeers(ctx context.Context, ri *DHTRunInfo) error {
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
 				ectx, cancel := context.WithCancel(ctx)
-				ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "get-closest-peers")
+				ectx = TraceQuery(ectx, runenv, node, p.Pretty(), "get-closest-peers")
 				t := time.Now()
 				pids, err := node.dht.GetClosestPeers(ectx, c.KeyString())
 				cancel()
@@ -157,7 +157,7 @@ func outputGCP(runenv *runtime.RunEnv, me peer.ID, target cid.Cid, peers, ranked
 		"Scores", gcpScore(peers, rankedPeers),
 	)
 
-	nodeLogger.Sync()
+	_ = nodeLogger.Sync()
 }
 
 func gcpScore(peers, rankedPeers []peer.ID) []int {

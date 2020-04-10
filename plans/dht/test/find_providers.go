@@ -79,7 +79,7 @@ func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
 			c := cid
 			g.Go(func() error {
 				p := peer.ID(c.Bytes())
-				ectx, cancel := context.WithCancel(ctx)
+				ectx, cancel := context.WithCancel(ctx) //nolint
 				ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
 				t := time.Now()
 				err := node.dht.Provide(ectx, c, true)
@@ -122,7 +122,7 @@ func TestProviderRecords(ctx context.Context, ri *DHTRunInfo) error {
 				groupID := record.GroupID
 				g.Go(func() error {
 					p := peer.ID(c.Bytes())
-					ectx, cancel := context.WithCancel(ctx)
+					ectx, cancel := context.WithCancel(ctx) //nolint
 					ectx = TraceQuery(ctx, runenv, node, p.Pretty(), "provider-records")
 					t := time.Now()
 

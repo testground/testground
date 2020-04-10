@@ -19,12 +19,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type storeGetParams struct {
-	RecordSeed    int
-	RecordCount   int
-	SearchRecords bool
-}
-
 func StoreGetValue(runenv *runtime.RunEnv) error {
 	commonOpts := GetCommonOpts(runenv)
 
@@ -105,7 +99,7 @@ func putIPNSRecord(ctx context.Context, ri *DHTRunInfo, fpOpts findProvsParams, 
 				return err
 			}
 			g.Go(func() error {
-				ectx, cancel := context.WithCancel(ctx)
+				ectx, cancel := context.WithCancel(ctx) //nolint
 				ectx = TraceQuery(ctx, runenv, node, recordKey, "ipns-records")
 				t := time.Now()
 				err := node.dht.PutValue(ectx, recordKey, recordBytes)
@@ -157,7 +151,7 @@ func getIPNSRecord(ctx context.Context, ri *DHTRunInfo, fpOpts findProvsParams, 
 				k := key
 				groupID := record.GroupID
 				g.Go(func() error {
-					ectx, cancel := context.WithCancel(ctx)
+					ectx, cancel := context.WithCancel(ctx) //nolint
 					ectx = TraceQuery(ctx, runenv, node, k, "ipns-records")
 					t := time.Now()
 
@@ -171,7 +165,7 @@ func getIPNSRecord(ctx context.Context, ri *DHTRunInfo, fpOpts findProvsParams, 
 							Unit:           "ns",
 							ImprovementDir: -1,
 						}, float64(time.Since(t).Nanoseconds()))
-						return nil
+						return nil //nolint
 					}
 					status := "done"
 

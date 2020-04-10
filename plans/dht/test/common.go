@@ -289,7 +289,7 @@ func SetupNetwork(ctx context.Context, ri *DHTRunInfo, latency time.Duration) er
 
 	state := sync.State(fmt.Sprintf("network-configured-%d", networkSetupNum))
 
-	ri.Writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
+	_, _ = ri.Writer.Write(ctx, sync.NetworkSubtree(hostname), &sync.NetworkConfig{
 		Network: "default",
 		Enable:  true,
 		Default: sync.LinkShape{
@@ -626,7 +626,7 @@ func Bootstrap(ctx context.Context, ri *DHTRunInfo, bootstrapNodes []peer.AddrIn
 		for {
 			<-ticker.C
 			if node.dht.RoutingTable().Size() < 2 {
-				Connect(ctx, runenv, dht, bootstrapNodes...)
+				_ = Connect(ctx, runenv, dht, bootstrapNodes...)
 			}
 		}
 	}()
@@ -737,6 +737,7 @@ func Bootstrap(ctx context.Context, ri *DHTRunInfo, bootstrapNodes []peer.AddrIn
 
 	tmpCtx, tmpc := context.WithTimeout(ctx, time.Second*10)
 	if err := WaitRoutingTable(tmpCtx, runenv, dht); err != nil {
+		tmpc()
 		return err
 	}
 	if tmpCtx.Err() != nil {
