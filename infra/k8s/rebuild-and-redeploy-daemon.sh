@@ -23,6 +23,8 @@ pushd testground-daemon
 
 kubectl delete deployment testground-daemon || true
 kubectl delete service testground-daemon || true
+kubectl apply -f service-account.yaml
+kubectl apply -f role-binding.yaml
 kubectl apply -f deployment.yaml -f service.yaml
 
 popd

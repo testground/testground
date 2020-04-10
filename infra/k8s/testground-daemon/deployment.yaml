@@ -14,6 +14,7 @@ spec:
       labels:
         app: testground-daemon
     spec:
+      serviceAccountName: testground-daemon
       containers:
       - name: testground-daemon
         image: nonsens3/testground:daemon

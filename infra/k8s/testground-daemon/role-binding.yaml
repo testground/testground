@@ -1,0 +1,25 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  name: testground-daemon-role
+rules:
+- apiGroups: [""]
+  #
+  # at the HTTP level, the name of the resource for accessing Secret
+  # objects is "secrets"
+  resources: ["pods", "nodes"]
+  verbs: ["get", "watch", "list", "edit", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: testground-daemon
+subjects:
+  - kind: ServiceAccount
+    name: testground-daemon
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: testground-daemon-role
+  apiGroup: rbac.authorization.k8s.io
