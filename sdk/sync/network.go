@@ -10,21 +10,15 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-// Deprecated
 type FilterAction int
 
 const (
-	// Deprecated
 	Accept FilterAction = iota
-	// Deprecated
 	Reject
-	// Deprecated
 	Drop
 )
 
 // LinkShape defines how traffic should be shaped.
-//
-// Deprecated
 type LinkShape struct {
 	// Latency is the egress latency
 	Latency time.Duration
@@ -66,16 +60,12 @@ type LinkShape struct {
 }
 
 // LinkRule applies a LinkShape to a subnet.
-//
-// Deprecated
 type LinkRule struct {
 	LinkShape
 	Subnet net.IPNet
 }
 
 // NetworkConfig specifies how a node's network should be configured.
-//
-// Deprecated
 type NetworkConfig struct {
 	// Network is the name of the network to configure
 	Network string
@@ -109,8 +99,6 @@ type NetworkConfig struct {
 // NetworkTopic represents a subtree through which tests runs can communicate
 // with their sidecar. Use this communication channel to setup the networking.
 // Create this structure using NetworkSubtree(hostname)
-//
-// Deprecated
 func NetworkTopic(container string) *Topic {
 	return &Topic{
 		Name: "network:" + container,
@@ -128,8 +116,6 @@ const (
 
 // WaitNetworkInitialized waits for the sidecar to initialize the network, if
 // the sidecar is enabled.
-//
-// Deprecated
 func (c *Client) WaitNetworkInitialized(ctx context.Context, runenv *runtime.RunEnv) error {
 	rp := c.extractor(ctx)
 	if rp == nil {
