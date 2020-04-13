@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"reflect"
 	"time"
 
 	"github.com/ipfs/testground/pkg/logging"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -91,10 +91,8 @@ func run(runenv *runtime.RunEnv) error {
 
 	// Get a sequence number
 	runenv.RecordMessage("get a sequence number")
-	seq, err := client.Publish(ctx, &sync.Topic{
-		Name:    "ip-allocation",
-		Type: reflect.TypeOf(""),
-	}, hostname)
+	topic := sync.NewTopic("ip-allocation", "")
+	seq, err := client.Publish(ctx, topic, hostname)
 	if err != nil {
 		return err
 	}

@@ -101,8 +101,8 @@ type NetworkConfig struct {
 // Create this structure using NetworkSubtree(hostname)
 func NetworkTopic(container string) *Topic {
 	return &Topic{
-		Name: "network:" + container,
-		Type: reflect.TypeOf(&NetworkConfig{}),
+		name: "network:" + container,
+		typ:  reflect.TypeOf(&NetworkConfig{}),
 	}
 }
 

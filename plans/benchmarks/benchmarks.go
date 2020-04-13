@@ -6,13 +6,13 @@ import (
 	"math"
 	"math/rand"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // This method emits the time as output. It does *not* emit a prometheus metric.
@@ -208,7 +208,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		return err
 	}
 
-	topic := &sync.Topic{Name: "instances", Type: reflect.TypeOf("")}
+	topic := sync.NewTopic("instances","")
 
 	seq, err := client.Publish(ctx, topic, &runenv.TestRun)
 	if err != nil {
@@ -239,7 +239,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		ts := &testSpec{
 			Name: name,
 			Data: &data,
-			Topic: &sync.Topic{Name: name, Type: reflect.TypeOf("")},
+			Topic: sync.NewTopic(name, ""),
 			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
 				Name:       name + "_" + mode,
 				Help:       fmt.Sprintf("time to %s %d bytes", mode, size),

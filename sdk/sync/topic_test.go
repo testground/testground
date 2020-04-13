@@ -36,11 +36,11 @@ func TestSubscribeAfterAllPublished(t *testing.T) {
 
 	run := func(pointer bool) func(*testing.T) {
 		return func(t *testing.T) {
-			topic := &Topic{Name: fmt.Sprintf("pandemic:%v", pointer)}
+			topic := &Topic{name: fmt.Sprintf("pandemic:%v", pointer)}
 			if pointer {
-				topic.Type = reflect.TypeOf(&TestPayload{})
+				topic.typ = reflect.TypeOf(&TestPayload{})
 			} else {
-				topic.Type = reflect.TypeOf(TestPayload{})
+				topic.typ = reflect.TypeOf(TestPayload{})
 			}
 
 			produce(t, client, topic, values, pointer)
@@ -80,7 +80,7 @@ func TestSubscribeFirstConcurrentWrites(t *testing.T) {
 	client := MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	topic := &Topic{Name: "virus", Type: reflect.TypeOf("")}
+	topic := &Topic{name: "virus", typ: reflect.TypeOf("")}
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
@@ -144,7 +144,7 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 	pgrp, ctx := errgroup.WithContext(context.Background())
 	sgrp, ctx := errgroup.WithContext(context.Background())
 	for i := 0; i < topics; i++ {
-		topic := &Topic{Name: fmt.Sprintf("antigen-%d", i), Type: reflect.TypeOf("")}
+		topic := &Topic{name: fmt.Sprintf("antigen-%d", i), typ: reflect.TypeOf("")}
 
 		// launch producer.
 		pgrp.Go(func() error {
@@ -189,7 +189,7 @@ func TestSubscriptionValidation(t *testing.T) {
 	client := MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	topic := &Topic{Name: "immune", Type: reflect.TypeOf("")}
+	topic := &Topic{name: "immune", typ: reflect.TypeOf("")}
 
 	ctx, cancel = context.WithCancel(context.Background())
 
@@ -225,7 +225,7 @@ func TestSequenceOnWrite(t *testing.T) {
 	var (
 		iterations = 1000
 		runenv     = randomRunEnv()
-		topic      = &Topic{Name: "pandemic", Type: reflect.TypeOf("")}
+		topic      = &Topic{name: "pandemic", typ: reflect.TypeOf("")}
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())

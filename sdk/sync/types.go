@@ -9,14 +9,19 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
+// State represents a state in a distributed state machine, identified by a
+// unique string within the test case.
 type State string
 
-// Key gets the Redis key, contextualized to a set of RunParams.
+// Key gets the Redis key for this State, contextualized to a set of RunParams.
 func (s State) Key(rp *runtime.RunParams) string {
 	p := fmt.Sprintf("run:%s:plan:%s:case:%s:states:%s", rp.TestRun, rp.TestPlan, rp.TestCase, string(s))
 	return p
 }
 
+// Barrier represents a barrier over a State. A Barrier is a synchronisation
+// checkpoint that will fire once the `target` number of entries on that state
+// have been registered.
 type Barrier struct {
 	C chan error
 
@@ -26,19 +31,33 @@ type Barrier struct {
 	target int64
 }
 
+// Topic represents a meeting place for test instances to exchange arbitrary
+// data.
 type Topic struct {
-	Name string
-	Type reflect.Type
+	name string
+	typ  reflect.Type
 }
 
-// Key gets the key, contextualized to the parent.
+// NewTopic constructs a Topic with the provided name, and the type of the
+// supplied value, derived via reflect.TypeOf, unless the supplied value is
+// already a reflect.Type. This method does not retain actual value from which
+// the type is derived.
+func NewTopic(name string, typ interface{}) *Topic {
+	t, ok := typ.(reflect.Type)
+	if !ok {
+		t = reflect.TypeOf(typ)
+	}
+	return &Topic{name, t}
+}
+
+// Key gets the key for this Topic, contextualized to a set of RunParams.
 func (t Topic) Key(rp *runtime.RunParams) string {
-	p := fmt.Sprintf("run:%s:plan:%s:case:%s:topics:%s", rp.TestRun, rp.TestPlan, rp.TestCase, t.Name)
+	p := fmt.Sprintf("run:%s:plan:%s:case:%s:topics:%s", rp.TestRun, rp.TestPlan, rp.TestCase, t.name)
 	return p
 }
 
 func (t Topic) validatePayload(val interface{}) bool {
-	ttyp, vtyp := t.Type, reflect.TypeOf(val)
+	ttyp, vtyp := t.typ, reflect.TypeOf(val)
 	if ttyp.Kind() == reflect.Ptr {
 		ttyp = ttyp.Elem()
 	}
@@ -51,7 +70,7 @@ func (t Topic) validatePayload(val interface{}) bool {
 // decodePayload extracts a value of the specified type from incoming json.
 func (t Topic) decodePayload(val interface{}) (reflect.Value, error) {
 	// Deserialize the value.
-	typ := t.Type
+	typ := t.typ
 	if typ.Kind() == reflect.Ptr {
 		typ = typ.Elem()
 	}
@@ -61,11 +80,13 @@ func (t Topic) decodePayload(val interface{}) (reflect.Value, error) {
 		panic("payload not a string")
 	}
 	if err := json.Unmarshal([]byte(raw), payload.Interface()); err != nil {
-		return reflect.Value{}, fmt.Errorf("failed to decode as type %s: %s", t.Type, string(raw))
+		return reflect.Value{}, fmt.Errorf("failed to decode as type %s: %s", t.typ, string(raw))
 	}
 	return payload, nil
 }
 
+// Subscription represents a receive channel for data being published in a
+// Topic.
 type Subscription struct {
 	ctx    context.Context
 	outCh  reflect.Value

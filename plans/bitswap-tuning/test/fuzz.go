@@ -5,22 +5,23 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"reflect"
 	gort "runtime"
 	"runtime/pprof"
 	"strconv"
 	"time"
 
 	"github.com/ipfs/go-cid"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
+	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
+
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
+
+	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 )
 
 //
@@ -72,7 +73,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 	}
 	defer h.Close()
 
-	peers := &sync.Topic{Name: "peers", Type: reflect.TypeOf(&peer.AddrInfo{})}
+	peers := sync.NewTopic("peers", &peer.AddrInfo{})
 
 	// Get sequence number of this host
 	seq, err := client.Publish(ctx, peers, host.InfoFromHost(h))
@@ -117,10 +118,7 @@ func Fuzz(runenv *runtime.RunEnv) error {
 
 	runenv.RecordMessage("Starting")
 	var bsnode *utils.Node
-	rootCidTopic := &sync.Topic{
-		Name: "root-cid",
-		Type: reflect.TypeOf(&cid.Cid{}),
-	}
+	rootCidTopic := sync.NewTopic("root-cid", &cid.Cid{})
 
 	// Create a new blockstore
 	bstoreDelay := 5 * time.Millisecond

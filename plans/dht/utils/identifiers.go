@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"reflect"
 	"sort"
 
 	"github.com/ipfs/testground/sdk/sync"
@@ -100,10 +99,7 @@ func getNodeID(ri *RunInfo, seq int) int {
 
 // GroupIDTopic represents a subtree under the test run's sync tree where peers
 // participating in this distributed test advertise their groups.
-var GroupIDTopic = &sync.Topic{
-	Name: "groupIDs",
-	Type: reflect.TypeOf(&GroupInfo{}),
-}
+var GroupIDTopic = sync.NewTopic("groupIDs", &GroupInfo{})
 
 type GroupInfo struct {
 	ID     string

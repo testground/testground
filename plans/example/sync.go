@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"math/rand"
-	"reflect"
 	"time"
 
 	"github.com/ipfs/testground/sdk/runtime"
@@ -28,7 +27,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 	}
 	runenv.RecordMessage("Network initilization complete")
 
-	topic := &sync.Topic{Name: "messages", Type: reflect.TypeOf("")}
+	topic := sync.NewTopic("messages", "")
 
 	seq, err := client.Publish(ctx, topic, runenv.TestRun)
 	if err != nil {

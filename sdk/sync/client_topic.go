@@ -23,11 +23,11 @@ func (c *Client) Publish(ctx context.Context, topic *Topic, payload interface{})
 		return -1, ErrNoRunParameters
 	}
 
-	log := c.log.With("topic", topic.Name)
+	log := c.log.With("topic", topic.name)
 	log.Debugw("publishing item on topic", "payload", payload)
 
 	if !topic.validatePayload(payload) {
-		err = fmt.Errorf("invalid payload type; expected: [*]%s, was: %T", topic.Type, payload)
+		err = fmt.Errorf("invalid payload type; expected: [*]%s, was: %T", topic.typ, payload)
 		return -1, err
 	}
 
@@ -120,7 +120,7 @@ func (c *Client) Subscribe(ctx context.Context, topic *Topic, ch interface{}) (*
 		deref = true
 	}
 
-	ttyp := topic.Type
+	ttyp := topic.typ
 	if ttyp.Kind() == reflect.Ptr {
 		ttyp = ttyp.Elem()
 	}

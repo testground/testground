@@ -3,21 +3,22 @@ package test
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
 	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 )
 
 // NOTE: To run use:
@@ -63,7 +64,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	defer h.Close()
 	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
-	peers := &sync.Topic{Name: "peers", Type: reflect.TypeOf(&peer.AddrInfo{})}
+	peers := sync.NewTopic("peers", &peer.AddrInfo{})
 
 	// Get sequence number of this host
 	seq, err := client.Publish(ctx, peers, host.InfoFromHost(h))
@@ -385,10 +386,7 @@ func parseType(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client,
 }
 
 func getNodeSetSeq(ctx context.Context, client *sync.Client, h host.Host, setID string) (int64, error) {
-	topic := &sync.Topic{
-		Name: "nodes" + setID,
-		Type: reflect.TypeOf(&peer.AddrInfo{}),
-	}
+	topic := sync.NewTopic("nodes" + setID, &peer.AddrInfo{})
 
 	return client.Publish(ctx, topic, host.InfoFromHost(h))
 }
@@ -459,10 +457,7 @@ func getLeafNodes(ctx context.Context, node ipld.Node, dserv ipld.DAGService) ([
 }
 
 func getRootCidTopic(id int) *sync.Topic {
-	return &sync.Topic{
-		Name: fmt.Sprintf("root-cid-%d", id),
-		Type: reflect.TypeOf(&cid.Cid{}),
-	}
+	return sync.NewTopic(fmt.Sprintf("root-cid-%d", id), &cid.Cid{})
 }
 
 func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64, grpseq int64,

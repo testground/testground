@@ -2,11 +2,12 @@ package libp2p
 
 import (
 	"context"
-	"github.com/ipfs/testground/plans/dht/utils"
-	"github.com/ipfs/testground/sdk/sync"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	"reflect"
+
+	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 func ShareAddresses(ctx context.Context, ri *utils.RunInfo, nodeInfo *NodeInfo) (map[peer.ID]*NodeInfo, error) {
@@ -43,7 +44,4 @@ type NodeInfo struct {
 
 // PeerAttribTopic represents a subtree under the test run's sync tree where peers
 // participating in this distributed test advertise their attributes.
-var PeerAttribTopic = &sync.Topic{
-	Name: "attribs",
-	Type: reflect.TypeOf(&NodeInfo{}),
-}
+var PeerAttribTopic = sync.NewTopic("attribs", &NodeInfo{})

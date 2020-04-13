@@ -17,8 +17,10 @@ func TestGenericClientRunEnv(t *testing.T) {
 		state1 = State("state1")
 		state2 = State("state2")
 
-		topic1 = &Topic{Name: "topic1", Type: reflect.TypeOf("")}
-		topic2 = &Topic{Name: "topic2", Type: reflect.TypeOf("")}
+		// passing in the type token.
+		topic1 = NewTopic("topic1", reflect.TypeOf(""))
+		// letting the constructor derive the type token.
+		topic2 = NewTopic("topic2", "")
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -161,10 +161,10 @@ func (c *Client) subscriptionWorker() {
 	monitorCtx := func(s *Subscription) {
 		select {
 		case <-s.ctx.Done():
-			log.Debugw("context closure detected; removing subscription", "topic", s.topic.Name, "key", s.key)
+			log.Debugw("context closure detected; removing subscription", "topic", s.topic.name, "key", s.key)
 			rmSubCh <- []*Subscription{s}
 		case <-c.ctx.Done():
-			log.Debugw("yielding context monitor routine due to global context closure", "topic", s.topic.Name, "key", s.key)
+			log.Debugw("yielding context monitor routine due to global context closure", "topic", s.topic.name, "key", s.key)
 		}
 	}
 
@@ -189,7 +189,7 @@ func (c *Client) subscriptionWorker() {
 				continue
 			}
 
-			log.Debugw("adding subscription", "topic", s.topic.Name, "key", s.key)
+			log.Debugw("adding subscription", "topic", s.topic.name, "key", s.key)
 
 			// interrupt consumer and wait until it yields, before mutating the active set.
 			err := consumer.interrupt()
@@ -216,7 +216,7 @@ func (c *Client) subscriptionWorker() {
 				// only incur in this cost if debug level is enabled.
 				topics, keys, ids := make([]string, len(subs)), make([]string, len(subs)), make([]string, len(subs))
 				for _, s := range subs {
-					topics = append(topics, s.topic.Name)
+					topics = append(topics, s.topic.name)
 					keys = append(keys, s.key)
 					ids = append(ids, s.lastid)
 				}
