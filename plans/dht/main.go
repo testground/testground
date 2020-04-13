@@ -5,23 +5,16 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv) error{
-	test.FindPeers,
-	test.FindProviders,
-	test.ProvideStress,
-	test.StoreGetValue,
-	test.GetClosestPeers,
-	test.BootstrapNetwork,
-	test.All,
+var testCases = map[string]runtime.TestCaseFn{
+	"find-peers": test.FindPeers,
+	"find-providers": test.FindProviders,
+	"provide-stress": test.ProvideStress,
+	"store-get-value": test.StoreGetValue,
+	"get-closest-peers": test.GetClosestPeers,
+	"bootstrap-network": test.BootstrapNetwork,
+	"all": test.All,
 }
 
 func main() {
-	runtime.Invoke(run)
-}
-
-func run(runenv *runtime.RunEnv) error {
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
-	}
-	return testCases[runenv.TestCaseSeq](runenv)
+	runtime.InvokeMap(testCases)
 }

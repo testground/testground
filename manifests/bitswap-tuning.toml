@@ -28,7 +28,6 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
-# seq 0
 [[testcases]]
 name = "transfer"
 instances = { min = 2, max = 64, default = 2 }
@@ -47,7 +46,6 @@ instances = { min = 2, max = 64, default = 2 }
   bandwidth_mb = { type = "int", desc = "bandwidth", unit = "Mib", default = 1024 }
   parallel_gen_mb = { type = "int", desc = "maximum allowed size of seed data to generate in parallel", unit = "Mib", default = 100 }
 
-# seq 1
 [[testcases]]
 name = "fuzz"
 instances = { min = 2, max = 64, default = 2 }

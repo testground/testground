@@ -31,7 +31,6 @@ enabled = true
 [run_strategies."cluster:k8s"]
 enabled = true
 
-# seq 0
 [[testcases]]
 name = "find-peers"
 instances = { min = 16, max = 10000, default = 16 }
@@ -55,7 +54,6 @@ instances = { min = 16, max = 10000, default = 16 }
 
   n_find_peers = { type = "int", desc = "number of peers to find", unit = "peers", default = 1 }
 
-# seq 1
 [[testcases]]
 name = "find-providers"
 instances = { min = 16, max = 10000, default = 16 }
@@ -84,7 +82,6 @@ instances = { min = 16, max = 10000, default = 16 }
   #p_resolving = { type = "int", desc = "", unit = "% of nodes" }
   #p_failing = { type = "int", desc = "", unit = "% of nodes" }
 
-# seq 2
 [[testcases]]
 name = "provide-stress"
 instances = { min = 16, max = 250, default = 16 }
@@ -97,7 +94,6 @@ instances = { min = 16, max = 250, default = 16 }
   n_provides = { type = "int", desc = "number of times to provide", unit = "int" }
   i_provides = { type = "int", desc = "interval between each provide", unit = "seconds" }
 
-# seq 3
 [[testcases]]
 name = "store-get-value"
 instances = { min = 16, max = 250, default = 16 }
@@ -106,7 +102,6 @@ roles = ["storer", "fetcher"]
   [testcases.params]
   bucket_size = { type = "int", desc = "bucket size", unit = "peers" }
 
-# seq 4
 [[testcases]]
 name = "get-closest-peers"
 instances = { min = 16, max = 10000, default = 16 }
@@ -132,7 +127,6 @@ instances = { min = 16, max = 10000, default = 16 }
   record_count   = { type = "int", desc = "number of records a peer provides", unit = "int", default = 0 }
   search_records = { type = "bool", desc = "node will search for records", unit = "bool", default = false }
 
-# seq 5
 [[testcases]]
 name = "bootstrap-network"
 instances = { min = 16, max = 10000, default = 16 }
@@ -154,7 +148,6 @@ undialable   = { type = "bool", desc = "node is undialable", unit = "bool", defa
 group_order  = { type = "int", desc = "the order in which the node is bootstrapped, may be tied with another node", unit ="int", default = 0}
 expect_dht   = { type = "bool", desc = "the node expects to be a dht server", unit ="bool", default = true}
 
-# seq 6
 [[testcases]]
 name = "all"
 instances = { min = 16, max = 10000, default = 16 }
