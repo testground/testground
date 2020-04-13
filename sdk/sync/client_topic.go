@@ -130,7 +130,12 @@ func (c *Client) Subscribe(ctx context.Context, topic *Topic, ch interface{}) (*
 
 	key := topic.Key(rp)
 
-	// sendFn
+	// sendFn is a closure that sends an element into the supplied ch,
+	// performing necessary pointer to value conversions if necessary.
+	//
+	// sendFn will block if the receiver is not consuming from the channel.
+	// If the context is closed, the send will be aborted, and the closure will
+	// return a false value.
 	sendFn := func(v reflect.Value) (sent bool) {
 		if deref {
 			v = v.Elem()

@@ -1,6 +1,5 @@
 // The sync package contains the distributed coordination and choreography
-// facility of Testground. It is backed by Redis, and heavily inspired by
-// projects like Apache ZooKeeper, Apache Curator, etcd, and Consul.
+// facility of Testground.
 //
 // The sync service is lightweight, and uses Redis recipes to implement
 // coordination primitives like barriers, signalling, and pubsub. Additional
