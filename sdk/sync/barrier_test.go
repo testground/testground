@@ -12,9 +12,6 @@ func TestBarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(ctx, runenv)
@@ -47,9 +44,6 @@ func TestBarrierBeyondTarget(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(ctx, runenv)
@@ -77,9 +71,6 @@ func TestBarrierCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(ctx, runenv)
@@ -106,9 +97,6 @@ func TestBarrierCancel(t *testing.T) {
 func TestBarrierDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	closeFn := ensureRedis(t)
-	defer closeFn()
 
 	runenv := randomRunEnv()
 
@@ -139,9 +127,6 @@ func TestSignalAndWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(ctx, runenv)
@@ -164,9 +149,6 @@ func TestSignalAndWait(t *testing.T) {
 }
 
 func TestSignalAndWaitTimeout(t *testing.T) {
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(context.Background(), runenv)

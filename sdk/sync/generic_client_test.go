@@ -26,9 +26,6 @@ func TestGenericClientRunEnv(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	bclient, err := NewBoundClient(ctx, runenv)
@@ -85,9 +82,6 @@ func TestGenericClientRunEnv(t *testing.T) {
 }
 
 func TestGenericClientRequiresRunParams(t *testing.T) {
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	gclient, err := NewGenericClient(context.Background(), zap.S())
 	if err != nil {
 		t.Fatal(err)

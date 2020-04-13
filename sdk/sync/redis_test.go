@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -66,9 +65,6 @@ func TestRedisHost(t *testing.T) {
 }
 
 func TestConnUnblock(t *testing.T) {
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	client := redis.NewClient(&redis.Options{})
 	c := client.Conn()
 	id, _ := c.ClientID().Result()
@@ -102,49 +98,4 @@ func TestConnUnblock(t *testing.T) {
 			t.Errorf("expected client id to be: %d, was: %d", id, id2)
 		}
 	}
-}
-
-func TestNewClient2(t *testing.T) {
-	t.Skip()
-
-	client := redis.NewClient(&redis.Options{})
-	c := client.Conn()
-	c.Close()
-	c = client.Conn()
-	fmt.Println(c.ClientID().Result())
-
-	fmt.Println(c.XRead(&redis.XReadArgs{Streams: []string{"aaaa", "0"}, Block: 0}).Result())
-	fmt.Println(c.ClientID().Result())
-
-	fmt.Println(c.XRead(&redis.XReadArgs{Streams: []string{"aaaa", "0"}, Block: 0}).Result())
-	fmt.Println(c.ClientID().Result())
-
-	fmt.Println(c.XRead(&redis.XReadArgs{Streams: []string{"aaaa", "0"}, Block: 0}).Result())
-	fmt.Println(c.ClientID().Result())
-
-	fmt.Println(c.XRead(&redis.XReadArgs{Streams: []string{"aaaa", "0"}, Block: 0}).Result())
-	fmt.Println(c.ClientID().Result())
-}
-
-func TestNewClient3(t *testing.T) {
-	t.Skip()
-	client := redis.NewClient(&redis.Options{
-		MaxRetries:  5,
-		PoolSize:    1,
-		PoolTimeout: 10 * time.Second,
-	})
-	c1 := client.Conn()
-	c1.Close()
-
-	c2 := client.Conn()
-	fmt.Println(c2.ClientID().Result())
-
-	go func() {
-		fmt.Println(c2.XRead(&redis.XReadArgs{Streams: []string{"aaaa", "0"}, Block: 0}).Result())
-		fmt.Println(c2.ClientID().Result())
-	}()
-
-	time.Sleep(1 * time.Second)
-	c3 := client.Conn()
-	fmt.Println(c3.ClientID().Result())
 }

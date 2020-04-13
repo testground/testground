@@ -23,9 +23,6 @@ func TestSubscribeAfterAllPublished(t *testing.T) {
 		runenv     = randomRunEnv()
 	)
 
-	closeRedis := ensureRedis(t)
-	defer closeRedis()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -70,9 +67,6 @@ func TestSubscribeFirstConcurrentWrites(t *testing.T) {
 		iterations = 1000
 		runenv     = randomRunEnv()
 	)
-
-	closeRedis := ensureRedis(t)
-	defer closeRedis()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -129,9 +123,6 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 		runenv     = randomRunEnv()
 	)
 
-	closeRedis := ensureRedis(t)
-	defer closeRedis()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -180,9 +171,6 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 func TestSubscriptionValidation(t *testing.T) {
 	runenv := randomRunEnv()
 
-	closeRedis := ensureRedis(t)
-	defer closeRedis()
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -230,9 +218,6 @@ func TestSequenceOnWrite(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	closeRedis := ensureRedis(t)
-	defer closeRedis()
 
 	client := MustBoundClient(ctx, runenv)
 	defer client.Close()

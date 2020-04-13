@@ -15,9 +15,6 @@ func TestGC(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	closeFn := ensureRedis(t)
-	defer closeFn()
-
 	runenv := randomRunEnv()
 
 	client, err := NewBoundClient(ctx, runenv)
