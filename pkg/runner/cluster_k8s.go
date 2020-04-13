@@ -144,16 +144,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
 	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
-	// Sanity check.
-	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
-	}
-
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
+		TestCase:          input.TestCase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",

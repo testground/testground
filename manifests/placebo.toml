@@ -27,7 +27,6 @@ enabled = true
 [run_strategies."cluster:swarm"]
 enabled = true
 
-# seq 0
 [[testcases]]
 name = "ok"
 instances = { min = 1, max = 200, default = 1 }
@@ -35,7 +34,6 @@ instances = { min = 1, max = 200, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 1
 [[testcases]]
 name = "abort"
 instances = { min = 1, max = 250, default = 1 }
@@ -43,7 +41,6 @@ instances = { min = 1, max = 250, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 2
 [[testcases]]
 name = "metrics"
 instances = { min = 1, max = 250, default = 1 }
@@ -51,12 +48,10 @@ instances = { min = 1, max = 250, default = 1 }
   [testcases.params]
   some_param = { type = "int", desc = "some param", unit = "peers" }
 
-# seq 3
 [[testcases]]
 name = "panic"
 instances = { min = 1, max = 250, default = 1 }
 
-# seq 4
 [[testcases]]
 name = "stall"
 instances = { min = 1, max = 250, default = 1 }
