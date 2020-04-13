@@ -32,7 +32,6 @@ COPY /plan/go.mod ${PLAN_DIR}
 # Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
 # inside sdk.
 COPY /sdk/sync/go.mod /sdk/sync/go.mod
-COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
 COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 
 # Download deps.

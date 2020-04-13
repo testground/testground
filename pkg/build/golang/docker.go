@@ -182,7 +182,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
 		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb",
 		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
 
 	// Write replace directives.
