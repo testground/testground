@@ -12,7 +12,6 @@ enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/example"
 exec_pkg = "."
-go_ipfs_version = "0.4.22"
 
 [build_strategies."exec:go"]
 enabled = true
