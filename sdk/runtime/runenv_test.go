@@ -27,7 +27,6 @@ func TestParseKeyValues(t *testing.T) {
 			wantErr: false,
 			wantRes: map[string]string{
 				"TEST_INSTANCE_ROLE": "",
-				"TEST_CASE_SEQ":      "0",
 				"TEST_ARTIFACTS":     "/artifacts",
 				"TEST_SIDECAR":       "true",
 			},
