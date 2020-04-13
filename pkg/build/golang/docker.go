@@ -38,12 +38,11 @@ type DockerGoBuilder struct {
 }
 
 type DockerGoBuilderConfig struct {
-	Enabled       bool
-	GoVersion     string `toml:"go_version" overridable:"yes"`
-	GoIPFSVersion string `toml:"go_ipfs_version" overridable:"yes"`
-	ModulePath    string `toml:"module_path" overridable:"yes"`
-	ExecPkg       string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod    bool   `toml:"fresh_gomod" overridable:"yes"`
+	Enabled    bool
+	GoVersion  string `toml:"go_version" overridable:"yes"`
+	ModulePath string `toml:"module_path" overridable:"yes"`
+	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
+	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
@@ -182,7 +181,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
 		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb",
 		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
 
 	// Write replace directives.
@@ -198,7 +196,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// initial go build args.
 	var args = map[string]*string{
 		"GO_VERSION":        &cfg.GoVersion,
-		"GO_IPFS_VERSION":   &cfg.GoIPFSVersion,
 		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
 		"GO_PROXY":          &proxyURL,
 	}

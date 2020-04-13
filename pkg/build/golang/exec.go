@@ -104,7 +104,6 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, ow *rp
 	// Inject replace directives for the SDK modules.
 	replaces = append(replaces,
 		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/iptb=../sdk/iptb",
 		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
 
 	// Write replace directives.

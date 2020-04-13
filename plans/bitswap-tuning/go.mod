@@ -4,8 +4,6 @@ go 1.14
 
 replace github.com/ipfs/testground/sdk/sync => ../../sdk/sync
 
-replace github.com/ipfs/testground/sdk/iptb => ../../sdk/iptb
-
 replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
 
 require (
