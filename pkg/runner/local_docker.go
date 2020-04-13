@@ -173,18 +173,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	defer r.lk.RUnlock()
 
 	var (
-		seq = input.Seq
 		log = ow.With("runner", "local:docker", "run_id", input.RunID)
 		err error
 	)
 
-	// Sanity check.
-	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", seq, input.TestPlan.Name)
-	}
-
 	// Get the test case.
-	testcase := input.TestPlan.TestCases[seq]
+	testcase := input.TestCase
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -197,7 +191,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          testcase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",

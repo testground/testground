@@ -316,7 +316,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	}
 
 	// Find the test case.
-	seq, tcase, ok := plan.TestCaseByName(testcase)
+	_, tcase, ok := plan.TestCaseByName(testcase)
 	if !ok {
 		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
 	}
@@ -418,7 +418,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		RunnerConfig:   obj,
 		Directories:    e.envcfg,
 		TestPlan:       plan,
-		Seq:            seq,
+		TestCase:       tcase,
 		TotalInstances: int(comp.Global.TotalInstances),
 		Groups:         make([]api.RunGroup, 0, len(comp.Groups)),
 	}

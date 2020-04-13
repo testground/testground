@@ -5,18 +5,17 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv) error{
-	test.Transfer,
-	test.Fuzz,
-}
-
 func main() {
 	runtime.Invoke(run)
 }
 
 func run(runenv *runtime.RunEnv) error {
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
+	switch c := runenv.TestCase; c {
+	case "transfer":
+		return test.Transfer(runenv)
+	case "fuzz":
+		return test.Fuzz(runenv)
+	default:
+		panic("unrecognized test case")
 	}
-	return testCases[runenv.TestCaseSeq](runenv)
 }

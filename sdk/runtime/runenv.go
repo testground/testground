@@ -16,7 +16,6 @@ import (
 const (
 	EnvTestBranch             = "TEST_BRANCH"
 	EnvTestCase               = "TEST_CASE"
-	EnvTestCaseSeq            = "TEST_CASE_SEQ"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
 	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
@@ -67,7 +66,6 @@ type RunParams struct {
 	TestPlan    string `json:"plan"`
 	TestCase    string `json:"case"`
 	TestRun     string `json:"run"`
-	TestCaseSeq int    `json:"seq"`
 
 	TestRepo   string `json:"repo,omitempty"`
 	TestCommit string `json:"commit,omitempty"`
@@ -155,7 +153,6 @@ func (re *RunParams) ToEnvVars() map[string]string {
 	out := map[string]string{
 		EnvTestBranch:             re.TestBranch,
 		EnvTestCase:               re.TestCase,
-		EnvTestCaseSeq:            strconv.Itoa(re.TestCaseSeq),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
 		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
@@ -235,7 +232,6 @@ func ParseRunParams(env []string) (*RunParams, error) {
 	return &RunParams{
 		TestBranch:             m[EnvTestBranch],
 		TestCase:               m[EnvTestCase],
-		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
 		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),

@@ -22,11 +22,14 @@ func TestMain(m *testing.M) {
 
 	// _ = os.Setenv("LOG_LEVEL", "debug")
 
-	// Set fail-fast options.
+	// Set fail-fast options for creating the client, capturing the default
+	// state to restore it.
+	prev := DefaultRedisOpts
 	DefaultRedisOpts.PoolTimeout = 500 * time.Millisecond
 	DefaultRedisOpts.MaxRetries = 0
 
 	closeFn, err := ensureRedis()
+	DefaultRedisOpts = prev
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -82,7 +85,6 @@ func randomRunEnv() *runtime.RunEnv {
 		TestSidecar:        false,
 		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
-		TestCaseSeq:        int(rand.Uint32()),
 		TestRepo:           "github.com/ipfs/go-ipfs",
 		TestSubnet:         &runtime.IPNet{IPNet: *subnet},
 		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),

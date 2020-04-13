@@ -57,10 +57,10 @@ type TestCaseInstances struct {
 }
 
 // TestCaseByName returns a test case by name.
-func (tp *TestPlanDefinition) TestCaseByName(name string) (seq int, tc *TestCase, ok bool) {
-	for seq, tc := range tp.TestCases {
+func (tp *TestPlanDefinition) TestCaseByName(name string) (idx int, tc *TestCase, ok bool) {
+	for idx, tc = range tp.TestCases {
 		if tc.Name == name {
-			return seq, tc, true
+			return idx, tc, true
 		}
 	}
 	return -1, nil, false
