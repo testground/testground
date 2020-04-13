@@ -106,10 +106,6 @@ func (c *Client) Subscribe(ctx context.Context, topic *Topic, ch interface{}) (*
 		return nil, fmt.Errorf("value is not a channel: %T", ch)
 	}
 
-	if chv.Cap() == 0 {
-		return nil, fmt.Errorf("channel is not buffered")
-	}
-
 	// compare the naked types; this makes the subscription work with pointer
 	// or value channels.
 	var deref bool

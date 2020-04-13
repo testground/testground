@@ -122,8 +122,8 @@ func newClient(ctx context.Context, log *zap.SugaredLogger, extractor func(ctx c
 		log:       log,
 		extractor: extractor,
 		rclient:   rclient,
-		barrierCh: make(chan *newBarrier, 16),
-		newSubCh:  make(chan *newSubscription, 16),
+		barrierCh: make(chan *newBarrier),
+		newSubCh:  make(chan *newSubscription),
 	}
 
 	c.wg.Add(2)

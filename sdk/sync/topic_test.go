@@ -196,12 +196,6 @@ func TestSubscriptionValidation(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	ch = make(chan string)
-	_, err = client.Subscribe(ctx, topic, ch)
-	if err == nil {
-		t.Fatalf("expected non-nil error with bufferless channel; got no error")
-	}
-
 	ch2 := make(chan struct{})
 	_, err = client.Subscribe(ctx, topic, ch2)
 	if err == nil {
