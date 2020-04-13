@@ -69,7 +69,7 @@ func (s *BatchStager) End() error {
 
 	t = time.Now()
 
-	err = <-s.ri.Client.MustBarrier(s.ctx, stage, s.total-1).C
+	err = <-s.ri.Client.MustBarrier(s.ctx, stage, s.total).C
 	s.ri.RunEnv.RecordMetric(&runtime.MetricDefinition{
 		Name:           "barrier" + string(stage),
 		Unit:           "ns",
