@@ -53,8 +53,8 @@ type RunInput struct {
 	// run.
 	TestPlan *TestPlanDefinition
 
-	// Seq is the test case seq number to run.
-	Seq int
+	// TestCase is the the definition of the test case to run.
+	TestCase *TestCase
 
 	// TotalInstances is the total number of instances participating in this test case.
 	TotalInstances int

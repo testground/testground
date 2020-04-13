@@ -1,0 +1,198 @@
+[metadata]
+  name = "find-provs"
+  author = "adin"
+
+[global]
+  plan = "dht"
+  case = "find-providers"
+  total_instances = 150
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "balsam-undialable-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "4"
+      record_count = "1"
+      timeout_secs = "600"
+      undialable = "true"
+
+[[groups]]
+  id = "balsam-undialable-searcher"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "5"
+      search_records = "true"
+      timeout_secs = "600"
+      undialable = "true"
+
+[[groups]]
+  id = "balsam-dialable-passive"
+  [groups.instances]
+    count = 80
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "6"
+      timeout_secs = "600"
+      undialable = "false"
+
+[[groups]]
+  id = "balsam-dialable-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "7"
+      record_count = "1"
+      timeout_secs = "600"
+      undialable = "false"
+
+[[groups]]
+  id = "balsam-dialable-searcher"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["balsam"]
+  [groups.run]
+    artifact = "0a67fb8fbbc9"
+    [groups.run.test_params]
+      bs_strategy = "3"
+      bucket_size = "10"
+      expect_dht = "false"
+      group_order = "8"
+      search_records = "true"
+      timeout_secs = "600"
+      undialable = "false"
+
+[[groups]]
+  id = "cypress-passive"
+  [groups.instances]
+    count = 35
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-xor"
+      version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
+  [groups.run]
+    artifact = "f1d89aed47ea"
+    [groups.run.test_params]
+      alpha = "6"
+      bs_strategy = "3"
+      bucket_size = "10"
+      group_order = "1"
+      timeout_secs = "600"
+
+[[groups]]
+  id = "cypress-provider"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-xor"
+      version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
+  [groups.run]
+    artifact = "f1d89aed47ea"
+    [groups.run.test_params]
+      alpha = "6"
+      bs_strategy = "3"
+      bucket_size = "10"
+      group_order = "2"
+      record_count = "1"
+      timeout_secs = "600"
+
+[[groups]]
+  id = "cypress-searcher"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-xor"
+      version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
+  [groups.run]
+    artifact = "f1d89aed47ea"
+    [groups.run.test_params]
+      alpha = "6"
+      bs_strategy = "3"
+      bucket_size = "10"
+      group_order = "3"
+      search_records = "true"
+      timeout_secs = "600"
+
+[[groups]]
+  id = "cypress-bs"
+  [groups.instances]
+    count = 5
+    percentage = 0.0
+  [groups.build]
+    Selectors = ["cypress"]
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-kad-dht"
+      version = "180be07b8303d536e39809bc39c58be5407fedd9"
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p-xor"
+      version = "df24f5b04bcbdc0059b27989163a6090f4f6dc7a"
+  [groups.run]
+    artifact = "f1d89aed47ea"
+    [groups.run.test_params]
+      alpha = "6"
+      bootstrapper = "true"
+      bs_strategy = "1"
+      bucket_size = "10"
+      group_order = "0"
+      timeout_secs = "600"

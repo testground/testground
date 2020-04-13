@@ -36,16 +36,37 @@ var PushgatewayEndpoints = []string{"prometheus-pushgateway:9091", "localhost:90
 // invoked. If we were unable to start the listener, this value will be "".
 var HTTPListenAddr string
 
-// Invoke runs the passed test-case and reports the result.
-func Invoke(tc func(*RunEnv) error) {
-	runenv := CurrentRunEnv()
+type TestCaseFn func(env *RunEnv) error
 
+// InvokeMap takes a map of test case names and their functions, and calls the
+// matched test case, or panics if the name is unrecognised.
+func InvokeMap(cases map[string]TestCaseFn) {
+	Invoke(func(runenv *RunEnv) error {
+		name := runenv.TestCase
+		if c, ok := cases[name]; ok {
+			return c(runenv)
+		} else {
+			panic(fmt.Sprintf("unrecognized test case: %s", name))
+		}
+	})
+}
+
+// Invoke runs the passed test-case and reports the result.
+func Invoke(tc TestCaseFn) {
+	runenv := CurrentRunEnv()
 	defer runenv.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	setupHTTPListener(runenv)
-	metricsDoneCh := setupMetrics(ctx, runenv)
+	pushGatewayEnabled := false
+	var metricsDoneCh chan error
+	if pushGatewayEnabled {
+		metricsDoneCh = setupMetrics(ctx, runenv)
+	} else {
+		metricsDoneCh = make(chan error, 1)
+		metricsDoneCh <- nil
+	}
 
 	runenv.RecordStart()
 
@@ -156,7 +177,11 @@ func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
 				if err != nil {
 					continue
 				}
-				_, _ = resp.Body.Read(b)
+				_, err = io.ReadFull(resp.Body, b)
+				resp.Body.Close()
+				if err != nil {
+					continue
+				}
 				if string(b) == "OK" {
 					break Outer
 				}

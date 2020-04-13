@@ -449,7 +449,6 @@ func randomRunEnv() *runtime.RunEnv {
 		TestSidecar:        false,
 		TestCase:           fmt.Sprintf("testcase-%d", rand.Uint32()),
 		TestRun:            fmt.Sprintf("testrun-%d", rand.Uint32()),
-		TestCaseSeq:        int(rand.Uint32()),
 		TestRepo:           "github.com/ipfs/go-ipfs",
 		TestSubnet:         &runtime.IPNet{IPNet: *subnet},
 		TestCommit:         fmt.Sprintf("%x", sha1.Sum(b)),

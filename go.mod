@@ -3,7 +3,6 @@ module github.com/ipfs/testground
 go 1.14
 
 replace (
-	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb
 	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
 	github.com/ipfs/testground/sdk/sync => ./sdk/sync
 )

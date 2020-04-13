@@ -13,21 +13,17 @@ import (
 	"github.com/ipfs/testground/sdk/sync"
 )
 
-func main() {
-	runtime.Invoke(run)
+var testcases = map[string]runtime.TestCaseFn{
+	"ping-pong": pingpong,
 }
 
-func run(runenv *runtime.RunEnv) error {
+func main() {
+	runtime.InvokeMap(testcases)
+}
+
+func pingpong(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
-	}
-
-	if runenv.TestCaseSeq != 0 {
-		return fmt.Errorf("aborting")
-	}
 
 	runenv.RecordMessage("before sync.MustWatcherWriter")
 	watcher, writer := sync.MustWatcherWriter(ctx, runenv)

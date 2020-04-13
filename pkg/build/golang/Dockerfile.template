@@ -26,7 +26,6 @@ COPY /plan/go.mod ${PLAN_DIR}
 # Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
 # inside sdk.
 COPY /sdk/sync/go.mod /sdk/sync/go.mod
-COPY /sdk/iptb/go.mod /sdk/iptb/go.mod
 COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
 
 # Download deps.
@@ -48,15 +47,10 @@ RUN cd ${PLAN_DIR} \
 #::: RUNTIME CONTAINER
 #:::
 
-#FROM busybox:1.31.0-glibc # Doesn't work with prebuilt IPFS binaries
-FROM debian
+FROM busybox:1.31.1-glibc
 
 COPY --from=0 /testground_dep_list /
 COPY --from=0 /plan/testplan /
-RUN mkdir -p /usr/local/bin
-#COPY --from=0 /tmp/delete_me /tmp/go-ipfs/ipfs* /usr/local/bin/
-#RUN rm -f /usr/local/bin/delete_me
-ENV PATH="/usr/local/bin:${PATH}"
 
 EXPOSE 6060
 ENTRYPOINT [ "/testplan", "--vv"]
