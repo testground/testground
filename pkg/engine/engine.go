@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/config"
@@ -202,8 +201,6 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 	//  4. Builder defaults (applied by the builder itself, nothing to do here).
 	//
 	var cfg config.CoalescedConfig
-
-	spew.Dump(plan)
 
 	// 3. Add the base configuration of the build strategy.
 	if c, ok := plan.BuildStrategies[builder]; !ok {

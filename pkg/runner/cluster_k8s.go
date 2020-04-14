@@ -127,6 +127,9 @@ type KubernetesConfig struct {
 // to discover the kubernetes clusters. It also uses the "default" namespace.
 func defaultKubernetesConfig() KubernetesConfig {
 	kubeconfig := filepath.Join(homeDir(), ".kube", "config")
+	if _, err := os.Stat(kubeconfig); os.IsNotExist(err) {
+		kubeconfig = ""
+	}
 	return KubernetesConfig{
 		KubeConfigPath: kubeconfig,
 		Namespace:      "default",
@@ -424,8 +427,7 @@ func (c *ClusterK8sRunner) initPool() {
 	once.Do(func() {
 		log := logging.S().With("runner", "cluster:k8s")
 
-		//c.config = defaultKubernetesConfig()
-		c.config.Namespace = "default"
+		c.config = defaultKubernetesConfig()
 
 		var err error
 		workers := 20
