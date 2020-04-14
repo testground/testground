@@ -194,9 +194,7 @@ func (c *Client) subscriptionWorker() {
 			// interrupt consumer and wait until it yields, before mutating the active set.
 			err := consumer.interrupt()
 			if err != nil {
-				log.Warnw("failed to interrupt consumer when adding subscription; exiting", "error", err)
-				finalErr = err
-				return
+				panic(fmt.Sprintf("failed to interrupt consumer when adding subscription; exiting; err: %s", err))
 			}
 
 			active[s.key] = s
@@ -207,9 +205,7 @@ func (c *Client) subscriptionWorker() {
 			// interrupt consumer and wait until it yields, before accessing subscriptions.
 			err := consumer.interrupt()
 			if err != nil {
-				log.Warnw("failed to interrupt consumer when removing subscriptions; exiting", "error", err)
-				finalErr = err
-				return
+				panic(fmt.Sprintf("failed to interrupt consumer when removing subscriptions; exiting; err: %s", err))
 			}
 
 			if log.Desugar().Core().Enabled(zap.DebugLevel) {
