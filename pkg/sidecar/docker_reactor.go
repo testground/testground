@@ -35,10 +35,8 @@ type DockerReactor struct {
 
 func NewDockerReactor() (Reactor, error) {
 	// TODO: Generalize this to a list of services.
-	// TODO(cory): prometheus-pushgateway could be added as an env variable as well.
 	wantedRoutes := []string{
 		os.Getenv(EnvRedisHost),
-		"prometheus-pushgateway",
 	}
 
 	var resolvedRoutes []net.IP
