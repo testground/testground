@@ -50,23 +50,6 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		}),
 	)
 
-	// run pushgateway from downloaded image, with no additional configuraiton
-	_, exposed, _ = nat.ParsePortSpecs([]string{"9091:9091"})
-	hh.Enlist("local-pushgateway",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "prometheus-pushgateway"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "prometheus-pushgateway",
-			ContainerConfig: &container.Config{
-				Image: "prom/pushgateway",
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyPull,
-		}),
-	)
-
 	// grafana from downloaded image, with no additional configuration.
 	_, exposed, _ = nat.ParsePortSpecs([]string{"3000:3000"})
 	hh.Enlist("local-grafana",
