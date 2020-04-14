@@ -29,7 +29,7 @@ runner  = "cluster:k8s"
 total_instances = 2
 
 [global.build_config]
-  go_proxy_mode = "direct"
+  go_proxy_mode = "local"
   push_registry = true
   registry_type = "aws"
 
