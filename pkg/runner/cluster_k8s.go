@@ -292,7 +292,6 @@ func (*ClusterK8sRunner) ID() string {
 }
 
 func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
-	// TODO how does one pass the context to k8s API calls?
 
 	c.initPool()
 	client := c.pool.Acquire()
