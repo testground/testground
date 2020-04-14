@@ -26,16 +26,14 @@ RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
 #::: RUNTIME CONTAINER
 #:::
 
-#FROM golang:${GO_VERSION}-buster
-FROM nonsens3/docker-dind:buster
+FROM golang:${GO_VERSION}-buster
 
-RUN apt update && apt install -y iptables git apt-transport-https ca-certificates
 RUN mkdir -p /usr/local/bin
 
 # Copy testground binary
 COPY --from=0 /testground /usr/local/bin/testground
 
-# Add config
+# Add .env.toml config
 COPY /env-k8s.toml /root/.env.toml
 
 # Copy dockerfile for testplan builds
@@ -43,20 +41,6 @@ COPY /pkg/build/golang/Dockerfile.template /root/pkg/build/golang/Dockerfile.tem
 
 # Copy SDK
 COPY /sdk /sdk
-
-# build failed    {"plan": "network", "group": "smth", "builder": "docker:go", "error": "unable to add replace directives to go.mod; exec: \"go\": executable file not found in $PATH"}
-#
-## install golang
-ARG GO_VERSION=1.13.10
-RUN wget -O go${GO_VERSION}.amd64.tar.gz https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
-RUN tar -C /usr/local -xzf go${GO_VERSION}.amd64.tar.gz
-#
-# kubectl
-RUN apt update && \
-      apt install -y curl && \
-      curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl && \
-      chmod +x ./kubectl && \
-      mv ./kubectl /usr/local/bin/kubectl
 
 WORKDIR /root
 
