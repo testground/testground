@@ -6,6 +6,16 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
+all: clean docker-ipfs-testground install-testground
+
+clean:
+	docker rm -f testground-sidecar || true
+	docker rm -f testground-redis || true
+	docker rm -f testground-goproxy || true
+
+install-testground:
+	go install ./...
+
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
 	pre-commit install --install-hooks
