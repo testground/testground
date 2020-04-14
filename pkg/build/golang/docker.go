@@ -96,11 +96,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// The testground-build network is used to connect build services (like the
 	// GOPROXY) to the build container.
 	b.proxyLk.Lock()
-	//buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, ow, cli, "testground-build", false)
-	//if err != nil {
-	//ow.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
-	//cfg.GoProxyMode = "direct"
-	//}
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
@@ -391,6 +386,14 @@ func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 		fallthrough
 
 	default:
+		buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, ow, cli, "testground-build", false)
+		if err != nil {
+			warn = fmt.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+			cfg.GoProxyMode = "direct"
+			proxyURL = cfg.GoProxyURL
+			break
+		}
+
 		proxyURL = "http://testground-goproxy:8081"
 		mnt, warn = setupLocalGoProxyVol(ctx, ow, cli)
 		if warn != nil {
@@ -404,8 +407,8 @@ func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 				Image: "goproxy/goproxy",
 			},
 			HostConfig: &container.HostConfig{
-				Mounts: []mount.Mount{*mnt},
-				//NetworkMode: container.NetworkMode(buildNetworkID),
+				Mounts:      []mount.Mount{*mnt},
+				NetworkMode: container.NetworkMode(buildNetworkID),
 			},
 			ImageStrategy: docker.ImageStrategyPull,
 		}
