@@ -70,6 +70,10 @@ const (
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
+
+	// resource requests and limits for the `collect-outputs` pod
+	collectOutputsResourceCPU    = resource.MustParse("2000m")
+	collectOutputsResourceMemory = resource.MustParse("1024Mi")
 )
 
 var k8sSubnetIdx uint64 = 0
@@ -140,16 +144,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
 	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
-	// Sanity check.
-	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
-	}
-
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
+		TestCase:          input.TestCase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
@@ -618,7 +616,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		default:
 		}
 
-		if time.Since(start) > 10*time.Minute {
+		if time.Since(start) > 100*time.Minute {
 			return errors.New("global timeout")
 		}
 		time.Sleep(2000 * time.Millisecond)
@@ -676,6 +674,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		if counters["Succeeded"] == input.TotalInstances {
 			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			return nil
+		}
+
+		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
 			return nil
 		}
 
@@ -870,6 +873,12 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceCPU:    collectOutputsResourceCPU,
+							v1.ResourceMemory: collectOutputsResourceMemory,
 						},
 					},
 				},

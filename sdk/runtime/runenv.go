@@ -16,7 +16,6 @@ import (
 const (
 	EnvTestBranch             = "TEST_BRANCH"
 	EnvTestCase               = "TEST_CASE"
-	EnvTestCaseSeq            = "TEST_CASE_SEQ"
 	EnvTestGroupID            = "TEST_GROUP_ID"
 	EnvTestGroupInstanceCount = "TEST_GROUP_INSTANCE_COUNT"
 	EnvTestInstanceCount      = "TEST_INSTANCE_COUNT"
@@ -67,7 +66,6 @@ type RunParams struct {
 	TestPlan    string `json:"plan"`
 	TestCase    string `json:"case"`
 	TestRun     string `json:"run"`
-	TestCaseSeq int    `json:"seq"`
 
 	TestRepo   string `json:"repo,omitempty"`
 	TestCommit string `json:"commit,omitempty"`
@@ -155,7 +153,6 @@ func (re *RunParams) ToEnvVars() map[string]string {
 	out := map[string]string{
 		EnvTestBranch:             re.TestBranch,
 		EnvTestCase:               re.TestCase,
-		EnvTestCaseSeq:            strconv.Itoa(re.TestCaseSeq),
 		EnvTestGroupID:            re.TestGroupID,
 		EnvTestGroupInstanceCount: strconv.Itoa(re.TestGroupInstanceCount),
 		EnvTestInstanceCount:      strconv.Itoa(re.TestInstanceCount),
@@ -235,7 +232,6 @@ func ParseRunParams(env []string) (*RunParams, error) {
 	return &RunParams{
 		TestBranch:             m[EnvTestBranch],
 		TestCase:               m[EnvTestCase],
-		TestCaseSeq:            toInt(m[EnvTestCaseSeq]),
 		TestGroupID:            m[EnvTestGroupID],
 		TestGroupInstanceCount: toInt(m[EnvTestGroupInstanceCount]),
 		TestInstanceCount:      toInt(m[EnvTestInstanceCount]),
@@ -301,10 +297,25 @@ func (re *RunParams) IntParam(name string) int {
 	return i
 }
 
+// FloatParam returns a float64 parameter, or -1.0 if the parameter is not set or
+// the conversion failed. It panics on error.
+func (re *RunEnv) FloatParam(name string) float64 {
+	v, ok := re.TestInstanceParams[name]
+	if !ok {
+		return -1.0
+	}
+
+	f, err := strconv.ParseFloat(v, 32)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
 // BooleanParam returns the Boolean value of the parameter, or false if not passed
 func (re *RunParams) BooleanParam(name string) bool {
-	s := re.TestInstanceParams[name]
-	return s == "true"
+	s, ok := re.TestInstanceParams[name]
+	return ok && strings.ToLower(s) == "true"
 }
 
 // StringArrayParam returns an array of string parameter, or an empty array

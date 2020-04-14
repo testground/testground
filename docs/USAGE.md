@@ -219,23 +219,14 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv) error {
-   test.MyTest1,
-   test.MyTest2,
+var testcases = map[string]runtime.TestCaseFn {
+   "test-1": test.MyTest1,
+   "test-2": test.MyTest2,
    // add any other tests you have in ./test
 }
 
 func main() {
-	runtime.Invoke(run)
-}
-
-func run(runenv *runtime.RunEnv) error {
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
-	}
-
-	// Demux to the right test case.
-	return testCases[runenv.TestCaseSeq](runenv)
+	runtime.InvokeMap(testcases)
 }
 ```
 

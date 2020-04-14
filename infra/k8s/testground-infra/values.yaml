@@ -1,90 +1,4 @@
 ---
-# Testground values overrides:
-
-# Changes from defaults:
-# * Disabled the alertmanager.
-# * We do not manage certificates. In order to prevent scrape errors caused by
-#   certificate malfunction, skip TLS checks or disable https.
-# * The grafana username and password are stored in a kubernetes secret called
-#   <RELEASE>-grafana. Changed from the default (prom-operator) to testground.
-# * Enable the grafana sidecar. This will watch for secrets or configmaps which
-#   have the label grafana_dashboard or grafana_datasource, and adds them
-#   automatically to the grafana dashboard.
-# * I configured the scraper to look for ServiceMonitors in any namespace. This
-#   allows a single prometheus to scrape plan as well as kube-system metrics.
-# * createCustomResource is configured to false. For helm v3, custom resources
-#   are still created. By including this option, users won't see a confusing
-#   error message about CRDs not being created.
-#   See the following for a description of this option:
-#   https://github.com/helm/charts/blob/master/stable/prometheus-operator/
-#   for an explanation of this option.
-# * podAnnotations is set to flannel to force it to be ont he control network.
-prometheus-operator:
-  prometheusOperator:
-    createCustomResource: false
-    admissionWebooks:
-      patch:
-        podAnnotations:
-          cni: flannel
-    podAnnotations:
-      cni: flannel
-  alertmanager:
-    enabled: false
-  grafana:
-    adminPassword: testground
-    nodeSelector:
-      testground.nodetype: infra
-    sidecar:
-      dashboards:
-        enabled: true
-      datasources:
-        enabled: true
-    podAnnotations:
-      cni: flannel
-  kube-state-metrics:
-    prometheus:
-      monitor:
-        enabled: true
-    podAnnotations:
-      cni: flannel
-  kubeProxy:
-    serviceMonitor:
-      https: false
-  kubelet:
-    serviceMonitor:
-      https: false
-  kubeApiServer:
-    tlsConfig:
-      insecureSkipVerify: true
-    serviceMonitor:
-      https: false
-  kubeControllerManager:
-    serviceMonitor:
-      insecureSkipVerify: true
-      https: false
-  kubeEtcd:
-    serviceMonitor:
-      insecureSkipVerify: true
-      https: false
-  prometheus-node-exporter:
-    prometheus:
-      monitor:
-        enables: true
-    podAnnotations:
-      cni: flannel
-  prometheus:
-    prometheusSpec:
-      spec:
-        serviceMonitorNamespaceSelector:
-          any: true
-      nodeSelector:
-        testground.nodetype: infra
-    resources:
-      requests:
-        memory: 2000Mi
-        cpu: 2000m
-
-
 # Changes from defaults:
 # * override "fullname" so it is resolves with http://prometheus-pushgateway
 #   This matches the behavior from the kops addon, but we don't need to do this
@@ -103,6 +17,25 @@ prometheus-pushgateway:
     namespace: default
   networkPolicy:
     allowAll: true
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - redis
+        topologyKey: "kubernetes.io/hostname"
+    podAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - prometheus-operator-operator
+        topologyKey: "kubernetes.io/hostname"
   nodeSelector:
     testground.nodetype: infra
   podAnnotations:
@@ -110,7 +43,10 @@ prometheus-pushgateway:
   resources:
     requests:
       memory: 2000Mi
-      cpu: 2000m
+      cpu: 1000m
+    limits:
+      memory: 2000Mi
+      cpu: 1000m
 
 
 # Changes from defaults:
@@ -128,6 +64,13 @@ redis:
     serviceMonitor:
       enabled: true
       namespace: default
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 200m
+      limits:
+        memory: 256Mi
+        cpu: 200m
   cluster:
     enabled: false
   usePassword: false
@@ -143,10 +86,13 @@ redis:
     extraFlags:
       - "--maxclients 131072"
     nodeSelector:
-      testground.nodetype: infra 
+      testground.nodetype: infra
     podAnnotations:
       cni: flannel
     resources:
       requests:
+        memory: 13000Mi
+        cpu: 6500m
+      limits:
         memory: 13000Mi
         cpu: 6500m

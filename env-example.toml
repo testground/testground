@@ -34,6 +34,11 @@ docker_tls_key_path = "/"
 pod_resource_cpu      = "100m"
 pod_resource_memory   = "100Mi"
 
+[run_strategies."local:docker"]
+ulimits = [
+  "nofile=1048576:1048576",
+]
+
 [daemon]
 listen = ":8080"
 

@@ -88,7 +88,6 @@ func (m MetricValue) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 func (r *RunParams) MarshalLogObject(oe zapcore.ObjectEncoder) error {
 	oe.AddString("plan", r.TestPlan)
 	oe.AddString("case", r.TestCase)
-	oe.AddInt("seq", r.TestCaseSeq)
 	if err := oe.AddReflected("params", r.TestInstanceParams); err != nil {
 		return err
 	}

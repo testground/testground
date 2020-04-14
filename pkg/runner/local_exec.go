@@ -72,20 +72,14 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 	var (
 		plan = input.TestPlan
-		seq  = input.Seq
 		name = plan.Name
 	)
-
-	if seq >= len(plan.TestCases) {
-		return nil, fmt.Errorf("invalid sequence number %d for test %s", seq, name)
-	}
 
 	// Build a template runenv.
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestPlan.TestCases[seq].Name,
+		TestCase:          input.TestCase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
 		TestSubnet:        &runtime.IPNet{IPNet: *localSubnet},

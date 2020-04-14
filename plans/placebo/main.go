@@ -14,14 +14,10 @@ func main() {
 }
 
 func run(runenv *runtime.RunEnv) error {
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
-	}
-
-	switch runenv.TestCaseSeq {
-	case 0:
+	switch c := runenv.TestCase; c {
+	case "ok":
 		return nil
-	case 2:
+	case "metrics":
 		// create context for cancelation
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -34,10 +30,10 @@ func run(runenv *runtime.RunEnv) error {
 
 		time.Sleep(time.Second * 5)
 		return nil
-	case 3:
+	case "panic":
 		// panic
 		panic(errors.New("this is an intentional panic"))
-	case 4:
+	case "stall":
 		// stall
 		time.Sleep(24 * time.Hour)
 		return nil

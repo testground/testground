@@ -70,7 +70,6 @@ type ClusterSwarmRunner struct{}
 // the test has run.
 func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	var (
-		seq = input.Seq
 		log = ow.With("runner", "cluster:swarm", "run_id", input.RunID)
 		cfg = *input.RunnerConfig.(*ClusterSwarmRunnerConfig)
 	)
@@ -79,14 +78,9 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	ctx, cancelFn := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancelFn()
 
-	// Sanity check.
-	if seq < 0 || seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", seq, input.TestPlan.Name)
-	}
-
 	// Get the test case.
 	var (
-		testcase = input.TestPlan.TestCases[seq]
+		testcase = input.TestCase
 		parent   = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
 	)
 
@@ -95,7 +89,6 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestPlan:          input.TestPlan.Name,
 		TestCase:          testcase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 	}
