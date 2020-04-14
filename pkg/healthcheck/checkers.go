@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // CheckContainerStarted returns a Checker that succeeds if a container is
@@ -73,6 +76,45 @@ func CheckDirectoryExists(path string) Checker {
 			return true, "directory exists.", nil
 		}
 		return false, "expected directory. found regular file. please fix manually.", fmt.Errorf("not a directory")
+	}
+}
+
+// CheckCommandStatus returns a checker which executes a command and returns successfully or
+// unsuccessfully depending on the exit status of the command.
+func CheckCommandStatus(ctx context.Context, cmd string, args ...string) Checker {
+	return func() (bool, string, error) {
+		cmd := exec.CommandContext(ctx, cmd, args...)
+		err := cmd.Start()
+		if err != nil {
+			// for example, command does not exist. This is an error with the check.
+			return false, fmt.Sprintf("failed to start command. `%s` (%v)", cmd, err), err
+		}
+		err = cmd.Wait()
+		if err != nil {
+			// command returns with a non-zero exit code. Return nil error, and false for the check.
+			return false, fmt.Sprintf("command failed `%s` (%v)", cmd, err), nil
+		}
+		// command returns with a zero exit code.
+		return true, fmt.Sprintf("command completed successfully `%s`", cmd), nil
+	}
+}
+
+// CheckK8sPods returns a checker which verifies the number of pods found matches the number
+// expected. If Listing the pods returns an error, the error is returned. The boolean value returned
+// by the check follows whether the number of pods observed in the list matches the expected count.
+func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label string, namespace string, count int) Checker {
+	return func() (bool, string, error) {
+		listOpts := metav1.ListOptions{LabelSelector: label}
+		pods, err := client.CoreV1().Pods(namespace).List(listOpts)
+		if err != nil {
+			return false, fmt.Sprintf("failed to list pods %s", label), err
+		}
+		found := len(pods.Items)
+		msg := fmt.Sprintf("expected %d pods; found %d", count, found)
+		if found != count {
+			return false, msg, nil
+		}
+		return true, msg, nil
 	}
 }
 

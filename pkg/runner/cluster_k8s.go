@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
+	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -291,138 +291,59 @@ func (*ClusterK8sRunner) ID() string {
 	return "cluster:k8s"
 }
 
-func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
-	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
-	cmd := exec.Command("kops", "validate", "cluster")
-	if err := cmd.Run(); err != nil {
-		out, _ := cmd.CombinedOutput()
-		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s; output from kops: %s", err, string(out))}
-		return
-	}
-	return
-}
+func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 
-func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
-	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusFailed, Message: "efs provisioner is not running"}
-
+	c.initPool()
 	client := c.pool.Acquire()
-	defer c.pool.Release(client)
 
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "app=efs-provisioner",
-	})
-	if err != nil {
-		efsCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != 1 {
-		efsCheck.Message = fmt.Sprintf("expected 1 EFS provisioner pod. found %d.", len(pods.Items))
-		return
-	}
-
-	pod := pods.Items[0]
-	if pod.Status.Phase != "Running" {
-		return
-	}
-
-	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusOK, Message: "efs provisioner is running"}
-	return
-}
-
-func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
-	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusFailed, Message: "redis service is not running"}
-
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "app=redis",
-	})
-	if err != nil {
-		redisCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != 1 {
-		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
-		return
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != "Running" {
-			return
-		}
-	}
-
-	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusOK, Message: "redis service is running"}
-	return
-}
-
-func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckItem) {
-	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusFailed, Message: "sidecar service is not reachable"}
-
-	// get number of worker nodes
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
+	// How many plan worker nodes are there?
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
 		LabelSelector: "testground.nodetype=plan",
 	})
 	if err != nil {
-		sidecarCheck.Message = err.Error()
-		return
+		return nil, err
 	}
+	planNodes := res.Items
 
-	nodes := len(res.Items)
+	hh := &hc.Helper{}
 
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "name=testground-sidecar",
-	})
-	if err != nil {
-		sidecarCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != nodes {
-		sidecarCheck.Message = fmt.Sprintf("expected %d sidecar pods. found %d.", nodes, len(pods.Items))
-		return
-	}
+	hh.Enlist("kops validate",
+		hc.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
+		hc.NotImplemented(),
+	)
 
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != "Running" {
-			return
-		}
-	}
+	hh.Enlist("efs pod",
+		hc.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
 
-	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusOK, Message: "sidecar service is running"}
-	return
-}
+	hh.Enlist("redis pod",
+		hc.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
 
-func (c *ClusterK8sRunner) Healthcheck(_ context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
-	// TODO how does one pass the context to k8s API calls?
-	c.initPool()
+	hh.Enlist("prometheus pod",
+		hc.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
 
-	report := api.HealthcheckReport{}
+	hh.Enlist("pushgateway pod",
+		hc.CheckK8sPods(ctx, client, "app=prometheus-pushgateway", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
 
-	report.Checks = []api.HealthcheckItem{
-		c.healthcheckK8s(),
-		c.healthcheckEFS(),
-		c.healthcheckRedis(),
-		c.healthcheckSidecar(),
-	}
+	hh.Enlist("grafana pod",
+		hc.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
 
-	if fix {
-		var fakeFixes []api.HealthcheckItem
-		for _, chk := range report.Checks {
-			if chk.Status != api.HealthcheckStatusOK {
-				fakeFixes = append(fakeFixes, api.HealthcheckItem{
-					Name:    chk.Name,
-					Status:  chk.Status,
-					Message: "Fix not implemented yet for this check.",
-				})
-			}
-			report.Fixes = fakeFixes
-		}
-	}
-	return &report, nil
+	hh.Enlist("sidecar pods",
+		hc.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
+		hc.NotImplemented(),
+	)
+
+	return hh.RunChecks(ctx, fix)
+
 }
 
 func (*ClusterK8sRunner) ConfigType() reflect.Type {
