@@ -1,12 +1,7 @@
 dependencies:
-- name: prometheus-pushgateway
-  repository: https://kubernetes-charts.storage.googleapis.com/
-  version: 1.4.0
 - name: redis
   repository: https://charts.bitnami.com/bitnami
   version: 10.6.3
 - name: testground-dashboards
   repository: ""
   version: 0.0.*
-digest: sha256:f89d455ad357e6ffe832e5eb7c84aa5aee59b5d1e7e8eb254008d8dfa799d406
-generated: "2020-04-09T01:04:21.794042488-07:00"
