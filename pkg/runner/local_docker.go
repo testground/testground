@@ -218,6 +218,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
 
+		reviewResources(g, ow)
+
 		// Serialize the runenv into env variables to pass to docker.
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 

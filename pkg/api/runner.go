@@ -70,6 +70,9 @@ type RunGroup struct {
 	// Instances is the number of instances to run with this configuration.
 	Instances int
 
+	// Resources for per instance in this group
+	Resources Resources
+
 	// ArtifactPath can be a docker image ID or an executable path; it's
 	// runner-dependent.
 	ArtifactPath string

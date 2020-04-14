@@ -100,6 +100,8 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 	var total int
 	for _, g := range input.Groups {
+		reviewResources(g, ow)
+
 		for i := 0; i < g.Instances; i++ {
 			total++
 			id := fmt.Sprintf("instance %3d", total)

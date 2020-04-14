@@ -438,6 +438,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 			Instances:    int(grp.CalculatedInstanceCount()),
 			ArtifactPath: grp.Run.Artifact,
 			Parameters:   params,
+			Resources:    grp.Resources,
 		}
 
 		in.Groups = append(in.Groups, g)
