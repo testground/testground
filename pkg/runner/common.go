@@ -103,7 +103,8 @@ func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInp
 }
 
 func reviewResources(group api.RunGroup, ow *rpc.OutputWriter) {
+	log := ow.With("group_id", group.ID)
 	if group.Resources.CPU != "" || group.Resources.Memory != "" {
-		ow.Warn("group has resources set. note that resources requirement and limits are ignored on the this runner.")
+		log.Warnw("group has resources set. note that resources requirement and limits are ignored on the this runner.")
 	}
 }

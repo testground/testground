@@ -856,10 +856,10 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 }
 
 // checkClusterResources returns whether we can fit the input groups in the current cluster
-func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) (bool, error) {
+func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
 	neededCPUs := 0.0
 
-	defaultPodCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+	defaultPodCPU, err := strconv.ParseFloat(fallbackCPU.AsDec().String(), 64)
 	if err != nil {
 		return false, err
 	}
@@ -886,7 +886,11 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 	for _, g := range groups {
 		var podCPU float64
 		if g.Resources.CPU != "" {
-			podCPU, err = strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+			cpu, err := resource.ParseQuantity(g.Resources.CPU)
+			if err != nil {
+				return false, err
+			}
+			podCPU, err = strconv.ParseFloat(cpu.AsDec().String(), 64)
 			if err != nil {
 				return false, err
 			}
@@ -901,7 +905,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 		return true, nil
 	}
 
-	ow.Warnw("not enough resources on cluster", "availableCPUs", availableCPUs, "neededCPUs", neededCPUs, "utilisation", utilisation)
+	ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
 	return false, nil
 }
 
