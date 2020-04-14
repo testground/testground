@@ -1,7 +1,9 @@
 dependencies:
 - name: redis
   repository: https://charts.bitnami.com/bitnami
-  version: 10.6.3
+  version: 10.6.6
 - name: testground-dashboards
   repository: ""
   version: 0.0.*
+digest: sha256:2a9e152a6d30e2aca28f44c2e5131469c014b505888c5e3a6eeac2af94ba0915
+generated: "2020-04-14T14:57:04.250358476-07:00"
