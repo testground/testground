@@ -45,7 +45,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 			ImageStrategy: docker.ImageStrategyBuild,
 			BuildImageOpts: &docker.BuildImageOpts{
 				Name:     "testground-prometheus:latest",
-				BuildCtx: filepath.Join(srcdir, "infra/docker/testground-prometheus"),
+				BuildCtx: filepath.Join(srcdir, "infra/local-docker/testground-prometheus"),
 			},
 		}),
 	)
