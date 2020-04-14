@@ -90,7 +90,7 @@ or
 
 
 ```bash
-make docker-ipfs-testground
+make build-sidecar-image
 ```
 
 ## Running test plans locally with Testground
@@ -113,7 +113,7 @@ smlbench/simple-add-get
 Before you run your first test plan, you need to build a Docker image that provides the "sidecar"
 
 ```
-> make docker-ipfs-testground
+> make build-sidecar-image
 ```
 
 This next command is your first test! It runs the `find-peers` test from the `dht`
