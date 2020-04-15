@@ -6,7 +6,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	api2 "github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 )
 
@@ -41,7 +41,7 @@ func healthcheckCommand(c *cli.Context) error {
 		return err
 	}
 
-	r, err := cl.Healthcheck(ctx, &api2.HealthcheckRequest{
+	r, err := cl.Healthcheck(ctx, &api.HealthcheckRequest{
 		Runner: runner,
 		Fix:    fix,
 	})

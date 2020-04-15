@@ -5,7 +5,7 @@ import (
 
 	"github.com/urfave/cli"
 
-	api2 "github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 )
 
@@ -33,7 +33,7 @@ func terminateCommand(c *cli.Context) error {
 		return err
 	}
 
-	r, err := cl.Terminate(ctx, &api2.TerminateRequest{
+	r, err := cl.Terminate(ctx, &api.TerminateRequest{
 		Runner: runner,
 	})
 	if err != nil {

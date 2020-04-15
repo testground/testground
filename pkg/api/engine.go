@@ -23,9 +23,3 @@ type Engine interface {
 	EnvConfig() config.EnvConfig
 	Context() context.Context
 }
-
-type TestCensus interface {
-	EnrollTestPlan(tp *TestPlanManifest) error
-	PlanByName(name string) *TestPlanManifest
-	ListPlans() (tp []*TestPlanManifest)
-}
