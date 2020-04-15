@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/engine"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/pborman/uuid"
@@ -26,10 +27,10 @@ type Daemon struct {
 // * POST /build: sends a `build` request to the daemon. builds a test plan.
 // * POST /run: sends a `run` request to the daemon. (builds and) runs test case with name `<testplan>/<testcase>`.
 // A type-safe client for this server can be found in the `pkg/client` package.
-func New(listenAddr string) (srv *Daemon, err error) {
+func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	srv = new(Daemon)
 
-	engine, err := engine.NewDefaultEngine()
+	engine, err := engine.NewDefaultEngine(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -44,8 +45,6 @@ func New(listenAddr string) (srv *Daemon, err error) {
 		})
 	})
 
-	r.HandleFunc("/list", srv.listHandler(engine)).Methods("GET")
-	r.HandleFunc("/describe", srv.describeHandler(engine)).Methods("GET")
 	r.HandleFunc("/build", srv.buildHandler(engine)).Methods("POST")
 	r.HandleFunc("/run", srv.runHandler(engine)).Methods("POST")
 	r.HandleFunc("/outputs", srv.outputsHandler(engine)).Methods("POST")
@@ -59,7 +58,7 @@ func New(listenAddr string) (srv *Daemon, err error) {
 		ReadTimeout:  1200 * time.Second,
 	}
 
-	srv.l, err = net.Listen("tcp", listenAddr)
+	srv.l, err = net.Listen("tcp", cfg.Daemon.Listen)
 	if err != nil {
 		return nil, err
 	}
@@ -70,26 +69,26 @@ func New(listenAddr string) (srv *Daemon, err error) {
 // Serve starts the server and blocks until the server is closed, either
 // explicitly via Shutdown, or due to a fault condition. It propagates the
 // non-nil err return value from http.Serve.
-func (s *Daemon) Serve() error {
+func (d *Daemon) Serve() error {
 	select {
-	case <-s.doneCh:
+	case <-d.doneCh:
 		return fmt.Errorf("tried to reuse a stopped server")
 	default:
 	}
 
-	logging.S().Infow("daemon listening", "addr", s.Addr())
-	return s.server.Serve(s.l)
+	logging.S().Infow("daemon listening", "addr", d.Addr())
+	return d.server.Serve(d.l)
 }
 
-func (s *Daemon) Addr() string {
-	return s.l.Addr().String()
+func (d *Daemon) Addr() string {
+	return d.l.Addr().String()
 }
 
-func (s *Daemon) Port() int {
-	return s.l.Addr().(*net.TCPAddr).Port
+func (d *Daemon) Port() int {
+	return d.l.Addr().(*net.TCPAddr).Port
 }
 
-func (s *Daemon) Shutdown(ctx context.Context) error {
-	defer close(s.doneCh)
-	return s.server.Shutdown(ctx)
+func (d *Daemon) Shutdown(ctx context.Context) error {
+	defer close(d.doneCh)
+	return d.server.Shutdown(ctx)
 }

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -194,6 +195,107 @@ func (c *Composition) ValidateForRun() error {
 
 	if total != cum {
 		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", total, cum)
+	}
+
+	return nil
+}
+
+// PrepareForBuild verifies that this composition is compatible with
+// the provided manifest for the purposes of a build, and applies any manifest-
+// mandated defaults for the builder configuration.
+func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
+	if manifest.Name != c.Global.Plan {
+		return fmt.Errorf("mismatch between test plan in manifest (%s) and composition (%s)", manifest.Name, c.Global.Plan)
+	}
+
+	// Is the builder supported?
+	if manifest.Builders == nil || len(manifest.Builders) == 0 {
+		return fmt.Errorf("plan supports no builders; review the manifest")
+	}
+	builders := make([]string, 0, len(manifest.Builders))
+	for k := range manifest.Builders {
+		builders = append(builders, k)
+	}
+	sort.Strings(builders)
+	if sort.SearchStrings(builders, c.Global.Builder) == len(builders) {
+		return fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
+	}
+
+	// Apply manifest-mandated build configuration.
+	if bcfg, ok := manifest.Builders[c.Global.Builder]; ok {
+		for k, v := range bcfg {
+			// Apply parameters that are not explicitly set in the Composition.
+			if _, ok := c.Global.BuildConfig[k]; !ok {
+				c.Global.BuildConfig[k] = v
+			}
+		}
+	}
+	return nil
+}
+
+// PrepareForRun verifies that this composition is compatible with the
+// provided manifest for the purposes of a run, verifies the instance count is
+// within bounds, applies any manifest-mandated defaults for the runner
+// configuration, and applies default run parameters.
+func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
+	if manifest.Name != c.Global.Plan {
+		return fmt.Errorf("mismatch between test plan in manifest (%s) and composition (%s)", manifest.Name, c.Global.Plan)
+	}
+
+	_, tcase, ok := manifest.TestCaseByName(c.Global.Case)
+	if !ok {
+		return fmt.Errorf("test case %s not found in plan %s", c.Global.Case, manifest.Name)
+	}
+
+	// Is the runner supported?
+	if manifest.Runners == nil || len(manifest.Runners) == 0 {
+		return fmt.Errorf("plan supports no runners; review the manifest")
+	}
+	runners := make([]string, 0, len(manifest.Runners))
+	for k := range manifest.Runners {
+		runners = append(runners, k)
+	}
+	sort.Strings(runners)
+	if sort.SearchStrings(runners, c.Global.Runner) == len(runners) {
+		return fmt.Errorf("plan does not support runner %s; supported: %v", c.Global.Runner, runners)
+	}
+
+	// Apply manifest-mandated run configuration.
+	if rcfg, ok := manifest.Runners[c.Global.Runner]; ok {
+		for k, v := range rcfg {
+			// Apply parameters that are not explicitly set in the Composition.
+			if _, ok := c.Global.RunConfig[k]; !ok {
+				c.Global.RunConfig[k] = v
+			}
+		}
+	}
+
+	// Validate the desired number of instances is within bounds.
+	if t := int(c.Global.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
+		str := "total instance count (%d) outside of allowable range [%d, %d] for test case %s"
+		err := fmt.Errorf(str, t, tcase.Instances.Minimum, tcase.Instances.Maximum, tcase.Name)
+		return err
+	}
+
+	// Apply test case param defaults. First parse all defaults as JSON data
+	// types; then iterate through all the groups in the composition, and apply
+	// the parameters that are absent.
+	defaults := make(map[string]string, len(tcase.Parameters))
+	for n, v := range tcase.Parameters {
+		data, err := json.Marshal(v.Default)
+		if err != nil {
+			return fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
+		}
+		defaults[n] = string(data)
+	}
+
+	for _, g := range c.Groups {
+		m := g.Run.TestParams
+		for k, v := range defaults {
+			if _, ok := m[k]; !ok {
+				m[k] = v
+			}
+		}
 	}
 
 	return nil

@@ -100,13 +100,13 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		return nil, err
 	}
 
-	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_docker", "outputs")
+	r.outputsDir = filepath.Join(engine.EnvConfig().Dirs().Outputs(), "local_docker")
 	r.controlNetworkID = "testground-control"
 
 	hh := &healthcheck.Helper{}
 
 	// enlist healthchecks which are common between local:docker and local:exec
-	localCommonHealthcheck(ctx, hh, cli, ow, r.controlNetworkID, engine.EnvConfig().SrcDir, r.outputsDir)
+	localCommonHealthcheck(ctx, hh, cli, ow, r.controlNetworkID, r.outputsDir)
 
 	dockerSock := "/var/run/docker.sock"
 	if host := cli.DaemonHost(); strings.HasPrefix(host, "unix://") {
@@ -149,11 +149,16 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 				Name: "unless-stopped",
 			},
 		},
-		ImageStrategy: docker.ImageStrategyBuild,
-		BuildImageOpts: &docker.BuildImageOpts{
-			Name:     "ipfs/testground:latest",
-			BuildCtx: engine.EnvConfig().SrcDir,
-		},
+		// TODO(raulk): not sure what to do with this; it's not really useful
+		//  beyond the first run anyway. Since we are not distributing binaries
+		//  we can safely assume that the user will anyway have to build testground.
+		//  If the build instructions consist in running a make target that also
+		//  builds the sidecar, we would've omitted the need for this entirely.
+		// ImageStrategy: docker.ImageStrategyBuild,
+		// BuildImageOpts: &docker.BuildImageOpts{
+		// 	Name:     "ipfs/testground:latest",
+		// 	BuildCtx: engine.EnvConfig().Home,
+		// },
 	}
 
 	// sidecar healthcheck.
@@ -177,9 +182,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		err error
 	)
 
-	// Get the test case.
-	testcase := input.TestCase
-
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -188,8 +190,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	// Build a template runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan.Name,
-		TestCase:          testcase.Name,
+		TestPlan:          input.TestPlan,
+		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
@@ -231,14 +233,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
 			// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
-			odir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			odir := filepath.Join(r.outputsDir, input.TestPlan, input.RunID, g.ID, strconv.Itoa(i))
 			err = os.MkdirAll(odir, 0777)
 			if err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
 				break
 			}
 
-			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan.Name, testcase.Name, input.RunID, g.ID, i)
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan, input.TestCase, input.RunID, g.ID, i)
 			log.Infow("creating container", "name", name)
 
 			ccfg := &container.Config{
@@ -246,8 +248,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				Env:   env,
 				Labels: map[string]string{
 					"testground.purpose":  "plan",
-					"testground.plan":     input.TestPlan.Name,
-					"testground.testcase": testcase.Name,
+					"testground.plan":     input.TestPlan,
+					"testground.testcase": input.TestCase,
 					"testground.run_id":   input.RunID,
 					"testground.group_id": g.ID,
 				},
@@ -483,9 +485,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 	return id, subnet, err
 }
 
-func (*LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
-	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_docker", "outputs")
-	return zipRunOutputs(ctx, basedir, input, ow)
+func (r *LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+	r.lk.RLock()
+	dir := r.outputsDir
+	r.lk.RUnlock()
+
+	return zipRunOutputs(ctx, dir, input, ow)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified

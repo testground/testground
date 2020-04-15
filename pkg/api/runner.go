@@ -46,15 +46,11 @@ type RunInput struct {
 	// plan manifest, coalesced with any user-provided overrides.
 	RunnerConfig interface{}
 
-	// Directories providers accessors to directories managed by the runtime.
-	Directories Directories
+	// TestPlan is the name of the test plan.
+	TestPlan string
 
-	// TestPlan is the definition of the test plan containing the test case to
-	// run.
-	TestPlan *TestPlanDefinition
-
-	// TestCase is the the definition of the test case to run.
-	TestCase *TestCase
+	// TestCase is the name of the test case.
+	TestCase string
 
 	// TotalInstances is the total number of instances participating in this test case.
 	TotalInstances int

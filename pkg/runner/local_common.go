@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/docker/go-units"
 
@@ -16,7 +15,7 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *client.Client, ow *rpc.OutputWriter, controlNetworkID string, srcdir string, workdir string) {
+func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *client.Client, ow *rpc.OutputWriter, controlNetworkID string, workdir string) {
 	hh.Enlist("local-outputs-dir",
 		healthcheck.CheckDirectoryExists(workdir),
 		healthcheck.CreateDirectory(workdir),
@@ -30,28 +29,33 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 
 	// prometheus built from Dockerfile.
 	// Check if container exists, if not, build image AND start container.
-	_, exposed, _ := nat.ParsePortSpecs([]string{"9090:9090"})
-	hh.Enlist("local-prometheus",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-prometheus"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "testground-prometheus",
-			ContainerConfig: &container.Config{
-				Image: "testground-prometheus:latest",
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyBuild,
-			BuildImageOpts: &docker.BuildImageOpts{
-				Name:     "testground-prometheus:latest",
-				BuildCtx: filepath.Join(srcdir, "infra/local-docker/testground-prometheus"),
-			},
-		}),
-	)
+	// TODO(raulk): decide what to do with this; the daemon no longer has access
+	//  to testground's source. We are discarding Prometheus for test plan metrics
+	//  anyway; and there are no infrastructure metrics that are valuable to monitor
+	//  in the local runners, so I'm inclined to drop Prometheus entirely from the
+	//  local runners.
+	// _, exposed, _ := nat.ParsePortSpecs([]string{"9090:9090"})
+	// hh.Enlist("local-prometheus",
+	// 	healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-prometheus"),
+	// 	healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
+	// 		ContainerName: "testground-prometheus",
+	// 		ContainerConfig: &container.Config{
+	// 			Image: "testground-prometheus:latest",
+	// 		},
+	// 		HostConfig: &container.HostConfig{
+	// 			PortBindings: exposed,
+	// 			NetworkMode:  container.NetworkMode(controlNetworkID),
+	// 		},
+	// 		ImageStrategy: docker.ImageStrategyBuild,
+	// 		BuildImageOpts: &docker.BuildImageOpts{
+	// 			Name:     "testground-prometheus:latest",
+	// 			BuildCtx: filepath.Join(srcdir, "infra/local-docker/testground-prometheus"),
+	// 		},
+	// 	}),
+	// )
 
 	// run pushgateway from downloaded image, with no additional configuraiton
-	_, exposed, _ = nat.ParsePortSpecs([]string{"9091:9091"})
+	_, exposed, _ := nat.ParsePortSpecs([]string{"9091:9091"})
 	hh.Enlist("local-pushgateway",
 		healthcheck.CheckContainerStarted(ctx, ow, cli, "prometheus-pushgateway"),
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{

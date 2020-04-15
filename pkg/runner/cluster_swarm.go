@@ -78,16 +78,12 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	ctx, cancelFn := context.WithTimeout(ctx, 1*time.Minute)
 	defer cancelFn()
 
-	// Get the test case.
-	var (
-		testcase = input.TestCase
-		parent   = fmt.Sprintf("tg-%s-%s-%s", input.TestPlan.Name, testcase.Name, input.RunID)
-	)
+	parent := fmt.Sprintf("tg-%s-%s-%s", input.TestPlan, input.TestCase, input.RunID)
 
 	// Build a runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan.Name,
-		TestCase:          testcase.Name,
+		TestPlan:          input.TestPlan,
+		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
@@ -150,8 +146,8 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			}},
 		},
 		Labels: map[string]string{
-			"testground.plan":     input.TestPlan.Name,
-			"testground.testcase": testcase.Name,
+			"testground.plan":     input.TestPlan,
+			"testground.testcase": input.TestCase,
 			"testground.run_id":   input.RunID,
 			"testground.name":     "default", // default name. TODO: allow multiple networks.
 		},
@@ -227,8 +223,8 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Image: g.ArtifactPath,
 					Env:   env,
 					Labels: map[string]string{
-						"testground.plan":     input.TestPlan.Name,
-						"testground.testcase": testcase.Name,
+						"testground.plan":     input.TestPlan,
+						"testground.testcase": input.TestCase,
 						"testground.run_id":   input.RunID,
 						"testground.groupid":  g.ID,
 					},

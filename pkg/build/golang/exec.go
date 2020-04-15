@@ -3,7 +3,6 @@ package golang
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,8 +11,6 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/rpc"
-
-	"github.com/hashicorp/go-getter"
 )
 
 var (
@@ -32,52 +29,24 @@ type ExecGoBuilderConfig struct {
 }
 
 // Build builds a testplan written in Go and outputs an executable.
-func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
-	cfg, ok := input.BuildConfig.(*ExecGoBuilderConfig)
+func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
+	cfg, ok := in.BuildConfig.(*ExecGoBuilderConfig)
 	if !ok {
-		return nil, fmt.Errorf("expected configuration type ExecGoBuilderConfig, was: %T", input.BuildConfig)
+		return nil, fmt.Errorf("expected configuration type ExecGoBuilderConfig, was: %T", in.BuildConfig)
 	}
 
 	var (
-		id   = input.BuildID
-		bin  = fmt.Sprintf("exec-go--%s-%s", input.TestPlan.Name, id)
-		path = filepath.Join(input.Directories.WorkDir(), bin)
+		id      = in.BuildID
+		plansrc = in.TestPlanSrcPath
+		sdksrc  = in.SDKSrcPath
+
+		bin  = fmt.Sprintf("exec-go--%s-%s", in.TestPlan, id)
+		path = filepath.Join(in.EnvConfig.Dirs().Work(), bin)
 	)
-
-	// Create a temp dir, and copy the source into it.
-	tmp, err := ioutil.TempDir("", input.TestPlan.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed while creating temp dir: %w", err)
-	}
-	defer os.RemoveAll(tmp)
-
-	var (
-		plansrc = input.TestPlan.SourcePath
-		sdksrc  = filepath.Join(input.Directories.SourceDir(), "/sdk")
-
-		plandst = filepath.Join(tmp, "plan")
-		sdkdst  = filepath.Join(tmp, "sdk")
-	)
-
-	// Copy the plan's source; go-getter will create the dir.
-	if err := getter.Get(plandst, plansrc, getter.WithContext(ctx)); err != nil {
-		return nil, err
-	}
-	if err := materializeSymlink(plandst); err != nil {
-		return nil, err
-	}
-
-	// Copy the sdk source; go-getter will create the dir.
-	if err := getter.Get(sdkdst, sdksrc, getter.WithContext(ctx)); err != nil {
-		return nil, err
-	}
-	if err := materializeSymlink(sdkdst); err != nil {
-		return nil, err
-	}
 
 	if cfg.FreshGomod {
 		for _, f := range []string{"go.mod", "go.sum"} {
-			file := filepath.Join(plandst, f)
+			file := filepath.Join(plansrc, f)
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
 				if err := os.Remove(file); err != nil {
 					return nil, fmt.Errorf("cleanup failed; %w", err)
@@ -87,7 +56,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, ow *rp
 
 		// Initialize a fresh go.mod file.
 		cmd := exec.CommandContext(ctx, "go", "mod", "init", cfg.ModulePath)
-		cmd.Dir = plandst
+		cmd.Dir = plansrc
 		out, _ := cmd.CombinedOutput()
 		if !strings.Contains(string(out), "creating new go.mod") {
 			return nil, fmt.Errorf("unable to create go.mod; %s", out)
@@ -96,38 +65,39 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, ow *rp
 
 	// If we have version overrides, apply them.
 	var replaces []string
-	for mod, ver := range input.Dependencies {
-		// TODO(RK): allow to override target of replaces, so we can test against forks.
+	for mod, ver := range in.Dependencies {
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, mod, ver))
 	}
 
-	// Inject replace directives for the SDK modules.
-	replaces = append(replaces,
-		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
+	if sdksrc != "" {
+		// Inject replace directives for the SDK modules.
+		replaces = append(replaces,
+			"-replace=github.com/ipfs/testground/sdk/sync="+filepath.Join(sdksrc, "sync"),
+			"-replace=github.com/ipfs/testground/sdk/runtime="+filepath.Join(sdksrc, "runtime"))
+	}
 
-	// Write replace directives.
-	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
-	cmd.Dir = plandst
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
+	if len(replaces) > 0 {
+		// Write replace directives.
+		cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
+		cmd.Dir = plansrc
+		if err := cmd.Run(); err != nil {
+			out, _ := cmd.CombinedOutput()
+			return nil, fmt.Errorf("unable to add replace directives to go.mod; %w; output: %s", err, string(out))
+		}
 	}
 
 	// Calculate the arguments to go build.
 	// go build -o <output_path> [-tags <comma-separated tags>] <exec_pkg>
 	var args = []string{"build", "-o", path}
-	if len(input.Selectors) > 0 {
+	if len(in.Selectors) > 0 {
 		args = append(args, "-tags")
-		args = append(args, strings.Join(input.Selectors, ","))
+		args = append(args, strings.Join(in.Selectors, ","))
 	}
 	args = append(args, cfg.ExecPkg)
 
 	// Execute the build.
-	cmd = exec.CommandContext(ctx, "go", args...)
-	cmd.Dir = plandst
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = plansrc
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		ow.Errorf("go build failed: %s", string(out))
@@ -135,7 +105,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, input *api.BuildInput, ow *rp
 	}
 
 	cmd = exec.CommandContext(ctx, "go", "list", "-m", "all")
-	cmd.Dir = plandst
+	cmd.Dir = plansrc
 	out, err = cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("unable to list module dependencies; %w", err)

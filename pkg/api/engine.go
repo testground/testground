@@ -8,15 +8,13 @@ import (
 )
 
 type Engine interface {
-	TestCensus() TestCensus
-
 	BuilderByName(name string) (Builder, bool)
 	RunnerByName(name string) (Runner, bool)
 
 	ListBuilders() map[string]Builder
 	ListRunners() map[string]Runner
 
-	DoBuild(context.Context, *Composition, *rpc.OutputWriter) ([]*BuildOutput, error)
+	DoBuild(context.Context, *Composition, string, string, string, *rpc.OutputWriter) ([]*BuildOutput, error)
 	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error
@@ -27,7 +25,7 @@ type Engine interface {
 }
 
 type TestCensus interface {
-	EnrollTestPlan(tp *TestPlanDefinition) error
-	PlanByName(name string) *TestPlanDefinition
-	ListPlans() (tp []*TestPlanDefinition)
+	EnrollTestPlan(tp *TestPlanManifest) error
+	PlanByName(name string) *TestPlanManifest
+	ListPlans() (tp []*TestPlanManifest)
 }

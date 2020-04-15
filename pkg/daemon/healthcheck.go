@@ -5,12 +5,11 @@ import (
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 )
 
-func (srv *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+func (d *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
 
@@ -19,7 +18,7 @@ func (srv *Daemon) healthcheckHandler(engine api.Engine) func(w http.ResponseWri
 
 		tgw := rpc.NewOutputWriter(w, r)
 
-		var req client.HealthcheckRequest
+		var req api.HealthcheckRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			tgw.WriteError("healthcheck json decode", "err", err.Error())
