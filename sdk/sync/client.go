@@ -31,7 +31,7 @@ var ErrNoRunParameters = fmt.Errorf("no run parameters provided")
 
 var DefaultRedisOpts = redis.Options{
 	MinIdleConns:       2,                // allow the pool to downsize to 0 conns.
-	PoolSize:           10,               // one for subscriptions, one for nonblocking operations.
+	PoolSize:           5,                // one for subscriptions, one for nonblocking operations.
 	PoolTimeout:        30 * time.Second, // amount of time a waiter will wait for a conn to become available.
 	MaxRetries:         5,
 	MinRetryBackoff:    1 * time.Second,
