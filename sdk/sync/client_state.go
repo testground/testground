@@ -24,6 +24,16 @@ import (
 // It is safe to use a non-cancellable context here, like the background
 // context. No cancellation is needed unless you want to stop the process early.
 func (c *Client) Barrier(ctx context.Context, state State, target int) (*Barrier, error) {
+	// a barrier with target zero is satisfied immediately; log a warning as
+	// this is probably programmer error.
+	if target == 0 {
+		c.log.Warnw("requested a barrier with target zero; satisfying immediately", "state", state)
+		b := &Barrier{C: make(chan error, 1)}
+		b.C <- nil
+		close(b.C)
+		return b, nil
+	}
+
 	rp := c.extractor(ctx)
 	if rp == nil {
 		return nil, ErrNoRunParameters

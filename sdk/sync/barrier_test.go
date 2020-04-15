@@ -67,6 +67,32 @@ func TestBarrierBeyondTarget(t *testing.T) {
 	}
 }
 
+func TestBarrierZero(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	runenv := randomRunEnv()
+
+	client, err := NewBoundClient(ctx, runenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	state := State("apollo")
+	ch := client.MustBarrier(ctx, state, 0).C
+
+	select {
+	case err := <-ch:
+		if err != nil {
+			t.Errorf("expected nil error, instead got: %s", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Error("expected test to finish")
+		return
+	}
+}
+
 func TestBarrierCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

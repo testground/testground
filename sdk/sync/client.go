@@ -139,7 +139,7 @@ func newClient(ctx context.Context, log *zap.SugaredLogger, extractor func(ctx c
 				select {
 				case <-tick.C:
 					stats := rclient.PoolStats()
-					log.Warnf("redis pool stats", "stats", stats)
+					log.Debugw("redis pool stats", "stats", stats)
 				case <-ctx.Done():
 					return
 				}
