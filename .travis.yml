@@ -41,6 +41,7 @@ jobs:
         - go mod download
         - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
         - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd
+        - mkdir -p $HOME/testground/plans && ln -s $TRAVIS_BUILD_DIR/plans/placebo $HOME/testground/plans/placebo
         - make lint           # run a bunch of code checkers/linters in parallel
         - make test-build     # build the project
         - make test           # Run all the tests with the race detector enabled
