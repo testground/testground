@@ -7,8 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/ipfs/testground/pkg/logging"
-
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 )
@@ -118,13 +116,13 @@ func pingpong(runenv *runtime.RunEnv) error {
 		defer listener.Close()
 	}
 
-	logging.S().Debug("before writing changed ip config to redis")
+	runenv.RecordMessage("before writing changed ip config to redis")
 	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
 	if err != nil {
 		return err
 	}
 
-	logging.S().Debug("waiting for barrier")
+	runenv.RecordMessage("waiting for barrier")
 	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 	if err != nil {
 		return err
@@ -233,19 +231,19 @@ func pingpong(runenv *runtime.RunEnv) error {
 	config.Default.Latency = 10 * time.Millisecond
 	config.State = "latency-reduced"
 
-	logging.S().Debug("writing new config with latency reduced")
+	runenv.RecordMessage("writing new config with latency reduced")
 	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
 	if err != nil {
 		return err
 	}
 
-	logging.S().Debug("waiting at barrier")
+	runenv.RecordMessage("waiting at barrier")
 	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
 	if err != nil {
 		return err
 	}
 
-	logging.S().Debug("ping pong")
+	runenv.RecordMessage("ping pong")
 	err = pingPong("10", 20*time.Millisecond, 30*time.Millisecond)
 	if err != nil {
 		return err

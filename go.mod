@@ -2,10 +2,7 @@ module github.com/ipfs/testground
 
 go 1.14
 
-replace (
-	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
-	github.com/ipfs/testground/sdk/sync => ./sdk/sync
-)
+replace github.com/ipfs/testground/sdk => ./sdk
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
@@ -29,8 +26,7 @@ require (
 	github.com/grafana-tools/sdk v0.0.0-20200305194735-ebfd6e29db74
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk/runtime v0.4.0
-	github.com/ipfs/testground/sdk/sync v0.4.0
+	github.com/ipfs/testground/sdk v0.4.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mholt/archiver v3.1.1+incompatible
@@ -47,8 +43,8 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
-	go.uber.org/zap v1.12.0
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	go.uber.org/zap v1.14.1
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	google.golang.org/appengine v1.6.5 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
