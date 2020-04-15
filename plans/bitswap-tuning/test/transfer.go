@@ -3,21 +3,22 @@ package test
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
+
 	"github.com/ipfs/testground/sdk/runtime"
 	"github.com/ipfs/testground/sdk/sync"
 
 	ipld "github.com/ipfs/go-ipld-format"
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
+
+	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
 )
 
 // NOTE: To run use:
@@ -42,18 +43,17 @@ func Transfer(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	watcher, writer := sync.MustWatcherWriter(ctx, runenv)
+	client := sync.MustBoundClient(ctx, runenv)
 
 	/// --- Tear down
 	defer func() {
-		err := utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, "end", watcher, writer)
+		_, err := client.SignalAndWait(ctx, "end", runenv.TestInstanceCount)
 		if err != nil {
 			runenv.RecordFailure(err)
 		} else {
 			runenv.RecordSuccess()
 		}
-		watcher.Close()
-		writer.Close()
+		client.Close()
 	}()
 
 	// Create libp2p node
@@ -64,12 +64,14 @@ func Transfer(runenv *runtime.RunEnv) error {
 	defer h.Close()
 	runenv.RecordMessage("I am %s with addrs: %v", h.ID(), h.Addrs())
 
+	peers := sync.NewTopic("peers", &peer.AddrInfo{})
+
 	// Get sequence number of this host
-	seq, err := writer.Write(ctx, sync.PeerSubtree, host.InfoFromHost(h))
+	seq, err := client.Publish(ctx, peers, host.InfoFromHost(h))
 	if err != nil {
 		return err
 	}
-	grpseq, nodetp, tpindex, err := parseType(ctx, runenv, writer, h, seq)
+	grpseq, nodetp, tpindex, err := parseType(ctx, runenv, client, h, seq)
 	if err != nil {
 		return err
 	}
@@ -84,7 +86,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 		} else {
 			// If we are in group mode, signal other seed nodes to work out the
 			// seed index
-			seedSeq, err := getNodeSetSeq(ctx, writer, h, "seeds")
+			seedSeq, err := getNodeSetSeq(ctx, client, h, "seeds")
 			if err != nil {
 				return err
 			}
@@ -96,7 +98,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	// Get addresses of all peers
 	peerCh := make(chan *peer.AddrInfo)
 	sctx, cancelSub := context.WithCancel(ctx)
-	if err := watcher.Subscribe(sctx, sync.PeerSubtree, peerCh); err != nil {
+	if _, err := client.Subscribe(sctx, peers, peerCh); err != nil {
 		cancelSub()
 		return err
 	}
@@ -110,7 +112,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	/// --- Warm up
 
 	// Set up network (with traffic shaping)
-	latency, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, watcher, writer, nodetp, tpindex)
+	latency, bandwidthMB, err := utils.SetupNetwork(ctx, runenv, client, nodetp, tpindex)
 	if err != nil {
 		return fmt.Errorf("Failed to set up network: %w", err)
 	}
@@ -127,7 +129,8 @@ func Transfer(runenv *runtime.RunEnv) error {
 	// Signal that this node is in the given state, and wait for all peers to
 	// send the same signal
 	signalAndWaitForAll := func(state string) error {
-		return utils.SignalAndWaitForAll(ctx, runenv.TestInstanceCount, state, watcher, writer)
+		_, err := client.SignalAndWait(ctx, sync.State(state), runenv.TestInstanceCount)
+		return err
 	}
 
 	// For each file size
@@ -155,7 +158,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 
 			runenv.RecordMessage("Starting run %d / %d (%d bytes)", runNum, runCount, fileSize)
 			var bsnode *utils.Node
-			rootCidSubtree := getRootCidSubtree(sizeIndex)
+			rootCidTopic := getRootCidTopic(sizeIndex)
 
 			switch nodetp {
 			case utils.Seed:
@@ -175,7 +178,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 						if seedIndex > 0 {
 							// Wait for the seeds with an index lower than this one
 							// to generate their seed data
-							doneCh := watcher.Barrier(ctx, seedGenerated, int64(seedIndex))
+							doneCh := client.MustBarrier(ctx, seedGenerated, int(seedIndex)).C
 							if err = <-doneCh; err != nil {
 								return err
 							}
@@ -195,15 +198,15 @@ func Transfer(runenv *runtime.RunEnv) error {
 						runenv.RecordMessage("Done generating seed data of %d bytes (%s)", fileSize, time.Since(start))
 
 						// Signal we've completed generating the seed data
-						_, err = writer.SignalEntry(ctx, seedGenerated)
+						_, err = client.SignalEntry(ctx, seedGenerated)
 						if err != nil {
 							return fmt.Errorf("Failed to signal seed generated: %w", err)
 						}
 					}
 
 					// Inform other nodes of the root CID
-					if _, err = writer.Write(ctx, rootCidSubtree, &rootCid); err != nil {
-						return fmt.Errorf("Failed to get Redis Sync rootCidSubtree %w", err)
+					if _, err = client.Publish(ctx, rootCidTopic, &rootCid); err != nil {
+						return fmt.Errorf("Failed to get Redis Sync rootCidTopic %w", err)
 					}
 				}
 			case utils.Leech:
@@ -224,9 +227,9 @@ func Transfer(runenv *runtime.RunEnv) error {
 					// Get the root CID from a seed
 					rootCidCh := make(chan *cid.Cid, 1)
 					sctx, cancelRootCidSub := context.WithCancel(ctx)
-					if err := watcher.Subscribe(sctx, rootCidSubtree, rootCidCh); err != nil {
+					if _, err := client.Subscribe(sctx, rootCidTopic, rootCidCh); err != nil {
 						cancelRootCidSub()
-						return fmt.Errorf("Failed to subscribe to rootCidSubtree %w", err)
+						return fmt.Errorf("Failed to subscribe to rootCidTopic %w", err)
 					}
 
 					// Note: only need to get the root CID from one seed - it should be the
@@ -329,7 +332,7 @@ func Transfer(runenv *runtime.RunEnv) error {
 	return nil
 }
 
-func parseType(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer, h host.Host, seq int64) (int64, utils.NodeType, int, error) {
+func parseType(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client, h host.Host, seq int64) (int64, utils.NodeType, int, error) {
 	leechCount := runenv.IntParam("leech_count")
 	passiveCount := runenv.IntParam("passive_count")
 
@@ -356,7 +359,7 @@ func parseType(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer,
 		grpPrefix = runenv.TestGroupID + " "
 
 		var err error
-		grpseq, err = getNodeSetSeq(ctx, writer, h, runenv.TestGroupID)
+		grpseq, err = getNodeSetSeq(ctx, client, h, runenv.TestGroupID)
 		if err != nil {
 			return grpseq, nodetp, tpindex, err
 		}
@@ -382,16 +385,10 @@ func parseType(ctx context.Context, runenv *runtime.RunEnv, writer *sync.Writer,
 	return grpseq, nodetp, tpindex, nil
 }
 
-func getNodeSetSeq(ctx context.Context, writer *sync.Writer, h host.Host, setID string) (int64, error) {
-	subtree := &sync.Subtree{
-		GroupKey:    "nodes" + setID,
-		PayloadType: reflect.TypeOf(&peer.AddrInfo{}),
-		KeyFunc: func(val interface{}) string {
-			return val.(*peer.AddrInfo).ID.Pretty()
-		},
-	}
+func getNodeSetSeq(ctx context.Context, client *sync.Client, h host.Host, setID string) (int64, error) {
+	topic := sync.NewTopic("nodes" + setID, &peer.AddrInfo{})
 
-	return writer.Write(ctx, subtree, host.InfoFromHost(h))
+	return client.Publish(ctx, topic, host.InfoFromHost(h))
 }
 
 func setupSeed(ctx context.Context, runenv *runtime.RunEnv, node *utils.Node, fileSize int, seedIndex int) (cid.Cid, error) {
@@ -459,14 +456,8 @@ func getLeafNodes(ctx context.Context, node ipld.Node, dserv ipld.DAGService) ([
 	return leaves, nil
 }
 
-func getRootCidSubtree(id int) *sync.Subtree {
-	return &sync.Subtree{
-		GroupKey:    fmt.Sprintf("root-cid-%d", id),
-		PayloadType: reflect.TypeOf(&cid.Cid{}),
-		KeyFunc: func(val interface{}) string {
-			return val.(*cid.Cid).String()
-		},
-	}
+func getRootCidTopic(id int) *sync.Topic {
+	return sync.NewTopic(fmt.Sprintf("root-cid-%d", id), &cid.Cid{})
 }
 
 func emitMetrics(runenv *runtime.RunEnv, bsnode *utils.Node, runNum int, seq int64, grpseq int64,

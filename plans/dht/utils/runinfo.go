@@ -6,9 +6,8 @@ import (
 )
 
 type RunInfo struct {
-	RunEnv  *runtime.RunEnv
-	Watcher *sync.Watcher
-	Writer  *sync.Writer
+	RunEnv *runtime.RunEnv
+	Client *sync.Client
 
 	Groups          []string
 	GroupProperties map[string]*GroupInfo

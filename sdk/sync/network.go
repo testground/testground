@@ -1,34 +1,14 @@
 package sync
 
 import (
+	"context"
+	"fmt"
 	"net"
 	"reflect"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/ipfs/testground/sdk/runtime"
 )
-
-type Action int
-
-const (
-	ActionAdded Action = iota
-	ActionDeleted
-)
-
-type PeerPayload struct {
-	Action
-	*peer.AddrInfo
-}
-
-// PeerSubtree represents a subtree under the test run's sync tree where peers
-// participating in this distributed test advertise themselves.
-var PeerSubtree = &Subtree{
-	GroupKey:    "nodes",
-	PayloadType: reflect.TypeOf(&peer.AddrInfo{}),
-	KeyFunc: func(val interface{}) string {
-		return val.(*peer.AddrInfo).ID.Pretty()
-	},
-}
 
 type FilterAction int
 
@@ -116,15 +96,40 @@ type NetworkConfig struct {
 	State State
 }
 
-// NetworkSubtree reprenents a subtree through which tests runs can communicate
+// NetworkTopic represents a subtree through which tests runs can communicate
 // with their sidecar. Use this communication channel to setup the networking.
 // Create this structure using NetworkSubtree(hostname)
-func NetworkSubtree(container string) *Subtree {
-	return &Subtree{
-		GroupKey:    "network:" + container,
-		PayloadType: reflect.TypeOf(&NetworkConfig{}),
-		KeyFunc: func(val interface{}) string {
-			return val.(*NetworkConfig).Network
-		},
+func NetworkTopic(container string) *Topic {
+	return &Topic{
+		name: "network:" + container,
+		typ:  reflect.TypeOf(&NetworkConfig{}),
 	}
+}
+
+const (
+	// magic values that we monitor on the Testground runner side to detect when Testground
+	// testplan instances are initialised and at the stage of actually running a test
+	// check cluster_k8s.go for more information
+	NetworkInitialisationSuccessful = "network initialisation successful"
+	NetworkInitialisationFailed     = "network initialisation failed"
+)
+
+// WaitNetworkInitialized waits for the sidecar to initialize the network, if
+// the sidecar is enabled.
+func (c *Client) WaitNetworkInitialized(ctx context.Context, runenv *runtime.RunEnv) error {
+	rp := c.extractor(ctx)
+	if rp == nil {
+		return ErrNoRunParameters
+	}
+
+	if rp.TestSidecar {
+		b, err := c.Barrier(ctx, "network-initialized", rp.TestInstanceCount)
+		if err != nil {
+			runenv.RecordMessage(NetworkInitialisationFailed)
+			return fmt.Errorf("failed to initialize network: %w", err)
+		}
+		<-b.C
+	}
+	runenv.RecordMessage(NetworkInitialisationSuccessful)
+	return nil
 }

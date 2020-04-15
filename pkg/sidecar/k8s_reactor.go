@@ -10,9 +10,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -33,6 +36,7 @@ var (
 )
 
 type K8sReactor struct {
+	client  *sync.Client
 	redis   net.IP
 	manager *docker.Manager
 }
@@ -50,7 +54,16 @@ func NewK8sReactor() (Reactor, error) {
 		return nil, err
 	}
 
+	client, err := sync.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return nil, err
+	}
+
+	// sidecar nodes perform Redis GC.
+	client.EnableBackgroundGC(nil)
+
 	return &K8sReactor{
+		client:  client,
 		manager: docker,
 		redis:   redisIp.IP,
 	}, nil
@@ -77,7 +90,10 @@ func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error 
 }
 
 func (d *K8sReactor) Close() error {
-	return d.manager.Close()
+	var err *multierror.Error
+	err = multierror.Append(err, d.manager.Close())
+	err = multierror.Append(err, d.client.Close())
+	return err.ErrorOrNil()
 }
 
 func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.ContainerRef) (inst *Instance, err error) {
@@ -244,7 +260,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		}
 	}
 
-	return NewInstance(ctx, runenv, info.Config.Hostname, network)
+	return NewInstance(d.client, runenv, info.Config.Hostname, network)
 }
 
 func waitForPodRunningPhase(ctx context.Context, podName string) error {
