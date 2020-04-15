@@ -1,21 +1,17 @@
 package runtime
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"runtime/debug"
 	"strings"
-	"time"
 
 	"net/http"
 	_ "net/http/pprof"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/prometheus/client_golang/prometheus/push"
 )
 
 const (
@@ -25,12 +21,7 @@ const (
 	// instance will lead to a collision. Therefore we fallback to 0.
 	HTTPPort         = 6060
 	HTTPPortFallback = 0
-
-	MetricsPushInterval = 5 * time.Second
 )
-
-// PushgatewayEndpoints are endpoints to test before activating pushgateway.
-var PushgatewayEndpoints = []string{"prometheus-pushgateway:9091", "localhost:9091"}
 
 // HTTPListenAddr will be set to the listener address _before_ the test case is
 // invoked. If we were unable to start the listener, this value will be "".
@@ -56,31 +47,19 @@ func Invoke(tc TestCaseFn) {
 	runenv := CurrentRunEnv()
 	defer runenv.Close()
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	setupHTTPListener(runenv)
-	pushGatewayEnabled := false
-	var metricsDoneCh chan error
-	if pushGatewayEnabled {
-		metricsDoneCh = setupMetrics(ctx, runenv)
-	} else {
-		metricsDoneCh = make(chan error, 1)
-		metricsDoneCh <- nil
-	}
 
 	runenv.RecordStart()
 
 	errfile, err := runenv.CreateRawAsset("run.err")
 	if err != nil {
 		runenv.RecordCrash(err)
-		cancel()
 		return
 	}
 
 	rd, wr, err := os.Pipe()
 	if err != nil {
 		runenv.RecordCrash(err)
-		cancel()
 		return
 	}
 
@@ -122,122 +101,9 @@ func Invoke(tc TestCaseFn) {
 		runenv.RecordFailure(err)
 	}
 
-	cancel()
-
 	_ = rd.Close()
 	<-ioDoneCh
 	runenv.RecordMessage("io closed")
-	<-metricsDoneCh
-	runenv.RecordMessage("metrics done")
-}
-
-// setupMetrics tracks the test duration, and sets up Prometheus metrics push.
-func setupMetrics(ctx context.Context, runenv *RunEnv) (doneCh chan error) {
-	doneCh = make(chan error)
-	testDuration := runenv.M().NewGauge(prometheus.GaugeOpts{
-		Name: "tg_plan_duration",
-		Help: "test plan run time (seconds)",
-	})
-
-	durationCh := make(chan struct{})
-	// Keep reporting the test duration every second.
-	go func() {
-		defer close(durationCh)
-
-		t := prometheus.NewTimer(prometheus.ObserverFunc(testDuration.Set))
-		defer t.ObserveDuration() // record before exiting.
-
-		tick := time.NewTicker(1 * time.Second)
-		defer tick.Stop()
-
-		for {
-			select {
-			case <-tick.C:
-				t.ObserveDuration()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	go func() {
-		defer close(doneCh)
-
-		// Wait until the pushgateway is ready.
-		runenv.RecordMessage("waiting for pushgateway to become accessible")
-
-		tick := time.NewTicker(MetricsPushInterval)
-		defer tick.Stop()
-
-		var endpoint string
-	Outer:
-		for b := make([]byte, 2); ; {
-			for _, endpoint = range PushgatewayEndpoints {
-				resp, err := http.Get(fmt.Sprintf("http://%s/-/ready", endpoint))
-				if err != nil {
-					continue
-				}
-				_, err = io.ReadFull(resp.Body, b)
-				resp.Body.Close()
-				if err != nil {
-					continue
-				}
-				if string(b) == "OK" {
-					break Outer
-				}
-			}
-
-			select {
-			case <-tick.C:
-				// loop over
-			case <-ctx.Done():
-				// pushgateway was never ready.
-				return
-			}
-		}
-
-		runenv.RecordMessage("pushgateway is up at %s; pushing metrics every %s.", endpoint, MetricsPushInterval)
-
-		hostname, _ := os.Hostname()
-
-		pusher := push.New(endpoint, "testground/plan").
-			Gatherer(prometheus.DefaultGatherer).
-			Grouping("plan", runenv.TestPlan).
-			Grouping("case", runenv.TestCase).
-			Grouping("run_id", runenv.TestRun).
-			Grouping("group_id", runenv.TestGroupID).
-			Grouping("container_name", hostname)
-
-		push := func() {
-			if err := pusher.Add(); err != nil {
-				runenv.RecordMessage("error during periodic metric push: %s", err)
-			}
-		}
-
-		// push now
-		push()
-
-		// defer a final push.
-		defer func() {
-			<-durationCh
-			runenv.RecordMessage("test run completed. waiting a few seconds for the metrics scraper.")
-			push()
-			time.Sleep(2 * MetricsPushInterval)
-			_ = pusher.Delete()
-		}()
-
-		// Push every MetricsPushInterval.
-		for {
-			select {
-			case <-tick.C:
-				push()
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return doneCh
 }
 
 func setupHTTPListener(runenv *RunEnv) {

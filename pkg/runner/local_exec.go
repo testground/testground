@@ -184,7 +184,6 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 	// Build query for runner infrastructure containers.
 	opts := types.ContainerListOptions{}
 	opts.Filters = filters.NewArgs()
-	opts.Filters.Add("name", "prometheus-pushgateway")
 	opts.Filters.Add("name", "testground-grafana")
 	opts.Filters.Add("name", "testground-prometheus")
 	opts.Filters.Add("name", "testground-redis")
