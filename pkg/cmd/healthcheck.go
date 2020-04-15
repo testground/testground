@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
+
+	api2 "github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/client"
 )
 
 var HealthcheckCommand = cli.Command{
@@ -34,12 +36,12 @@ func healthcheckCommand(c *cli.Context) error {
 		fix    = c.Bool("fix")
 	)
 
-	api, err := setupClient(c)
+	cl, _, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	r, err := api.Healthcheck(ctx, &client.HealthcheckRequest{
+	r, err := cl.Healthcheck(ctx, &api2.HealthcheckRequest{
 		Runner: runner,
 		Fix:    fix,
 	})

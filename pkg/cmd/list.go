@@ -1,10 +1,12 @@
 package cmd
 
 import (
-	"context"
+	"fmt"
+	"io/ioutil"
 
-	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
+
+	"github.com/ipfs/testground/pkg/config"
 )
 
 // ListCommand is the specification of the `list` command.
@@ -15,19 +17,21 @@ var ListCommand = cli.Command{
 }
 
 func listCommand(c *cli.Context) error {
-	ctx, cancel := context.WithCancel(ProcessContext())
-	defer cancel()
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		return err
+	}
 
-	api, err := setupClient(c)
+	files, err := ioutil.ReadDir(cfg.Dirs().Plans())
 	if err != nil {
 		return err
 	}
 
-	resp, err := api.List(ctx)
-	if err != nil {
-		return err
+	for _, f := range files {
+		if f.IsDir() {
+			fmt.Println(f.Name())
+		}
 	}
-	defer resp.Close()
 
-	return client.ParseListResponse(resp)
+	return nil
 }

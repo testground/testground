@@ -3,8 +3,10 @@ package cmd
 import (
 	"context"
 
-	"github.com/ipfs/testground/pkg/client"
 	"github.com/urfave/cli"
+
+	api2 "github.com/ipfs/testground/pkg/api"
+	"github.com/ipfs/testground/pkg/client"
 )
 
 var TerminateCommand = cli.Command{
@@ -26,12 +28,12 @@ func terminateCommand(c *cli.Context) error {
 
 	runner := c.String("runner")
 
-	api, err := setupClient(c)
+	cl, _, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	r, err := api.Terminate(ctx, &client.TerminateRequest{
+	r, err := cl.Terminate(ctx, &api2.TerminateRequest{
 		Runner: runner,
 	})
 	if err != nil {

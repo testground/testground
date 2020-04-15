@@ -7,9 +7,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/urfave/cli"
+
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/sidecar"
-	"github.com/urfave/cli"
 )
 
 var ErrNotLinux = fmt.Errorf("the sidecar only supports linux, not %s", runtime.GOOS)

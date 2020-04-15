@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
 
@@ -50,16 +51,16 @@ func collectCommand(c *cli.Context) error {
 		output = o
 	}
 
-	api, err := setupClient(c)
+	cl, _, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	return collect(ctx, api, runner, id, output)
+	return collect(ctx, cl, runner, id, output)
 }
 
 func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
-	req := &client.OutputsRequest{
+	req := &api.OutputsRequest{
 		Runner: runner,
 		RunID:  runid,
 	}

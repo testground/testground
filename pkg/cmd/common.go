@@ -3,58 +3,36 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/urfave/cli"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/conv"
-	"github.com/urfave/cli"
 )
 
-// Commands collects all subcommands of the testground CLI.
-var Commands = []cli.Command{
-	RunCommand,
-	ListCommand,
-	BuildCommand,
-	DescribeCommand,
-	SidecarCommand,
-	DaemonCommand,
-	CollectCommand,
-	TerminateCommand,
-	HealthcheckCommand,
-}
-
-var Flags = []cli.Flag{
-	cli.BoolFlag{
-		Name:  "v",
-		Usage: "verbose output (equivalent to DEBUG log level)",
-	},
-	cli.BoolFlag{
-		Name:  "vv",
-		Usage: "super verbose output (equivalent to DEBUG log level for now, it may accommodate TRACE in the future)",
-	},
-	cli.StringFlag{
-		Name:  "endpoint",
-		Usage: "set the daemon endpoint URI (overrides .env.toml)",
-	},
-}
-
-func setupClient(c *cli.Context) (*client.Client, error) {
-	endpoint := c.GlobalString("endpoint")
-
-	if endpoint == "" {
-		envcfg, err := config.GetEnvConfig()
-		if err != nil {
-			return nil, err
-		}
-		endpoint = envcfg.Client.Endpoint
+func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		return nil, nil, err
 	}
 
-	api := client.New(endpoint)
-	return api, nil
+	endpoint := c.GlobalString("endpoint")
+	if endpoint != "" {
+		cfg.Client.Endpoint = endpoint
+	}
+
+	cl := client.New(cfg)
+	return cl, cfg, nil
 }
 
+// createSingletonComposition parses a single-style command line build/run, and
+// produces a synthetic composition to submit to the server.
 func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	var (
 		testcase = c.Args().First()
@@ -78,7 +56,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 			TotalInstances: instances,
 		},
 		Groups: []api.Group{
-			api.Group{
+			{
 				ID: "single",
 				Instances: api.Instances{
 					Count: instances,
@@ -139,6 +117,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 		comp.Groups[0].Build.Dependencies = append(comp.Groups[0].Build.Dependencies, dep)
 	}
 
+	// Validate the composition before returning it.
 	switch c := strings.Fields(c.Command.FullName()); c[0] {
 	case "build":
 		err = comp.ValidateForBuild()
@@ -149,4 +128,67 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	}
 
 	return comp, err
+}
+
+// resolveTestPlan resolves a test plan, returning its root directory and its
+// parsed manifest.
+func resolveTestPlan(cfg *config.EnvConfig, name string) (string, *api.TestPlanManifest, error) {
+	baseDir := cfg.Dirs().Plans()
+
+	// Resolve the test plan directory.
+	path := filepath.Join(baseDir, name)
+	if !isDirectory(path) {
+		return "", nil, fmt.Errorf("failed to locate plan in directory: %s", path)
+	}
+
+	manifest := filepath.Join(path, "manifest.toml")
+	switch fi, err := os.Stat(manifest); {
+	case err != nil:
+		return "", nil, fmt.Errorf("failed to access plan manifest at %s: %w", manifest, err)
+	case fi.IsDir():
+		return "", nil, fmt.Errorf("failed to access plan manifest at %s: not a file", manifest)
+	}
+
+	plan := new(api.TestPlanManifest)
+	if _, err := toml.DecodeFile(manifest, plan); err != nil {
+		return "", nil, fmt.Errorf("failed to parse manifest file at %s: %w", manifest, err)
+	}
+
+	return path, plan, nil
+}
+
+// resolveSDK resolves the root directory of an SDK.
+func resolveSDK(cfg *config.EnvConfig, path string) (string, error) {
+	baseDir := cfg.Dirs().SDKs()
+
+	var try []string
+
+	if filepath.IsAbs(path) {
+		// the user supplied an absolute path.
+		try = []string{path}
+	} else {
+		// the user supplied something that wasn't an absolute path.
+		// we interpret it as a relative path to PWD first, to $TESTGROUND_HOME/sdks second.
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("could not determine current working dir: %w", err)
+		}
+
+		try = append(try, filepath.Join(wd, path), filepath.Join(baseDir, path))
+	}
+
+	for _, d := range try {
+		if isDirectory(d) {
+			return d, nil
+		}
+	}
+
+	return "", fmt.Errorf("no matching paths; tried: %v", try)
+}
+
+func isDirectory(path string) bool {
+	if fi, err := os.Stat(path); err != nil || !fi.IsDir() {
+		return false
+	}
+	return true
 }

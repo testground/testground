@@ -23,13 +23,12 @@ func daemonCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	envcfg, err := config.GetEnvConfig()
-	if err != nil {
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
 		return err
 	}
 
-	listen := envcfg.Daemon.Listen
-	srv, err := daemon.New(listen)
+	srv, err := daemon.New(cfg)
 	if err != nil {
 		return err
 	}

@@ -31,6 +31,11 @@ var BuildCommand = cli.Command{
 					Name:  "write-artifacts, w",
 					Usage: "Writes the resulting build artifacts to the composition file.",
 				},
+				cli.StringFlag{
+					Name: "link-sdk",
+					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
+						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
+				},
 			},
 		},
 		cli.Command{
@@ -51,6 +56,11 @@ var BuildCommand = cli.Command{
 				cli.StringSliceFlag{
 					Name:  "build-cfg",
 					Usage: "set a build config parameter",
+				},
+				cli.StringFlag{
+					Name: "link-sdk",
+					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
+						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
 				},
 			},
 		},
@@ -100,16 +110,45 @@ func buildSingleCmd(c *cli.Context) (err error) {
 }
 
 func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
+	var (
+		plan    = comp.Global.Plan
+		planDir string
+		sdkDir  string
+	)
+
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	cl, err := setupClient(c)
+	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return nil, err
 	}
 
-	req := &client.BuildRequest{Composition: *comp}
-	resp, err := cl.Build(ctx, req)
+	// Resolve the linked SDK directory, if one has been supplied.
+	if sdk := c.String("link-sdk"); sdk != "" {
+		var err error
+		sdkDir, err = resolveSDK(cfg, sdk)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve linked SDK directory: %w", err)
+		}
+		logging.S().Infof("linking with sdk at: %s", sdkDir)
+	}
+
+	// Resolve the test plan and its manifest.
+	var manifest *api.TestPlanManifest
+	planDir, manifest, err = resolveTestPlan(cfg, plan)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve test plan: %w", err)
+	}
+
+	logging.S().Infof("test plan source at: %s", planDir)
+
+	if err := comp.PrepareForBuild(manifest); err != nil {
+		return nil, err
+	}
+
+	req := &api.BuildRequest{Composition: *comp}
+	resp, err := cl.Build(ctx, req, planDir, sdkDir)
 	if err != nil {
 		return nil, err
 	}

@@ -120,7 +120,7 @@ func runSingleCmd(c *cli.Context) (err error) {
 }
 
 func doRun(c *cli.Context, comp *api.Composition) (err error) {
-	cl, err := setupClient(c)
+	cl, _, err := setupClient(c)
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		}
 	}
 
-	req := &client.RunRequest{
+	req := &api.RunRequest{
 		Composition: *comp,
 	}
 

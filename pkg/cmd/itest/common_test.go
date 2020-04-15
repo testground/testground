@@ -4,7 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ipfs/testground/cmd"
+	"github.com/ipfs/testground/pkg/cmd"
+	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/daemon"
 
 	"github.com/urfave/cli"
@@ -13,7 +14,12 @@ import (
 func runSingle(t *testing.T, args ...string) error {
 	t.Helper()
 
-	srv, err := daemon.New("localhost:0")
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		t.Fatal(err)
+	}
+	cfg.Daemon.Listen = "localhost:0"
+	srv, err := daemon.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,8 +29,8 @@ func runSingle(t *testing.T, args ...string) error {
 
 	app := cli.NewApp()
 	app.Name = "testground"
-	app.Commands = cmd.Commands
-	app.Flags = cmd.Flags
+	app.Commands = cmd.RootCommands
+	app.Flags = cmd.RootFlags
 	app.HideVersion = true
 
 	args = append([]string{"testground", "--endpoint", srv.Addr()}, args...)
