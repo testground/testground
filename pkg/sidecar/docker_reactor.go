@@ -10,12 +10,14 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/hashicorp/go-multierror"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/ipfs/testground/sdk/sync"
 )
 
 // PublicAddr points to an IP address in the public range. It helps us discover
@@ -29,6 +31,7 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
+	client  *sync.Client
 	routes  []net.IP
 	manager *docker.Manager
 }
@@ -55,7 +58,16 @@ func NewDockerReactor() (Reactor, error) {
 		return nil, err
 	}
 
+	client, err := sync.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return nil, err
+	}
+
+	// sidecar nodes perform Redis GC.
+	client.EnableBackgroundGC(nil)
+
 	return &DockerReactor{
+		client:  client,
 		routes:  resolvedRoutes,
 		manager: docker,
 	}, nil
@@ -82,7 +94,10 @@ func (d *DockerReactor) Handle(globalctx context.Context, handler InstanceHandle
 }
 
 func (d *DockerReactor) Close() error {
-	return d.manager.Close()
+	var err *multierror.Error
+	err = multierror.Append(err, d.manager.Close())
+	err = multierror.Append(err, d.client.Close())
+	return err.ErrorOrNil()
 }
 
 func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.ContainerRef) (inst *Instance, err error) {
@@ -251,5 +266,5 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 			}
 		}
 	}
-	return NewInstance(ctx, runenv, info.Config.Hostname, network)
+	return NewInstance(d.client, runenv, info.Config.Hostname, network)
 }

@@ -56,7 +56,7 @@ func (s *BatchStager) End() error {
 	stage := sync.State(s.name + strconv.Itoa(s.stage))
 
 	t := time.Now()
-	_, err := s.ri.Writer.SignalEntry(s.ctx, stage)
+	_, err := s.ri.Client.SignalEntry(s.ctx, stage)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func (s *BatchStager) End() error {
 
 	t = time.Now()
 
-	err = <-s.ri.Watcher.Barrier(s.ctx, stage, int64(s.total-1))
+	err = <-s.ri.Client.MustBarrier(s.ctx, stage, s.total).C
 	s.ri.RunEnv.RecordMetric(&runtime.MetricDefinition{
 		Name:           "barrier" + string(stage),
 		Unit:           "ns",
@@ -106,7 +106,7 @@ func (s *SinglePeerStager) Begin() error {
 
 	// Wait until it's out turn
 	stage := sync.State(s.name + string(s.stage))
-	return <-s.ri.Watcher.Barrier(s.ctx, stage, int64(s.seq))
+	return <-s.ri.Client.MustBarrier(s.ctx, stage, s.seq).C
 }
 func (s *SinglePeerStager) End() error {
 	return s.BatchStager.End()
@@ -143,25 +143,25 @@ func (s *GradualStager) Begin() error {
 	stageWait := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn))
 	stageNext := sync.State(fmt.Sprintf("%s%d-%d", s.name, s.stage, ourTurn+1))
 	s.ri.RunEnv.RecordMessage("%d is waiting on %d from state %d", s.seq, waitFor, ourTurn)
-	err := <-s.ri.Watcher.Barrier(s.ctx, stageWait, int64(waitFor))
+	err := <-s.ri.Client.MustBarrier(s.ctx, stageWait, waitFor).C
 	if err != nil {
 		return err
 	}
 	s.ri.RunEnv.RecordMessage("%d is running", s.seq)
-	_, err = s.ri.Writer.SignalEntry(s.ctx, stageNext)
+	_, err = s.ri.Client.SignalEntry(s.ctx, stageNext)
 
 	return err
 }
 
 func (s *GradualStager) End() error {
 	lastStage := sync.State(fmt.Sprintf("%s%d-end", s.name, s.stage))
-	_, err := s.ri.Writer.SignalEntry(s.ctx, lastStage)
+	_, err := s.ri.Client.SignalEntry(s.ctx, lastStage)
 	if err != nil {
 		return err
 	}
-	total := int64(s.ri.RunEnv.TestInstanceCount - 1)
+	total := s.ri.RunEnv.TestInstanceCount - 1
 	s.ri.RunEnv.RecordMessage("%d is done - waiting for %d", s.seq, total)
-	err = <-s.ri.Watcher.Barrier(s.ctx, lastStage, total)
+	err = <-s.ri.Client.MustBarrier(s.ctx, lastStage, total).C
 	s.ri.RunEnv.RecordMessage("%d passed the barrier", s.seq)
 	return err
 }
