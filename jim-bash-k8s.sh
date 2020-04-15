@@ -16,5 +16,5 @@ if [ -z "$1" ]; then
 	exit 1
 fi
 
-exec kubectl exec -it tg-$BASE-$ID-single-$1 /bin/bash
+exec kubectl exec -it tg-$BASE-$ID-single-$1 -- /bin/bash
 
