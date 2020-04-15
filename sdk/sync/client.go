@@ -29,17 +29,17 @@ const (
 var ErrNoRunParameters = fmt.Errorf("no run parameters provided")
 
 var DefaultRedisOpts = redis.Options{
-	MinIdleConns:       0,                // allow the pool to downsize to 0 conns.
-	PoolSize:           2,                // one for subscriptions, one for nonblocking operations.
-	PoolTimeout:        30 * time.Second, // amount of time a waiter will wait for a conn to become available.
-	MaxRetries:         5,
+	MinIdleConns:       2,               // allow the pool to downsize to 0 conns.
+	PoolSize:           5,               // one for subscriptions, one for nonblocking operations.
+	PoolTimeout:        3 * time.Minute, // amount of time a waiter will wait for a conn to become available.
+	MaxRetries:         30,
 	MinRetryBackoff:    1 * time.Second,
 	MaxRetryBackoff:    3 * time.Second,
 	DialTimeout:        10 * time.Second,
 	ReadTimeout:        10 * time.Second,
 	WriteTimeout:       10 * time.Second,
 	IdleCheckFrequency: 30 * time.Second,
-	MaxConnAge:         1 * time.Minute,
+	MaxConnAge:         2 * time.Minute,
 }
 
 type Client struct {
