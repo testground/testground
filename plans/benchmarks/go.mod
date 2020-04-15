@@ -8,9 +8,7 @@ replace (
 )
 
 require (
-	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/ipfs/testground/sdk/runtime v0.3.0
-	github.com/ipfs/testground/sdk/sync v0.3.0
-	github.com/multiformats/go-multihash v0.0.13 // indirect
+	github.com/ipfs/testground/sdk/runtime v0.4.0
+	github.com/ipfs/testground/sdk/sync v0.4.0
 	github.com/prometheus/client_golang v1.4.1
 )

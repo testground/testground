@@ -3,7 +3,6 @@ module github.com/ipfs/testground
 go 1.14
 
 replace (
-	github.com/ipfs/testground/sdk/iptb => ./sdk/iptb
 	github.com/ipfs/testground/sdk/runtime => ./sdk/runtime
 	github.com/ipfs/testground/sdk/sync => ./sdk/sync
 )
@@ -28,17 +27,14 @@ require (
 	github.com/hashicorp/go-getter v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk/runtime v0.3.0
-	github.com/ipfs/testground/sdk/sync v0.3.0
+	github.com/ipfs/testground/sdk/runtime v0.4.0
+	github.com/ipfs/testground/sdk/sync v0.4.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
-	github.com/libp2p/go-libp2p-core v0.3.0 // indirect
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/morikuni/aec v1.0.0 // indirect
-	github.com/onsi/ginkgo v1.11.0 // indirect
-	github.com/onsi/gomega v1.8.1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
@@ -49,8 +45,6 @@ require (
 	go.uber.org/zap v1.12.0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	google.golang.org/appengine v1.6.5 // indirect
-	gopkg.in/yaml.v2 v2.2.7 // indirect
-	honnef.co/go/tools v0.0.1-2020.1.3 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a

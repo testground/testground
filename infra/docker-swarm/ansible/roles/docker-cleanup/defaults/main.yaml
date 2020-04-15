@@ -1,1 +1,0 @@
-docker_cleanup_schedule: ["1", "0", "*", "*", "*"] # Cron format https://en.wikipedia.org/wiki/Cron

@@ -74,28 +74,23 @@ func handler(ctx context.Context, instance *Instance) error {
 		return err
 	}
 
-	// Wait for all the sidecars to enter the "network-initialized" state.
-	const netInitState = "network-initialized"
-	if _, err = instance.Writer.SignalEntry(ctx, netInitState); err != nil {
-		return fmt.Errorf("failed to signal network ready: %w", err)
-	}
+	ctx = sync.WithRunParams(ctx, &instance.RunEnv.RunParams)
 
+	// Wait for all the sidecars to enter the "network-initialized" state.
 	instance.S().Infof("waiting for all networks to be ready")
 
-	if err := <-instance.Watcher.Barrier(
-		ctx,
-		netInitState,
-		int64(instance.RunEnv.TestInstanceCount),
-	); err != nil {
-		return fmt.Errorf("failed to wait for network ready: %w", err)
+	const netInitState = "network-initialized"
+	total := instance.RunEnv.TestInstanceCount
+	if _, err := instance.Client.SignalAndWait(ctx, netInitState, total); err != nil {
+		return fmt.Errorf("failed to signal network ready: %w", err)
 	}
 
 	instance.S().Infof("all networks ready")
 
 	// Now let the test case tell us how to configure the network.
-	subtree := sync.NetworkSubtree(instance.Hostname)
+	topic := sync.NetworkTopic(instance.Hostname)
 	networkChanges := make(chan *sync.NetworkConfig, 16)
-	if err := instance.Watcher.Subscribe(ctx, subtree, networkChanges); err != nil {
+	if _, err := instance.Client.Subscribe(ctx, topic, networkChanges); err != nil {
 		return fmt.Errorf("failed to subscribe to network changes: %s", err)
 	}
 
@@ -120,7 +115,7 @@ func handler(ctx context.Context, instance *Instance) error {
 			}
 
 			if cfg.State != "" {
-				_, err := instance.Writer.SignalEntry(ctx, cfg.State)
+				_, err := instance.Client.SignalEntry(ctx, cfg.State)
 				if err != nil {
 					return fmt.Errorf("failed to signal network state change %s: %w", cfg.State, err)
 				}

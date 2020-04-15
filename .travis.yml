@@ -8,6 +8,7 @@ go:
 
 services:
   - docker
+#  - redis-server // the local:exec runner starts redis as a Docker container.
 
 env:
   global:

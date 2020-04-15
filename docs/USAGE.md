@@ -138,17 +138,6 @@ You should see a bunch of logs that describe the steps of the test, from:
 * Starting the containers (total of 50 as 50 is the default number of nodes for this test)
 * You will see the logs that describe each node connecting to the others and executing a kademlia find-peers action.
 
-
-In order to run the tests with the local:exec runner, there are a few things that must be taken care of first.
-1. install required test software
-  * redis (redis.io)
-  * prometheus (prometheus.io)
-  * prometheus-pushgateway (prometheus.io)
-
-(bug) the address of the promethus pushgateway is hard-coded to http://prometheus-pushgateway.
-This works fine on the docker and k8s runners, but you will need to make this address resolvable on your local system.
-Consider adding a line into /etc/hosts so metrics collection works with the local:exec runner.
-
 ## Running a composition
 
 
@@ -219,23 +208,14 @@ import (
 	"github.com/ipfs/testground/sdk/runtime"
 )
 
-var testCases = []func(*runtime.RunEnv) error {
-   test.MyTest1,
-   test.MyTest2,
+var testcases = map[string]runtime.TestCaseFn {
+   "test-1": test.MyTest1,
+   "test-2": test.MyTest2,
    // add any other tests you have in ./test
 }
 
 func main() {
-	runtime.Invoke(run)
-}
-
-func run(runenv *runtime.RunEnv) error {
-	if runenv.TestCaseSeq < 0 {
-		panic("test case sequence number not set")
-	}
-
-	// Demux to the right test case.
-	return testCases[runenv.TestCaseSeq](runenv)
+	runtime.InvokeMap(testcases)
 }
 ```
 

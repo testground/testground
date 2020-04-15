@@ -7,11 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -24,6 +22,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/conv"
+	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 	"github.com/ipfs/testground/sdk/runtime"
@@ -51,14 +50,12 @@ const (
 	// as well as to copy archives from it, since it has EFS attached to it
 	collectOutputsPodName = "collect-outputs"
 
-	// number of CPUs allocated to Redis. should be same as what is set in redis-values.yaml
-	redisCPUs = 2.0
 	// number of CPUs allocated to each Sidecar. should be same as what is set in sidecar.yaml
 	sidecarCPUs = 0.2
 
 	// utilisation is how many CPUs from the remainder shall we allocate to Testground
 	// note that there are other services running on the Kubernetes cluster such as
-	// api proxy, kubedns, s3bucket, etc.
+	// api proxy, node_exporter, dummy, etc.
 	utilisation = 0.85
 
 	// magic values that we monitor on the Testground runner side to detect when Testground
@@ -70,6 +67,10 @@ const (
 
 var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
+
+	// resource requests and limits for the `collect-outputs` pod
+	collectOutputsResourceCPU    = resource.MustParse("2000m")
+	collectOutputsResourceMemory = resource.MustParse("1024Mi")
 )
 
 var k8sSubnetIdx uint64 = 0
@@ -140,16 +141,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
 	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
-	// Sanity check.
-	if input.Seq < 0 || input.Seq >= len(input.TestPlan.TestCases) {
-		return nil, fmt.Errorf("invalid test case seq %d for plan %s", input.Seq, input.TestPlan.Name)
-	}
-
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestPlan.TestCases[input.Seq].Name,
+		TestCase:          input.TestCase.Name,
 		TestRun:           input.RunID,
-		TestCaseSeq:       input.Seq,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
@@ -168,16 +163,13 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	// currently we are CPU-bound, so we pass only the CPU requirements for an individiual testplan instance.
-	// in the future we might want to update `maxPods` to also take `podResourceMemory` and
-	// calculate `maxAllowedPods` based on it.
-	maxAllowedPods, err := c.maxPods(podResourceCPU)
+	enoughResources, err := c.checkClusterResources(ow, input.Groups, podResourceMemory, podResourceCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't calculate max pod allowance on the cluster: %v", err)
+		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
 	}
 
-	if maxAllowedPods < input.TotalInstances {
-		return nil, fmt.Errorf("too many test instances requested, max is %d, resize cluster if you need more capacity", maxAllowedPods)
+	if !enoughResources {
+		return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
@@ -293,137 +285,54 @@ func (*ClusterK8sRunner) ID() string {
 	return "cluster:k8s"
 }
 
-func (c *ClusterK8sRunner) healthcheckK8s() (k8sCheck api.HealthcheckItem) {
-	k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusOK, Message: "k8s cluster is running"}
-	cmd := exec.Command("kops", "validate", "cluster")
-	if err := cmd.Run(); err != nil {
-		out, _ := cmd.CombinedOutput()
-		k8sCheck = api.HealthcheckItem{Name: "k8s", Status: api.HealthcheckStatusFailed, Message: fmt.Sprintf("k8s cluster validation failed: %s; output from kops: %s", err, string(out))}
-		return
-	}
-	return
-}
+func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 
-func (c *ClusterK8sRunner) healthcheckEFS() (efsCheck api.HealthcheckItem) {
-	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusFailed, Message: "efs provisioner is not running"}
-
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "app=efs-provisioner",
-	})
-	if err != nil {
-		efsCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != 1 {
-		efsCheck.Message = fmt.Sprintf("expected 1 EFS provisioner pod. found %d.", len(pods.Items))
-		return
-	}
-
-	pod := pods.Items[0]
-	if pod.Status.Phase != "Running" {
-		return
-	}
-
-	efsCheck = api.HealthcheckItem{Name: "efs", Status: api.HealthcheckStatusOK, Message: "efs provisioner is running"}
-	return
-}
-
-func (c *ClusterK8sRunner) healthcheckRedis() (redisCheck api.HealthcheckItem) {
-	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusFailed, Message: "redis service is not running"}
-
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "app=redis",
-	})
-	if err != nil {
-		redisCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != 1 {
-		redisCheck.Message = fmt.Sprintf("expected 1 redis pod. found %d.", len(pods.Items))
-		return
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != "Running" {
-			return
-		}
-	}
-
-	redisCheck = api.HealthcheckItem{Name: "redis", Status: api.HealthcheckStatusOK, Message: "redis service is running"}
-	return
-}
-
-func (c *ClusterK8sRunner) healthcheckSidecar() (sidecarCheck api.HealthcheckItem) {
-	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusFailed, Message: "sidecar service is not reachable"}
-
-	// get number of worker nodes
-	client := c.pool.Acquire()
-	defer c.pool.Release(client)
-
-	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "kubernetes.io/role=node",
-	})
-	if err != nil {
-		sidecarCheck.Message = err.Error()
-		return
-	}
-
-	nodes := len(res.Items)
-
-	pods, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: "name=testground-sidecar",
-	})
-	if err != nil {
-		sidecarCheck.Message = err.Error()
-		return
-	}
-	if len(pods.Items) != nodes {
-		sidecarCheck.Message = fmt.Sprintf("expected %d sidecar pods. found %d.", nodes, len(pods.Items))
-		return
-	}
-
-	for _, pod := range pods.Items {
-		if pod.Status.Phase != "Running" {
-			return
-		}
-	}
-
-	sidecarCheck = api.HealthcheckItem{Name: "sidecar", Status: api.HealthcheckStatusOK, Message: "sidecar service is running"}
-	return
-}
-
-func (c *ClusterK8sRunner) Healthcheck(fix bool, engine api.Engine, ow *rpc.OutputWriter) (*api.HealthcheckReport, error) {
 	c.initPool()
+	client := c.pool.Acquire()
 
-	report := api.HealthcheckReport{}
-
-	report.Checks = []api.HealthcheckItem{
-		c.healthcheckK8s(),
-		c.healthcheckEFS(),
-		c.healthcheckRedis(),
-		c.healthcheckSidecar(),
+	// How many plan worker nodes are there?
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "testground.nodetype=plan",
+	})
+	if err != nil {
+		return nil, err
 	}
+	planNodes := res.Items
 
-	if fix {
-		fakeFixes := []api.HealthcheckItem{}
-		for _, chk := range report.Checks {
-			if chk.Status != api.HealthcheckStatusOK {
-				fakeFixes = append(fakeFixes, api.HealthcheckItem{
-					Name:    chk.Name,
-					Status:  chk.Status,
-					Message: "Fix not implemented yet for this check.",
-				})
-			}
-			report.Fixes = fakeFixes
-		}
-	}
-	return &report, nil
+	hh := &hc.Helper{}
+
+	hh.Enlist("kops validate",
+		hc.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
+		hc.NotImplemented(),
+	)
+
+	hh.Enlist("efs pod",
+		hc.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
+
+	hh.Enlist("redis pod",
+		hc.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
+
+	hh.Enlist("prometheus pod",
+		hc.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
+
+	hh.Enlist("grafana pod",
+		hc.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
+		hc.NotImplemented(),
+	)
+
+	hh.Enlist("sidecar pods",
+		hc.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
+		hc.NotImplemented(),
+	)
+
+	return hh.RunChecks(ctx, fix)
+
 }
 
 func (*ClusterK8sRunner) ConfigType() reflect.Type {
@@ -695,7 +604,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		default:
 		}
 
-		if time.Since(start) > 10*time.Minute {
+		if time.Since(start) > 100*time.Minute {
 			return errors.New("global timeout")
 		}
 		time.Sleep(2000 * time.Millisecond)
@@ -753,6 +662,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		if counters["Succeeded"] == input.TotalInstances {
 			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			return nil
+		}
+
+		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
 			return nil
 		}
 
@@ -836,6 +750,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
+			NodeSelector: map[string]string{"testground.nodetype": "plan"},
 		},
 	}
 
@@ -854,22 +769,23 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 	return fw.w.Write(p)
 }
 
-// maxPods returns the max allowed pods for the current cluster size
-// at the moment we are CPU bound, so this is based only on rough estimation of available CPUs
-func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error) {
-	podCPU, err := strconv.ParseFloat(podResourceCPU.AsDec().String(), 64)
+// checkClusterResources returns whether we can fit the input groups in the current cluster
+func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
+	neededCPUs := 0.0
+
+	defaultPodCPU, err := strconv.ParseFloat(fallbackCPU.AsDec().String(), 64)
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "kubernetes.io/role=node",
+		LabelSelector: "testground.nodetype=plan",
 	})
 	if err != nil {
-		return 0, err
+		return false, err
 	}
 
 	nodes := len(res.Items)
@@ -879,11 +795,32 @@ func (c *ClusterK8sRunner) maxPods(podResourceCPU resource.Quantity) (int, error
 	nodeCPUs, _ := item.AsInt64()
 
 	totalCPUs := nodes * int(nodeCPUs)
-	availableCPUs := float64(totalCPUs) - redisCPUs - float64(nodes)*sidecarCPUs
-	podsCPUs := availableCPUs * utilisation
-	pods := int(math.Round(podsCPUs/podCPU - 0.5))
+	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
 
-	return pods, nil
+	for _, g := range groups {
+		var podCPU float64
+		if g.Resources.CPU != "" {
+			cpu, err := resource.ParseQuantity(g.Resources.CPU)
+			if err != nil {
+				return false, err
+			}
+			podCPU, err = strconv.ParseFloat(cpu.AsDec().String(), 64)
+			if err != nil {
+				return false, err
+			}
+		} else {
+			podCPU = defaultPodCPU
+		}
+
+		neededCPUs += podCPU * float64(g.Instances)
+	}
+
+	if (availableCPUs * utilisation) > neededCPUs {
+		return true, nil
+	}
+
+	ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
+	return false, nil
 }
 
 // Terminates all pods for with the label testground.purpose: plan
@@ -946,6 +883,12 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceCPU:    collectOutputsResourceCPU,
+							v1.ResourceMemory: collectOutputsResourceMemory,
 						},
 					},
 				},

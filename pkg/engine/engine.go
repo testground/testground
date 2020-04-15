@@ -181,7 +181,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 	if hc, ok := bm.(api.Healthchecker); ok {
 		ow.Info("performing healthcheck on builder")
 
-		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
+		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -316,7 +316,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	}
 
 	// Find the test case.
-	seq, tcase, ok := plan.TestCaseByName(testcase)
+	_, tcase, ok := plan.TestCaseByName(testcase)
 	if !ok {
 		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
 	}
@@ -343,7 +343,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	if hc, ok := run.(api.Healthchecker); ok {
 		ow.Info("performing healthcheck on runner")
 
-		if rep, err := hc.Healthcheck(true, e, ow); err != nil {
+		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
@@ -418,7 +418,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		RunnerConfig:   obj,
 		Directories:    e.envcfg,
 		TestPlan:       plan,
-		Seq:            seq,
+		TestCase:       tcase,
 		TotalInstances: int(comp.Global.TotalInstances),
 		Groups:         make([]api.RunGroup, 0, len(comp.Groups)),
 	}
@@ -438,6 +438,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 			Instances:    int(grp.CalculatedInstanceCount()),
 			ArtifactPath: grp.Run.Artifact,
 			Parameters:   params,
+			Resources:    grp.Resources,
 		}
 
 		in.Groups = append(in.Groups, g)
@@ -501,7 +502,7 @@ func (e *Engine) DoTerminate(ctx context.Context, runner string, ow *rpc.OutputW
 		return err
 	}
 
-	ow.Infof("all jobs terminated on runner: ", runner)
+	ow.Infof("all jobs terminated on runner: %s", runner)
 	return nil
 }
 
@@ -518,7 +519,7 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, ow 
 
 	ow.Infof("checking runner: %s", runner)
 
-	return hc.Healthcheck(fix, e, ow)
+	return hc.Healthcheck(ctx, e, ow, fix)
 }
 
 // EnvConfig returns the EnvConfig for this Engine.

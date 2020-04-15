@@ -51,14 +51,17 @@ kops create -f $CLUSTER_SPEC
 kops create secret --name $NAME sshpublickey admin -i $PUBKEY
 kops update cluster $NAME --yes
 
-# wait for worker nodes and master to be ready
-echo "Wait for Cluster nodes to be Ready..."
-echo
-READY_NODES=0
-while [ "$READY_NODES" -ne $(($WORKER_NODES + 1)) ]; do READY_NODES=$(kubectl get nodes 2>/dev/null | grep -v NotReady | grep Ready | wc -l || true); echo "Got $READY_NODES ready nodes"; sleep 5; done;
+# Wait for worker nodes and master to be ready
+kops validate cluster --wait 20m
 
 echo "Cluster nodes are Ready"
 echo
+
+echo "Install default container limits"
+echo
+
+kubectl apply -f ./limit-range/limit-range.yaml
+
 
 echo "Install EFS..."
 
@@ -119,23 +122,28 @@ envsubst <./efs/manifest.yaml.spec >$EFS_MANIFEST_SPEC
 kubectl apply -f ./efs/rbac.yaml \
               -f $EFS_MANIFEST_SPEC
 
-# monitoring and redis.
-echo "Installing Testground infrastructure - prometheus, pushgateway, redis, dashboards"
+echo "Install Weave, CNI-Genie, Sidecar Daemonset..."
+echo
+
+kubectl apply -f ./kops-weave/weave.yml \
+              -f ./kops-weave/genie-plugin.yaml \
+              -f ./kops-weave/dummy.yml \
+              -f ./sidecar.yaml
+
+echo "Installing Prometheus"
+helm install prometheus-operator stable/prometheus-operator -f prom-operator.yml
+
+echo "Installing Redis and Grafana dashboards"
 pushd testground-infra
 helm dep build
 helm install testground-infra .
 popd
 
-echo "Install Weave, CNI-Genie, s3bucket DaemonSet, Sidecar Daemonset..."
+echo "Install Weave service monitor..."
 echo
 
-kubectl apply -f ./kops-weave/weave.yml \
-              -f ./kops-weave/genie-plugin.yaml \
-              -f ./kops-weave/weave-metrics-service.yml \
-              -f ./kops-weave/weave-service-monitor.yml \
-              -f ./kops-weave/dummy.yml \
-              -f ./sidecar.yaml
-
+kubectl apply -f ./kops-weave/weave-metrics-service.yml \
+              -f ./kops-weave/weave-service-monitor.yml
 
 echo "Wait for Sidecar to be Ready..."
 echo

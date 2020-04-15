@@ -1,5 +1,0 @@
-molecule/*/.molecule
-*.log
-*.swp
-*_ssh_key
-*_ssh_key.pub

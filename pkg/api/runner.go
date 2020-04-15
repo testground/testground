@@ -53,8 +53,8 @@ type RunInput struct {
 	// run.
 	TestPlan *TestPlanDefinition
 
-	// Seq is the test case seq number to run.
-	Seq int
+	// TestCase is the the definition of the test case to run.
+	TestCase *TestCase
 
 	// TotalInstances is the total number of instances participating in this test case.
 	TotalInstances int
@@ -69,6 +69,9 @@ type RunGroup struct {
 
 	// Instances is the number of instances to run with this configuration.
 	Instances int
+
+	// Resources for per instance in this group
+	Resources Resources
 
 	// ArtifactPath can be a docker image ID or an executable path; it's
 	// runner-dependent.

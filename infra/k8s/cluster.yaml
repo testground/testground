@@ -7,6 +7,15 @@ spec:
   api:
     loadBalancer:
       type: Public
+  additionalPolicies:
+    node: |
+      [
+        {
+          "Effect": "Allow",
+          "Action": ["ecr:*"],
+          "Resource": ["*"]
+        }
+      ]
   authorization:
     rbac: {}
   channel: stable
@@ -149,12 +158,57 @@ spec:
       net.ipv4.tcp_rmem = 4096 65536 131072
       net.ipv4.tcp_wmem = 4096 65536 131072
       EOT
+  cloudLabels:
+    testground.nodetype: plan
   image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
   machineType: c5.2xlarge
   maxSize: ${WORKER_NODES}
   minSize: ${WORKER_NODES}
   nodeLabels:
     kops.k8s.io/instancegroup: nodes
+    testground.nodetype: plan
+  role: Node
+  subnets:
+  - ${ZONE}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  creationTimestamp: null
+  labels:
+    kops.k8s.io/cluster: ${NAME}
+  name: tginfra
+spec:
+  additionalUserData:
+  - name: myscript.sh
+    type: text/x-shellscript
+    content: |
+      #!/bin/sh
+      cat <<EOT >> /etc/sysctl.d/999-testground.conf
+      net.core.somaxconn = 131072
+      net.netfilter.nf_conntrack_max = 1048576
+      net.ipv4.tcp_max_syn_backlog = 131072
+      net.core.netdev_max_backlog = 524288
+      net.ipv4.ip_local_port_range = 1024 65535
+      net.ipv4.tcp_tw_recycle = 1
+      net.ipv4.tcp_tw_reuse = 1
+      net.core.rmem_max = 131072
+      net.core.wmem_max = 131072
+      net.ipv4.tcp_mem = 262144 524288 1048576
+      net.ipv4.tcp_rmem = 4096 65536 131072
+      net.ipv4.tcp_wmem = 4096 65536 131072
+      EOT
+  cloudLabels:
+    testground.nodetype: infra
+  image: kope.io/k8s-1.17-debian-stretch-amd64-hvm-ebs-2020-01-17
+  machineType: c5.2xlarge
+  maxSize: 2
+  minSize: 2
+  nodeLabels:
+    kops.k8s.io/instancegroup: tginfra
+    testground.nodetype: infra
   role: Node
   subnets:
   - ${ZONE}

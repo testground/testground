@@ -17,13 +17,13 @@ mod-download:
 	$(call eachmod,go mod download)
 
 lint:
-	$(call eachmod,GOGC=75 golangci-lint run --concurrency 32 --deadline 4m ./...)
+	$(call eachmod,GOGC=75 golangci-lint run --build-tags balsam --concurrency 32 --deadline 4m ./...)
 
 build-all:
-	$(call eachmod,go build -o /dev/null ./...)
+	$(call eachmod,go build -tags balsam -o /dev/null ./...)
 
 docker:
 	docker build -t ipfs/testground .
 
 test:
-	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
+	$(call eachmod,go test -tags balsam -p 1 -v $(GOTFLAGS) ./...)
