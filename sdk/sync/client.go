@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -30,7 +31,7 @@ var ErrNoRunParameters = fmt.Errorf("no run parameters provided")
 
 var DefaultRedisOpts = redis.Options{
 	MinIdleConns:       0,                // allow the pool to downsize to 0 conns.
-	PoolSize:           2,                // one for subscriptions, one for nonblocking operations.
+	PoolSize:           10,               // one for subscriptions, one for nonblocking operations.
 	PoolTimeout:        30 * time.Second, // amount of time a waiter will wait for a conn to become available.
 	MaxRetries:         5,
 	MinRetryBackoff:    1 * time.Second,
@@ -39,7 +40,7 @@ var DefaultRedisOpts = redis.Options{
 	ReadTimeout:        10 * time.Second,
 	WriteTimeout:       10 * time.Second,
 	IdleCheckFrequency: 30 * time.Second,
-	MaxConnAge:         1 * time.Minute,
+	MaxConnAge:         10 * time.Minute,
 }
 
 type Client struct {
@@ -207,6 +208,8 @@ func redisClient(ctx context.Context, log *zap.SugaredLogger) (client *redis.Cli
 		}
 		for _, addr := range addrs {
 			log.Debugw("trying redis host", "host", h, "address", addr, "error", err)
+			delay := time.Duration(rand.Intn(10000)) * time.Millisecond
+			time.Sleep(delay)
 			opts := DefaultRedisOpts // copy to be safe.
 			// Use TCPAddr to properly handle IPv6 addresses.
 			opts.Addr = (&net.TCPAddr{IP: addr.IP, Zone: addr.Zone, Port: port}).String()
