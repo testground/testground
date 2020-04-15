@@ -7,24 +7,24 @@ source_path = "file://${TESTGROUND_SRCDIR}/plans/placebo"
 builder = "exec:go"
 runner = "local:exec"
 
-[build_strategies."docker:go"]
+[builders."docker:go"]
 enabled = true
 go_version = "1.13"
 module_path = "github.com/ipfs/testground/plans/placebo"
 exec_pkg = "."
 
-[build_strategies."exec:go"]
+[builders."exec:go"]
 enabled = true
 module_path = "github.com/ipfs/testground/plans/placebo"
 exec_pkg = "."
 
-[run_strategies."local:docker"]
+[runners."local:docker"]
 enabled = true
 
-[run_strategies."local:exec"]
+[runners."local:exec"]
 enabled = true
 
-[run_strategies."cluster:swarm"]
+[runners."cluster:swarm"]
 enabled = true
 
 [[testcases]]
