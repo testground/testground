@@ -1,10 +1,12 @@
-package client
+package api
 
 import (
 	"bytes"
-
-	"github.com/ipfs/testground/pkg/api"
 )
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~ Request payloads ~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 // DescribeRequest is the request struct for the `describe` function.
 type DescribeRequest struct {
@@ -13,22 +15,12 @@ type DescribeRequest struct {
 
 // BuildRequest is the request struct for the `build` function.
 type BuildRequest struct {
-	Composition api.Composition `json:"composition"`
+	Composition Composition `json:"composition"`
 }
-
-// BuildResponse is the response struct for the `build` function.
-type BuildResponse = []api.BuildOutput
 
 // RunRequest is the request struct for the `run` function.
 type RunRequest struct {
-	Composition api.Composition `json:"composition"`
-}
-
-type RunResponse = api.RunOutput
-
-type CollectResponse struct {
-	File   bytes.Buffer
-	Exists bool
+	Composition Composition `json:"composition"`
 }
 
 type OutputsRequest struct {
@@ -45,4 +37,18 @@ type HealthcheckRequest struct {
 	Fix    bool   `json:"fix"`
 }
 
-type HealthcheckResponse = api.HealthcheckReport
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// ~~~~~~ Response payloads ~~~~~~
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+// BuildResponse is the response struct for the `build` function.
+type BuildResponse = []BuildOutput
+
+type RunResponse = RunOutput
+
+type CollectResponse struct {
+	File   bytes.Buffer
+	Exists bool
+}
+
+type HealthcheckResponse = HealthcheckReport
