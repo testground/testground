@@ -23,10 +23,7 @@ build-all:
 	$(call eachmod,go build -o /dev/null ./...)
 
 docker:
-	docker network create build-network || true
-	docker run --rm --name goproxy --network build-network -d -v "${GOPATH}:/go" goproxy/goproxy || true
-	docker build --network build-network --build-arg GOPROXY="http://goproxy:8081" -t ipfs/testground .
-	docker rm -f goproxy
+	docker build -t ipfs/testground .
 
 test:
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
