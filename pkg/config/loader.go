@@ -70,7 +70,7 @@ func (e *EnvConfig) Load() error {
 		if err != nil {
 			return fmt.Errorf("found .env.toml at %s, but failed to parse: %w", f, err)
 		}
-		logging.S().Infow(".env.toml loaded from %s", f)
+		logging.S().Infof(".env.toml loaded from: %s", f)
 	} else {
 		logging.S().Warnf("no .env.toml found at %s; system may be misconfigured", f)
 	}
