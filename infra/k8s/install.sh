@@ -60,7 +60,7 @@ echo
 echo "Install default container limits"
 echo
 
-kubectl apply -f ./limit-range/limit-range.yaml
+kubectl apply -f ./limit-range/limit-range.yaml --namespace=default
 
 
 echo "Install EFS..."
