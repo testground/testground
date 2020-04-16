@@ -6,6 +6,13 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
+.PHONY: install tidy mod-download lint build-all docker install test
+
+install: goinstall docker
+
+goinstall:
+	go install .
+
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
 	pre-commit install --install-hooks
