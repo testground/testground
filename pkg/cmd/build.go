@@ -143,7 +143,8 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 
 	logging.S().Infof("test plan source at: %s", planDir)
 
-	if err := comp.PrepareForBuild(manifest); err != nil {
+	comp, err = comp.PrepareForBuild(manifest)
+	if err != nil {
 		return nil, err
 	}
 

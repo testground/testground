@@ -203,10 +203,18 @@ func (c *Composition) ValidateForRun() error {
 // PrepareForBuild verifies that this composition is compatible with
 // the provided manifest for the purposes of a build, and applies any manifest-
 // mandated defaults for the builder configuration.
-func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
+//
+// This method doesn't modify the composition, it returns a new one.
+func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, error) {
+	// override the composition plan name with what's in the manifest
+	// rationale: composition.Global.Plan will be a path relative to
+	// $TESTGROUND_HOME/plans; the server doesn't care about our local
+	// paths.
+	c.Global.Plan = manifest.Name
+
 	// Is the builder supported?
 	if manifest.Builders == nil || len(manifest.Builders) == 0 {
-		return fmt.Errorf("plan supports no builders; review the manifest")
+		return nil, fmt.Errorf("plan supports no builders; review the manifest")
 	}
 	builders := make([]string, 0, len(manifest.Builders))
 	for k := range manifest.Builders {
@@ -214,7 +222,7 @@ func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
 	}
 	sort.Strings(builders)
 	if sort.SearchStrings(builders, c.Global.Builder) == len(builders) {
-		return fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
+		return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
 	}
 
 	// Apply manifest-mandated build configuration.
@@ -226,22 +234,31 @@ func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
 			}
 		}
 	}
-	return nil
+	return &c, nil
 }
 
 // PrepareForRun verifies that this composition is compatible with the
 // provided manifest for the purposes of a run, verifies the instance count is
 // within bounds, applies any manifest-mandated defaults for the runner
 // configuration, and applies default run parameters.
-func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
+//
+// This method doesn't modify the composition, it returns a new one.
+func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, error) {
+	// override the composition plan name with what's in the manifest
+	// rationale: composition.Global.Plan will be a path relative to
+	// $TESTGROUND_HOME/plans; the server doesn't care about our local
+	// paths.
+	c.Global.Plan = manifest.Name
+
+	// validate the test case exists.
 	_, tcase, ok := manifest.TestCaseByName(c.Global.Case)
 	if !ok {
-		return fmt.Errorf("test case %s not found in plan %s", c.Global.Case, manifest.Name)
+		return nil, fmt.Errorf("test case %s not found in plan %s", c.Global.Case, manifest.Name)
 	}
 
 	// Is the runner supported?
 	if manifest.Runners == nil || len(manifest.Runners) == 0 {
-		return fmt.Errorf("plan supports no runners; review the manifest")
+		return nil, fmt.Errorf("plan supports no runners; review the manifest")
 	}
 	runners := make([]string, 0, len(manifest.Runners))
 	for k := range manifest.Runners {
@@ -249,7 +266,7 @@ func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
 	}
 	sort.Strings(runners)
 	if sort.SearchStrings(runners, c.Global.Runner) == len(runners) {
-		return fmt.Errorf("plan does not support runner %s; supported: %v", c.Global.Runner, runners)
+		return nil, fmt.Errorf("plan does not support runner %s; supported: %v", c.Global.Runner, runners)
 	}
 
 	// Apply manifest-mandated run configuration.
@@ -266,7 +283,7 @@ func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
 	if t := int(c.Global.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
 		str := "total instance count (%d) outside of allowable range [%d, %d] for test case %s"
 		err := fmt.Errorf(str, t, tcase.Instances.Minimum, tcase.Instances.Maximum, tcase.Name)
-		return err
+		return nil, err
 	}
 
 	// Apply test case param defaults. First parse all defaults as JSON data
@@ -276,7 +293,7 @@ func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
 	for n, v := range tcase.Parameters {
 		data, err := json.Marshal(v.Default)
 		if err != nil {
-			return fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
+			return nil, fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
 		}
 		defaults[n] = string(data)
 	}
@@ -290,7 +307,7 @@ func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
 		}
 	}
 
-	return nil
+	return &c, nil
 }
 
 // PickGroups clones this composition, retaining only the specified groups.

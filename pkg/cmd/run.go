@@ -120,13 +120,20 @@ func runSingleCmd(c *cli.Context) (err error) {
 }
 
 func doRun(c *cli.Context, comp *api.Composition) (err error) {
-	cl, _, err := setupClient(c)
+	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
+
+	// Resolve the test plan and its manifest.
+	var manifest *api.TestPlanManifest
+	_, manifest, err = resolveTestPlan(cfg, comp.Global.Plan)
+	if err != nil {
+		return fmt.Errorf("failed to resolve test plan: %w", err)
+	}
 
 	// Check if we have any groups without an build artifact; if so, trigger a
 	// build for those.
@@ -165,6 +172,11 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 				return fmt.Errorf("failed to encode composition into file: %w", err)
 			}
 		}
+	}
+
+	comp, err = comp.PrepareForRun(manifest)
+	if err != nil {
+		return err
 	}
 
 	req := &api.RunRequest{
