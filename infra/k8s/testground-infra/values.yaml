@@ -41,8 +41,8 @@ redis:
       cni: flannel
     resources:
       requests:
-        memory: 13000Mi
-        cpu: 6500m
+        memory: 12000Mi
+        cpu: 4000m
       limits:
-        memory: 13000Mi
-        cpu: 6500m
+        memory: 12000Mi
+        cpu: 4000m

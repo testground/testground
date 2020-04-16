@@ -196,10 +196,14 @@ items:
                   host: 127.0.0.1
                   path: /status
                   port: 6784
+                timeoutSeconds: 5
               resources:
                 requests:
-                  memory: 1024Mi
-                  cpu: 1000m
+                  cpu: 2000m
+                  memory: 2000Mi
+                limits:
+                  cpu: 2000m
+                  memory: 2000Mi
               securityContext:
                 privileged: true
               volumeMounts:
