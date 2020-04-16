@@ -38,6 +38,7 @@ require (
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
+	github.com/sparrc/go-ping v0.0.0-20190613174326-4e5b6552494c // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0

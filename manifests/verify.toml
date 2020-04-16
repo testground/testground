@@ -1,0 +1,32 @@
+name = "verify"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file://${TESTGROUND_SRCDIR}/plans/verify"
+
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[build_strategies."docker:go"]
+enabled = true
+go_version = "1.14"
+module_path = "github.com/ipfs/testground/plans/verify"
+exec_pkg = "."
+
+[build_strategies."exec:go"]
+enabled = true
+module_path = "github.com/ipfs/testground/plans/verify"
+exec_pkg = "."
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."local:exec"]
+enabled = false
+
+[run_strategies."cluster:k8s"]
+enabled = true
+
+[[testcases]]
+name = "uses-data-network"
+instances = { min = 1, max = 2, default = 2 }
