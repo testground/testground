@@ -27,52 +27,8 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		healthcheck.CreateNetwork(ctx, ow, cli, controlNetworkID, network.IPAMConfig{Subnet: controlSubnet, Gateway: controlGateway}),
 	)
 
-	// prometheus built from Dockerfile.
-	// Check if container exists, if not, build image AND start container.
-	// TODO(raulk): decide what to do with this; the daemon no longer has access
-	//  to testground's source. We are discarding Prometheus for test plan metrics
-	//  anyway; and there are no infrastructure metrics that are valuable to monitor
-	//  in the local runners, so I'm inclined to drop Prometheus entirely from the
-	//  local runners.
-	// _, exposed, _ := nat.ParsePortSpecs([]string{"9090:9090"})
-	// hh.Enlist("local-prometheus",
-	// 	healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-prometheus"),
-	// 	healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-	// 		ContainerName: "testground-prometheus",
-	// 		ContainerConfig: &container.Config{
-	// 			Image: "testground-prometheus:latest",
-	// 		},
-	// 		HostConfig: &container.HostConfig{
-	// 			PortBindings: exposed,
-	// 			NetworkMode:  container.NetworkMode(controlNetworkID),
-	// 		},
-	// 		ImageStrategy: docker.ImageStrategyBuild,
-	// 		BuildImageOpts: &docker.BuildImageOpts{
-	// 			Name:     "testground-prometheus:latest",
-	// 			BuildCtx: filepath.Join(srcdir, "infra/local-docker/testground-prometheus"),
-	// 		},
-	// 	}),
-	// )
-
-	// run pushgateway from downloaded image, with no additional configuraiton
-	_, exposed, _ := nat.ParsePortSpecs([]string{"9091:9091"})
-	hh.Enlist("local-pushgateway",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "prometheus-pushgateway"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "prometheus-pushgateway",
-			ContainerConfig: &container.Config{
-				Image: "prom/pushgateway",
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyPull,
-		}),
-	)
-
 	// grafana from downloaded image, with no additional configuration.
-	_, exposed, _ = nat.ParsePortSpecs([]string{"3000:3000"})
+	_, exposed, _ := nat.ParsePortSpecs([]string{"3000:3000"})
 	hh.Enlist("local-grafana",
 		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-grafana"),
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
@@ -118,21 +74,4 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		}),
 	)
 
-	// metrics exporter for redis, configured by command-line flags.
-	_, exposed, _ = nat.ParsePortSpecs([]string{"1921:1921"})
-	hh.Enlist("local-redis-exporter",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-redis-exporter"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "testground-redis-exporter",
-			ContainerConfig: &container.Config{
-				Image: "bitnami/redis-exporter",
-				Cmd:   []string{"--redis.addr", "redis://testground-redis:6379"},
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyPull,
-		}),
-	)
 }
