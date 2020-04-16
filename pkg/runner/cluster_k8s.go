@@ -324,11 +324,6 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 		hc.NotImplemented(),
 	)
 
-	hh.Enlist("pushgateway pod",
-		hc.CheckK8sPods(ctx, client, "app=prometheus-pushgateway", c.config.Namespace, 1),
-		hc.NotImplemented(),
-	)
-
 	hh.Enlist("grafana pod",
 		hc.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
 		hc.NotImplemented(),

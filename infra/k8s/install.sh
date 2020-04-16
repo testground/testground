@@ -133,7 +133,7 @@ kubectl apply -f ./kops-weave/weave.yml \
 echo "Installing Prometheus"
 helm install prometheus-operator stable/prometheus-operator -f prom-operator.yml
 
-echo "Installing Prometheus Pushgateway, Redis, Grafana dashboards"
+echo "Installing Redis and Grafana dashboards"
 pushd testground-infra
 helm dep build
 helm install testground-infra .
