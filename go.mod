@@ -33,6 +33,7 @@ require (
 	github.com/ipfs/testground/sdk/sync v0.4.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
+	github.com/mattn/go-zglob v0.0.1
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2

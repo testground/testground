@@ -69,17 +69,16 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	}
 
 	// Validate the test case format.
-	switch ss := strings.Split(testcase, "/"); len(ss) {
+	switch ss := strings.Split(testcase, ":"); len(ss) {
 	case 0:
-		_ = cli.ShowSubcommandHelp(c)
-		return nil, errors.New("wrong format for test case name, should be: `testplan/testcase`")
+		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
 	case 2:
 		comp.Global.Case = ss[1]
 		fallthrough
 	case 1:
 		comp.Global.Plan = ss[0]
 	default:
-		return nil, errors.New("wrong format for test case name, should be: `testplan/testcase`")
+		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
 	}
 
 	// Build configuration.
@@ -136,7 +135,7 @@ func resolveTestPlan(cfg *config.EnvConfig, name string) (string, *api.TestPlanM
 	baseDir := cfg.Dirs().Plans()
 
 	// Resolve the test plan directory.
-	path := filepath.Join(baseDir, name)
+	path := filepath.Join(baseDir, filepath.FromSlash(name))
 	if !isDirectory(path) {
 		return "", nil, fmt.Errorf("failed to locate plan in directory: %s", path)
 	}

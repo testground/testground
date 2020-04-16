@@ -204,10 +204,6 @@ func (c *Composition) ValidateForRun() error {
 // the provided manifest for the purposes of a build, and applies any manifest-
 // mandated defaults for the builder configuration.
 func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
-	if manifest.Name != c.Global.Plan {
-		return fmt.Errorf("mismatch between test plan in manifest (%s) and composition (%s)", manifest.Name, c.Global.Plan)
-	}
-
 	// Is the builder supported?
 	if manifest.Builders == nil || len(manifest.Builders) == 0 {
 		return fmt.Errorf("plan supports no builders; review the manifest")
@@ -238,10 +234,6 @@ func (c *Composition) PrepareForBuild(manifest *TestPlanManifest) error {
 // within bounds, applies any manifest-mandated defaults for the runner
 // configuration, and applies default run parameters.
 func (c *Composition) PrepareForRun(manifest *TestPlanManifest) error {
-	if manifest.Name != c.Global.Plan {
-		return fmt.Errorf("mismatch between test plan in manifest (%s) and composition (%s)", manifest.Name, c.Global.Plan)
-	}
-
 	_, tcase, ok := manifest.TestCaseByName(c.Global.Case)
 	if !ok {
 		return fmt.Errorf("test case %s not found in plan %s", c.Global.Case, manifest.Name)

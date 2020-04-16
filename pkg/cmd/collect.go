@@ -37,7 +37,6 @@ func collectCommand(c *cli.Context) error {
 	defer cancel()
 
 	if c.NArg() != 1 {
-		_ = cli.ShowSubcommandHelp(c)
 		return errors.New("missing run id")
 	}
 

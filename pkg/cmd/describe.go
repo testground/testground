@@ -8,34 +8,26 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/config"
 )
 
-// DescribeCommand is the specification of the `list` command.
+// DescribeCommand is the specification of the `describe` command.
 var DescribeCommand = cli.Command{
-	Name:      "describe",
-	Usage:     "describes a test plan or test case",
-	ArgsUsage: "[term], where a term is any of: <testplan> or <testplan>/<testcase>",
-	Action:    describeCommand,
+	Name:        "describe",
+	Usage:       "describe a test plan",
+	ArgsUsage:   "<plan name>",
+	Description: "This command loads the test plan manifest from $TESTGROUND_HOME/plans/<plan name>, and explains its contents.",
+	Action:      describeCommand,
 }
 
 func describeCommand(c *cli.Context) error {
 	if c.NArg() == 0 {
-		_ = cli.ShowSubcommandHelp(c)
-		return errors.New("missing term to describe")
+		return errors.New("missing test plan location")
 	}
 
-	term := c.Args().First()
-
-	var pl, tc string
-	switch splt := strings.Split(term, "/"); len(splt) {
-	case 2:
-		pl, tc = splt[0], splt[1]
-	case 1:
-		pl = splt[0]
-	default:
-		return fmt.Errorf("unrecognized format for term")
+	plan := c.Args().First()
+	if strings.Contains(plan, ":") {
+		return errors.New("this command expects a test plan, not a test case")
 	}
 
 	cfg := &config.EnvConfig{}
@@ -43,22 +35,15 @@ func describeCommand(c *cli.Context) error {
 		return err
 	}
 
-	_, manifest, err := resolveTestPlan(cfg, pl)
+	_, manifest, err := resolveTestPlan(cfg, plan)
 	if err != nil {
 		return err
 	}
 
-	var cases []*api.TestCase
-	if tc == "" {
-		cases = manifest.TestCases
-	} else if _, tcbn, ok := manifest.TestCaseByName(tc); ok {
-		cases = []*api.TestCase{tcbn}
-	} else {
-		return fmt.Errorf("test case not found: %s", tc)
-	}
+	cases := manifest.TestCases
 
 	manifest.Describe(os.Stdout)
-	fmt.Print("TEST CASES:\n----------\n----------\n")
+	fmt.Print("TEST CASES:\n----------\n\n")
 
 	for _, tc := range cases {
 		tc.Describe(os.Stdout)

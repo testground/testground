@@ -11,7 +11,7 @@ import (
 
 var TerminateCommand = cli.Command{
 	Name:   "terminate",
-	Usage:  " terminates all jobs running on a runner",
+	Usage:  "terminates all jobs running on a runner",
 	Action: terminateCommand,
 	Flags: []cli.Flag{
 		cli.StringFlag{
