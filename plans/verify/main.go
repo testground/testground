@@ -24,6 +24,10 @@ func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (*sync.Client, er
 	return client, client.WaitNetworkInitialized(ctx, runenv)
 }
 
+func isControlNet(nw string) bool {
+	return strings.HasPrefix(nw, "192.18") || strings.HasPrefix(nw, "100.96.12")
+}
+
 // UsesDataNetwork verifies that instances can only reach each other through the data network.
 // One instance acts as the target. The target publishes the IP addresses it finds to the sync
 // service. Other instances will subscribe to the topic and test for network connectivity to the
@@ -88,9 +92,9 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 			pinger.SetPrivileged(true) // Use ICMP ping rather than UDP ping. Root in container.
 			pinger.OnFinish = func(stat *ping.Statistics) {
 				// If we are pinging the control network, expect no response, else, expect a response.
-				if strings.HasPrefix(addr, "192.18") && stat.PacketLoss != 100.0 {
+				if isControlNet(addr) && stat.PacketLoss != 100.0 {
 					runenv.RecordFailure(errors.New("error - control network is accessible; it should not be"))
-				} else if !strings.HasPrefix(addr, "192.18") && stat.PacketLoss > 0.0 {
+				} else if !isControlNet(addr) && stat.PacketLoss > 0.0 {
 					runenv.RecordFailure(errors.New("error - data network is not accessible; it should be"))
 				}
 				runenv.RecordMessage("packet loss on %s: %f%%", network, stat.PacketLoss)
