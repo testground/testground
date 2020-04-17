@@ -80,8 +80,8 @@ func (c *Client) barrierWorker() {
 				log.Debugw("cancelling pending barrier", "key", b.key)
 				b.C <- c.ctx.Err()
 				close(b.C)
-				remove(b)
 			}
+			pending = nil
 			return
 		}
 
