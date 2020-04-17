@@ -25,7 +25,7 @@ func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (*sync.Client, er
 }
 
 func isControlNet(nw string) bool {
-	return strings.HasPrefix(nw, "192.18") || strings.HasPrefix(nw, "100.96.12")
+	return strings.HasPrefix(nw, "192.18.") || strings.HasPrefix(nw, "100.96.")
 }
 
 // UsesDataNetwork verifies that instances can only reach each other through the data network.
