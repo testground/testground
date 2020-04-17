@@ -12,12 +12,16 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-// ListCommand is the specification of the `list` command.
-var ListCommand = cli.Command{
-	Name:      "list",
-	Usage:     "enumerate all test cases known to the client",
-	ArgsUsage: " ",
-	Action:    listCommand,
+var PlanCommand = cli.Command{
+	Name:  "plan",
+	Usage: "plan management",
+	Subcommands: cli.Commands{
+		&cli.Command{
+			Name:   "list",
+			Usage:  "enumerate all test cases known to the client",
+			Action: listCommand,
+		},
+	},
 }
 
 func listCommand(c *cli.Context) error {

@@ -3,9 +3,9 @@ package cmd
 import "github.com/urfave/cli/v2"
 
 // RootCommands collects all subcommands of the testground CLI.
-var RootCommands = []*cli.Command{
+var RootCommands = cli.Commands{
 	&RunCommand,
-	&ListCommand,
+	&PlanCommand,
 	&BuildCommand,
 	&DescribeCommand,
 	&SidecarCommand,
