@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"time"
@@ -23,6 +24,12 @@ func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (*sync.Client, er
 	return client, client.WaitNetworkInitialized(ctx, runenv)
 }
 
+// UsesDataNetwork verifies that instances can only reach each other through the data network.
+// One instance acts as the target. The target publishes the IP addresses it finds to the sync
+// service. Other instances will subscribe to the topic and test for network connectivity to the
+// target on each of its ip addresses.
+// An error is reported if the target is reachable over the control network or if there is packet
+// loss over the data network.
 func UsesDataNetwork(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
@@ -40,33 +47,17 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 		pingmode
 	)
 
-	// Race to get a sequence ID.
-	// Seq 1 will be the target for pings, the other will be the instance who performs the pings
-	race := sync.NewTopic("race", "")
-	seq, err := client.Publish(ctx, race, runenv.TestRun)
-	if err != nil {
-		return err
-	}
+	netTopic := sync.NewTopic("addrs", "")
 
-	addrTopic := sync.NewTopic("addrs", &net.IPAddr{})
-
-	switch seq {
+	switch client.MustSignalAndWait(ctx, "ready", runenv.TestInstanceCount) {
 	case targetmode:
-		runenv.RecordMessage("target mode")
-
-		eth0, err := net.InterfaceByName("eth0")
-		if err != nil {
-			runenv.RecordFailure(err)
-			return err
-		}
-		eth1, err := net.InterfaceByName("eth1")
-		if err != nil {
-			runenv.RecordFailure(err)
-			return err
-		}
-
-		// Get IP addresses from eth0 and eth1 and publish my IP address
-		for _, iface := range []*net.Interface{eth0, eth1} {
+		runenv.RecordMessage("target mode. publishing target networks.")
+		for _, iname := range []string{"eth0", "eth1"} {
+			iface, err := net.InterfaceByName(iname)
+			if err != nil {
+				runenv.RecordFailure(err)
+				return err
+			}
 			addrs, err := iface.Addrs()
 			if err != nil {
 				runenv.RecordFailure(err)
@@ -74,33 +65,41 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 			}
 			for _, addr := range addrs {
 				runenv.RecordMessage("publishing %s", addr)
-				client.Publish(ctx, addrTopic, &addr)
+				client.Publish(ctx, netTopic, addr.String())
 			}
 		}
-
-		runenv.RecordMessage("Ready to be pinged.")
+		client.Publish(ctx, netTopic, ".")
+		runenv.RecordMessage("networks published. ready to be tested.")
 		client.SignalEntry(ctx, "target-ready")
-		<-client.MustBarrier(ctx, "pinger-finished", 1).C
 
 	case pingmode:
-		runenv.RecordMessage("pingmode")
+		runenv.RecordMessage("ping mode. waiting for target networks.")
 		<-client.MustBarrier(ctx, "target-ready", 1).C
 		runenv.RecordMessage("starting ping")
-		adCh := make(chan *net.Addr)
-		client.Subscribe(ctx, addrTopic, adCh)
-		for addrp := range adCh {
-			addr := *addrp
-			runenv.RecordMessage("pinging %s", addr)
-			pinger, _ := ping.NewPinger(strings.Split(addr.Network(), "/")[0])
-			pinger.Count = 3
-			pinger.Interval = time.Second
+		nwCh := make(chan string)
+		client.Subscribe(ctx, netTopic, nwCh)
+		for network := <-nwCh; network != "."; network = <-nwCh {
+			runenv.RecordMessage("checking if network is reachable: %s", network)
+			addr := strings.Split(network, "/")[0]
+			pinger, _ := ping.NewPinger(addr)
+			pinger.Count = 10
+			pinger.Interval = 500 * time.Millisecond
+			pinger.Timeout = time.Second
+			pinger.SetPrivileged(true) // Use ICMP ping rather than UDP ping. Root in container.
 			pinger.OnFinish = func(stat *ping.Statistics) {
-				runenv.RecordMessage("addr: %s -- sent: %d, recvd: %d", stat.Addr, stat.PacketsSent, stat.PacketsRecv)
+				// If we are pinging the control network, expect no response, else, expect a response.
+				if strings.HasPrefix(addr, "192.18") && stat.PacketLoss != 100.0 {
+					runenv.RecordFailure(errors.New("error - control network is accessible; it should not be"))
+				} else if !strings.HasPrefix(addr, "192.18") && stat.PacketLoss > 0.0 {
+					runenv.RecordFailure(errors.New("error - data network is not accessible; it should be"))
+				}
+				runenv.RecordMessage("packet loss on %s: %f%%", network, stat.PacketLoss)
 			}
 			pinger.Run()
 		}
-		client.SignalEntry(ctx, "pinger-finished")
 	}
+
+	_ = client.MustSignalAndWait(ctx, "finished", runenv.TestInstanceCount)
 
 	return nil
 }
