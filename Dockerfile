@@ -9,10 +9,7 @@ ARG GO_VERSION=1.14
 # TODO: Not sure how this interplays with image caching.
 FROM golang:${GO_VERSION}-buster
 
-# Unfortunately there's no way to specify a ** glob pattern to cover all go.mods
-# inside sdk.
-COPY /sdk/sync/go.mod /sdk/sync/go.mod
-COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
+COPY /sdk/go.mod /sdk/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.

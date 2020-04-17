@@ -140,9 +140,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// Inject replace directives for the SDK modules.
 	if sdksrc != "" {
-		replaces = append(replaces,
-			"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-			"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
+		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
 	}
 
 	if len(replaces) > 0 {
@@ -430,8 +428,7 @@ ENV PLAN_DIR /plan/
 COPY /plan/go.mod ${PLAN_DIR}
 
 {{if .WithSDK}}
-COPY /sdk/sync/go.mod /sdk/sync/go.mod
-COPY /sdk/runtime/go.mod /sdk/runtime/go.mod
+COPY /sdk/go.mod /sdk/go.mod
 {{end}}
 
 # Download deps.
