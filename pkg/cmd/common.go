@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
@@ -21,8 +21,7 @@ func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {
 	if err := cfg.Load(); err != nil {
 		return nil, nil, err
 	}
-
-	endpoint := c.GlobalString("endpoint")
+	endpoint := c.String("endpoint")
 	if endpoint != "" {
 		cfg.Client.Endpoint = endpoint
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/ipfs/testground/pkg/client"
 
 	"github.com/BurntSushi/toml"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // RunCommand is the specification of the `run` command.
@@ -19,35 +19,35 @@ var RunCommand = cli.Command{
 	Name:  "run",
 	Usage: "(Builds and) runs a test case. List test cases with the `list` command.",
 	Subcommands: cli.Commands{
-		cli.Command{
+		&cli.Command{
 			Name:    "composition",
 			Aliases: []string{"c"},
 			Usage:   "(Builds and) runs a composition.",
 			Action:  runCompositionCmd,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "file, f",
 					Usage: "path to a composition `FILE`",
 				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "write-artifacts, w",
 					Usage: "Writes the resulting build artifacts to the composition file.",
 				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "ignore-artifacts, i",
 					Usage: "Ignores any build artifacts present in the composition file.",
 				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "collect",
 					Usage: "Collect assets at the end of the run phase.",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "collect-file, o",
 					Usage: "Destination for the assets if --collect is set",
 				},
 			},
 		},
-		cli.Command{
+		&cli.Command{
 			Name:      "single",
 			Aliases:   []string{"s"},
 			Usage:     "(Builds and) runs a single group.",
@@ -55,31 +55,31 @@ var RunCommand = cli.Command{
 			ArgsUsage: "[name]",
 			Flags: append(
 				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "runner, r",
 					Usage: "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "use-build, ub",
 					Usage: "specifies the artifact to use (from a previous build)",
 				},
-				cli.UintFlag{
+				&cli.UintFlag{
 					Name:  "instances, i",
 					Usage: "number of instances of the test case to run",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Name:  "run-cfg",
 					Usage: "override runner configuration",
 				},
-				cli.StringSliceFlag{
+				&cli.StringSliceFlag{
 					Name:  "test-param, p",
 					Usage: "provide a test parameter",
 				},
-				cli.BoolFlag{
+				&cli.BoolFlag{
 					Name:  "collect",
 					Usage: "Collect assets at the end of the run phase.",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "collect-file, o",
 					Usage: "Destination for the assets if --collect is set",
 				},

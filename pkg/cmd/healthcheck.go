@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/ipfs/testground/pkg/api"
 	"github.com/ipfs/testground/pkg/client"
@@ -15,11 +15,11 @@ var HealthcheckCommand = cli.Command{
 	Usage:  "checks, and optionally heals, the preconditions for the runner to be able to run properly",
 	Action: healthcheckCommand,
 	Flags: []cli.Flag{
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "fix",
 			Usage: "should try to fix the preconditions",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:     "runner",
 			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,

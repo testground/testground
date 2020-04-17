@@ -1,30 +1,30 @@
 package cmd
 
-import "github.com/urfave/cli"
+import "github.com/urfave/cli/v2"
 
 // RootCommands collects all subcommands of the testground CLI.
-var RootCommands = []cli.Command{
-	RunCommand,
-	ListCommand,
-	BuildCommand,
-	DescribeCommand,
-	SidecarCommand,
-	DaemonCommand,
-	CollectCommand,
-	TerminateCommand,
-	HealthcheckCommand,
+var RootCommands = []*cli.Command{
+	&RunCommand,
+	&ListCommand,
+	&BuildCommand,
+	&DescribeCommand,
+	&SidecarCommand,
+	&DaemonCommand,
+	&CollectCommand,
+	&TerminateCommand,
+	&HealthcheckCommand,
 }
 
 var RootFlags = []cli.Flag{
-	cli.BoolFlag{
+	&cli.BoolFlag{
 		Name:  "v",
 		Usage: "verbose output (equivalent to DEBUG log level)",
 	},
-	cli.BoolFlag{
+	&cli.BoolFlag{
 		Name:  "vv",
 		Usage: "super verbose output (equivalent to DEBUG log level for now, it may accommodate TRACE in the future)",
 	},
-	cli.StringFlag{
+	&cli.StringFlag{
 		Name:  "endpoint",
 		Usage: "set the daemon endpoint URI (overrides .env.toml)",
 	},

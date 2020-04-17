@@ -10,7 +10,7 @@ import (
 	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // CollectCommand is the specification of the `collect` command.
@@ -20,12 +20,12 @@ var CollectCommand = cli.Command{
 	Action:    collectCommand,
 	ArgsUsage: "[run_id]",
 	Flags: []cli.Flag{
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:     "runner, r",
 			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "output, o",
 			Usage: "specifies a named output for the tgz file",
 		},

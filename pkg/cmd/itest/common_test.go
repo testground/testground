@@ -8,7 +8,7 @@ import (
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/daemon"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 func runSingle(t *testing.T, args ...string) error {

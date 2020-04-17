@@ -9,7 +9,7 @@ import (
 	"github.com/ipfs/testground/pkg/daemon"
 	"github.com/ipfs/testground/pkg/logging"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // DaemonCommand is the specification of the `daemon` command.

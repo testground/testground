@@ -9,7 +9,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/mattn/go-zglob"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 // ListCommand is the specification of the `list` command.

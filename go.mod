@@ -40,7 +40,7 @@ require (
 	github.com/pborman/uuid v1.2.0
 	github.com/pierrec/lz4 v2.5.1+incompatible // indirect
 	github.com/stretchr/testify v1.4.0
-	github.com/urfave/cli v1.22.1
+	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
