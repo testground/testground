@@ -72,9 +72,11 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	case 0:
 		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
 	case 2:
+		fmt.Println("it was 2", ss)
 		comp.Global.Case = ss[1]
 		fallthrough
 	case 1:
+		fmt.Println("it was 1")
 		comp.Global.Plan = ss[0]
 	default:
 		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
