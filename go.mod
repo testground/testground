@@ -18,6 +18,8 @@ require (
 	github.com/docker/go-units v0.4.0
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/frankban/quicktest v1.9.0 // indirect
+	github.com/go-git/go-git v4.7.0+incompatible
+	github.com/go-git/go-git/v5 v5.0.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
@@ -39,6 +41,7 @@ require (
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
 	github.com/pierrec/lz4 v2.5.1+incompatible // indirect
+	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0
@@ -47,6 +50,7 @@ require (
 	go.uber.org/zap v1.14.1
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	google.golang.org/appengine v1.6.5 // indirect
+	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a

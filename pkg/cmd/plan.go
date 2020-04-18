@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/testground/pkg/config"
 
 	"github.com/BurntSushi/toml"
+	"github.com/go-git/go-git/v5"
 	"github.com/mattn/go-zglob"
 	"github.com/urfave/cli/v2"
 )
@@ -51,7 +52,8 @@ func createCommand(c *cli.Context) error {
 	}
 
 	pdir := filepath.Join(cfg.Dirs().Plans(), c.Args().First())
-	if err := os.Mkdir(pdir, os.ModePerm); err != nil && !os.IsExist(err) {
+	_, err := git.PlainInit(pdir, false)
+	if err != nil {
 		return err
 	}
 
@@ -73,7 +75,6 @@ func createCommand(c *cli.Context) error {
 		tmpl.Execute(f, c.String("module"))
 		f.Close()
 	}
-
 	return nil
 }
 
