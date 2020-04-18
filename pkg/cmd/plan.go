@@ -13,6 +13,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/go-git/go-git/v5"
+	gitcfg "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/mattn/go-zglob"
 	"github.com/urfave/cli/v2"
 )
@@ -36,12 +38,17 @@ var PlanCommand = cli.Command{
 		},
 		&cli.Command{
 			Name:   "import",
-			Usage:  "`GIT_REPO` [local_dir]",
+			Usage:  "`GIT_REPO` [local_repo]",
+			Action: importCommand,
+		},
+		&cli.Command{
+			Name:   "branch",
+			Usage:  "`LOCAL_REPO` `BRANCH_NAME`",
 			Action: importCommand,
 		},
 		&cli.Command{
 			Name:   "rm",
-			Usage:  "`PLAN_DIR`",
+			Usage:  "`LOCAL_REPO`",
 			Action: rmCommand,
 		},
 		&cli.Command{
@@ -120,7 +127,7 @@ func importCommand(c *cli.Context) error {
 }
 
 func rmCommand(c *cli.Context) error {
-	if cli.Args.Len() != 1 {
+	if c.Args().Len() != 1 {
 		return errors.New("Missing required argument PLAN_DIR")
 	}
 
@@ -129,7 +136,7 @@ func rmCommand(c *cli.Context) error {
 		return err
 	}
 
-	return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), cli.Args.First()))
+	return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.Args().First()))
 }
 
 func listCommand(c *cli.Context) error {
@@ -162,4 +169,44 @@ func listCommand(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func branchCommand(c *cli.Context) error {
+	if c.Args().Len() != 2 {
+		return errors.New("missing required arguments <repo> <branch>")
+	}
+	gitDir := c.Args().First()
+	branchName := c.Args().Get(1)
+
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		return err
+	}
+
+	repo, err := git.PlainOpen(filepath.Join(cfg.Dirs().Plans(), gitDir))
+	if err != nil {
+		return err
+	}
+
+	branches, err := repo.Branches()
+	if err != nil {
+		return err
+	}
+
+	hasbranch := false
+	branches.ForEach(func(r *plumbing.Reference) error {
+		if r.Name().String() == branchName {
+			hasbranch = true
+		}
+		return nil
+	})
+
+	if !hasbranch {
+		err = repo.CreateBranch(&gitcfg.Branch{Name: branchName})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
