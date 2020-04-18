@@ -40,6 +40,11 @@ var PlanCommand = cli.Command{
 			Action: importCommand,
 		},
 		&cli.Command{
+			Name:   "rm",
+			Usage:  "`PLAN_DIR`",
+			Action: rmCommand,
+		},
+		&cli.Command{
 			Name:   "list",
 			Usage:  "enumerate all test cases known to the client",
 			Action: listCommand,
@@ -112,6 +117,19 @@ func importCommand(c *cli.Context) error {
 		return err
 	}
 	return nil
+}
+
+func rmCommand(c *cli.Context) error {
+	if cli.Args.Len() != 1 {
+		return errors.New("Missing required argument PLAN_DIR")
+	}
+
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), cli.Args.First()))
 }
 
 func listCommand(c *cli.Context) error {
