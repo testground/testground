@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -32,6 +33,11 @@ var PlanCommand = cli.Command{
 				},
 			},
 			Action: createCommand,
+		},
+		&cli.Command{
+			Name:   "import",
+			Usage:  "`GIT_REPO` [local_dir]",
+			Action: importCommand,
 		},
 		&cli.Command{
 			Name:   "list",
@@ -74,6 +80,36 @@ func createCommand(c *cli.Context) error {
 		}
 		tmpl.Execute(f, c.String("module"))
 		f.Close()
+	}
+	return nil
+}
+
+func importCommand(c *cli.Context) error {
+	if c.Args().Len() < 1 {
+		return errors.New("missing reuired argument GIT_REPO")
+	}
+	gitURL := c.Args().First()
+
+	var gitDir string
+	if c.Args().Len() > 1 {
+		gitDir = c.Args().Get(1)
+	} else {
+		sl := strings.Split(gitURL, "/")
+		gitDir = sl[len(sl)-1]
+	}
+
+	cfg := &config.EnvConfig{}
+	if err := cfg.Load(); err != nil {
+		return err
+	}
+
+	cloneOpts := git.CloneOptions{
+		URL: c.Args().First(),
+	}
+
+	_, err := git.PlainClone(filepath.Join(cfg.Dirs().Plans(), gitDir), false, &cloneOpts)
+	if err != nil {
+		return err
 	}
 	return nil
 }
