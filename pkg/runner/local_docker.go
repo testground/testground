@@ -118,7 +118,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
-			Image:      "ipfs/testground:latest",
+			Image:      "iptestground/sidecar:edge",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
 			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
