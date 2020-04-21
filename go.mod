@@ -22,8 +22,6 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
-	github.com/gosimple/slug v1.9.0
-	github.com/grafana-tools/sdk v0.0.0-20200305194735-ebfd6e29db74
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
 	github.com/ipfs/testground/sdk v0.4.0
@@ -39,6 +37,7 @@ require (
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
 	github.com/pierrec/lz4 v2.5.1+incompatible // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0
