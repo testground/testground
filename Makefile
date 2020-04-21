@@ -6,9 +6,9 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
-.PHONY: install tidy mod-download lint build-all docker install test
+.PHONY: install tidy mod-download lint build-all docker-sidecar install test
 
-install: goinstall docker
+install: goinstall docker-sidecar
 
 goinstall:
 	go install .
@@ -29,8 +29,8 @@ lint:
 build-all:
 	$(call eachmod,go build -tags balsam -o /dev/null ./...)
 
-docker:
-	docker build -t ipfs/testground .
+docker-sidecar:
+	docker build -t iptestground/sidecar:edge .
 
 test:
 	$(call eachmod,go test -tags balsam -p 1 -v $(GOTFLAGS) ./...)

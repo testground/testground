@@ -32,7 +32,7 @@ jobs:
       os: linux
       script:
         - make build-all
-        - make docker
+        - make docker-sidecar
         - make test
     - name: "build on windows"
       os: windows
