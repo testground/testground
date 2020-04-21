@@ -6,12 +6,11 @@ import (
 	"net/http"
 
 	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/client"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
 )
 
-func (srv *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+func (d *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
 
@@ -20,7 +19,7 @@ func (srv *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *
 
 		tgw := rpc.NewOutputWriter(w, r)
 
-		var req client.RunRequest
+		var req api.RunRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
 			tgw.WriteError("cannot json decode request body", "err", err)

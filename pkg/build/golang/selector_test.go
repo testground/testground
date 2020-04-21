@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,17 +15,27 @@ import (
 	"github.com/ipfs/testground/pkg/rpc"
 
 	"github.com/docker/docker/client"
+	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBuildSelector(t *testing.T) {
 	require := require.New(t)
 
-	tmp, err := ioutil.TempDir("", "")
+	basedir, err := ioutil.TempDir("", "")
 	require.NoError(err)
-	defer os.RemoveAll(tmp)
 
-	env, err := config.GetEnvConfig()
+	plandir := filepath.Join(basedir, "plan")
+
+	t.Cleanup(func() {
+		os.RemoveAll(basedir)
+	})
+
+	err = copy.Copy("../../../plans/placebo", plandir)
+	require.NoError(err)
+
+	env := &config.EnvConfig{}
+	err = env.Load()
 	require.NoError(err)
 
 	cfg := &engine.EngineConfig{
@@ -49,7 +60,7 @@ func TestBuildSelector(t *testing.T) {
 					},
 				},
 				Groups: []api.Group{
-					api.Group{
+					{
 						ID:        "test",
 						Build:     api.Build{Selectors: selectors},
 						Instances: api.Instances{Count: 1},
@@ -57,11 +68,9 @@ func TestBuildSelector(t *testing.T) {
 				},
 			}
 
-			// this build is using the "foo" and "bar" selectors; it will fail.
-			_, err = engine.DoBuild(context.TODO(), comp, rpc.Discard())
+			_, err = engine.DoBuild(context.TODO(), comp, basedir, plandir, "", rpc.Discard())
 			assertion(err)
 		}
-
 	}
 
 	t.Run("exec:go/selectors", buildFn("exec:go", []string{"foo", "bar"}, require.Error))

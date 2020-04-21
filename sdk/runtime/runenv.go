@@ -63,9 +63,9 @@ func (i *IPNet) UnmarshalJSON(data []byte) error {
 
 // RunParams encapsulates the runtime parameters for this test.
 type RunParams struct {
-	TestPlan    string `json:"plan"`
-	TestCase    string `json:"case"`
-	TestRun     string `json:"run"`
+	TestPlan string `json:"plan"`
+	TestCase string `json:"case"`
+	TestRun  string `json:"run"`
 
 	TestRepo   string `json:"repo,omitempty"`
 	TestCommit string `json:"commit,omitempty"`

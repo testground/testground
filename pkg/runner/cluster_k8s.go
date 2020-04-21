@@ -125,6 +125,9 @@ type KubernetesConfig struct {
 // to discover the kubernetes clusters. It also uses the "default" namespace.
 func defaultKubernetesConfig() KubernetesConfig {
 	kubeconfig := filepath.Join(homeDir(), ".kube", "config")
+	if _, err := os.Stat(kubeconfig); os.IsNotExist(err) {
+		kubeconfig = ""
+	}
 	return KubernetesConfig{
 		KubeConfigPath: kubeconfig,
 		Namespace:      "default",
@@ -142,8 +145,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
 
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestCase.Name,
+		TestPlan:          input.TestPlan,
+		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
@@ -172,7 +175,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
 	}
 
-	jobName := fmt.Sprintf("tg-%s", input.TestPlan.Name)
+	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
 
 	ow.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
@@ -684,7 +687,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 		ObjectMeta: metav1.ObjectMeta{
 			Name: podName,
 			Labels: map[string]string{
-				"testground.plan":     input.TestPlan.Name,
+				"testground.plan":     input.TestPlan,
 				"testground.testcase": runenv.TestCase,
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,

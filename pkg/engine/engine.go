@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -43,8 +42,6 @@ var AllRunners = []api.Runner{
 // query test plans that ran for a particular commit of an upstream.
 type Engine struct {
 	lk sync.RWMutex
-	// census is a catalogue of all test plans known to this engine.
-	census *TestCensus
 	// builders binds builders to their identifying key.
 	builders map[string]api.Builder
 	// runners binds runners to their identifying key.
@@ -63,7 +60,6 @@ type EngineConfig struct {
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	e := &Engine{
-		census:   newTestCensus(),
 		builders: make(map[string]api.Builder, len(cfg.Builders)),
 		runners:  make(map[string]api.Runner, len(cfg.Runners)),
 		envcfg:   cfg.EnvConfig,
@@ -78,23 +74,14 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	if _, err := e.discoverTestPlans(); err != nil {
-		return nil, err
-	}
-
 	return e, nil
 }
 
-func NewDefaultEngine() (*Engine, error) {
-	envcfg, err := config.GetEnvConfig()
-	if err != nil {
-		return nil, err
-	}
-
+func NewDefaultEngine(ecfg *config.EnvConfig) (*Engine, error) {
 	cfg := &EngineConfig{
 		Builders:  AllBuilders,
 		Runners:   AllRunners,
-		EnvConfig: envcfg,
+		EnvConfig: ecfg,
 	}
 
 	e, err := NewEngine(cfg)
@@ -103,13 +90,6 @@ func NewDefaultEngine() (*Engine, error) {
 	}
 
 	return e, nil
-}
-
-func (e *Engine) TestCensus() api.TestCensus {
-	e.lk.RLock()
-	defer e.lk.RUnlock()
-
-	return e.census
 }
 
 func (e *Engine) BuilderByName(name string) (api.Builder, bool) {
@@ -150,26 +130,15 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc string, plansrc string, sdksrc string, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
 
 	var (
-		testplan = comp.Global.Plan
-		builder  = comp.Global.Builder
+		plan    = comp.Global.Plan
+		builder = comp.Global.Builder
 	)
-
-	plan := e.TestCensus().PlanByName(testplan)
-	if plan == nil {
-		return nil, fmt.Errorf("unknown test plan: %s", testplan)
-	}
-
-	if builder == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		builder = plan.Defaults.Builder
-	}
 
 	// Find the builder.
 	bm, ok := e.builders[builder]
@@ -196,20 +165,12 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 	//
 	//  1. CLI --run-param, --build-param flags.
 	//  2. .env.toml.
-	//  3. Test plan definition.
-	//  4. Builder defaults (applied by the builder itself, nothing to do here).
+	//  3. Builder defaults (applied by the builder itself, nothing to do here).
 	//
 	var cfg config.CoalescedConfig
 
-	// 3. Add the base configuration of the build strategy.
-	if c, ok := plan.BuildStrategies[builder]; !ok {
-		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
-	} else {
-		cfg = cfg.Append(c)
-	}
-
 	// 2. Get the env config for the builder.
-	cfg = cfg.Append(e.envcfg.BuildStrategies[builder])
+	cfg = cfg.Append(e.envcfg.Builders[builder])
 
 	// 1. Get overrides from the CLI.
 	cfg = cfg.Append(comp.Global.BuildConfig)
@@ -258,21 +219,23 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 				grpids = append(grpids, comp.Groups[idx].ID)
 			}
 
-			ow.Infow("performing build for groups", "plan", testplan, "groups", grpids, "builder", builder)
+			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
 
 			in := &api.BuildInput{
-				BuildID:      uuid.New().String()[24:],
-				BuildConfig:  obj,
-				EnvConfig:    *e.envcfg,
-				Directories:  e.envcfg,
-				TestPlan:     plan,
-				Selectors:    grp.Build.Selectors,
-				Dependencies: grp.Build.Dependencies.AsMap(),
+				BuildID:         uuid.New().String()[24:],
+				EnvConfig:       *e.envcfg,
+				TestPlan:        plan,
+				Selectors:       grp.Build.Selectors,
+				Dependencies:    grp.Build.Dependencies.AsMap(),
+				BuildConfig:     obj,
+				BaseSrcPath:     basesrc,
+				TestPlanSrcPath: plansrc,
+				SDKSrcPath:      sdksrc,
 			}
 
 			res, err := bm.Build(ctx, in, ow)
 			if err != nil {
-				ow.Infow("build failed", "plan", testplan, "groups", grpids, "builder", builder, "error", err)
+				ow.Infow("build failed", "plan", plan, "groups", grpids, "builder", builder, "error", err)
 				return err
 			}
 
@@ -284,7 +247,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, ow *rpc.Out
 				ress[idx] = res
 			}
 
-			ow.Infow("build succeeded", "plan", testplan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
+			ow.Infow("build succeeded", "plan", plan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
 			return nil
 		})
 	}
@@ -303,35 +266,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	}
 
 	var (
-		testplan = comp.Global.Plan
-		testcase = comp.Global.Case
-		builder  = comp.Global.Builder
-		runner   = comp.Global.Runner
+		plan    = comp.Global.Plan
+		tcase   = comp.Global.Case
+		builder = comp.Global.Builder
+		runner  = comp.Global.Runner
 	)
-
-	// Find the test plan.
-	plan := e.TestCensus().PlanByName(testplan)
-	if plan == nil {
-		return nil, fmt.Errorf("unrecognized test plan: %s", testplan)
-	}
-
-	// Find the test case.
-	_, tcase, ok := plan.TestCaseByName(testcase)
-	if !ok {
-		return nil, fmt.Errorf("unrecognized test case %s in test plan %s", testcase, testplan)
-	}
-
-	if runner == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		runner = plan.Defaults.Runner
-	}
-
-	if builder == "" {
-		// TODO remove plan-specified runners and builders. Now that we have
-		// compositions, everything must be explicit.
-		runner = plan.Defaults.Builder
-	}
 
 	// Get the runner.
 	run, ok := e.runners[runner]
@@ -357,15 +296,8 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	// Validate the desired number of instances is within bounds.
-	if t := int(comp.Global.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
-		str := "total instance count outside (%d) of allowable range [%d, %d] for test case %s"
-		err := fmt.Errorf(str, t, tcase.Instances.Minimum, tcase.Instances.Maximum, testcase)
-		return nil, err
-	}
-
 	// TODO generate the run id with a mononotically increasing counter; persist
-	// the run ID in the state db.
+	//  the run ID in the state db.
 	//
 	// This Run ID is shared by all groups in the composition.
 	runid := uuid.New().String()[24:]
@@ -376,22 +308,14 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	//
 	//  1. CLI --run-param, --build-param flags.
 	//  2. .env.toml.
-	//  3. Test plan definition.
-	//  4. Builder defaults (applied by the builder itself, nothing to do here).
+	//  3. Builder defaults (applied by the builder itself, nothing to do here).
 	//
 	var cfg config.CoalescedConfig
 
-	// Add the base configuration of the run strategy (point 3 above).
-	if c, ok := plan.RunStrategies[runner]; !ok {
-		return nil, fmt.Errorf("test plan does not support builder: %s", builder)
-	} else {
-		cfg = cfg.Append(c)
-	}
-
 	// 2. Get the env config for the runner.
-	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+	cfg = cfg.Append(e.envcfg.Runners[runner])
 
-	// 1. Get overrides from the CLI.
+	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)
 
 	// Coalesce all configurations and deserialise into the config type
@@ -401,22 +325,10 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
-	// Create a coalesced configuration for test case parameters.
-	defaultParams := make(map[string]string, len(tcase.Parameters))
-	for n, v := range tcase.Parameters {
-		data, err := json.Marshal(v.Default)
-		if err != nil {
-			ow.Warnf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%s", n, v, err)
-			continue
-		}
-		defaultParams[n] = string(data)
-	}
-
 	in := api.RunInput{
 		RunID:          runid,
 		EnvConfig:      *e.envcfg,
 		RunnerConfig:   obj,
-		Directories:    e.envcfg,
 		TestPlan:       plan,
 		TestCase:       tcase,
 		TotalInstances: int(comp.Global.TotalInstances),
@@ -425,19 +337,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 
 	// Trigger a build for each group, and wait until all of them are done.
 	for _, grp := range comp.Groups {
-		params := make(map[string]string, len(defaultParams)+len(grp.Run.TestParams))
-		for k, v := range defaultParams {
-			params[k] = v
-		}
-		for k, v := range grp.Run.TestParams {
-			params[k] = v
-		}
-
 		g := api.RunGroup{
 			ID:           grp.ID,
 			Instances:    int(grp.CalculatedInstanceCount()),
 			ArtifactPath: grp.Run.Artifact,
-			Parameters:   params,
+			Parameters:   grp.Run.TestParams,
 			Resources:    grp.Resources,
 		}
 
@@ -446,11 +350,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 
 	out, err := run.Run(ctx, &in, ow)
 	if err == nil {
-		ow.Infow("run finished successfully", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run finished successfully", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		ow.Infow("run canceled", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run canceled", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		ow.Warnw("run finished in error", "plan", testplan, "case", testcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		ow.Warnw("run finished in error", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
@@ -465,7 +369,7 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	var cfg config.CoalescedConfig
 
 	// Get the env config for the runner.
-	cfg = cfg.Append(e.envcfg.RunStrategies[runner])
+	cfg = cfg.Append(e.envcfg.Runners[runner])
 
 	// Coalesce all configurations and deserialise into the config type
 	// mandated by the builder.

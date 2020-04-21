@@ -31,6 +31,7 @@ jobs:
     - name: "build recursive, build docker & test recursive"
       os: linux
       script:
+        - mkdir -p $HOME/testground/plans && ln -s $TRAVIS_BUILD_DIR/plans/placebo $HOME/testground/plans/placebo
         - make build-all
         - make docker-sidecar
         - make test

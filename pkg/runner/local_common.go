@@ -2,7 +2,6 @@ package runner
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/docker/go-units"
 
@@ -16,7 +15,7 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
-func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *client.Client, ow *rpc.OutputWriter, controlNetworkID string, srcdir string, workdir string) {
+func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *client.Client, ow *rpc.OutputWriter, controlNetworkID string, workdir string) {
 	hh.Enlist("local-outputs-dir",
 		healthcheck.CheckDirectoryExists(workdir),
 		healthcheck.CreateDirectory(workdir),
@@ -28,30 +27,8 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		healthcheck.CreateNetwork(ctx, ow, cli, controlNetworkID, network.IPAMConfig{Subnet: controlSubnet, Gateway: controlGateway}),
 	)
 
-	// prometheus built from Dockerfile.
-	// Check if container exists, if not, build image AND start container.
-	_, exposed, _ := nat.ParsePortSpecs([]string{"9090:9090"})
-	hh.Enlist("local-prometheus",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-prometheus"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "testground-prometheus",
-			ContainerConfig: &container.Config{
-				Image: "testground-prometheus:latest",
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyBuild,
-			BuildImageOpts: &docker.BuildImageOpts{
-				Name:     "testground-prometheus:latest",
-				BuildCtx: filepath.Join(srcdir, "infra/local-docker/testground-prometheus"),
-			},
-		}),
-	)
-
 	// grafana from downloaded image, with no additional configuration.
-	_, exposed, _ = nat.ParsePortSpecs([]string{"3000:3000"})
+	_, exposed, _ := nat.ParsePortSpecs([]string{"3000:3000"})
 	hh.Enlist("local-grafana",
 		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-grafana"),
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
@@ -97,21 +74,4 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		}),
 	)
 
-	// metrics exporter for redis, configured by command-line flags.
-	_, exposed, _ = nat.ParsePortSpecs([]string{"1921:1921"})
-	hh.Enlist("local-redis-exporter",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-redis-exporter"),
-		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
-			ContainerName: "testground-redis-exporter",
-			ContainerConfig: &container.Config{
-				Image: "bitnami/redis-exporter",
-				Cmd:   []string{"--redis.addr", "redis://testground-redis:6379"},
-			},
-			HostConfig: &container.HostConfig{
-				PortBindings: exposed,
-				NetworkMode:  container.NetworkMode(controlNetworkID),
-			},
-			ImageStrategy: docker.ImageStrategyPull,
-		}),
-	)
 }

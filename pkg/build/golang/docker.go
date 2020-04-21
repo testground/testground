@@ -5,13 +5,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/ipfs/testground/pkg/api"
@@ -23,13 +23,16 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+)
 
-	"github.com/hashicorp/go-getter"
-	"github.com/otiai10/copy"
+const (
+	buildNetworkName = "testground-build"
 )
 
 var (
 	_ api.Builder = &DockerGoBuilder{}
+
+	dockerfileTmpl = template.Must(template.New("Dockerfile").Parse(DockerfileTemplate))
 )
 
 // DockerGoBuilder builds the test plan as a go-based container.
@@ -66,7 +69,6 @@ type DockerGoBuilderConfig struct {
 	GoProxyURL string `toml:"go_proxy_url" overridable:"yes"`
 }
 
-// TODO cache build outputs https://github.com/ipfs/testground/issues/36
 // Build builds a testplan written in Go and outputs a Docker container.
 func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
 	cfg, ok := in.BuildConfig.(*DockerGoBuilderConfig)
@@ -74,13 +76,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, fmt.Errorf("expected configuration type DockerGoBuilderConfig, was: %T", in.BuildConfig)
 	}
 
-	cliopts := []client.Opt{
-		client.FromEnv,
-		client.WithAPIVersionNegotiation(),
-	}
+	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id       = in.BuildID
+		id      = in.BuildID
+		basesrc = in.BaseSrcPath
+		plansrc = in.TestPlanSrcPath
+		sdksrc  = in.SDKSrcPath
+
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
@@ -93,68 +96,26 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, err
 	}
 
-	// The testground-build network is used to connect build services (like the
-	// GOPROXY) to the build container.
-	b.proxyLk.Lock()
-	buildNetworkID, err := docker.EnsureBridgeNetwork(ctx, ow, cli, "testground-build", false)
-	if err != nil {
-		ow.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
-		cfg.GoProxyMode = "direct"
-	}
-
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
-	proxyURL, warn := setupGoProxy(ctx, ow, cli, buildNetworkID, cfg)
+	proxyURL, buildNetworkID, warn := b.setupGoProxy(ctx, ow, cli, cfg)
 	if warn != nil {
 		ow.Warnf("warning while setting up the go proxy: %s", warn)
 	}
-	b.proxyLk.Unlock()
 
-	// Create a temp dir, and copy the source into it.
-	tmp, err := ioutil.TempDir("", in.TestPlan.Name)
+	// Write the Dockerfile.
+	dockerfileDst := filepath.Join(basesrc, "Dockerfile")
+	f, err := os.Create(dockerfileDst)
 	if err != nil {
-		return nil, fmt.Errorf("failed while creating temp dir: %w", err)
+		return nil, fmt.Errorf("failed to create Dockerfile at %s: %w", dockerfileDst, err)
 	}
-	defer os.RemoveAll(tmp)
-
-	var (
-		plansrc       = in.TestPlan.SourcePath
-		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
-		dockerfilesrc = filepath.Join(in.Directories.SourceDir(), "pkg/build/golang", "Dockerfile.template")
-
-		plandst       = filepath.Join(tmp, "plan")
-		sdkdst        = filepath.Join(tmp, "sdk")
-		dockerfiledst = filepath.Join(tmp, "Dockerfile")
-	)
-
-	// Copy the plan's source; go-getter will create the dir.
-	if err := getter.Get(plandst, plansrc, getter.WithContext(ctx)); err != nil {
-		return nil, err
-	}
-	if err := materializeSymlink(plandst); err != nil {
-		return nil, err
-	}
-
-	// Copy the dockerfile.
-	if err := copyFile(dockerfiledst, dockerfilesrc); err != nil {
-		return nil, err
-	}
-
-	// Copy the sdk source; go-getter will create the dir.
-	if err := validateSdkDir(sdksrc); err != nil {
-		return nil, err
-	}
-
-	if err := getter.Get(sdkdst, sdksrc, getter.WithContext(ctx)); err != nil {
-		return nil, err
-	}
-	if err := materializeSymlink(sdkdst); err != nil {
-		return nil, err
+	if err = dockerfileTmpl.Execute(f, struct{ WithSDK bool }{sdksrc != ""}); err != nil {
+		return nil, fmt.Errorf("failed to execute Dockerfile template and/or write into file %s: %w", dockerfileDst, err)
 	}
 
 	if cfg.FreshGomod {
 		for _, f := range []string{"go.mod", "go.sum"} {
-			file := filepath.Join(plandst, f)
+			file := filepath.Join(plansrc, f)
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
 				if err := os.Remove(file); err != nil {
 					return nil, fmt.Errorf("cleanup failed; %w", err)
@@ -164,7 +125,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 		// Initialize a fresh go.mod file.
 		cmd := exec.CommandContext(ctx, "go", "mod", "init", cfg.ModulePath)
-		cmd.Dir = plandst
+		cmd.Dir = plansrc
 		out, _ := cmd.CombinedOutput()
 		if !strings.Contains(string(out), "creating new go.mod") {
 			return nil, fmt.Errorf("unable to create go.mod; %s", out)
@@ -174,30 +135,34 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
-		// TODO(RK): allow to override target of replaces, so we can test against forks.
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, mod, ver))
 	}
 
 	// Inject replace directives for the SDK modules.
-	replaces = append(replaces,
-		"-replace=github.com/ipfs/testground/sdk/sync=../sdk/sync",
-		"-replace=github.com/ipfs/testground/sdk/runtime=../sdk/runtime")
+	if sdksrc != "" {
+		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
+	}
 
-	// Write replace directives.
-	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
-	cmd.Dir = plandst
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("unable to add replace directives to go.mod; %w", err)
+	if len(replaces) > 0 {
+		// Write replace directives.
+		cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
+		cmd.Dir = plansrc
+		if err = cmd.Run(); err != nil {
+			out, _ := cmd.CombinedOutput()
+			return nil, fmt.Errorf("unable to add replace directives to go.mod; %w; output: %s", err, string(out))
+		}
 	}
 
 	// initial go build args.
 	var args = map[string]*string{
-		"GO_VERSION":        &cfg.GoVersion,
-		"TESTPLAN_EXEC_PKG": &cfg.ExecPkg,
-		"GO_PROXY":          &proxyURL,
+		"GO_PROXY": &proxyURL,
+	}
+
+	if cfg.GoVersion != "" {
+		args["GO_VERSION"] = &cfg.GoVersion
+	}
+	if cfg.ExecPkg != "" {
+		args["TESTPLAN_EXEC_PKG"] = &cfg.ExecPkg
 	}
 
 	// set BUILD_TAGS arg if the user has provided selectors.
@@ -209,13 +174,17 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
-		NetworkMode: "testground-build",
-		BuildArgs:   args,
+		Tags:      []string{id, in.BuildID},
+		BuildArgs: args,
+	}
+
+	// If a docker network was created for the proxy, link it to the build container
+	if buildNetworkID != "" {
+		opts.NetworkMode = buildNetworkName
 	}
 
 	imageOpts := docker.BuildImageOpts{
-		BuildCtx:  tmp,
+		BuildCtx:  basesrc,
 		BuildOpts: &opts,
 	}
 
@@ -223,7 +192,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
 	ow.Infow("build completed", "took", time.Since(buildStart))
@@ -273,7 +242,7 @@ func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client
 	}
 
 	// AWS ECR repository name is testground-<region>-<plan_name>.
-	repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan.Name)
+	repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan)
 
 	// Ensure the repo exists, or create it. Get the full URI to the repo, so we
 	// can tag images.
@@ -369,7 +338,12 @@ func setupLocalGoProxyVol(ctx context.Context, ow *rpc.OutputWriter, cli *client
 //
 // If an error occurs, it is reduced to a warning, and we fall back to direct
 // mode (i.e. no proxy, not even Google's default one).
-func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, buildNetworkID string, cfg *DockerGoBuilderConfig) (proxyURL string, warn error) {
+func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client, cfg *DockerGoBuilderConfig) (proxyURL string, buildNetworkID string, warn error) {
+	// The testground-build network is used to connect build services (like the
+	// GOPROXY) to the build container.
+	b.proxyLk.Lock()
+	defer b.proxyLk.Unlock()
+
 	var mnt *mount.Mount
 
 	switch strings.TrimSpace(cfg.GoProxyMode) {
@@ -391,6 +365,15 @@ func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 		fallthrough
 
 	default:
+		var err error
+		buildNetworkID, err = docker.EnsureBridgeNetwork(ctx, ow, cli, buildNetworkName, false)
+		if err != nil {
+			warn = fmt.Errorf("error while creating a testground-build network: %s; forcing direct proxy mode", err)
+			cfg.GoProxyMode = "direct"
+			proxyURL = cfg.GoProxyURL
+			break
+		}
+
 		proxyURL = "http://testground-goproxy:8081"
 		mnt, warn = setupLocalGoProxyVol(ctx, ow, cli)
 		if warn != nil {
@@ -415,41 +398,63 @@ func setupGoProxy(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client,
 			warn = fmt.Errorf("encountered an error when creating the goproxy container; falling back to go_proxy_mode=direct; err: %w", warn)
 		}
 	}
-	return proxyURL, warn
+	return proxyURL, buildNetworkID, warn
 }
 
-func validateSdkDir(dir string) error {
-	switch fi, err := os.Stat(dir); {
-	case err != nil:
-		return err
-	case !fi.IsDir():
-		return fmt.Errorf("not sdk directory: %s", dir)
-	default:
-		return nil
-	}
-}
+const DockerfileTemplate = `
+#:::
+#::: BUILD CONTAINER
+#:::
 
-func copyFile(dst, src string) error {
-	in, err := ioutil.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(dst, in, 0644)
-}
+# GO_VERSION is the golang version this image will be built against.
+ARG GO_VERSION=1.14
 
-func materializeSymlink(dir string) error {
-	if fi, err := os.Lstat(dir); err != nil {
-		return err
-	} else if fi.Mode()&os.ModeSymlink == 0 {
-		return nil
-	}
-	// it's a symlink.
-	ref, err := os.Readlink(dir)
-	if err != nil {
-		return err
-	}
-	if err := os.Remove(dir); err != nil {
-		return err
-	}
-	return copy.Copy(ref, dir)
-}
+# Dynamically select the golang version.
+FROM golang:${GO_VERSION}-buster
+
+# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
+# The image will build that package only.
+ARG TESTPLAN_EXEC_PKG="."
+# GO_PROXY is the go proxy that will be used, or direct by default.
+ARG GO_PROXY=direct
+# BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
+ARG BUILD_TAGS
+
+ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan/
+
+# Copy only go.mod files and download deps, in order to leverage Docker caching.
+COPY /plan/go.mod ${PLAN_DIR}
+
+{{if .WithSDK}}
+COPY /sdk/go.mod /sdk/go.mod
+{{end}}
+
+# Download deps.
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && go mod download
+
+# Now copy the rest of the source and run the build.
+COPY . /
+RUN cd ${PLAN_DIR} \
+    && go env -w GOPROXY="${GO_PROXY}" \
+    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+
+# Store module dependencies
+RUN cd ${PLAN_DIR} \
+  && go list -m all > /testground_dep_list
+
+#:::
+#::: RUNTIME CONTAINER
+#:::
+
+FROM busybox:1.31.1-glibc
+
+COPY --from=0 /testground_dep_list /
+COPY --from=0 /plan/testplan /
+
+EXPOSE 6060
+ENTRYPOINT [ "/testplan", "--vv"]
+`
