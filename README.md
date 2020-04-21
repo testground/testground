@@ -69,7 +69,7 @@ plan promises to emit events on stdout, and assets on the output directory.
   * As such, a test plan can be any kind of program, written in Go, JavaScript, C, or shell.
   * At present, we offer builders for Go, with TypeScript (node and browser) being in the works.  
 
-### 🛠 Modular builders and runners
+### Modular builders and runners 🛠
 
 For running test plans written in different languages, targeted for different runtimes, and levels of scale:
   * `exec:go` and `docker:go` builders: compile test plans written in Go into executables or containers.
