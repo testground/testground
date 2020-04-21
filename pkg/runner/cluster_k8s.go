@@ -210,6 +210,15 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				Value: cfg.LogLevel,
 			})
 		}
+
+		env = append(env, v1.EnvVar{
+			Name: "POD_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				}},
+		})
+
 		for i := 0; i < g.Instances; i++ {
 			i := i
 			g := g
