@@ -171,14 +171,14 @@ Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a con
 
 ## Team
 
-### 💪 Core team
+### Core team 💪
 
 * @raulk 🎈 _(founder and tech lead)_
 * @nonsense ⛷ _(core engineer)_
 * @coryschwartz 🦉 _(core engineer)_
 * @robmat05 🍝 _(technical project manager)_
 
-### ❤ Collaborators
+### Collaborators ❤
 
 @daviddias, @stebalien, @hacdias, @jimpick, @aschmahmann, @dirkmc, @yusefnapora.
 
