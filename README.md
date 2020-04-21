@@ -48,7 +48,7 @@ from 2 to 10k instances, only when needed.
 
 ## Features
 
-***💡 Supports (or aims to support) a variety of testing workflows***
+### 💡 Supports (or aims to support) a variety of testing workflows
 
 > (🌕 = fully supported // 🌑 = planned)
 
@@ -62,14 +62,14 @@ from 2 to 10k instances, only when needed.
   * Continuous integration 🌑
   * Stakeholder/acceptance testing 🌑
 
-***📄 Simple, normalized, formal runtime environment for tests***
+### 📄 Simple, normalized, formal runtime environment for tests
 
 A test plan is a blackbox with a formal contract. Testground promises to inject a set of env variables, and the test
 plan promises to emit events on stdout, and assets on the output directory.
   * As such, a test plan can be any kind of program, written in Go, JavaScript, C, or shell.
   * At present, we offer builders for Go, with TypeScript (node and browser) being in the works.  
 
-***🛠 Modular builders and runners***
+### 🛠 Modular builders and runners
 
 For running test plans written in different languages, targeted for different runtimes, and levels of scale:
   * `exec:go` and `docker:go` builders: compile test plans written in Go into executables or containers.
@@ -79,39 +79,39 @@ For running test plans written in different languages, targeted for different ru
 > Got some spare cycles and would like to add support for writing test plans Rust, Python or X? It's easy! Open an
 > issue, and the community will guide you!
 
-***👯‍♀️ Distributed coordination API***
+### 👯‍♀️ Distributed coordination API
 
 Redis-backed lightweight API offering synchronisation primitives to coordinate and choreograph distributed test
 workloads across a fleet of nodes.
 
-***📡 Network traffic shaping***
+### 📡 Network traffic shaping
 
 Test instances are able to set connectedness, latency, jitter, bandwidth, duplication, packet corruption, etc. to
 simulate a variety of network conditions.
 
-***☁️ Quickstart k8s cluster setup on AWS***
+### ☁️ Quickstart k8s cluster setup on AWS
 
 Create a k8s cluster ready to run Testground jobs on AWS by following the instructions at
 [`testground/infra`](https://github.com/testground/infra).
 
-***🧩 Upstream dependency selection***
+### 🧩 Upstream dependency selection
 
 Compiling test plans against specific versions of upstream dependencies (e.g. moduleX v0.3, or commit 1a2b3c).
 
-***🌱 Dealing with upstream API changes***
+### 🌱 Dealing with upstream API changes
 
 So that a single test plan can work with a range of versions of the components under test, as these evolve over time.
 
-***📈 Metrics and diagnostics***
+### 📈 Metrics and diagnostics
 
 Automatic pprof and metrics exposition and push to ~Prometheus~ (being replaced by InfluxDB).
 
-***🧵 Declarative jobs, we call them _compositions_***
+### 🧵 Declarative jobs, we call them _compositions_
 
 Create tailored test runs by composing scenarios declaratively, with different groups, cohorts, upstream deps, test
 params, etc. 
 
-***💾 Emit and collect test outputs***
+### 💾 Emit and collect test outputs
 
 Emit and collect/export/download test outputs (logs, assets, event trails, run events, etc.) from all participants
 in a run. 
@@ -168,6 +168,19 @@ $TESTGROUND_HOME
 ## Contributing
 
 Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a contribution.
+
+## Team
+
+### 💪 Core team
+
+* @raulk 🎈 _(founder and tech lead)_
+* @nonsense ⛷ _(core engineer)_
+* @coryschwartz 🦉 _(core engineer)_
+* @robmat05 🍝 _(technical project manager)_
+
+### ❤ Collaborators
+
+@daviddias, @stebalien, @hacdias, @jimpick, @aschmahmann, @dirkmc, @yusefnapora.
 
 ## License
 
