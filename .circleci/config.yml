@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
 jobs:
-  test-lin:
+  build:
     machine:
       image: ubuntu-1604:201903-01
     steps:
