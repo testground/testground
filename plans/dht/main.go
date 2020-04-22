@@ -2,7 +2,7 @@ package main
 
 import (
 	test "github.com/ipfs/testground/plans/dht/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 var testCases = map[string]runtime.TestCaseFn{

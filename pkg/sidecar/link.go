@@ -10,7 +10,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
 )
 
 var (

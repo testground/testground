@@ -8,7 +8,7 @@ import (
 	"net"
 
 	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/vishvananda/netlink"

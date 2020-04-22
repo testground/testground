@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/sparrc/go-ping"
-	"github.com/testground/testground/sdk/runtime"
-	"github.com/testground/testground/sdk/sync"
+	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 )
 
 func main() {

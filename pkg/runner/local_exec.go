@@ -20,7 +20,7 @@ import (
 	"github.com/ipfs/testground/pkg/conv"
 	hc "github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 var (

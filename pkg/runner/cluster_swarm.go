@@ -13,7 +13,7 @@ import (
 	"github.com/ipfs/testground/pkg/aws"
 	"github.com/ipfs/testground/pkg/conv"
 	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/docker/docker/api/types"

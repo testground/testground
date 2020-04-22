@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 // ExamplePanic always panics

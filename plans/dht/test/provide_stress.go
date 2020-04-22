@@ -3,7 +3,7 @@ package test
 import (
 	"fmt"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 // TODO this entire test needs to be revisited.

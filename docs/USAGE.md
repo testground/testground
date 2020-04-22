@@ -205,7 +205,7 @@ package main
 
 import (
 	test "github.com/ipfs/testground/plans/test-plan/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 var testcases = map[string]runtime.TestCaseFn {
@@ -231,11 +231,11 @@ Returning `nil` from a test case indicates that it completed successfully. If yo
 the runner will tear down the test, and the test outcome will be `"aborted"`. You can also halt test
 execution by `panic`-ing, which causes the outcome to be recorded as `"crashed"`.
 
-Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), 
-such as [`runenv.Message`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.Message) and 
-[`runenv.EmitMetric`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.EmitMetric).
+Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/testground/sdk-go/runtime#RunEnv), 
+such as [`runenv.Message`](https://godoc.org/github.com/testground/sdk-go/runtime#RunEnv.Message) and 
+[`runenv.EmitMetric`](https://godoc.org/github.com/testground/sdk-go/runtime#RunEnv.EmitMetric).
 
-To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/ipfs/testground/sdk/runtime).
+To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/testground/sdk-go/runtime).
 
 ### To get a simple string parameter
 

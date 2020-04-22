@@ -2,7 +2,7 @@ package test
 
 import (
 	"context"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 func All(runenv *runtime.RunEnv) error {

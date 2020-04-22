@@ -140,7 +140,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// Inject replace directives for the SDK modules.
 	if sdksrc != "" {
-		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
+		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
 	if len(replaces) > 0 {

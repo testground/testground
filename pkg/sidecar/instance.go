@@ -9,8 +9,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 )
 
 type InstanceHandler func(context.Context, *Instance) error

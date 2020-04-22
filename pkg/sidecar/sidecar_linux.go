@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
 )
 
 const (

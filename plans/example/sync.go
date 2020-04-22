@@ -5,8 +5,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 )
 
 // ExampleSync demonstrates synchronization between instances in the test group.

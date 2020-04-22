@@ -2,7 +2,7 @@ package main
 
 import (
 	test "github.com/ipfs/testground/plans/bitswap-tuning/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
