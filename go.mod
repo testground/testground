@@ -36,7 +36,7 @@ require (
 	github.com/pierrec/lz4 v2.5.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.4.0
-	github.com/testground/sdk-go v0.1.0
+	github.com/testground/sdk-go v0.1.1
 	github.com/urfave/cli v1.22.1
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
