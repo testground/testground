@@ -18,6 +18,6 @@ $ make pre-commit
 
 ## Communication channels
 
-**In addition**, please read through the [HOW WE WORK TOGETHER](https://github.com/ipfs/testground/blob/master/docs/HOW_WE_WORK.md) document to learn how the team operates and expects information to be propagated.
+**In addition**, please read through the [HOW WE WORK TOGETHER](https://github.com/testground/testground/blob/master/docs/HOW_WE_WORK.md) document to learn how the team operates and expects information to be propagated.
 
 Thank you ❤️

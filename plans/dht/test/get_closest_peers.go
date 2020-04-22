@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/testground/testground/plans/dht/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"

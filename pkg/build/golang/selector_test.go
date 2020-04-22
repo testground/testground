@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/build/golang"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/engine"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/build/golang"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/engine"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/client"
 	"github.com/otiai10/copy"

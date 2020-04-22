@@ -5,7 +5,7 @@ import (
 	"io"
 	"text/tabwriter"
 
-	"github.com/ipfs/testground/pkg/config"
+	"github.com/testground/testground/pkg/config"
 	"github.com/mitchellh/go-wordwrap"
 )
 
