@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
 	"github.com/sparrc/go-ping"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 )
 
 func main() {
@@ -51,6 +51,8 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 		pingmode
 	)
 
+	endOfNetworks := "endOfNetworks"
+
 	netTopic := sync.NewTopic("addrs", "")
 
 	switch client.MustSignalAndWait(ctx, "ready", runenv.TestInstanceCount) {
@@ -72,8 +74,8 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 				client.Publish(ctx, netTopic, addr.String())
 			}
 		}
-		client.Publish(ctx, netTopic, ".")
-		runenv.RecordMessage("networks published. ready to be tested.")
+		client.Publish(ctx, netTopic, endOfNetworks)
+		runenv.RecordMessage("published my addresses from all networks to sync service. ready to be tested.")
 		client.SignalEntry(ctx, "target-ready")
 
 	case pingmode:
@@ -82,7 +84,7 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("starting ping")
 		nwCh := make(chan string)
 		client.Subscribe(ctx, netTopic, nwCh)
-		for network := <-nwCh; network != "."; network = <-nwCh {
+		for network := <-nwCh; network != endOfNetworks; network = <-nwCh {
 			runenv.RecordMessage("checking if network is reachable: %s", network)
 			addr := strings.Split(network, "/")[0]
 			pinger, _ := ping.NewPinger(addr)
