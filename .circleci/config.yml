@@ -32,6 +32,5 @@ jobs:
           name: "make test"
           command: |
             mkdir -p $HOME/testground/plans 
-            ln -s $HOME/project/plans/placebo
-            $HOME/testground/plans/placebo
+            ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
