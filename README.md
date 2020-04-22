@@ -182,6 +182,10 @@ Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a con
 
 @daviddias, @stebalien, @hacdias, @jimpick, @aschmahmann, @dirkmc, @yusefnapora.
 
+### Meeting notes
+
+You can find notes from the Testground team meetings at [github.com/testground/pm](https://github.com/testground/pm/tree/master/_meeting-notes)
+
 ## License
 
 Dual-licensed: [MIT](./LICENSE-MIT), [Apache Software License v2](./LICENSE-APACHE), by way of the
