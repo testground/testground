@@ -1,8 +1,8 @@
-module github.com/ipfs/testground/plans/bitswap-tuning
+module github.com/testground/testground/plans/bitswap-tuning
 
 go 1.14
 
-replace github.com/ipfs/testground/sdk => ../../sdk
+replace github.com/testground/testground/sdk => ../../sdk
 
 require (
 	github.com/ipfs/go-bitswap v0.1.9
@@ -17,7 +17,7 @@ require (
 	github.com/ipfs/go-ipld-format v0.0.2
 	github.com/ipfs/go-merkledag v0.2.4
 	github.com/ipfs/go-unixfs v0.2.2
-	github.com/ipfs/testground/sdk v0.4.0
+	github.com/testground/testground/sdk v0.4.0
 	github.com/libp2p/go-libp2p v0.4.0
 	github.com/libp2p/go-libp2p-core v0.3.0
 	github.com/multiformats/go-multiaddr v0.2.0

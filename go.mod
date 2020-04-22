@@ -1,8 +1,8 @@
-module github.com/ipfs/testground
+module github.com/testground/testground
 
 go 1.14
 
-replace github.com/ipfs/testground/sdk => ./sdk
+replace github.com/testground/testground/sdk => ./sdk
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
@@ -24,7 +24,7 @@ require (
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
-	github.com/ipfs/testground/sdk v0.4.0
+	github.com/testground/testground/sdk v0.4.0
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
 	github.com/mattn/go-zglob v0.0.1

@@ -1,8 +1,8 @@
-module github.com/ipfs/testground/plans/dht
+module github.com/testground/testground/plans/dht
 
 go 1.14
 
-replace github.com/ipfs/testground/sdk => ../../sdk
+replace github.com/testground/testground/sdk => ../../sdk
 
 require (
 	github.com/gogo/protobuf v1.3.1
@@ -11,7 +11,7 @@ require (
 	github.com/ipfs/go-ds-leveldb v0.4.1
 	github.com/ipfs/go-ipfs-util v0.0.1
 	github.com/ipfs/go-ipns v0.0.2
-	github.com/ipfs/testground/sdk v0.4.0
+	github.com/testground/testground/sdk v0.4.0
 	github.com/libp2p/go-libp2p v0.4.2
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.3.0
