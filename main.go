@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/testground/testground/pkg/cmd"
-	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/cmd"
+	"github.com/testground/testground/logging"
 
 	"github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
