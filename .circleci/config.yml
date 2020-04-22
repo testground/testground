@@ -53,7 +53,9 @@ jobs:
     executor: win/default
     steps:
       - checkout
-      - run: |
-        $wc = New-Object System.Net.WebClient
-        $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi" ".\go.msi")
-        msiexec.exe .\go.msi
+      - run:
+          name: "install go 1.14"
+          command: |
+            $wc = New-Object System.Net.WebClient
+            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi" ".\go.msi")
+            msiexec.exe .\go.msi
