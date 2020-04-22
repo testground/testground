@@ -2,11 +2,15 @@
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
+orbs:
+  win: circleci/windows@2.2.0
+
 workflows:
   version: 2
-  win_and_lin:
+  test_os:
     jobs:
       - test-linux
+      - test-windows
 jobs:
   test-linux:
     machine:
@@ -43,3 +47,10 @@ jobs:
             mkdir -p $HOME/testground/plans 
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+
+  # https://circleci.com/docs/2.0/executor-intro/#windows
+  test-windows:
+    executor: win/default
+    steps:
+      - checkout
+      - run: Write-Host 'Hello, Windows'
