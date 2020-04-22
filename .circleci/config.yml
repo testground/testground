@@ -69,11 +69,9 @@ jobs:
       - run:
           name: "install go 1.14"
           command: |
-            cd ..
             $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", ".\go.zip")
-            unzip .\go.zip
-            cd project
+            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", "C:\Users\circleci\go.zip")
+            unzip.exe -d C:\Users\circleci C:\Users\circleci\go.zip
       - run:
           name: "test build"
           command: |
