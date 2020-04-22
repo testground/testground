@@ -31,7 +31,7 @@ func TestBuildSelector(t *testing.T) {
 		os.RemoveAll(basedir)
 	})
 
-	err = copy.Copy("../../../plans/placebo", plandir)
+	err = copy.Copy("../../plans/placebo", plandir)
 	require.NoError(err)
 
 	env := &config.EnvConfig{}
