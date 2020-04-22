@@ -43,9 +43,12 @@ jobs:
       shell: powershell.exe
     steps:
       - checkout
+      - run: systeminfo
       - run:
-        name: "build"
-        command: go build
+          name: "windows build"
+          shell: powershell.exe
+          command: |
+            go build
 
 workflows:
   version: 2
