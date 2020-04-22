@@ -19,6 +19,7 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -249,6 +250,11 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 	}
 
 	for _, r := range routesToBeDeleted {
+		// Don't route to the default route. Blackhole these routes.
+		bh := netlink.Route{
+			Dst:  r.Dst,
+			Type: nl.FR_ACT_BLACKHOLE,
+		}
 		routeDst := "nil"
 		if r.Dst != nil {
 			routeDst = r.Dst.String()
@@ -257,6 +263,9 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		logging.S().Debugw("really removing route", "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
 		if err := netlinkHandle.RouteDel(&r); err != nil {
 			logging.S().Warnw("failed to really delete route", "route.Src", r.Src, "gw", r.Gw, "route.Dst", routeDst, "container", container.ID, "err", err.Error())
+		}
+		if err := netlinkHandle.RouteAdd(&bh); err != nil {
+			logging.S().Warnw("failed to add blackhole route")
 		}
 	}
 
