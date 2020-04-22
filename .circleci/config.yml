@@ -3,7 +3,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 orbs:
-  win: circleci/windows@2.2.0
+  win: circleci/windows@2.4.0
 
 workflows:
   version: 2
@@ -53,4 +53,7 @@ jobs:
     executor: win/default
     steps:
       - checkout
-      - run: Write-Host 'Hello, Windows'
+      - run: |
+        $wc = New-Object System.Net.WebClient
+        $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi" ".\go.msi")
+        msiexec.exe .\go.msi
