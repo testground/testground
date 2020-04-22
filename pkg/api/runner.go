@@ -4,8 +4,8 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 // Runner is the interface to be implemented by all runners. A runner takes a

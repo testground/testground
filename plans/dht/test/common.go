@@ -15,8 +15,8 @@ import (
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
-	tglibp2p "github.com/ipfs/testground/plans/dht/libp2p"
-	"github.com/ipfs/testground/plans/dht/utils"
+	tglibp2p "github.com/testground/testground/plans/dht/libp2p"
+	"github.com/testground/testground/plans/dht/utils"
 
 	leveldb "github.com/ipfs/go-ds-leveldb"
 

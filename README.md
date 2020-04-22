@@ -4,7 +4,7 @@
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://protocol.ai)
 ![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
-[![](https://travis-ci.com/ipfs/testground.svg?branch=master)](https://travis-ci.com/ipfs/testground)
+[![](https://travis-ci.com/testground/testground.svg?branch=master)](https://travis-ci.com/testground/testground)
 
 Testground is a platform for testing, benchmarking, and simulating distributed and p2p
 systems at scale. It's designed to be multi-lingual and runtime-agnostic, scaling gracefully

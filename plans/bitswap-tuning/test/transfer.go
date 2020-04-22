@@ -18,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
+	"github.com/testground/testground/plans/bitswap-tuning/utils"
 )
 
 // NOTE: To run use:

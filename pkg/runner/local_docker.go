@@ -16,11 +16,11 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/conv"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/docker/docker/api/types"
@@ -156,7 +156,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		//  builds the sidecar, we would've omitted the need for this entirely.
 		// ImageStrategy: docker.ImageStrategyBuild,
 		// BuildImageOpts: &docker.BuildImageOpts{
-		// 	Name:     "ipfs/testground:latest",
+		// 	Name:     "testground/testground:latest",
 		// 	BuildCtx: engine.EnvConfig().Home,
 		// },
 	}

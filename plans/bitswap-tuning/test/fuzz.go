@@ -21,7 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
+	"github.com/testground/testground/plans/bitswap-tuning/utils"
 )
 
 //

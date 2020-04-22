@@ -10,10 +10,10 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/client"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/conv"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/conv"
 )
 
 func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {

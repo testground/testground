@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/sync"
 )
 

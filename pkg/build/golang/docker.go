@@ -14,10 +14,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"

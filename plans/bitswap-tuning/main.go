@@ -1,7 +1,7 @@
 package main
 
 import (
-	test "github.com/ipfs/testground/plans/bitswap-tuning/test"
+	test "github.com/testground/testground/plans/bitswap-tuning/test"
 	"github.com/testground/sdk-go/runtime"
 )
 

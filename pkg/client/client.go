@@ -18,10 +18,10 @@ import (
 
 	"github.com/logrusorgru/aurora"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/mholt/archiver"
 	"github.com/mitchellh/mapstructure"

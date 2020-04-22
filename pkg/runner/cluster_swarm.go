@@ -9,10 +9,10 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/conv"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
+	"github.com/testground/testground/pkg/conv"
+	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/sdk-go/runtime"
 	"golang.org/x/sync/errgroup"
 

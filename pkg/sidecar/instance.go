@@ -8,7 +8,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )

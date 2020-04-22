@@ -3,7 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/testground/testground/plans/dht/utils"
 	"time"
 
 	"github.com/testground/sdk-go/runtime"

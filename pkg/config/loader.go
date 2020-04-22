@@ -7,7 +7,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/logging"
 )
 
 const (

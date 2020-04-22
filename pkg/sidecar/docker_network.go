@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/ipfs/testground/pkg/docker"
+	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/sdk-go/sync"
 
 	"github.com/docker/docker/api/types/network"

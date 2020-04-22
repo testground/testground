@@ -11,7 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 func parseDependencies(raw string) map[string]string {

@@ -6,8 +6,8 @@ import (
 
 	"github.com/urfave/cli"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/client"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
 )
 
 var HealthcheckCommand = cli.Command{
