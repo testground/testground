@@ -12,6 +12,28 @@ from 2 to 10k instances, only when needed.
 
 ![Testground demo](https://github.com/testground/pm/blob/master/img/testground-demo.gif?raw=true)
 
+## Table of Contents
+
+<!-- INSTRUCTIONS: regenerate with [doctoc](https://github.com/thlorenz/doctoc) -->
+<!-- Command: doctoc README.md --maxlevel=2 -->
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [How does it work?](#how-does-it-work)
+- [Features](#features)
+- [Getting started](#getting-started)
+- [Documentation](#documentation)
+- [Where to find test plans?](#where-to-find-test-plans)
+- [Developing test plans](#developing-test-plans)
+- [Scaling out](#scaling-out)
+- [Contributing](#contributing)
+- [Team](#team)
+- [License](#license)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## How does it work?
 
 1. **You develop distributed test plans as if you were writing unit tests against local APIs.**
@@ -136,26 +158,56 @@ The layout of **`$TESTGROUND_HOME`** is as follows:
 
 ```
 $TESTGROUND_HOME
-|
-|__ plans              >>> [c] contains test plans, can be git checkouts, symlinks to local dirs, or the source itself
-|    |__ suite-a       >>> test plans can be grouped in suites (which in turn can be nested); this enables you to host many test plans in a single repo / directory.
-|    |    |__ plan-1   >>> source of a test plan identified by suite-a/plan-1 (relative to $TESTGROUND_HOME/plans) 
-|    |    |__ plan-2
-|    |__ plan-3        >>> source of a test plan identified by plan-3 (relative to $TESTGROUND_HOME/plans)
-|
-|__ sdks               >>> [c] hosts the test development SDKs that the client knows about, so they can be used with the --link-sdk option.
-|__  |__ sdk-go
-|
-|__ data               >>> [d] data directory  
-     |__ outputs
-     |__ work
-
+ |
+ |__ plans              >>> [c] contains test plans, can be git checkouts, symlinks to local dirs, or the source itself
+ |    |__ suite-a       >>> test plans can be grouped in suites (which in turn can be nested); this enables you to host many test plans in a single repo / directory.
+ |    |    |__ plan-1   >>> source of a test plan identified by suite-a/plan-1 (relative to $TESTGROUND_HOME/plans) 
+ |    |    |__ plan-2
+ |    |__ plan-3        >>> source of a test plan identified by plan-3 (relative to $TESTGROUND_HOME/plans)
+ |
+ |__ sdks               >>> [c] hosts the test development SDKs that the client knows about, so they can be used with the --link-sdk option.
+ |__  |__ sdk-go
+ |
+ |__ data               >>> [d] data directory  
+      |__ outputs
+      |__ work
+ 
 [c] = used client-side // [d] = used mostly daemon-side.
 ``` 
 
 ## Documentation
 
 \<Full documentation site at WIP>
+
+## Where to find test plans?
+
+There are some basic, project-agnostic Testground test plans in the [`plans`](./plans) directory.
+We use these plans to validate the functionality of Testground itself.
+
+To link them under `$TESTGROUND_HOME/plans`, if you're using default paths, these commands should do the trick
+(assuming you have already run the Testground daemon once, and therefore the `$TESTGROUND_HOME` layout has been created
+for you):
+
+```shell script
+$ # from the root of this repo, run the following; it will symlink all test plans under $TESTGROUND_HOME/plans
+$ ln -s plans/* $HOME/testground/plans
+$ testground run single network:ping-pong --builder=docker:go --runner=local:docker --instances=2
+```
+
+For project-specific test plans, check out these repos:
+
+* https://github.com/libp2p/test-plans
+* https://github.com/ipfs/test-plans
+
+To use them, clone them into `$TESTGROUND_HOME/plans`. Same remark as above applies.
+
+```shell script
+$ git clone https://github.com/libp2p/test-plans.git $HOME/testground/plans/libp2p
+$ git clone https://github.com/ipfs/test-plans.git $HOME/testground/plans/ipfs
+$ # to run the find-peers test case from the libp2p/dht test plan (this is not a complete command!)
+$ testground run single libp2p/dht:find-peers --builder docker:go --runner local:docker <options>
+``` 
+
 
 ## Developing test plans
 
