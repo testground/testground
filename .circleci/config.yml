@@ -48,4 +48,9 @@ jobs:
         command: |
           $client = new-object System.Net.WebClient
           $client.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi","C:\tmp\go.msi")
-
+workflows:
+  version: 2
+  lin_and_win:
+    jobs:
+      - test-lin
+      - test-win
