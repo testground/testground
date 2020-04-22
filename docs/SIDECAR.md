@@ -1,7 +1,7 @@
 # Sidecar
 
 Before you read this, read the
-[networking](https://github.com/ipfs/testground/blob/master/docs/NETWORKING.md)
+[networking](https://github.com/testground/testground/blob/master/docs/NETWORKING.md)
 documentation.
 
 In testground, a test instance can configure its own network (IP address,
@@ -20,8 +20,8 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 )
 ```
 

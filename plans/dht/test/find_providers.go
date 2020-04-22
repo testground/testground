@@ -3,7 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/testground/testground/plans/dht/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -12,7 +12,7 @@ import (
 
 	"github.com/ipfs/go-cid"
 	u "github.com/ipfs/go-ipfs-util"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 type findProvsParams struct {

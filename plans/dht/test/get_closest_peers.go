@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/testground/testground/plans/dht/utils"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -15,7 +15,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	kbucket "github.com/libp2p/go-libp2p-kbucket"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 func GetClosestPeers(runenv *runtime.RunEnv) error {

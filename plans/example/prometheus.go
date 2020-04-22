@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 // the testground-ified version of this example:

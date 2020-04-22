@@ -1,8 +1,8 @@
 package main
 
 import (
-	test "github.com/ipfs/testground/plans/bitswap-tuning/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	test "github.com/testground/testground/plans/bitswap-tuning/test"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 func main() {

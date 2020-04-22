@@ -10,12 +10,12 @@ runner = "local:exec"
 [builders."docker:go"]
 enabled = true
 go_version = "1.13"
-module_path = "github.com/ipfs/testground/plans/example"
+module_path = "github.com/testground/testground/plans/example"
 exec_pkg = "."
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/ipfs/testground/plans/example"
+module_path = "github.com/testground/testground/plans/example"
 exec_pkg = "."
 
 [runners."local:docker"]

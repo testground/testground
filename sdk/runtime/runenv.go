@@ -357,7 +357,7 @@ func (re *RunParams) JSONParam(name string, v interface{}) {
 	}
 }
 
-// Copied from github.com/ipfs/testground/pkg/conv, because we don't want the
+// Copied from github.com/testground/testground/pkg/conv, because we don't want the
 // SDK to depend on that package.
 func ParseKeyValues(in []string) (res map[string]string, err error) {
 	res = make(map[string]string, len(in))

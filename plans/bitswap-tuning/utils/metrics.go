@@ -3,7 +3,7 @@ package utils
 import (
 	"fmt"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 var (

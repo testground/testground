@@ -11,8 +11,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 )
 
 // This method emits the time as output. It does *not* emit a prometheus metric.

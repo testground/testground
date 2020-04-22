@@ -33,7 +33,7 @@ operate: as a long-lived daemon. Examples of such features include test run
 queueing & scheduling, test run state tracking, and GitHub automation.
 
 Daemonising the testground was already achieved in PR
-[#183](https://github.com/ipfs/testground/pull/183). All the deployment modes
+[#183](https://github.com/testground/testground/pull/183). All the deployment modes
 described herein rely on testground running as a daemon service.
 
 ### Deploying testground

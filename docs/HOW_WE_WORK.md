@@ -2,7 +2,7 @@
 
 ## Weekly Sync
 
-We run a Weekly Sync at [6pm UTC Tuesdays](https://www.wolframalpha.com/input/?i=Next+Tuesday+6pm+UTC) on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit?both) and stored at [meeting-notes](https://github.com/ipfs/testground/tree/master/_meeting-notes). This weekly is listed on the [IPFS Community Calendar](https://github.com/ipfs/community#community-calendar). Recordings can be found [here](https://drive.google.com/open?id=1VL57t9ZOtk5Yw-cQoG7TtKaf3agDsrLc)(currently only available to the team).
+We run a Weekly Sync at [6pm UTC Tuesdays](https://www.wolframalpha.com/input/?i=Next+Tuesday+6pm+UTC) on [Zoom Room](https://protocol.zoom.us/j/299213319), notes are taken at [hackmd.io test-ground-weekly/edit](https://hackmd.io/@daviddias/test-ground-weekly/edit?both) and stored at [meeting-notes](https://github.com/testground/testground/tree/master/_meeting-notes). This weekly is listed on the [IPFS Community Calendar](https://github.com/ipfs/community#community-calendar). Recordings can be found [here](https://drive.google.com/open?id=1VL57t9ZOtk5Yw-cQoG7TtKaf3agDsrLc)(currently only available to the team).
 
 For each Weeky Sync, each contributor is responsible for:
 
@@ -36,4 +36,4 @@ We track our work Kanban style in a [Zenhub board](https://app.zenhub.com/worksp
   
 ## Contributing Guildeines 
 
-Read [CONTRIBUTING.md](https://github.com/ipfs/testground/blob/master/CONTRIBUTING.md)
+Read [CONTRIBUTING.md](https://github.com/testground/testground/blob/master/CONTRIBUTING.md)

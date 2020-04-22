@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/client"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/urfave/cli"
 )

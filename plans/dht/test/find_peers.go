@@ -3,10 +3,10 @@ package test
 import (
 	"context"
 	"fmt"
-	"github.com/ipfs/testground/plans/dht/utils"
+	"github.com/testground/testground/plans/dht/utils"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {

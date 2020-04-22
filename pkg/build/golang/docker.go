@@ -14,10 +14,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -140,7 +140,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// Inject replace directives for the SDK modules.
 	if sdksrc != "" {
-		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
+		replaces = append(replaces, "-replace=github.com/testground/testground/sdk=../sdk")
 	}
 
 	if len(replaces) > 0 {

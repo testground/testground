@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 // ExampleParams prints out the params passed to it.

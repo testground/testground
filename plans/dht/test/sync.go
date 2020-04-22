@@ -1,7 +1,7 @@
 package test
 
 import (
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/sync"
 )
 
 // PeerAttribTopic represents a subtree under the test run's sync tree where peers

@@ -10,15 +10,15 @@ import (
 	"github.com/ipfs/go-cid"
 	blockstore "github.com/ipfs/go-ipfs-blockstore"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 
 	ipld "github.com/ipfs/go-ipld-format"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
+	"github.com/testground/testground/plans/bitswap-tuning/utils"
 )
 
 // NOTE: To run use:

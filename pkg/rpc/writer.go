@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/docker/docker/pkg/ioutils"
 	"go.uber.org/zap"

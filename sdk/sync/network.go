@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 type FilterAction int

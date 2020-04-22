@@ -13,15 +13,15 @@ import (
 	"github.com/ipfs/go-cid"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 
-	"github.com/ipfs/testground/plans/bitswap-tuning/utils"
+	"github.com/testground/testground/plans/bitswap-tuning/utils"
 )
 
 //

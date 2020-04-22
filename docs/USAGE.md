@@ -13,7 +13,7 @@ Ensure you install Docker on your machine.
 Then, onto getting the actual Testground code. Download the repo and build it:
 
 ```bash
-> git clone https://github.com/ipfs/testground.git
+> git clone https://github.com/testground/testground.git
 > cd testground
 > go build .
 ```
@@ -83,7 +83,7 @@ To configure a custom endpoint address, refer to the `[client]` settings on the
 ## Pull the latest stable version of the Sidecar service (or build it locally from source)
 
 ```bash
-docker pull ipfs/testground:latest
+docker pull testground/testground:latest
 ```
 
 or
@@ -100,7 +100,7 @@ To run a test plan locally, you can use the `testground run` command. Check what
 ```bash
 > testground list
 attempting to guess testground source directory; for better control set ${TESTGROUND_SRCDIR}
-successfully located testground source directory: /Users/imp/code/go-projects/src/github.com/ipfs/testground
+successfully located testground source directory: /Users/imp/code/go-projects/src/github.com/testground/testground
 warn: no .env.toml found; some components may not work
 dht/find-peers
 dht/find-providers
@@ -204,8 +204,8 @@ Inside, you should create a `main.go` file which will be the main entrypoint, as
 package main
 
 import (
-	test "github.com/ipfs/testground/plans/test-plan/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	test "github.com/testground/testground/plans/test-plan/test"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 var testcases = map[string]runtime.TestCaseFn {
@@ -231,11 +231,11 @@ Returning `nil` from a test case indicates that it completed successfully. If yo
 the runner will tear down the test, and the test outcome will be `"aborted"`. You can also halt test
 execution by `panic`-ing, which causes the outcome to be recorded as `"crashed"`.
 
-Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv), 
-such as [`runenv.Message`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.Message) and 
-[`runenv.EmitMetric`](https://godoc.org/github.com/ipfs/testground/sdk/runtime#RunEnv.EmitMetric).
+Inside `MyTest1` you can use any functions provided by [`RunEnv`](https://godoc.org/github.com/testground/testground/sdk/runtime#RunEnv), 
+such as [`runenv.Message`](https://godoc.org/github.com/testground/testground/sdk/runtime#RunEnv.Message) and 
+[`runenv.EmitMetric`](https://godoc.org/github.com/testground/testground/sdk/runtime#RunEnv.EmitMetric).
 
-To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/ipfs/testground/sdk/runtime).
+To get custom parameters, passed via the flag `--test-param`, you can use the [param functions](https://godoc.org/github.com/testground/testground/sdk/runtime).
 
 ### To get a simple string parameter
 
@@ -285,5 +285,5 @@ if err := sync.WaitNetworkInitialized(ctx context.Context, runenv, watcher); err
 
 For more powerful network management (e.g., setting bandwidth limits and
 latencies), see the
-[sidecar](https://github.com/ipfs/testground/blob/master/docs/SIDECAR.md)
+[sidecar](https://github.com/testground/testground/blob/master/docs/SIDECAR.md)
 documentation.

@@ -12,10 +12,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"

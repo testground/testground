@@ -3,7 +3,7 @@ package sync
 import (
 	"context"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 type runparamsCtxKey struct{}

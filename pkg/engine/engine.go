@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/build/golang"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/pkg/runner"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/build/golang"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/runner"
 
 	"github.com/google/uuid"
 	"github.com/logrusorgru/aurora"

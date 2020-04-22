@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 )
 
 // SetupNetwork instructs the sidecar (if enabled) to setup the network for this

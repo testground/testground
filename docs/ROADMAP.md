@@ -1,6 +1,6 @@
 # Testground Roadmap
 
-## **DISCLAIMER:** This Roadmap is still very much WIP. For a `"State of Testground Update"` and `"Functional Roadmap"`, consult [`State of Testground - Mid Q4 2019 (Team Only)`](https://docs.google.com/document/d/1lpifz6CSEYhas1a3ZpgCcDWAFl9Ysmr7o_JH0n8Vny0/edit#heading=h.8djx5icip69b). The primary milestone for the [`Testground MVP is to Unblock go-ipfs 0.5.0`](https://github.com/ipfs/testground/issues/196)
+## **DISCLAIMER:** This Roadmap is still very much WIP. For a `"State of Testground Update"` and `"Functional Roadmap"`, consult [`State of Testground - Mid Q4 2019 (Team Only)`](https://docs.google.com/document/d/1lpifz6CSEYhas1a3ZpgCcDWAFl9Ysmr7o_JH0n8Vny0/edit#heading=h.8djx5icip69b). The primary milestone for the [`Testground MVP is to Unblock go-ipfs 0.5.0`](https://github.com/testground/testground/issues/196)
 
 # Q4 2019
 

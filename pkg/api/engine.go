@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 type Engine interface {

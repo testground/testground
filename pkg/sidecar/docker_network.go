@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/sdk/sync"
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/vishvananda/netlink"

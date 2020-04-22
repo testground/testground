@@ -59,6 +59,6 @@ The testing Plans linked below have been identified as the most valuable sets of
 - 05. [`Plan:` Naming (IPNS & its multiple routers)](../plans/naming)
 - 06. [`Plan:` Bitswap specifics](../plans/bitswap-tuning)
 - 07. [`Plan:` go-libp2p DHT beaves](../plans/dht)
-- 08. [`Plan:` Interop](https://github.com/ipfs/testground/issues/138)
+- 08. [`Plan:` Interop](https://github.com/testground/testground/issues/138)
 
 There is 1 other test plan that were created to test the functionality of Testground and to be used as a demo. The plan is: [smlbench](../plans/smlbench)

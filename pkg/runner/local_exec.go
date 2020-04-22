@@ -16,11 +16,11 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/conv"
-	hc "github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
+	hc "github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 var (

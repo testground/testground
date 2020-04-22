@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 // ExampleFailure always fails

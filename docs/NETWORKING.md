@@ -15,7 +15,7 @@ The "control network" runs on 192.18.0.1/16 and should only be used to
 communicate with the sync service.
 
 After the sidecar is finished [initializing the
-network](https://github.com/ipfs/testground/blob/master/docs/SIDECAR.md#initialization),
+network](https://github.com/testground/testground/blob/master/docs/SIDECAR.md#initialization),
 it should be impossible to use this network to communicate with other nodes.
 However, a good test plan should avoid listening on and/or announcing this
 network _anyways_ to ensure that it doesn't interfere with the test.
@@ -30,4 +30,4 @@ The subnet used will be passed to the test instance via the runtime environment
 (as `TestSubnet`).
 
 You can change your IP address (within this range) at any time [using the
-sidecar](https://github.com/ipfs/testground/blob/master/docs/SIDECAR.md#ip-addresses).
+sidecar](https://github.com/testground/testground/blob/master/docs/SIDECAR.md#ip-addresses).

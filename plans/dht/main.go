@@ -1,8 +1,8 @@
 package main
 
 import (
-	test "github.com/ipfs/testground/plans/dht/test"
-	"github.com/ipfs/testground/sdk/runtime"
+	test "github.com/testground/testground/plans/dht/test"
+	"github.com/testground/testground/sdk/runtime"
 )
 
 var testCases = map[string]runtime.TestCaseFn{

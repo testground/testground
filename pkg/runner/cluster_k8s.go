@@ -20,12 +20,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/conv"
-	hc "github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
+	hc "github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/sdk/runtime"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"

@@ -6,8 +6,8 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 
-	"github.com/ipfs/testground/plans/dht/utils"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/plans/dht/utils"
+	"github.com/testground/testground/sdk/sync"
 )
 
 func ShareAddresses(ctx context.Context, ri *utils.RunInfo, nodeInfo *NodeInfo) (map[peer.ID]*NodeInfo, error) {

@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/ipfs/testground/plans/dht/utils"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/testground/plans/dht/utils"
+	"github.com/testground/testground/sdk/runtime"
 
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/peer"

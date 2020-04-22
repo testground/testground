@@ -12,11 +12,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/sdk/runtime"
+	"github.com/testground/testground/sdk/sync"
 
-	tglibp2p "github.com/ipfs/testground/plans/dht/libp2p"
-	"github.com/ipfs/testground/plans/dht/utils"
+	tglibp2p "github.com/testground/testground/plans/dht/libp2p"
+	"github.com/testground/testground/plans/dht/utils"
 
 	leveldb "github.com/ipfs/go-ds-leveldb"
 

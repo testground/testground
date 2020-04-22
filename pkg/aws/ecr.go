@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/config"
+	"github.com/testground/testground/pkg/config"
 
 	"github.com/docker/docker/api/types"
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ipfs/testground/pkg/api"
+	"github.com/testground/testground/pkg/api"
 )
 
 // Checker is a function that checks whether a precondition is met. It returns

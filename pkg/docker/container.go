@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -45,7 +45,7 @@ func CheckContainer(ctx context.Context, ow *rpc.OutputWriter, cli *client.Clien
 	// versions, we choose to compare against that.
 	//
 	// More info:
-	// https://github.com/ipfs/testground/pull/782#issuecomment-608422093.
+	// https://github.com/testground/testground/pull/782#issuecomment-608422093.
 	exactMatch := fmt.Sprintf("^/%s$", name)
 	// Check if a ${name} container exists.
 	containers, err := cli.ContainerList(ctx, types.ContainerListOptions{
