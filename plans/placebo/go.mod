@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/placebo
+module github.com/testground/testground/plans/placebo
 
 go 1.14
 

@@ -9,8 +9,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 var (

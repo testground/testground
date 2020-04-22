@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/bitswap-tuning
+module github.com/testground/testground/plans/bitswap-tuning
 
 go 1.14
 

@@ -1,4 +1,4 @@
-module github.com/ipfs/testground/plans/network
+module github.com/testground/testground/plans/network
 
 go 1.14
 

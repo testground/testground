@@ -5,9 +5,9 @@ import (
 
 	"github.com/docker/go-units"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"

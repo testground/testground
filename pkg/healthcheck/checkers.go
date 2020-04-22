@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

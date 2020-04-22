@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/engine"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/engine"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/pborman/uuid"
 )
 

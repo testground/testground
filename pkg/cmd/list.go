@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/config"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/config"
 
 	"github.com/BurntSushi/toml"
 	"github.com/mattn/go-zglob"

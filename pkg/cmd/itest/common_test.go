@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/ipfs/testground/pkg/cmd"
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/daemon"
+	"github.com/testground/testground/pkg/cmd"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/daemon"
 
 	"github.com/urfave/cli"
 )

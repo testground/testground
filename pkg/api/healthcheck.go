@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 // Healthchecker is the interface to be implemented by a runner or builder that

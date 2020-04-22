@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ipfs/testground/pkg/config"
-	"github.com/ipfs/testground/pkg/daemon"
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/daemon"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/urfave/cli"
 )

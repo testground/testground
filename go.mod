@@ -1,4 +1,4 @@
-module github.com/ipfs/testground
+module github.com/testground/testground
 
 go 1.14
 

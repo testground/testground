@@ -6,10 +6,8 @@
 ARG GO_VERSION=1.14
 
 # Dynamically select the golang version.
-# TODO: Not sure how this interplays with image caching.
 FROM golang:${GO_VERSION}-buster
 
-COPY /sdk/go.mod /sdk/go.mod
 COPY /go.mod /go.mod
 
 # Download deps.
