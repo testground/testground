@@ -38,11 +38,11 @@ jobs:
   tidy-lint:
     machine:
       image: ubuntu-1604:201903-01
-      environment:
-        GOPATH: "${HOME}/go"
-        GOROOT: "${GOPATH}"
-        GOBIN: "${GOPATH}/bin"
-        BIN: "${GOBIN}:${PATH}"
+    environment:
+      GOPATH: "${HOME}/go"
+      GOROOT: "${GOPATH}"
+      GOBIN: "${GOPATH}/bin"
+      BIN: "${GOBIN}:${PATH}"
     steps:
       - checkout
       - restore_cache:
@@ -60,11 +60,11 @@ jobs:
   test-linux:
     machine:
       image: ubuntu-1604:201903-01
-      environment:
-        GOPATH: "${HOME}/go"
-        GOROOT: "${GOPATH}"
-        GOBIN: "${GOPATH}/bin"
-        BIN: "${GOBIN}:${PATH}"
+    environment:
+      GOPATH: "${HOME}/go"
+      GOROOT: "${GOPATH}"
+      GOBIN: "${GOPATH}/bin"
+      BIN: "${GOBIN}:${PATH}"
     steps:
       - checkout
       - restore_cache:
