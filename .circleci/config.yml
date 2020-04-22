@@ -1,0 +1,40 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs:
+  build:
+    machine:
+      image: ubuntu-1604:201903-01
+      # Docker layer caching requires payment: https://circleci.com/pricing/
+      #      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: "install go 1.14"
+          command: |
+            curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
+            tar -C ~/ -xzvf ~/go.tar.gz
+            rm -rf ~/.go_workspace
+            ln -s ~/go ~/.go_workspace 
+      - run:
+          name: "make tidy"
+          command: make tidy && git diff --exit-code
+      - run:
+          name: "install linter"
+          command: go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6
+      - run:
+          name: "make lint"
+          command: make lint
+      - run:
+          name: "make  build-all"
+          command: make build-all
+      - run:
+          name: "make sidecar"
+          command: make docker-sidecar
+      - run:
+          name: "make test"
+          command: |
+            mkdir -p $HOME/testground/plans 
+            ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
+            go test -v ./...
