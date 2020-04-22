@@ -52,13 +52,15 @@ jobs:
   test-windows:
     executor: win/default
     steps:
+      - checkout
       - run:
           name: "install go 1.14"
           command: |
+            pushd ..
             $wc = New-Object System.Net.WebClient
             $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", '.\go.zip')
             unzip go.zip
-      - checkout
+            popd
       - run:
           name: "test build"
           command: 'C:\Users\circleci\go\bin\go.exe build ./...'
