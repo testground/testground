@@ -16,7 +16,7 @@ jobs:
             echo "export GOPATH=~/go >> $BASH_ENV"
             echo "export GOROOT=~/go >> $BASH_ENV"
             echo "export GOBIN=~/go >> $BASH_ENV"
-            echo "export PATH=$GOBIN:$PATH >> $BASH_ENV"
+            echo "export PATH=~/go:$PATH >> $BASH_ENV"
       - run:
           name: "make tidy"
           command: make tidy && git diff --exit-code
