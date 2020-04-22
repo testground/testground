@@ -2,8 +2,11 @@
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
+orbs:
+  win: circleci/windows@2.2.0
+
 jobs:
-  build:
+  test-lin:
     machine:
       image: ubuntu-1604:201903-01
     steps:
@@ -34,3 +37,15 @@ jobs:
             mkdir -p $HOME/testground/plans 
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+  test-win:
+    executor:
+      name: win/default
+      shell: powershell.exe
+    steps:
+      - checkout
+      - run:
+        name "install go 1.14"
+        command: |
+          $client = new-object System.Net.WebClient
+          $client.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi","C:\tmp\go.msi")
+
