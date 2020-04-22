@@ -1,6 +1,4 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
+---
 version: 2.1
 orbs:
   win: circleci/windows@2.4.0
@@ -26,7 +24,7 @@ jobs:
             curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
             tar -C ~/ -xzvf ~/go.tar.gz
             rm -rf ~/.go_workspace
-            ln -s ~/go ~/.go_workspace 
+            ln -s ~/go ~/.go_workspace
       - run:
           name: "make tidy"
           command: make tidy && git diff --exit-code
@@ -49,7 +47,7 @@ jobs:
             curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
             tar -C ~/ -xzvf ~/go.tar.gz
             rm -rf ~/.go_workspace
-            ln -s ~/go ~/.go_workspace 
+            ln -s ~/go ~/.go_workspace
       - run:
           name: "make  build-all"
           command: make build-all
@@ -59,7 +57,7 @@ jobs:
       - run:
           name: "make test"
           command: |
-            mkdir -p $HOME/testground/plans 
+            mkdir -p $HOME/testground/plans
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
 
@@ -78,4 +76,5 @@ jobs:
             popd
       - run:
           name: "test build"
-          command: 'C:\Users\circleci\go\bin\go.exe build ./...'
+          command: |
+            C:\Users\circleci\go\bin\go.exe build ./...
