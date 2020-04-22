@@ -10,10 +10,10 @@ workflows:
       - go-install
       - tidy-lint:
           requires:
-            go-install
+            - go-install
       - test-linux
           requires:
-            go-install
+            - go-install
       - test-windows
 jobs:
   go-install:
