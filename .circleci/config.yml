@@ -2,9 +2,6 @@
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
-orbs:
-  win: circleci/windows@2.2.0
-
 jobs:
   test-lin:
     machine:
@@ -28,29 +25,14 @@ jobs:
           name: "make lint"
           command: make lint
       - run:
+          name: "make  build-all"
+          command: make build-all
+      - run:
           name: "make sidecar"
           command: make docker-sidecar
-
       - run:
           name: "make test"
           command: |
             mkdir -p $HOME/testground/plans 
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
-  test-win:
-    executor: win/default
-    steps:
-      - checkout
-      - run: systeminfo
-      - run:
-          name: "windows build"
-          shell: powershell.exe
-          command: |
-            go build
-
-workflows:
-  version: 2
-  lin_and_win:
-    jobs:
-      - test-lin
-      - test-win
