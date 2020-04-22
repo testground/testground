@@ -68,7 +68,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 		},
 	}
 
-	// Validate the test case format.
+	// Translate CLI params to the composition format.
 	switch ss := strings.Split(testcase, ":"); len(ss) {
 	case 0:
 		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
