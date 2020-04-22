@@ -13,10 +13,8 @@ jobs:
           command: |
             curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
             tar -C ~/ -xzvf ~/go.tar.gz
-            echo "export GOPATH=~/go >> $BASH_ENV"
-            echo "export GOROOT=~/go >> $BASH_ENV"
-            echo "export GOBIN=~/go >> $BASH_ENV"
-            echo "export PATH=~/go:$PATH >> $BASH_ENV"
+            rm -rf ~/.go_workspace
+            ln -s ~/go ~/.go_workspace 
       - run:
           name: "make tidy"
           command: make tidy && git diff --exit-code
