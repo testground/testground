@@ -44,10 +44,8 @@ jobs:
     steps:
       - checkout
       - run:
-        name: "install go 1.14"
-        command: |
-          $client = new-object System.Net.WebClient
-          $client.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.msi","C:\tmp\go.msi")
+        name: "build"
+        command: go build
 
 workflows:
   version: 2
