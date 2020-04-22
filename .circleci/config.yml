@@ -58,7 +58,7 @@ jobs:
           command: |
             pushd ..
             $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", '.\go.zip')
+            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", ".\go.zip")
             unzip go.zip
             popd
       - run:
