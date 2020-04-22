@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/ipfs/testground/plans/dht/utils"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
 )
 
 func ShareAddresses(ctx context.Context, ri *utils.RunInfo, nodeInfo *NodeInfo) (map[peer.ID]*NodeInfo, error) {

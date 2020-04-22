@@ -4,7 +4,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
 )
 
 func GetGroupsAndSeqs(ctx context.Context, ri *RunInfo, groupOrder int) (groupSeq, testSeq int, err error) {

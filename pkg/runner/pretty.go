@@ -12,7 +12,7 @@ import (
 
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 
 	"github.com/logrusorgru/aurora"
 )

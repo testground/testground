@@ -6,7 +6,7 @@ import (
 	"context"
 	"github.com/ipfs/go-datastore"
 	"github.com/ipfs/go-ipns"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"

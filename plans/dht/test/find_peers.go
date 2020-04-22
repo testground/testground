@@ -6,7 +6,7 @@ import (
 	"github.com/ipfs/testground/plans/dht/utils"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 func FindPeers(runenv *runtime.RunEnv) error {

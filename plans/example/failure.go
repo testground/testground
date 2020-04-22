@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 )
 
 // ExampleFailure always fails

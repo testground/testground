@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 	"github.com/prometheus/client_golang/prometheus"
 )
 

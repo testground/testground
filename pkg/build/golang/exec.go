@@ -71,7 +71,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 
 	if sdksrc != "" {
 		// Inject replace directives for the SDK modules.
-		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
+		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
 	if len(replaces) > 0 {

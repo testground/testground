@@ -21,7 +21,7 @@ import (
 	"github.com/ipfs/testground/pkg/docker"
 	"github.com/ipfs/testground/pkg/healthcheck"
 	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
