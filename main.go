@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/ipfs/testground/cmd"
+	"github.com/ipfs/testground/pkg/cmd"
 	"github.com/ipfs/testground/pkg/logging"
 
 	"github.com/urfave/cli"
@@ -14,8 +14,8 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "testground"
-	app.Commands = cmd.Commands
-	app.Flags = cmd.Flags
+	app.Commands = cmd.RootCommands
+	app.Flags = cmd.RootFlags
 	// Disable the built-in -v flag (version), to avoid collisions with the
 	// verbosity flags.
 	// TODO implement a `testground version` command instead.

@@ -2,9 +2,7 @@ module github.com/ipfs/testground/plans/dht
 
 go 1.14
 
-replace github.com/ipfs/testground/sdk/sync => ../../sdk/sync
-
-replace github.com/ipfs/testground/sdk/runtime => ../../sdk/runtime
+replace github.com/ipfs/testground/sdk => ../../sdk
 
 require (
 	github.com/gogo/protobuf v1.3.1
@@ -13,8 +11,7 @@ require (
 	github.com/ipfs/go-ds-leveldb v0.4.1
 	github.com/ipfs/go-ipfs-util v0.0.1
 	github.com/ipfs/go-ipns v0.0.2
-	github.com/ipfs/testground/sdk/runtime v0.4.0
-	github.com/ipfs/testground/sdk/sync v0.4.0
+	github.com/ipfs/testground/sdk v0.4.0
 	github.com/libp2p/go-libp2p v0.4.2
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.3.0
@@ -30,8 +27,8 @@ require (
 	github.com/multiformats/go-multiaddr-net v0.1.2
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/pkg/errors v0.9.1
-	go.uber.org/zap v1.12.0
-	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
+	go.uber.org/zap v1.14.1
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 )
 
 //replace github.com/libp2p/go-libp2p-swarm => ../../../../libp2p/go-libp2p-swarm

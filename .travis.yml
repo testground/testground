@@ -3,16 +3,6 @@ notifications:
 
 language: go
 
-env:
-  global:
-    - GOTFLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
-    - GO111MODULE=on
-
-cache:
-  directories:
-    - $HOME/.cache/go-build
-    - $HOME/gopath/pkg/mod
-
 go:
   - 1.14.x
 
@@ -20,91 +10,32 @@ services:
   - docker
 #  - redis-server // the local:exec runner starts redis as a Docker container.
 
-before_install:
-  - |
-      if ! git diff --name-only $TRAVIS_COMMIT_RANGE | grep -qvE '(.md)|(.html)|^(LICENSE)|^(docs)'
-      then
-        echo "Only docs were updated, not running the CI."
-        exit
-      fi
+env:
+  global:
+    - GOTFLAGS="-race -coverprofile=coverage.txt -covermode=atomic"
+    - GO111MODULE=on
 
-# NOTE: The smoke test itself will fail because the Travis redis instance does
-# not have keyspace notifications enabled. But we're interested in exercising
-# the testground logic, not the test plan itself. So it's fine.
+cache:
+  directories:
+    - $HOME/gopath/pkg/mod
+
 jobs:
   include:
-    - stage: lint_build_check_test_run
+    - stage: "lint, build, test"
       os: linux
+      name: "tidy and lint"
       script:
         - make tidy
         - git diff --exit-code
-        - go mod download
-        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
-        - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd
-        - make lint           # run a bunch of code checkers/linters in parallel
-        - make test-build     # build the project
-        - make test           # Run all the tests with the race detector enabled
-        
-    - stage: lint_build_check_test_run
+        - pushd .. && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd && make lint
+    - name: "build recursive, build docker & test recursive"
+      os: linux
+      script:
+        - mkdir -p $HOME/testground/plans && ln -s $TRAVIS_BUILD_DIR/plans/placebo $HOME/testground/plans/placebo
+        - make build-all
+        - make docker-sidecar
+        - make test
+    - name: "build on windows"
       os: windows
       script:
-        - echo 'travis_fold:start:go.mod.graph' && echo 'go mod graph' && go mod graph && echo 'travis_fold:end:go.mod.graph'
-        - go build ./...          # build the project
-        # Redis is missing on Windows so we skip the tests here
-        # - go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...  # Run all the tests with the race detector enabled
-        - go build .
-
-# Travis takes ages to allocate a macOS box, and the risk of something working with linux but not with macOS is low.
-# We also currently don't have any tests that would catch any bugs.
-#    - stage: test
-#      os: osx
-#      script:
-#        - go install github.com/golangci/golangci-lint/cmd/golangci-lint
-#        - golangci-lint run       # run a bunch of code checkers/linters in parallel
-#        - go build ./...          # build the project
-#        - go test -v -race ./...  # Run all the tests with the race detector enabled
-#        - go build .
-
-# This smoke run has been moved to the build_check_test_run to avoid having to rebuild the codebase.
-#    #
-#    # Run two test plans as a smoke test
-#    #
-#    - stage: run
-#      name: "dht/find-peers linux - no docker"
-#      os: linux
-#        - go run main.go -vv run dht/find-peers --builder=exec:go --runner=local:exec --test-param timeout_secs=15
-#      script:
-
-# The docker build does not work properly on Travis.
-#    - stage: run
-#      name: "dht/find-peers linux - with docker"
-#      os: linux
-#      script:
-#        - go run main.go -vv run dht/find-peers --builder=docker:go --runner=local:docker --build-cfg go_proxy_mode=direct
-
-# Services are not supported on Travis (Docker + Redis) when in Mac OS X
-#    - stage: run
-#      name: "dht/find-peers osx - no docker"
-#      os: osx
-#      script:
-#        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
-
-#    - stage: run
-#      name: "dht/find-peers windows - no docker"
-#      os: windows
-#      script:
-#        - go run main.go run dht/find-peers --builder=exec:go --runner=local:exec
-
-# Services are not supported on Travis (Docker + Redis) when in Mac OS X
-#    - stage: run
-#      name: "dht/find-peers osx - with docker"
-#      os: osx
-#      script:
-#        - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
-
-# Services are not supported on Travis (Docker + Redis) when in Mac OS X
-#    - stage: run
-#      name: "dht/find-peers windows - with docker"
-#      os: windows
-#      script:
-#        - go run main.go run dht/find-peers --builder=docker:go --runner=local:docker
+        - go build ./...

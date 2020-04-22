@@ -1,0 +1,36 @@
+name = "network"
+# hashicorp/go-getter URLs, so in the future we can support fetching test plans
+# from GitHub.
+source_path = "file://${TESTGROUND_SRCDIR}/plans/network"
+
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[builders."docker:go"]
+enabled = true
+go_version = "1.13"
+module_path = "github.com/ipfs/testground/plans/network"
+exec_pkg = "."
+
+[builders."exec:go"]
+enabled = true
+module_path = "github.com/ipfs/testground/plans/network"
+exec_pkg = "."
+
+[runners."local:docker"]
+enabled = true
+
+[runners."local:exec"]
+enabled = true
+
+[runners."cluster:swarm"]
+enabled = true
+
+[runners."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "ping-pong"
+instances = { min = 2, max = 2, default = 2 }

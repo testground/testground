@@ -23,18 +23,18 @@ access_token = "docker hub access token"
 #   3. Test plan definition.
 #   4. Runner defaults (applied by the runner).
 #
-[run_strategies."cluster:swarm"]
+[runners."cluster:swarm"]
 docker_endpoint = "tcp://localhost:4545"
 docker_tls = false
 docker_tls_ca_cert_path = "/"
 docker_tls_cert_path = "/"
 docker_tls_key_path = "/"
 
-[run_strategies."cluster:k8s"]
+[runners."cluster:k8s"]
 pod_resource_cpu      = "100m"
 pod_resource_memory   = "100Mi"
 
-[run_strategies."local:docker"]
+[runners."local:docker"]
 ulimits = [
   "nofile=1048576:1048576",
 ]

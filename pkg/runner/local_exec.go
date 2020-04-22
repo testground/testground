@@ -51,12 +51,11 @@ func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engi
 		return nil, err
 	}
 
-	r.outputsDir = filepath.Join(engine.EnvConfig().WorkDir(), "local_exec", "outputs")
-	srcDir := engine.EnvConfig().SrcDir
+	r.outputsDir = filepath.Join(engine.EnvConfig().Dirs().Outputs(), "local_exec")
 	hh := &hc.Helper{}
 
 	// setup infra which is common between local:docker and local:exec
-	localCommonHealthcheck(ctx, hh, cli, ow, "testground-control", srcDir, r.outputsDir)
+	localCommonHealthcheck(ctx, hh, cli, ow, "testground-control", r.outputsDir)
 
 	// RunChecks will fill the report and return any errors.
 	return hh.RunChecks(ctx, fix)
@@ -70,15 +69,10 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
-	var (
-		plan = input.TestPlan
-		name = plan.Name
-	)
-
 	// Build a template runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan.Name,
-		TestCase:          input.TestCase.Name,
+		TestPlan:          input.TestPlan,
+		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
@@ -106,7 +100,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			total++
 			id := fmt.Sprintf("instance %3d", total)
 
-			odir := filepath.Join(r.outputsDir, input.TestPlan.Name, input.RunID, g.ID, strconv.Itoa(i))
+			odir := filepath.Join(r.outputsDir, input.TestPlan, input.RunID, g.ID, strconv.Itoa(i))
 			if err := os.MkdirAll(odir, 0777); err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
 				pretty.FailStart(id, err)
@@ -122,7 +116,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 
-			ow.Infow("starting test case instance", "plan", name, "group", g.ID, "number", i, "total", total)
+			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 
 			cmd := exec.CommandContext(ctx, g.ArtifactPath)
 			stdout, _ := cmd.StdoutPipe()
@@ -147,9 +141,12 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
-func (*LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
-	basedir := filepath.Join(input.EnvConfig.WorkDir(), "local_exec", "outputs")
-	return zipRunOutputs(ctx, basedir, input, ow)
+func (r *LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+	r.lk.RLock()
+	dir := r.outputsDir
+	r.lk.RUnlock()
+
+	return zipRunOutputs(ctx, dir, input, ow)
 }
 
 func (*LocalExecutableRunner) ID() string {
