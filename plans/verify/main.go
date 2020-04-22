@@ -71,19 +71,19 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 			}
 			for _, addr := range addrs {
 				runenv.RecordMessage("publishing %s", addr)
-				client.Publish(ctx, netTopic, addr.String())
+				_, _ = client.Publish(ctx, netTopic, addr.String())
 			}
 		}
-		client.Publish(ctx, netTopic, endOfNetworks)
+		_, _ = client.Publish(ctx, netTopic, endOfNetworks)
 		runenv.RecordMessage("published my addresses from all networks to sync service. ready to be tested.")
-		client.SignalEntry(ctx, "target-ready")
+		_, _ = client.SignalEntry(ctx, "target-ready")
 
 	case pingmode:
 		runenv.RecordMessage("ping mode. waiting for target networks.")
 		<-client.MustBarrier(ctx, "target-ready", 1).C
 		runenv.RecordMessage("starting ping")
 		nwCh := make(chan string)
-		client.Subscribe(ctx, netTopic, nwCh)
+		_, _ = client.Subscribe(ctx, netTopic, nwCh)
 		for network := <-nwCh; network != endOfNetworks; network = <-nwCh {
 			runenv.RecordMessage("checking if network is reachable: %s", network)
 			addr := strings.Split(network, "/")[0]
