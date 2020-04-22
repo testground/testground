@@ -63,10 +63,10 @@
 - name: kind/problem
   color: c92712
   description: "Kind: Problem"
-- name: kind/Investigation
+- name: kind/investigation
   color: fcf0b5
   description: "Kind: Investigation"
-- name: kind/Chore
+- name: kind/chore
   color: fcf0b5
   description: "Kind: Chore"
 - name: kind/feature
@@ -235,15 +235,15 @@
 - name: status/done
   color: edb3a6
   description: "Status: Done"
-- name: status/Approved-Waiting
+- name: status/approved-waiting
   color: edb3a6
-  description: "Status: "Approved-Waiting for Merge"
-- name: status/Changes Requested
+  description: "Status: Approved and Awaiting Merge"
+- name: status/changes-requested
   color: edb3a6
-  description: "Status: "Changes Requested in Review"
-- name: status/Waiting for Review
+  description: "Status: Changes Requested in Review"
+- name: status/awaiting-review
   color: edb3a6
-  description: "Status: "Waiting for Review"
+  description: "Status: Waiting for Review"
 - name: status/deferred
   color: edb3a6
   description: "Status: Deferred"
