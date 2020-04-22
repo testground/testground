@@ -10,9 +10,9 @@ workflows:
 jobs:
   test-linux:
     machine:
-      - image: ubuntu-1604:201903-01
+      image: ubuntu-1604:201903-01
       # Docker layer caching requires payment: https://circleci.com/pricing/
-      # - docker_layer_caching: true
+      # docker_layer_caching: true
     steps:
       - checkout
       - run:
