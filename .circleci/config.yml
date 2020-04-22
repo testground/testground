@@ -69,11 +69,11 @@ jobs:
       - run:
           name: "install go 1.14"
           command: |
-            pushd ..
+            cd ..
             $wc = New-Object System.Net.WebClient
             $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", ".\go.zip")
             unzip .\go.zip
-            popd
+            cd project
       - run:
           name: "test build"
           command: |
