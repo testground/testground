@@ -9,10 +9,11 @@ workflows:
   version: 2
   test_os:
     jobs:
+      - tidy-lint
       - test-linux
       - test-windows
 jobs:
-  test-linux:
+  tidy-lint:
     machine:
       image: ubuntu-1604:201903-01
       # Docker layer caching requires payment: https://circleci.com/pricing/
@@ -35,6 +36,20 @@ jobs:
       - run:
           name: "make lint"
           command: make lint
+  test-linux:
+    machine:
+      image: ubuntu-1604:201903-01
+      # Docker layer caching requires payment: https://circleci.com/pricing/
+      # docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: "install go 1.14"
+          command: |
+            curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
+            tar -C ~/ -xzvf ~/go.tar.gz
+            rm -rf ~/.go_workspace
+            ln -s ~/go ~/.go_workspace 
       - run:
           name: "make  build-all"
           command: make build-all
