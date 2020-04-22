@@ -30,4 +30,8 @@ jobs:
 
       - run:
           name: "make test"
-          command: go test -v ./...
+          command: |
+            mkdir -p $HOME/testground/plans 
+            ln -s $HOME/project/plans/placebo
+            $HOME/testground/plans/placebo
+            go test -v ./...
