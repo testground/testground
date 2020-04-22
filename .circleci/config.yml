@@ -2,12 +2,21 @@
 #
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2
-jobs:
-  build:
+executors:
+  ubuntu-baremetal:
     machine:
-      image: ubuntu-1604:201903-01
+      - image: ubuntu-1604:201903-01
       # Docker layer caching requires payment: https://circleci.com/pricing/
-      #      docker_layer_caching: true
+      # - docker_layer_caching: true
+
+workflows:
+  version: 2
+  win_and_lin:
+    jobs:
+      - test-linux
+jobs:
+  test-linux:
+    executor: ubuntu-baremetal
     steps:
       - checkout
       - run:
