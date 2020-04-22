@@ -38,9 +38,7 @@ jobs:
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
   test-win:
-    executor:
-      name: win/default
-      shell: powershell.exe
+    executor: win/default
     steps:
       - checkout
       - run: systeminfo
