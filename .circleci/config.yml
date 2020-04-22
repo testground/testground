@@ -11,7 +11,7 @@ workflows:
       - tidy-lint:
           requires:
             - go-install
-      - test-linux
+      - test-linux:
           requires:
             - go-install
       - test-windows
