@@ -94,6 +94,7 @@ jobs:
   # https://circleci.com/docs/2.0/executor-intro/#windows
   test-windows:
     executor:
+      # To see possible parameters: https://circleci.com/orbs/registry/orb/circleci/windows
       name: win/default
       size: medium
     steps:
