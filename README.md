@@ -145,8 +145,8 @@ Currently, we don't distribute binaries, so you will have to build from source.
 ***Prerequisites: Go 1.14+, Docker daemon running.***
 
 ```shell script
-$ git clone https://github.com/testground/platform.git
-$ cd platform
+$ git clone https://github.com/testground/testground.git
+$ cd testground
 $ make install       # builds testground and the Docker image, used by the local:docker runner.
 $ testground daemon  # will start the daemon listening on localhost:8042 by default.
 $ ###### WIP, clone a test plan into $TESTGROUND_HOME/plans, and run it locally. ###### 
@@ -166,7 +166,7 @@ $TESTGROUND_HOME
  |    |__ plan-3        >>> source of a test plan identified by plan-3 (relative to $TESTGROUND_HOME/plans)
  |
  |__ sdks               >>> [c] hosts the test development SDKs that the client knows about, so they can be used with the --link-sdk option.
- |__  |__ sdk-go
+ |    |__ sdk-go
  |
  |__ data               >>> [d] data directory  
       |__ outputs
