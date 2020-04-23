@@ -93,8 +93,8 @@ jobs:
 
   # https://circleci.com/docs/2.0/executor-intro/#windows
   test-windows:
-    executor: win/default
-    parameters:
+    executor:
+      name: win/default
       size: medium
     steps:
       - checkout
