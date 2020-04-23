@@ -104,4 +104,10 @@ jobs:
     machine:
       image: ubuntu-1604:201903-01
     steps:
-      - run: curl -sfL https://get.k3s.io | sh -
+      - checkout
+      - run:
+          name: "setup kubernetes"
+          command: |
+            cd "$HOME"
+            git clone https://github.com/testground/infra
+            curl -sfL https://get.k3s.io | sudo sh -
