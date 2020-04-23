@@ -64,6 +64,7 @@ jobs:
   test-linux:
     machine:
       image: ubuntu-1604:201903-01
+      docker_layer_caching: true
     environment:
       GOPATH: "/home/circleci/go"
       GOROOT: "/home/circleci/go"
@@ -106,3 +107,7 @@ jobs:
           name: "test build"
           command: |
             C:\Users\circleci\go\bin\go.exe build ./...
+
+
+
+
