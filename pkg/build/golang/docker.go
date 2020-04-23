@@ -55,7 +55,7 @@ type DockerGoBuilderConfig struct {
 	// Docker image to, if PushRegistry is true.
 	RegistryType string `toml:"registry_type" overridable:"yes"`
 
-	// GoProxyMode specifies one of "on", "off", "custom".
+	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
 	//     doesn't exist yet) with bridge networking, and will configure the
