@@ -15,6 +15,7 @@ workflows:
           requires:
             - go-install
       - test-windows
+      - test-k3s
 jobs:
   go-install:
     machine:
@@ -98,3 +99,9 @@ jobs:
           name: "test build"
           command: |
             C:\Users\circleci\go\bin\go.exe build ./...
+
+  test-k3s:
+    machine:
+      image: ubuntu-1604:201903-01
+    steps:
+      - run: curl -sfL https://get.k3s.io | sh -
