@@ -1,22 +1,53 @@
-# Golang CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-go/ for more details
-version: 2
+---
+version: 2.1
+orbs:
+  win: circleci/windows@2.4.0
+
+workflows:
+  version: 2
+  test_os:
+    jobs:
+      - go-install
+      - tidy-lint:
+          requires:
+            - go-install
+      - test-linux:
+          requires:
+            - go-install
+      - test-windows
 jobs:
-  build:
+  go-install:
     machine:
       image: ubuntu-1604:201903-01
-      # Docker layer caching requires payment: https://circleci.com/pricing/
-      #      docker_layer_caching: true
     steps:
-      - checkout
+      - restore_cache:
+          keys:
+            - v1-pkg-cache
       - run:
           name: "install go 1.14"
           command: |
+            ls -A ~/go && echo already downloaded. exiting. && exit 0
             curl -o ~/go.tar.gz https://dl.google.com/go/go1.14.2.linux-amd64.tar.gz
             tar -C ~/ -xzvf ~/go.tar.gz
-            rm -rf ~/.go_workspace
-            ln -s ~/go ~/.go_workspace 
+
+      - save_cache:
+          key: v1-pkg-cache
+          paths:
+            - ~/go
+
+  tidy-lint:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      GOPATH: "/home/circleci/go"
+      GOROOT: "/home/circleci/go"
+      GOBIN: "/home/circleci/go/bin"
+      PATH: "/home/circleci/go/bin:/usr/local/bin:/usr/bin:/bin"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-pkg-cache
       - run:
           name: "make tidy"
           command: make tidy && git diff --exit-code
@@ -26,6 +57,19 @@ jobs:
       - run:
           name: "make lint"
           command: make lint
+  test-linux:
+    machine:
+      image: ubuntu-1604:201903-01
+    environment:
+      GOPATH: "/home/circleci/go"
+      GOROOT: "/home/circleci/go"
+      GOBIN: "/home/circleci/go/bin"
+      PATH: "/home/circleci/go/bin:/usr/local/bin:/usr/bin:/bin"
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - v1-pkg-cache
       - run:
           name: "make  build-all"
           command: make build-all
@@ -35,6 +79,22 @@ jobs:
       - run:
           name: "make test"
           command: |
-            mkdir -p $HOME/testground/plans 
+            mkdir -p $HOME/testground/plans
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+
+  # https://circleci.com/docs/2.0/executor-intro/#windows
+  test-windows:
+    executor: win/default
+    steps:
+      - checkout
+      - run:
+          name: "install go 1.14"
+          command: |
+            $wc = New-Object System.Net.WebClient
+            $wc.DownloadFile("https://dl.google.com/go/go1.14.2.windows-amd64.zip", "C:\Users\circleci\go.zip")
+            unzip.exe -d C:\Users\circleci C:\Users\circleci\go.zip
+      - run:
+          name: "test build"
+          command: |
+            C:\Users\circleci\go\bin\go.exe build ./...
