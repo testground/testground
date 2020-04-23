@@ -57,13 +57,10 @@ jobs:
       - run:
           name: "make lint"
           command: make lint
-      - save_cache:
-          key: v1-pkg-cache
-          paths:
-            - ~/go
   test-linux:
     machine:
       image: ubuntu-1604:201903-01
+      docker_layer_caching: true
     environment:
       GOPATH: "/home/circleci/go"
       GOROOT: "/home/circleci/go"
@@ -86,6 +83,7 @@ jobs:
             mkdir -p $HOME/testground/plans
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+      # The cache might be updated due to the build. Save it back.
       - save_cache:
           key: v1-pkg-cache
           paths:
