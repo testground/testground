@@ -96,7 +96,7 @@ jobs:
     executor:
       # To see possible parameters: https://circleci.com/orbs/registry/orb/circleci/windows
       name: win/default
-      size: medium
+      size: large
     steps:
       - checkout
       - run:
