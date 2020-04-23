@@ -174,8 +174,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:      []string{id, in.BuildID},
-		BuildArgs: args,
+		Tags:        []string{id, in.BuildID},
+		BuildArgs:   args,
+		NetworkMode: "host",
 	}
 
 	// If a docker network was created for the proxy, link it to the build container
