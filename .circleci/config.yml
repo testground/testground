@@ -14,7 +14,7 @@ workflows:
       - test-linux:
           requires:
             - go-install
-      - test-windows
+      - test-windows2
 jobs:
   go-install:
     machine:
@@ -84,7 +84,7 @@ jobs:
             go test -v ./...
 
   # https://circleci.com/docs/2.0/executor-intro/#windows
-  test-windows:
+  test-windows2:
     executor: win/default
     steps:
       - checkout
