@@ -30,7 +30,7 @@ build-all:
 	$(call eachmod,go build -tags balsam -o /dev/null ./...)
 
 docker-sidecar:
-	docker build -t iptestground/sidecar:edge .
+	docker build -t iptestground/sidecar:edge -f Dockerfile.sidecar .
 
 test:
 	$(call eachmod,go test -tags balsam -p 1 -v $(GOTFLAGS) ./...)
