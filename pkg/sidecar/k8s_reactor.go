@@ -12,10 +12,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 
-	"github.com/testground/testground/pkg/docker"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -37,17 +37,26 @@ var (
 )
 
 type K8sReactor struct {
-	client  *sync.Client
-	redis   net.IP
-	manager *docker.Manager
+	client         *sync.Client
+	manager        *docker.Manager
+	servicesRoutes []net.IP
 }
 
 func NewK8sReactor() (Reactor, error) {
-	redisHost := os.Getenv(EnvRedisHost)
+	// TODO: Generalize this to a list of services.
+	wantedRoutes := []string{
+		os.Getenv(EnvRedisHost),
+		os.Getenv(EnvInfluxdbHost),
+	}
 
-	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve redis: %w", err)
+	var resolvedRoutes []net.IP
+	for _, route := range wantedRoutes {
+		ip, err := net.ResolveIPAddr("ip4", route)
+		if err != nil {
+			logging.S().Warnw("failed to resolve host", "host", route, "err", err.Error())
+			continue
+		}
+		resolvedRoutes = append(resolvedRoutes, ip.IP)
 	}
 
 	docker, err := docker.NewManager()
@@ -64,9 +73,9 @@ func NewK8sReactor() (Reactor, error) {
 	client.EnableBackgroundGC(nil)
 
 	return &K8sReactor{
-		client:  client,
-		manager: docker,
-		redis:   redisIp.IP,
+		client:         client,
+		manager:        docker,
+		servicesRoutes: resolvedRoutes,
 	}, nil
 }
 
@@ -175,19 +184,23 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		return nil, fmt.Errorf("failed to get link by name %s: %w", controlNetworkIfname, err)
 	}
 
-	// Get the routes to redis. We need to keep these.
-	redisRoute, err := getRedisRoute(netlinkHandle, d.redis)
-	if err != nil {
-		return nil, fmt.Errorf("cant get route to redis: %s", err)
+	servicesIPs := []net.IP{}
+
+	for _, route := range d.servicesRoutes {
+		// Get the routes to redis, influxdb, etc... We need to keep these.
+		r, err := getServiceRoute(netlinkHandle, route)
+		if err != nil {
+			return nil, fmt.Errorf("cant get route to redis: %s", err)
+		}
+		logging.S().Debugw("got service route", "route.Src", r.Src, "route.Dst", r.Dst, "gw", r.Gw.String(), "container", container.ID)
+
+		servicesIPs = append(servicesIPs, r.Dst.IP)
 	}
-	logging.S().Debugw("got redis route", "route.Src", redisRoute.Src, "route.Dst", redisRoute.Dst, "gw", redisRoute.Gw.String(), "container", container.ID)
 
 	controlLinkRoutes, err := netlinkHandle.RouteList(controlLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
-
-	redisIP := redisRoute.Dst.IP
 
 	routesToBeDeleted := []netlink.Route{}
 
@@ -207,18 +220,20 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		}
 
 		if route.Dst != nil {
-			if route.Dst.Contains(redisIP) {
-				newroute := route
-				newroute.Dst = &net.IPNet{
-					IP:   redisIP,
-					Mask: net.CIDRMask(32, 32),
-				}
+			for _, serviceIP := range servicesIPs {
+				if route.Dst.Contains(serviceIP) {
+					newroute := route
+					newroute.Dst = &net.IPNet{
+						IP:   serviceIP,
+						Mask: net.CIDRMask(32, 32),
+					}
 
-				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
-				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
-					logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
-				} else {
-					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					logging.S().Debugw("adding service route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					if err := netlinkHandle.RouteAdd(&newroute); err != nil {
+						logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+					} else {
+						logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					}
 				}
 			}
 
