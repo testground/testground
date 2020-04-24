@@ -20,12 +20,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/conv"
 	hc "github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
-	"github.com/testground/sdk-go/runtime"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -141,8 +141,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
-	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
+	defaultCPU := resource.MustParse(cfg.PodResourceCPU)
+	defaultMemory := resource.MustParse(cfg.PodResourceMemory)
 
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan,
@@ -166,7 +166,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	enoughResources, err := c.checkClusterResources(ow, input.Groups, podResourceMemory, podResourceCPU)
+	enoughResources, err := c.checkClusterResources(ow, input.Groups, defaultMemory, defaultCPU)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
 	}
@@ -219,6 +219,24 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				}},
 		})
 
+		podCPU := defaultCPU
+		if g.Resources.CPU != "" {
+			var err error
+			podCPU, err = resource.ParseQuantity(g.Resources.CPU)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		podMemory := defaultMemory
+		if g.Resources.Memory != "" {
+			var err error
+			podMemory, err = resource.ParseQuantity(g.Resources.Memory)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		for i := 0; i < g.Instances; i++ {
 			i := i
 			g := g
@@ -249,7 +267,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
-				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podResourceMemory, podResourceCPU)
+				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 			})
 		}
 	}
@@ -731,6 +749,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: resource.MustParse("10Mi"),
+							v1.ResourceCPU:    resource.MustParse("10m"),
 						},
 					},
 				},
