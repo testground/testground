@@ -10,14 +10,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
-
-	"github.com/testground/testground/pkg/docker"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
+
 	"github.com/containernetworking/cni/libcni"
+	"github.com/hashicorp/go-multierror"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"

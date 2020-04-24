@@ -6,11 +6,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/hashicorp/go-multierror"
-
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+
+	"github.com/testground/testground/pkg/logging"
+
+	"github.com/hashicorp/go-multierror"
 )
 
 type InstanceHandler func(context.Context, *Instance) error

@@ -9,11 +9,11 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/rpc"
-	"github.com/testground/sdk-go/runtime"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/docker/docker/api/types"

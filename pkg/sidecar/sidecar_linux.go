@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/logging"
 )
 
 const (

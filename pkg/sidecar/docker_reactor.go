@@ -14,10 +14,10 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	"github.com/testground/testground/pkg/docker"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
 )
 
 // PublicAddr points to an IP address in the public range. It helps us discover
