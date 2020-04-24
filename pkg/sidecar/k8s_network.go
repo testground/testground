@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/testground/sdk-go/sync"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
-	"github.com/testground/sdk-go/sync"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -85,8 +85,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			err     error
 		)
 		if cfg.IPv4 == nil {
+			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
+			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {
