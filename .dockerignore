@@ -7,3 +7,9 @@
 **/.gitmodules
 **/Dockerfile
 **/infra
+.circleci
+**/*.md
+Makefile
+LICENSE-*
+.env.*
+**/*.toml
