@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	EnvRedisHost = "REDIS_HOST"
+	EnvRedisHost    = "REDIS_HOST"
+	EnvInfluxdbHost = "INFLUXDB_HOST"
 )
 
 var runners = map[string]func() (Reactor, error){
