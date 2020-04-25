@@ -21,9 +21,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/testground/sdk-go/runtime"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/conv"
-	hc "github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 
@@ -329,36 +330,36 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 	}
 	planNodes := res.Items
 
-	hh := &hc.Helper{}
+	hh := &healthcheck.Helper{}
 
 	hh.Enlist("kops validate",
-		hc.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
-		hc.NotImplemented(),
+		healthcheck.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("efs pod",
-		hc.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("redis pod",
-		hc.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("prometheus pod",
-		hc.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("grafana pod",
-		hc.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("sidecar pods",
-		hc.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
+		healthcheck.NotImplemented(),
 	)
 
 	return hh.RunChecks(ctx, fix)

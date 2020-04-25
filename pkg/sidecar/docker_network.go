@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/docker"
 
 	"github.com/docker/docker/api/types/network"
 	"github.com/vishvananda/netlink"

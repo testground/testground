@@ -12,15 +12,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/filters"
-	"github.com/docker/docker/client"
+	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/conv"
-	hc "github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/rpc"
-	"github.com/testground/sdk-go/runtime"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 )
 
 var (
@@ -52,7 +53,7 @@ func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engi
 	}
 
 	r.outputsDir = filepath.Join(engine.EnvConfig().Dirs().Outputs(), "local_exec")
-	hh := &hc.Helper{}
+	hh := &healthcheck.Helper{}
 
 	// setup infra which is common between local:docker and local:exec
 	localCommonHealthcheck(ctx, hh, cli, ow, "testground-control", r.outputsDir)
