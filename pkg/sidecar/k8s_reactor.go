@@ -184,7 +184,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		return nil, fmt.Errorf("failed to get link by name %s: %w", controlNetworkIfname, err)
 	}
 
-	servicesIPs := []net.IP{}
+	var servicesIPs []net.IP
 
 	for _, route := range d.servicesRoutes {
 		// Get the routes to redis, influxdb, etc... We need to keep these.
