@@ -97,7 +97,10 @@ func createCommand(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		tmpl.Execute(f, c.String("module"))
+		err = tmpl.Execute(f, c.String("module"))
+		if err != nil {
+			return err
+		}
 		f.Close()
 	}
 	return nil
@@ -134,7 +137,7 @@ func importCommand(c *cli.Context) error {
 	case "":
 		srcPath = source
 	default:
-		return errors.New(fmt.Sprintf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme))
+		return fmt.Errorf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme)
 	}
 
 	return symlinkPlan(dest, srcPath)
@@ -146,6 +149,9 @@ func symlinkPlan(dst, src string) error {
 		return err
 	}
 	ev, err := filepath.EvalSymlinks(abs)
+	if err != nil {
+		return err
+	}
 	return os.Symlink(ev, dst)
 }
 
