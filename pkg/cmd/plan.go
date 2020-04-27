@@ -3,9 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"github.com/testground/testground/pkg/api"
@@ -35,8 +35,16 @@ var PlanCommand = cli.Command{
 			Action: createCommand,
 		},
 		&cli.Command{
-			Name:   "import",
-			Usage:  "`GIT_REPO` [local_repo]",
+			Name:  "import",
+			Usage: "import [--git] repo",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:     "git",
+					Usage:    "Use Git to clone a repo",
+					Required: false,
+					Value:    false,
+				},
+			},
 			Action: importCommand,
 		},
 		&cli.Command{
@@ -90,17 +98,8 @@ func createCommand(c *cli.Context) error {
 }
 
 func importCommand(c *cli.Context) error {
-	if c.Args().Len() < 1 {
-		return errors.New("missing reuired argument GIT_REPO")
-	}
-	gitURL := c.Args().First()
-
-	var gitDir string
-	if c.Args().Len() > 1 {
-		gitDir = c.Args().Get(1)
-	} else {
-		sl := strings.Split(gitURL, "/")
-		gitDir = sl[len(sl)-1]
+	if c.Args().Len() != 2 {
+		return errors.New("this command requires two arguments. DEST, SOURCE")
 	}
 
 	cfg := &config.EnvConfig{}
@@ -108,15 +107,50 @@ func importCommand(c *cli.Context) error {
 		return err
 	}
 
-	cloneOpts := git.CloneOptions{
-		URL: c.Args().First(),
+	source := c.Args().Get(1)
+	dest := filepath.Join(cfg.Dirs().Plans(), c.Args().Get(0))
+
+	// Use git to clone. Any scheme supported by git is acceptable.
+	if c.Bool("git") {
+		return clonePlan(dest, source)
 	}
 
-	_, err := git.PlainClone(filepath.Join(cfg.Dirs().Plans(), gitDir), false, &cloneOpts)
+	// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
+	parsed, err := url.Parse(source)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	var srcPath string
+	switch parsed.Scheme {
+	case "file":
+		srcPath = parsed.Path
+	case "":
+		srcPath = source
+	default:
+		return errors.New(fmt.Sprintf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme))
+	}
+
+	return symlinkPlan(dest, srcPath)
+}
+
+func symlinkPlan(dst, src string) error {
+	abs, err := filepath.Abs(src)
+	if err != nil {
+		return err
+	}
+	ev, err := filepath.EvalSymlinks(abs)
+	return os.Symlink(ev, dst)
+}
+
+func clonePlan(dst, src string) error {
+
+	cloneOpts := git.CloneOptions{
+		URL: src,
+	}
+
+	_, err := git.PlainClone(dst, false, &cloneOpts)
+	return err
 }
 
 func rmCommand(c *cli.Context) error {
