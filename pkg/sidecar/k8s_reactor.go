@@ -37,26 +37,37 @@ var (
 )
 
 type K8sReactor struct {
-	client         *sync.Client
-	manager        *docker.Manager
-	servicesRoutes []net.IP
+	client          *sync.Client
+	manager         *docker.Manager
+	allowedServices []AllowedService
 }
 
 func NewK8sReactor() (Reactor, error) {
-	// TODO: Generalize this to a list of services.
-	wantedRoutes := []string{
-		os.Getenv(EnvRedisHost),
-		os.Getenv(EnvInfluxdbHost),
+	wantedServices := []struct {
+		name string
+		host string
+	}{
+		{
+			"redis",
+			os.Getenv(EnvRedisHost),
+		},
+		{
+			"influxdb",
+			os.Getenv(EnvInfluxdbHost),
+		},
 	}
 
-	var resolvedRoutes []net.IP
-	for _, route := range wantedRoutes {
-		ip, err := net.ResolveIPAddr("ip4", route)
-		if err != nil {
-			logging.S().Warnw("failed to resolve host", "host", route, "err", err.Error())
+	var resolvedServices []AllowedService
+	for _, s := range wantedServices {
+		if s.host == "" {
 			continue
 		}
-		resolvedRoutes = append(resolvedRoutes, ip.IP)
+		ip, err := net.ResolveIPAddr("ip4", s.host)
+		if err != nil {
+			logging.S().Warnw("failed to resolve host", "service", s.name, "host", s.host, "err", err.Error())
+			continue
+		}
+		resolvedServices = append(resolvedServices, AllowedService{s.name, ip.IP})
 	}
 
 	docker, err := docker.NewManager()
@@ -73,9 +84,9 @@ func NewK8sReactor() (Reactor, error) {
 	client.EnableBackgroundGC(nil)
 
 	return &K8sReactor{
-		client:         client,
-		manager:        docker,
-		servicesRoutes: resolvedRoutes,
+		client:          client,
+		manager:         docker,
+		allowedServices: resolvedServices,
 	}, nil
 }
 
@@ -186,11 +197,11 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 
 	var servicesIPs []net.IP
 
-	for _, route := range d.servicesRoutes {
+	for _, s := range d.allowedServices {
 		// Get the routes to redis, influxdb, etc... We need to keep these.
-		r, err := getServiceRoute(netlinkHandle, route)
+		r, err := getServiceRoute(netlinkHandle, s.IP)
 		if err != nil {
-			return nil, fmt.Errorf("cant get route to redis: %s", err)
+			return nil, fmt.Errorf("cant get route to %s ; %s: %s", s.IP, s.Name, err)
 		}
 		logging.S().Debugw("got service route", "route.Src", r.Src, "route.Dst", r.Dst, "gw", r.Gw.String(), "container", container.ID)
 
@@ -318,4 +329,9 @@ func waitForPodRunningPhase(ctx context.Context, podName string) error {
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+type AllowedService struct {
+	Name string
+	IP   net.IP
 }
