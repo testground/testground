@@ -121,7 +121,7 @@ func importCommand(c *cli.Context) error {
 
 func rmCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
-		return errors.New("Missing required argument PLAN_DIR")
+		return errors.New("missing required argument PLAN_DIR")
 	}
 
 	cfg := &config.EnvConfig{}
