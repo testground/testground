@@ -181,12 +181,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	var eg errgroup.Group
 
-	// atomic counter which records how many networks have been initialised.
-	// it should equal the number of all testplan instances for the given run eventually.
-	var initialisedNetworks uint64
-
 	eg.Go(func() error {
-		return c.monitorTestplanRunState(ctx, ow, input, &initialisedNetworks)
+		return c.monitorTestplanRunState(ctx, ow, input)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -551,13 +547,12 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, initialisedNetworks *uint64) error {
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
 	start := time.Now()
 	allRunningStage := false
-	allNetworksStage := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -604,17 +599,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		}
 		wg.Wait()
 
-		initNets := int(atomic.LoadUint64(initialisedNetworks))
 		ow.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
 			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
-		}
-
-		if initNets == input.TotalInstances && !allNetworksStage {
-			allNetworksStage = true
-			ow.Infow("all testplan instances networks initialised", "took", time.Since(start))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
@@ -626,7 +615,6 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
 			return nil
 		}
-
 	}
 }
 
