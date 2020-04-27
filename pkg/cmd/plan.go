@@ -40,7 +40,6 @@ var PlanCommand = cli.Command{
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:     "git",
-					Usage:    "Use Git to clone a repo",
 					Required: false,
 					Value:    false,
 				},
@@ -48,8 +47,15 @@ var PlanCommand = cli.Command{
 			Action: importCommand,
 		},
 		&cli.Command{
-			Name:   "rm",
-			Usage:  "`LOCAL_REPO`",
+			Name:  "rm",
+			Usage: "rm [--yes] `LOCAL_REPO`",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:     "yes",
+					Required: false,
+					Value:    false,
+				},
+			},
 			Action: rmCommand,
 		},
 		&cli.Command{
@@ -163,7 +169,11 @@ func rmCommand(c *cli.Context) error {
 		return err
 	}
 
-	return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.Args().First()))
+	if c.Bool("yes") {
+		return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.Args().First()))
+	}
+	fmt.Println("really delete? pass --yes flag if you are sure.")
+	return nil
 }
 
 func listCommand(c *cli.Context) error {
