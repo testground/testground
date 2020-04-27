@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -552,75 +551,6 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) waitNetworksInitialised(ctx context.Context, ow *rpc.OutputWriter, runID string, initialisedNetworks *uint64) error {
-	client := c.pool.Acquire()
-	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
-	})
-	c.pool.Release(client)
-	if err != nil {
-		return err
-	}
-
-	var eg errgroup.Group
-
-	for _, pod := range res.Items {
-		podName := pod.Name
-
-		eg.Go(func() error {
-			err := c.waitNetworkInitialised(ctx, ow, podName)
-			if err != nil {
-				return err
-			}
-
-			atomic.AddUint64(initialisedNetworks, 1)
-
-			return nil
-		})
-	}
-
-	return eg.Wait()
-}
-
-func (c *ClusterK8sRunner) waitNetworkInitialised(ctx context.Context, ow *rpc.OutputWriter, podName string) error {
-	podLogOpts := v1.PodLogOptions{
-		SinceSeconds: int64Ptr(1000),
-		Follow:       true,
-	}
-
-	var podLogs io.ReadCloser
-	var err error
-	err = retry(5, 5*time.Second, func() error {
-		client := c.pool.Acquire()
-		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
-		c.pool.Release(client)
-		podLogs, err = req.Stream()
-		if err != nil {
-			ow.Warnw("got error when trying to fetch pod logs", "err", err.Error())
-		}
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("error in opening stream: %v", err)
-	}
-	defer podLogs.Close()
-
-	scanner := bufio.NewScanner(podLogs)
-	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			line := scanner.Text()
-			if strings.Contains(line, NetworkInitialisationSuccessful) {
-				return nil
-			}
-		}
-	}
-
-	return errors.New("network initialisation successful log line not detected")
-}
-
 func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, initialisedNetworks *uint64) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
@@ -680,10 +610,6 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
 			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
-
-			go func() {
-				_ = c.waitNetworksInitialised(ctx, ow, input.RunID, initialisedNetworks)
-			}()
 		}
 
 		if initNets == input.TotalInstances && !allNetworksStage {
