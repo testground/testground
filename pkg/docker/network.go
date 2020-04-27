@@ -3,7 +3,7 @@ package docker
 import (
 	"context"
 
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"

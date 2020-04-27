@@ -13,19 +13,19 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/conv"
-	hc "github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
+
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
+	"github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -141,8 +141,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	podResourceCPU := resource.MustParse(cfg.PodResourceCPU)
-	podResourceMemory := resource.MustParse(cfg.PodResourceMemory)
+	defaultCPU := resource.MustParse(cfg.PodResourceCPU)
+	defaultMemory := resource.MustParse(cfg.PodResourceMemory)
 
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan,
@@ -166,7 +166,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
-	enoughResources, err := c.checkClusterResources(ow, input.Groups, podResourceMemory, podResourceCPU)
+	enoughResources, err := c.checkClusterResources(ow, input.Groups, defaultMemory, defaultCPU)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
 	}
@@ -181,12 +181,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	var eg errgroup.Group
 
-	// atomic counter which records how many networks have been initialised.
-	// it should equal the number of all testplan instances for the given run eventually.
-	var initialisedNetworks uint64
-
 	eg.Go(func() error {
-		return c.monitorTestplanRunState(ctx, ow, input, &initialisedNetworks)
+		return c.monitorTestplanRunState(ctx, ow, input)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -210,6 +206,33 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				Value: cfg.LogLevel,
 			})
 		}
+
+		env = append(env, v1.EnvVar{
+			Name: "POD_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				}},
+		})
+
+		podCPU := defaultCPU
+		if g.Resources.CPU != "" {
+			var err error
+			podCPU, err = resource.ParseQuantity(g.Resources.CPU)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		podMemory := defaultMemory
+		if g.Resources.Memory != "" {
+			var err error
+			podMemory, err = resource.ParseQuantity(g.Resources.Memory)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		for i := 0; i < g.Instances; i++ {
 			i := i
 			g := g
@@ -240,7 +263,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
-				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podResourceMemory, podResourceCPU)
+				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 			})
 		}
 	}
@@ -302,36 +325,36 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 	}
 	planNodes := res.Items
 
-	hh := &hc.Helper{}
+	hh := &healthcheck.Helper{}
 
 	hh.Enlist("kops validate",
-		hc.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
-		hc.NotImplemented(),
+		healthcheck.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("efs pod",
-		hc.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("redis pod",
-		hc.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("prometheus pod",
-		hc.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("grafana pod",
-		hc.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("sidecar pods",
-		hc.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
-		hc.NotImplemented(),
+		healthcheck.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
+		healthcheck.NotImplemented(),
 	)
 
 	return hh.RunChecks(ctx, fix)
@@ -524,82 +547,12 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) waitNetworksInitialised(ctx context.Context, ow *rpc.OutputWriter, runID string, initialisedNetworks *uint64) error {
-	client := c.pool.Acquire()
-	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
-		LabelSelector: fmt.Sprintf("testground.run_id=%s", runID),
-	})
-	c.pool.Release(client)
-	if err != nil {
-		return err
-	}
-
-	var eg errgroup.Group
-
-	for _, pod := range res.Items {
-		podName := pod.Name
-
-		eg.Go(func() error {
-			err := c.waitNetworkInitialised(ctx, ow, podName)
-			if err != nil {
-				return err
-			}
-
-			atomic.AddUint64(initialisedNetworks, 1)
-
-			return nil
-		})
-	}
-
-	return eg.Wait()
-}
-
-func (c *ClusterK8sRunner) waitNetworkInitialised(ctx context.Context, ow *rpc.OutputWriter, podName string) error {
-	podLogOpts := v1.PodLogOptions{
-		SinceSeconds: int64Ptr(1000),
-		Follow:       true,
-	}
-
-	var podLogs io.ReadCloser
-	var err error
-	err = retry(5, 5*time.Second, func() error {
-		client := c.pool.Acquire()
-		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
-		c.pool.Release(client)
-		podLogs, err = req.Stream()
-		if err != nil {
-			ow.Warnw("got error when trying to fetch pod logs", "err", err.Error())
-		}
-		return err
-	})
-	if err != nil {
-		return fmt.Errorf("error in opening stream: %v", err)
-	}
-	defer podLogs.Close()
-
-	scanner := bufio.NewScanner(podLogs)
-	for scanner.Scan() {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			line := scanner.Text()
-			if strings.Contains(line, NetworkInitialisationSuccessful) {
-				return nil
-			}
-		}
-	}
-
-	return errors.New("network initialisation successful log line not detected")
-}
-
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, initialisedNetworks *uint64) error {
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
 	start := time.Now()
 	allRunningStage := false
-	allNetworksStage := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -646,21 +599,11 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		}
 		wg.Wait()
 
-		initNets := int(atomic.LoadUint64(initialisedNetworks))
 		ow.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
 			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
-
-			go func() {
-				_ = c.waitNetworksInitialised(ctx, ow, input.RunID, initialisedNetworks)
-			}()
-		}
-
-		if initNets == input.TotalInstances && !allNetworksStage {
-			allNetworksStage = true
-			ow.Infow("all testplan instances networks initialised", "took", time.Since(start))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
@@ -672,7 +615,6 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
 			return nil
 		}
-
 	}
 }
 
@@ -722,6 +664,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 							Name:             sharedVolumeName,
 							MountPath:        "/outputs",
 							MountPropagation: &mountPropagationMode,
+						},
+					},
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: resource.MustParse("10Mi"),
+							v1.ResourceCPU:    resource.MustParse("10m"),
 						},
 					},
 				},

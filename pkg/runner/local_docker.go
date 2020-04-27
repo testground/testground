@@ -16,12 +16,13 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/conv"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/healthcheck"
-	"github.com/ipfs/testground/pkg/rpc"
-	"github.com/ipfs/testground/sdk/runtime"
+	"github.com/testground/sdk-go/runtime"
+
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -118,7 +119,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
-			Image:      "ipfs/testground:latest",
+			Image:      "iptestground/sidecar:edge",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
 			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
@@ -156,7 +157,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		//  builds the sidecar, we would've omitted the need for this entirely.
 		// ImageStrategy: docker.ImageStrategyBuild,
 		// BuildImageOpts: &docker.BuildImageOpts{
-		// 	Name:     "ipfs/testground:latest",
+		// 	Name:     "testground/testground:latest",
 		// 	BuildCtx: engine.EnvConfig().Home,
 		// },
 	}

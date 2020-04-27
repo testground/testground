@@ -1,7 +1,5 @@
-module github.com/ipfs/testground/plans/network
+module github.com/testground/testground/plans/network
 
 go 1.14
 
-require github.com/ipfs/testground/sdk v0.4.0
-
-replace github.com/ipfs/testground/sdk => ../../sdk
+require github.com/testground/sdk-go v0.1.1

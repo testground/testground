@@ -8,8 +8,8 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/config"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/config"
 
 	"github.com/BurntSushi/toml"
 	"github.com/go-git/go-git/v5"

@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/vishvananda/netlink"
@@ -85,8 +86,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			err     error
 		)
 		if cfg.IPv4 == nil {
+			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
+			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {
@@ -104,7 +107,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			CapabilityArgs: capabilityArgs,
 		}
 
-		_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
+		err = retry(3, 2*time.Second, func() error {
+			_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
+			return err
+		})
 		if err != nil {
 			return fmt.Errorf("failed to add network through cni plugin: %w", err)
 		}
@@ -209,17 +215,35 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	}
 }
 
-func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, error) {
-	redisRoutes, err := handle.RouteGet(redisIP)
+func getServiceRoute(handle *netlink.Handle, serviceIP net.IP) (*netlink.Route, error) {
+	serviceRoutes, err := handle.RouteGet(serviceIP)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+		return nil, fmt.Errorf("failed to resolve route to service: %w", err)
 	}
 
-	if len(redisRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
+	if len(serviceRoutes) != 1 {
+		return nil, fmt.Errorf("expected to get only one route to the given service, but got %v", len(serviceRoutes))
 	}
 
-	redisRoute := redisRoutes[0]
+	serviceRoute := serviceRoutes[0]
 
-	return &redisRoute, nil
+	return &serviceRoute, nil
+}
+
+func retry(attempts int, sleep time.Duration, f func() error) (err error) {
+	for i := 0; ; i++ {
+		err = f()
+		if err == nil {
+			return
+		}
+
+		logging.S().Warnw("got err, waiting to retry", "err", err.Error())
+
+		if i >= (attempts - 1) {
+			break
+		}
+
+		time.Sleep(sleep)
+	}
+	return fmt.Errorf("after %d attempts, last error: %s", attempts, err)
 }

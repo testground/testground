@@ -10,15 +10,16 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
+	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/runtime"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/containernetworking/cni/libcni"
+	"github.com/hashicorp/go-multierror"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -36,17 +37,37 @@ var (
 )
 
 type K8sReactor struct {
-	client  *sync.Client
-	redis   net.IP
-	manager *docker.Manager
+	client          *sync.Client
+	manager         *docker.Manager
+	allowedServices []AllowedService
 }
 
 func NewK8sReactor() (Reactor, error) {
-	redisHost := os.Getenv(EnvRedisHost)
+	wantedServices := []struct {
+		name string
+		host string
+	}{
+		{
+			"redis",
+			os.Getenv(EnvRedisHost),
+		},
+		{
+			"influxdb",
+			os.Getenv(EnvInfluxdbHost),
+		},
+	}
 
-	redisIp, err := net.ResolveIPAddr("ip4", redisHost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve redis: %w", err)
+	var resolvedServices []AllowedService
+	for _, s := range wantedServices {
+		if s.host == "" {
+			continue
+		}
+		ip, err := net.ResolveIPAddr("ip4", s.host)
+		if err != nil {
+			logging.S().Warnw("failed to resolve host", "service", s.name, "host", s.host, "err", err.Error())
+			continue
+		}
+		resolvedServices = append(resolvedServices, AllowedService{s.name, ip.IP})
 	}
 
 	docker, err := docker.NewManager()
@@ -63,9 +84,9 @@ func NewK8sReactor() (Reactor, error) {
 	client.EnableBackgroundGC(nil)
 
 	return &K8sReactor{
-		client:  client,
-		manager: docker,
-		redis:   redisIp.IP,
+		client:          client,
+		manager:         docker,
+		allowedServices: resolvedServices,
 	}, nil
 }
 
@@ -174,19 +195,23 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		return nil, fmt.Errorf("failed to get link by name %s: %w", controlNetworkIfname, err)
 	}
 
-	// Get the routes to redis. We need to keep these.
-	redisRoute, err := getRedisRoute(netlinkHandle, d.redis)
-	if err != nil {
-		return nil, fmt.Errorf("cant get route to redis: %s", err)
+	var servicesIPs []net.IP
+
+	for _, s := range d.allowedServices {
+		// Get the routes to redis, influxdb, etc... We need to keep these.
+		r, err := getServiceRoute(netlinkHandle, s.IP)
+		if err != nil {
+			return nil, fmt.Errorf("cant get route to %s ; %s: %s", s.IP, s.Name, err)
+		}
+		logging.S().Debugw("got service route", "route.Src", r.Src, "route.Dst", r.Dst, "gw", r.Gw.String(), "container", container.ID)
+
+		servicesIPs = append(servicesIPs, r.Dst.IP)
 	}
-	logging.S().Debugw("got redis route", "route.Src", redisRoute.Src, "route.Dst", redisRoute.Dst, "gw", redisRoute.Gw.String(), "container", container.ID)
 
 	controlLinkRoutes, err := netlinkHandle.RouteList(controlLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list routes for control link %s", controlLink.Attrs().Name)
 	}
-
-	redisIP := redisRoute.Dst.IP
 
 	routesToBeDeleted := []netlink.Route{}
 
@@ -206,18 +231,20 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		}
 
 		if route.Dst != nil {
-			if route.Dst.Contains(redisIP) {
-				newroute := route
-				newroute.Dst = &net.IPNet{
-					IP:   redisIP,
-					Mask: net.CIDRMask(32, 32),
-				}
+			for _, serviceIP := range servicesIPs {
+				if route.Dst.Contains(serviceIP) {
+					newroute := route
+					newroute.Dst = &net.IPNet{
+						IP:   serviceIP,
+						Mask: net.CIDRMask(32, 32),
+					}
 
-				logging.S().Debugw("adding redis route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
-				if err := netlinkHandle.RouteAdd(&newroute); err != nil {
-					logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
-				} else {
-					logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					logging.S().Debugw("adding service route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					if err := netlinkHandle.RouteAdd(&newroute); err != nil {
+						logging.S().Debugw("failed to add route while restricting gw route", "container", container.ID, "err", err.Error())
+					} else {
+						logging.S().Debugw("successfully added route", "route.Src", newroute.Src, "route.Dst", newroute.Dst.String(), "gw", newroute.Gw, "container", container.ID)
+					}
 				}
 			}
 
@@ -249,6 +276,11 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 	}
 
 	for _, r := range routesToBeDeleted {
+		// Don't route to the default route. Blackhole these routes.
+		bh := netlink.Route{
+			Dst:  r.Dst,
+			Type: nl.FR_ACT_BLACKHOLE,
+		}
 		routeDst := "nil"
 		if r.Dst != nil {
 			routeDst = r.Dst.String()
@@ -257,6 +289,9 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		logging.S().Debugw("really removing route", "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
 		if err := netlinkHandle.RouteDel(&r); err != nil {
 			logging.S().Warnw("failed to really delete route", "route.Src", r.Src, "gw", r.Gw, "route.Dst", routeDst, "container", container.ID, "err", err.Error())
+		}
+		if err := netlinkHandle.RouteAdd(&bh); err != nil {
+			logging.S().Warnw("failed to add blackhole route")
 		}
 	}
 
@@ -294,4 +329,9 @@ func waitForPodRunningPhase(ctx context.Context, podName string) error {
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+type AllowedService struct {
+	Name string
+	IP   net.IP
 }

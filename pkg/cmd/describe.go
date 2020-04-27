@@ -8,7 +8,7 @@ import (
 
 	"github.com/urfave/cli/v2"
 
-	"github.com/ipfs/testground/pkg/config"
+	"github.com/testground/testground/pkg/config"
 )
 
 // DescribeCommand is the specification of the `describe` command.

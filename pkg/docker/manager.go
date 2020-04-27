@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ipfs/testground/pkg/logging"
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"

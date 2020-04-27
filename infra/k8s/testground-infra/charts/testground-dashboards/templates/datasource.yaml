@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{ .Release.Name }}-datasources
-  labels:
-    grafana_datasource: "1"
-data:
-{{ (.Files.Glob "dashboards/datasources/*").AsConfig | indent 2 }}

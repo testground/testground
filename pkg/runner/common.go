@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 // Use consistent IP address ranges for both the data and the control subnet.

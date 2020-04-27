@@ -14,10 +14,10 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ipfs/testground/pkg/api"
-	"github.com/ipfs/testground/pkg/aws"
-	"github.com/ipfs/testground/pkg/docker"
-	"github.com/ipfs/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -55,7 +55,7 @@ type DockerGoBuilderConfig struct {
 	// Docker image to, if PushRegistry is true.
 	RegistryType string `toml:"registry_type" overridable:"yes"`
 
-	// GoProxyMode specifies one of "on", "off", "custom".
+	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
 	//     doesn't exist yet) with bridge networking, and will configure the
@@ -140,7 +140,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// Inject replace directives for the SDK modules.
 	if sdksrc != "" {
-		replaces = append(replaces, "-replace=github.com/ipfs/testground/sdk=../sdk")
+		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
 	if len(replaces) > 0 {
@@ -174,8 +174,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:      []string{id, in.BuildID},
-		BuildArgs: args,
+		Tags:        []string{id, in.BuildID},
+		BuildArgs:   args,
+		NetworkMode: "host",
 	}
 
 	// If a docker network was created for the proxy, link it to the build container

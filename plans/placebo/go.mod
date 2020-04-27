@@ -1,5 +1,5 @@
-module github.com/ipfs/testground/plans/placebo
+module github.com/testground/testground/plans/placebo
 
 go 1.14
 
-require github.com/ipfs/testground/sdk/runtime v0.4.0
+require github.com/testground/sdk-go v0.1.1

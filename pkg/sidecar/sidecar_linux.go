@@ -6,12 +6,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ipfs/testground/pkg/logging"
-	"github.com/ipfs/testground/sdk/sync"
+	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/logging"
 )
 
 const (
-	EnvRedisHost = "REDIS_HOST"
+	EnvRedisHost    = "REDIS_HOST"
+	EnvInfluxdbHost = "INFLUXDB_HOST"
 )
 
 var runners = map[string]func() (Reactor, error){

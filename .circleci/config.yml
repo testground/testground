@@ -1,0 +1,92 @@
+---
+version: 2.1
+
+parameters:
+  go-version:
+    type: string
+    default: "1.14.2"
+  workspace-dir:
+    type: string
+    default: "/home/circleci"
+
+commands:
+  setup:
+    description: "install go, checkout and restore cache"
+    steps:
+      - run:
+          name: "install go"
+          command: |
+            curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
+            tar --strip-components=1 -C $GOPATH -xzf $GOPATH/go.tar.gz
+            rm -rf $GOPATH/go.tar.gz
+      - checkout
+      - restore_cache:
+          keys:
+            - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+
+executors:
+  linux:
+    machine:
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
+    working_directory: << pipeline.parameters.workspace-dir >>/project
+    environment:
+      GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
+      PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:/usr/local/bin:/usr/bin:/bin
+      GOVERSION: << pipeline.parameters.go-version >>
+
+workflows:
+  version: 2
+  main:
+    jobs:
+      - prepare-tidy
+      - lint:
+          requires:
+            - prepare-tidy
+      - build-test:
+          requires:
+            - prepare-tidy
+
+jobs:
+  prepare-tidy:
+    executor: linux
+    steps:
+      - setup
+      - run:
+          name: "make tidy"
+          command: make tidy && git diff --exit-code
+      - run:
+          name: "make mod-download"
+          command: make mod-download
+      - save_cache:
+          key: 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          paths:
+            - << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/pkg/mod
+
+  lint:
+    executor: linux
+    steps:
+      - setup
+      - run:
+          name: "install linter"
+          command: "pushd .. && GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd"
+      - run:
+          name: "make lint"
+          command: make lint
+
+  build-test:
+    executor: linux
+    steps:
+      - setup
+      - run:
+          name: "make build-all"
+          command: make build-all
+      - run:
+          name: "make docker"
+          command: make docker
+      - run:
+          name: "make test"
+          command: |
+            mkdir -p $HOME/testground/plans
+            ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
+            go test -v ./...
