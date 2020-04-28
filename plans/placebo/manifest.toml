@@ -1,7 +1,7 @@
 name = "placebo"
 # hashicorp/go-getter URLs, so in the future we can support fetching test plans
 # from GitHub.
-# source_path = "file://${TESTGROUND_SRCDIR}/plans/placebo"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/placebo"
 
 [defaults]
 builder = "exec:go"
