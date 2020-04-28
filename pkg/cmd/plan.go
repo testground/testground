@@ -22,8 +22,9 @@ var PlanCommand = cli.Command{
 	Usage: "plan management",
 	Subcommands: cli.Commands{
 		&cli.Command{
-			Name:  "create",
-			Usage: "create plan `PLAN_NAME`",
+			Name:      "create",
+			Usage:     "create a plan named `PLAN_NAME`",
+			ArgsUsage: "`PLAN_NAME`: this will be the directory in $TESTGROUND_HOME",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "module",
@@ -35,23 +36,31 @@ var PlanCommand = cli.Command{
 			Action: createCommand,
 		},
 		&cli.Command{
-			Name:  "import",
-			Usage: "import [--git] repo",
+			Name:      "import",
+			Usage:     "import a plan from the local filesystem or git repository",
+			ArgsUsage: "`SOURCE`: the location of the plan to be imported",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:     "git",
+					Usage:    "use git to import (default: false)",
 					Required: false,
 					Value:    false,
+				},
+				&cli.StringFlag{
+					Name:     "name",
+					Usage:    "override the name of the plan directory (default: automatic)",
+					Required: false,
 				},
 			},
 			Action: importCommand,
 		},
 		&cli.Command{
 			Name:  "rm",
-			Usage: "rm [--yes] `LOCAL_REPO`",
+			Usage: "remove a plan directory from $TESTGROUND_HOME",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
 					Name:     "yes",
+					Usage:    "confirm removal (without this, the command does nothing)",
 					Required: false,
 					Value:    false,
 				},
@@ -107,7 +116,7 @@ func createCommand(c *cli.Context) error {
 }
 
 func importCommand(c *cli.Context) error {
-	if c.Args().Len() != 2 {
+	if c.Args().Len() != 1 {
 		return errors.New("this command requires two arguments. DEST, SOURCE")
 	}
 
@@ -116,20 +125,26 @@ func importCommand(c *cli.Context) error {
 		return err
 	}
 
-	source := c.Args().Get(1)
-	dest := filepath.Join(cfg.Dirs().Plans(), c.Args().Get(0))
+	source := c.Args().Get(0)
 
-	// Use git to clone. Any scheme supported by git is acceptable.
-	if c.Bool("git") {
-		return clonePlan(dest, source)
-	}
-
-	// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
 	parsed, err := url.Parse(source)
 	if err != nil {
 		return err
 	}
 
+	// determine the destation, either from flag or intuited from the soruce.
+	baseDest := c.String("name")
+	if baseDest == "" {
+		baseDest = filepath.Base(parsed.Path)
+	}
+	dstPath := filepath.Join(cfg.Dirs().Home(), "plans", baseDest)
+
+	// Use git to clone. Any scheme supported by git is acceptable.
+	if c.Bool("git") {
+		return clonePlan(dstPath, source)
+	}
+
+	// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
 	var srcPath string
 	switch parsed.Scheme {
 	case "file":
@@ -139,8 +154,7 @@ func importCommand(c *cli.Context) error {
 	default:
 		return fmt.Errorf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme)
 	}
-
-	return symlinkPlan(dest, srcPath)
+	return symlinkPlan(dstPath, srcPath)
 }
 
 func symlinkPlan(dst, src string) error {
@@ -158,7 +172,8 @@ func symlinkPlan(dst, src string) error {
 func clonePlan(dst, src string) error {
 
 	cloneOpts := git.CloneOptions{
-		URL: src,
+		URL:      src,
+		Progress: os.Stderr,
 	}
 
 	_, err := git.PlainClone(dst, false, &cloneOpts)
