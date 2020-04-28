@@ -107,10 +107,13 @@ func createCommand(c *cli.Context) error {
 	}
 
 	if remote != "" {
-		repo.CreateRemote(&gitcfg.RemoteConfig{
+		_, err := repo.CreateRemote(&gitcfg.RemoteConfig{
 			Name: "origin",
 			URLs: []string{remote},
 		})
+		if err != nil {
+			return err
+		}
 	}
 
 	tset := GetTemplateSet(target_lang)
