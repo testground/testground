@@ -96,11 +96,12 @@ func createCommand(c *cli.Context) error {
 		return err
 	}
 
+	plan_name := c.Args().First()
 	target_lang := c.String("target")
 	remote := c.String("remote")
 	module := c.String("module")
 
-	pdir := filepath.Join(cfg.Dirs().Plans(), c.Args().First())
+	pdir := filepath.Join(cfg.Dirs().Plans(), plan_name)
 	repo, err := git.PlainInit(pdir, false)
 	if err != nil {
 		return err
@@ -131,7 +132,7 @@ func createCommand(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = tmpl.Execute(f, module)
+		err = tmpl.Execute(f, templateVars{Name: plan_name, Module: module})
 		if err != nil {
 			return err
 		}

@@ -7,6 +7,11 @@ type templated struct {
 
 type templateSet []templated
 
+type templateVars struct {
+	Name   string
+	Module string
+}
+
 // GetTemplateSet returns a set of Go templates with their filenames which would be apprpriate
 // for the garget language.
 func GetTemplateSet(name string) templateSet {
@@ -35,11 +40,12 @@ func main() {
 
 func run(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("Hello, Testground!")
+	return nil
 }
 `},
 	templated{
 		Filename: "go.mod",
-		Template: `module {{.}}
+		Template: `module {{.Module}}
 
 go 1.14
 
@@ -47,19 +53,20 @@ require github.com/ipfs/testground/sdk/runtime v0.4.0
 `},
 	templated{
 		Filename: "manifest.toml",
-		Template: `[defaults]
+		Template: `name = "{{.Name}}"
+[defaults]
 builder = "exec:go"
 runner = "local:exec"
 
 [builders."docker:go"]
 enabled = true
 go_version = "1.14"
-module_path = "{{.}}"
+module_path = "{{.Module}}"
 exec_pkg = "."
 
 [builders."exec:go"]
 enabled = true
-module_path = "{{.}}"
+module_path = "{{.Module}}"
 
 [runners."local:docker"]
 enabled = true
