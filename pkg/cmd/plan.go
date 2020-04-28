@@ -13,6 +13,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/go-git/go-git/v5"
+	gitcfg "github.com/go-git/go-git/v5/config"
 	"github.com/mattn/go-zglob"
 	"github.com/urfave/cli/v2"
 )
@@ -27,10 +28,20 @@ var PlanCommand = cli.Command{
 			ArgsUsage: "`PLAN_NAME`: this will be the directory in $TESTGROUND_HOME",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:     "module",
-					Usage:    "Create module named `MODULE_NAME`",
+					Name:     "remote",
+					Usage:    "origin for your repository i.e. git@github.com:your/repo",
 					Required: false,
-					Value:    "github.com/your/module/name",
+				},
+				&cli.StringFlag{
+					Name:     "target",
+					Usage:    "target language (default: go), avail: [go]",
+					Required: false,
+					Value:    "go",
+				},
+				&cli.StringFlag{
+					Name:  "module",
+					Usage: "module name (used for initial templating",
+					Value: "github.com/your/module/name",
 				},
 			},
 			Action: createCommand,
@@ -85,20 +96,31 @@ func createCommand(c *cli.Context) error {
 		return err
 	}
 
+	target_lang := c.String("target")
+	remote := c.String("remote")
+	module := c.String("module")
+
 	pdir := filepath.Join(cfg.Dirs().Plans(), c.Args().First())
-	_, err := git.PlainInit(pdir, false)
+	repo, err := git.PlainInit(pdir, false)
 	if err != nil {
 		return err
 	}
 
-	fmap := map[string]string{
-		"manifest.toml": TEMPLATE_MANIFEST_TOML,
-		"main.go":       TEMPLATE_MAIN_GO,
-		"go.mod":        TEMPLATE_GO_MOD,
+	if remote != "" {
+		repo.CreateRemote(&gitcfg.RemoteConfig{
+			Name: "origin",
+			URLs: []string{remote},
+		})
 	}
 
-	for fn, ts := range fmap {
-		tmpl, err := template.New(fn).Parse(ts)
+	tset := GetTemplateSet(target_lang)
+
+	if tset == nil {
+		return fmt.Errorf("unknown language target %s", target_lang)
+	}
+
+	for _, ts := range tset {
+		tmpl, err := template.New(ts.Filename).Parse(ts.Template)
 		if err != nil {
 			return err
 		}
@@ -106,7 +128,7 @@ func createCommand(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = tmpl.Execute(f, c.String("module"))
+		err = tmpl.Execute(f, module)
 		if err != nil {
 			return err
 		}
