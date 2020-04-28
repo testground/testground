@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -121,6 +122,12 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	if !params.TestSidecar {
 		return nil, nil
 	}
+
+	if strings.Contains(info.Name, "mkdir-outputs") {
+		return nil, nil
+	}
+
+	logging.S().Debugw("handle container", "name", info.Name, "image", info.Image)
 
 	// Remove the TestOutputsPath. We can't store anything from the sidecar.
 	params.TestOutputsPath = ""
