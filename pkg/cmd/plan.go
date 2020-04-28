@@ -88,7 +88,7 @@ var PlanCommand = cli.Command{
 
 func createCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
-		return errors.New("missing reuired argument PLAN_NAME")
+		return errors.New("this command requires one argument -- specify the plan name")
 	}
 
 	cfg := &config.EnvConfig{}
@@ -143,7 +143,7 @@ func createCommand(c *cli.Context) error {
 
 func importCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
-		return errors.New("this command requires two arguments. DEST, SOURCE")
+		return errors.New("this command requires one argument, the location of the plan to import")
 	}
 
 	cfg := &config.EnvConfig{}
@@ -208,7 +208,7 @@ func clonePlan(dst, src string) error {
 
 func rmCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
-		return errors.New("missing required argument PLAN_DIR")
+		return errors.New("this plan requires one argument, the name of the plan to remove.")
 	}
 
 	cfg := &config.EnvConfig{}
