@@ -8,13 +8,13 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
-		"placebo:abort",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:exec",
 		"--instances",
 		"1",
+		"placebo:abort",
 	)
 
 	if err == nil {
@@ -26,13 +26,13 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
-		"placebo:abort",
 		"--builder",
 		"docker:go",
 		"--runner",
 		"local:docker",
 		"--instances",
 		"1",
+		"placebo:abort",
 	)
 
 	if err == nil {
@@ -44,13 +44,13 @@ func TestIncompatibleRun(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
-		"placebo:ok",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:docker",
 		"--instances",
 		"1",
+		"placebo:ok",
 	)
 
 	if err == nil {
@@ -62,13 +62,13 @@ func TestCompatibleRunLocal(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
-		"placebo:ok",
 		"--builder",
 		"exec:go",
 		"--runner",
 		"local:exec",
 		"--instances",
 		"1",
+		"placebo:ok",
 	)
 
 	if err != nil {
@@ -80,13 +80,13 @@ func TestCompatibleRunDocker(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
-		"placebo:ok",
 		"--builder",
 		"docker:go",
 		"--runner",
 		"local:docker",
 		"--instances",
 		"1",
+		"placebo:ok",
 	)
 
 	if err != nil {
