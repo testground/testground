@@ -74,4 +74,20 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		}),
 	)
 
+	_, exposed, _ = nat.ParsePortSpecs([]string{"8086:8086", "8088:8088"})
+	hh.Enlist("local-influxdb",
+		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-influxdb"),
+		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-influxdb",
+			ContainerConfig: &container.Config{
+				Image: "bitnami/influxdb",
+				Env:   []string{"INFLUXDB_HTTP_AUTH_ENABLED=false", "INFLUXDB_DB=testground"},
+			},
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+			},
+			ImageStrategy: docker.ImageStrategyPull,
+		}),
+	)
 }
