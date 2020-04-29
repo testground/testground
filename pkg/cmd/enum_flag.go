@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 )
 
 // EnumValue is a cli.Generic flag type that enforces flag values from an enum.

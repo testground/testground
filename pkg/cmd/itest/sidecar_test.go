@@ -10,13 +10,13 @@ func TestSidecar(t *testing.T) {
 	err := runSingle(t,
 		"run",
 		"single",
+		"network/ping-pong",
 		"--builder",
 		"docker:go",
 		"--runner",
 		"local:docker",
 		"--instances",
 		"2",
-		"network/ping-pong",
 	)
 
 	if err != nil {

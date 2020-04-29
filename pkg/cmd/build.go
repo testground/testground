@@ -10,54 +10,54 @@ import (
 	"github.com/testground/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 )
 
 var BuildCommand = cli.Command{
 	Name:  "build",
 	Usage: "builds a test plan",
 	Subcommands: cli.Commands{
-		&cli.Command{
+		cli.Command{
 			Name:    "composition",
 			Aliases: []string{"c"},
 			Usage:   "Builds a composition.",
 			Action:  buildCompositionCmd,
 			Flags: []cli.Flag{
-				&cli.StringFlag{
+				cli.StringFlag{
 					Name:  "file, f",
 					Usage: "path to a composition `FILE`",
 				},
-				&cli.BoolFlag{
+				cli.BoolFlag{
 					Name:  "write-artifacts, w",
 					Usage: "Writes the resulting build artifacts to the composition file.",
 				},
-				&cli.StringFlag{
+				cli.StringFlag{
 					Name: "link-sdk",
 					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
 						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
 				},
 			},
 		},
-		&cli.Command{
+		cli.Command{
 			Name:      "single",
 			Aliases:   []string{"s"},
 			Usage:     "Builds a single group, passing in all necesssary input via CLI flags.",
 			Action:    buildSingleCmd,
 			ArgsUsage: "[<testplan>]",
 			Flags: []cli.Flag{
-				&cli.StringFlag{
+				cli.StringFlag{
 					Name:  "builder, b",
 					Usage: "specifies the builder to use; values include: 'docker:go', 'exec:go'",
 				},
-				&cli.StringSliceFlag{
+				cli.StringSliceFlag{
 					Name:  "dep, d",
 					Usage: "set a dependency mapping",
 				},
-				&cli.StringSliceFlag{
+				cli.StringSliceFlag{
 					Name:  "build-cfg",
 					Usage: "set a build config parameter",
 				},
-				&cli.StringFlag{
+				cli.StringFlag{
 					Name: "link-sdk",
 					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
 						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",

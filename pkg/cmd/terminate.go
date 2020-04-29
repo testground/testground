@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -14,7 +14,7 @@ var TerminateCommand = cli.Command{
 	Usage:  "terminates all jobs running on a runner",
 	Action: terminateCommand,
 	Flags: []cli.Flag{
-		&cli.StringFlag{
+		cli.StringFlag{
 			Name:     "runner",
 			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
