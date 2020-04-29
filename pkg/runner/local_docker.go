@@ -122,7 +122,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Image:      "iptestground/sidecar:edge",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker", "--pprof"},
-			Env:        []string{"REDIS_HOST=testground-redis", "GODEBUG=gctrace=1"},
+			Env:        []string{"REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -150,16 +150,6 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 				Name: "unless-stopped",
 			},
 		},
-		// TODO(raulk): not sure what to do with this; it's not really useful
-		//  beyond the first run anyway. Since we are not distributing binaries
-		//  we can safely assume that the user will anyway have to build testground.
-		//  If the build instructions consist in running a make target that also
-		//  builds the sidecar, we would've omitted the need for this entirely.
-		// ImageStrategy: docker.ImageStrategyBuild,
-		// BuildImageOpts: &docker.BuildImageOpts{
-		// 	Name:     "testground/testground:latest",
-		// 	BuildCtx: engine.EnvConfig().Home,
-		// },
 	}
 
 	// sidecar healthcheck.
@@ -225,6 +215,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 		// Serialize the runenv into env variables to pass to docker.
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
+		env = append(env, "INFLUXDB_ADDR=http://testground-influxdb:8086")
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
@@ -541,7 +532,7 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	infraOpts := types.ContainerListOptions{}
 	infraOpts.Filters = filters.NewArgs()
 	infraOpts.Filters.Add("name", "testground-grafana")
-	infraOpts.Filters.Add("name", "testground-prometheus")
+	infraOpts.Filters.Add("name", "testground-influxdb")
 	infraOpts.Filters.Add("name", "testground-redis")
 	infraOpts.Filters.Add("name", "testground-sidecar")
 

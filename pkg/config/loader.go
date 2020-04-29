@@ -72,7 +72,7 @@ func (e *EnvConfig) Load() error {
 		}
 		logging.S().Infof(".env.toml loaded from: %s", f)
 	} else {
-		logging.S().Warnf("no .env.toml found at %s; system may be misconfigured", f)
+		logging.S().Infof("no .env.toml found at %s; running with defaults", f)
 	}
 	return nil
 }
