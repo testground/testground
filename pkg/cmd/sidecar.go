@@ -29,8 +29,7 @@ var SidecarCommand = cli.Command{
 	},
 	Flags: []cli.Flag{
 		&cli.GenericFlag{
-			Name:     "runner",
-			Aliases:  []string{"r"},
+			Name:     "runner, r",
 			Required: true,
 			Usage:    `Specifies the runner that will be scheduling tasks that should be managed by this sidecar. Options: ` + strings.Join(sidecar.GetRunners(), ", "),
 			Value: &EnumValue{

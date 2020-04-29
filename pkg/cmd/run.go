@@ -26,28 +26,24 @@ var RunCommand = cli.Command{
 			Action:  runCompositionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "file",
-					Aliases: []string{"f"},
-					Usage:   "path to a composition `FILE`",
+					Name:  "file, f",
+					Usage: "path to a composition `FILE`",
 				},
 				&cli.BoolFlag{
-					Name:    "write-artifacts",
-					Aliases: []string{"w"},
-					Usage:   "Writes the resulting build artifacts to the composition file.",
+					Name:  "write-artifacts, w",
+					Usage: "Writes the resulting build artifacts to the composition file.",
 				},
 				&cli.BoolFlag{
-					Name:    "ignore-artifacts",
-					Aliases: []string{"i"},
-					Usage:   "Ignores any build artifacts present in the composition file.",
+					Name:  "ignore-artifacts, i",
+					Usage: "Ignores any build artifacts present in the composition file.",
 				},
 				&cli.BoolFlag{
 					Name:  "collect",
 					Usage: "Collect assets at the end of the run phase.",
 				},
 				&cli.StringFlag{
-					Name:    "collect-file",
-					Aliases: []string{"o"},
-					Usage:   "Destination for the assets if --collect is set",
+					Name:  "collect-file, o",
+					Usage: "Destination for the assets if --collect is set",
 				},
 			},
 		},
@@ -60,37 +56,32 @@ var RunCommand = cli.Command{
 			Flags: append(
 				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
 				&cli.StringFlag{
-					Name:    "runner",
-					Aliases: []string{"r"},
-					Usage:   "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+					Name:  "runner, r",
+					Usage: "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 				},
 				&cli.StringFlag{
-					Name:    "use-build",
-					Aliases: []string{"ub"},
-					Usage:   "specifies the artifact to use (from a previous build)",
+					Name:  "use-build, ub",
+					Usage: "specifies the artifact to use (from a previous build)",
 				},
 				&cli.UintFlag{
-					Name:    "instances",
-					Aliases: []string{"i"},
-					Usage:   "number of instances of the test case to run",
+					Name:  "instances, i",
+					Usage: "number of instances of the test case to run",
 				},
 				&cli.StringSliceFlag{
 					Name:  "run-cfg",
 					Usage: "override runner configuration",
 				},
 				&cli.StringSliceFlag{
-					Name:    "test-param",
-					Aliases: []string{"p"},
-					Usage:   "provide a test parameter",
+					Name:  "test-param, p",
+					Usage: "provide a test parameter",
 				},
 				&cli.BoolFlag{
 					Name:  "collect",
 					Usage: "Collect assets at the end of the run phase.",
 				},
 				&cli.StringFlag{
-					Name:    "collect-file",
-					Aliases: []string{"o"},
-					Usage:   "Destination for the assets if --collect is set",
+					Name:  "collect-file, o",
+					Usage: "Destination for the assets if --collect is set",
 				},
 			),
 		},

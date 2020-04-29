@@ -24,14 +24,12 @@ var BuildCommand = cli.Command{
 			Action:  buildCompositionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "file",
-					Aliases: []string{"f"},
-					Usage:   "path to a composition `FILE`",
+					Name:  "file, f",
+					Usage: "path to a composition `FILE`",
 				},
 				&cli.BoolFlag{
-					Name:    "write-artifacts",
-					Aliases: []string{"w"},
-					Usage:   "Writes the resulting build artifacts to the composition file.",
+					Name:  "write-artifacts, w",
+					Usage: "Writes the resulting build artifacts to the composition file.",
 				},
 				&cli.StringFlag{
 					Name: "link-sdk",
@@ -48,14 +46,12 @@ var BuildCommand = cli.Command{
 			ArgsUsage: "[<testplan>]",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "builder",
-					Aliases: []string{"b"},
-					Usage:   "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Name:  "builder, b",
+					Usage: "specifies the builder to use; values include: 'docker:go', 'exec:go'",
 				},
 				&cli.StringSliceFlag{
-					Name:    "dep",
-					Aliases: []string{"d"},
-					Usage:   "set a dependency mapping",
+					Name:  "dep, d",
+					Usage: "set a dependency mapping",
 				},
 				&cli.StringSliceFlag{
 					Name:  "build-cfg",
