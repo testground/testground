@@ -46,11 +46,15 @@ func NewDockerReactor() (Reactor, error) {
 
 	var resolvedRoutes []net.IP
 	for _, route := range wantedRoutes {
+		if route == "" {
+			continue
+		}
 		ip, err := net.ResolveIPAddr("ip4", route)
 		if err != nil {
 			logging.S().Warnw("failed to resolve host", "host", route, "err", err.Error())
 			continue
 		}
+		logging.S().Infow("resolved route to host", "host", route, "ip", ip.String())
 		resolvedRoutes = append(resolvedRoutes, ip.IP)
 	}
 
@@ -199,7 +203,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	for _, route := range d.servicesRoutes {
 		nlroutes, err := netlinkHandle.RouteGet(route)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve route: %w", err)
+			return nil, fmt.Errorf("failed to resolve route %s: %w", route, err)
 		}
 		controlRoutes = append(controlRoutes, nlroutes...)
 	}
