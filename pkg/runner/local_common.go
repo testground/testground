@@ -80,7 +80,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-influxdb",
 			ContainerConfig: &container.Config{
-				Image: "library/influxdb",
+				Image: "library/influxdb:1.8",
 				Env:   []string{"INFLUXDB_HTTP_AUTH_ENABLED=false", "INFLUXDB_DB=testground"},
 			},
 			HostConfig: &container.HostConfig{
