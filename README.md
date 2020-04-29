@@ -190,7 +190,7 @@ for you):
 
 ```shell script
 $ # from the root of this repo, run the following; it will symlink all test plans under $TESTGROUND_HOME/plans
-$ ln -s plans/* $HOME/testground/plans
+$ ln -s $PWD/plans/* $HOME/testground/plans
 $ testground run single network:ping-pong --builder=docker:go --runner=local:docker --instances=2
 ```
 

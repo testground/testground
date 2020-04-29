@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -14,10 +15,10 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
-	"github.com/testground/testground/pkg/docker"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/logging"
 )
 
 // PublicAddr points to an IP address in the public range. It helps us discover
@@ -31,22 +32,24 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
-	client  *sync.Client
-	routes  []net.IP
-	manager *docker.Manager
+	client         *sync.Client
+	servicesRoutes []net.IP
+	manager        *docker.Manager
 }
 
 func NewDockerReactor() (Reactor, error) {
 	// TODO: Generalize this to a list of services.
 	wantedRoutes := []string{
 		os.Getenv(EnvRedisHost),
+		os.Getenv(EnvInfluxdbHost),
 	}
 
 	var resolvedRoutes []net.IP
 	for _, route := range wantedRoutes {
 		ip, err := net.ResolveIPAddr("ip4", route)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve host %s: %w", route, err)
+			logging.S().Warnw("failed to resolve host", "host", route, "err", err.Error())
+			continue
 		}
 		resolvedRoutes = append(resolvedRoutes, ip.IP)
 	}
@@ -65,9 +68,9 @@ func NewDockerReactor() (Reactor, error) {
 	client.EnableBackgroundGC(nil)
 
 	return &DockerReactor{
-		client:  client,
-		routes:  resolvedRoutes,
-		manager: docker,
+		client:         client,
+		servicesRoutes: resolvedRoutes,
+		manager:        docker,
 	}, nil
 }
 
@@ -119,6 +122,12 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	if !params.TestSidecar {
 		return nil, nil
 	}
+
+	if strings.Contains(info.Name, "mkdir-outputs") {
+		return nil, nil
+	}
+
+	logging.S().Debugw("handle container", "name", info.Name, "image", info.Image)
 
 	// Remove the TestOutputsPath. We can't store anything from the sidecar.
 	params.TestOutputsPath = ""
@@ -187,7 +196,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// TODO: Some of this code could be factored out into helpers.
 
 	var controlRoutes []netlink.Route
-	for _, route := range d.routes {
+	for _, route := range d.servicesRoutes {
 		nlroutes, err := netlinkHandle.RouteGet(route)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve route: %w", err)

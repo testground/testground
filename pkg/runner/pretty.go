@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
-	"github.com/testground/sdk-go/runtime"
 
 	"github.com/logrusorgru/aurora"
 )

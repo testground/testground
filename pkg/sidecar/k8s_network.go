@@ -107,12 +107,23 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			CapabilityArgs: capabilityArgs,
 		}
 
-		err = retry(3, 2*time.Second, func() error {
-			_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
-			return err
-		})
-		if err != nil {
-			return fmt.Errorf("failed to add network through cni plugin: %w", err)
+		errc := make(chan error)
+
+		go func() {
+			err = retry(3, 2*time.Second, func() error {
+				_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
+				return err
+			})
+			errc <- err
+		}()
+
+		select {
+		case err := <-errc:
+			if err != nil {
+				return fmt.Errorf("failed to add network through cni plugin: %w", err)
+			}
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("timeout waiting on cninet.AddNetworkList")
 		}
 
 		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
@@ -215,19 +226,19 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	}
 }
 
-func getRedisRoute(handle *netlink.Handle, redisIP net.IP) (*netlink.Route, error) {
-	redisRoutes, err := handle.RouteGet(redisIP)
+func getServiceRoute(handle *netlink.Handle, serviceIP net.IP) (*netlink.Route, error) {
+	serviceRoutes, err := handle.RouteGet(serviceIP)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to redis: %w", err)
+		return nil, fmt.Errorf("failed to resolve route to service: %w", err)
 	}
 
-	if len(redisRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to redis, but got %v", len(redisRoutes))
+	if len(serviceRoutes) != 1 {
+		return nil, fmt.Errorf("expected to get only one route to the given service, but got %v", len(serviceRoutes))
 	}
 
-	redisRoute := redisRoutes[0]
+	serviceRoute := serviceRoutes[0]
 
-	return &redisRoute, nil
+	return &serviceRoute, nil
 }
 
 func retry(attempts int, sleep time.Duration, f func() error) (err error) {

@@ -16,12 +16,13 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
+	"github.com/testground/sdk-go/runtime"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/rpc"
-	"github.com/testground/sdk-go/runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
