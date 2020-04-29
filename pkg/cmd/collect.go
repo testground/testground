@@ -21,13 +21,15 @@ var CollectCommand = cli.Command{
 	ArgsUsage: "[run_id]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name:     "runner, r",
+			Name:     "runner",
+			Aliases:  []string{"r"},
 			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
 		&cli.StringFlag{
-			Name:  "output, o",
-			Usage: "specifies a named output for the tgz file",
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "specifies a named output for the tgz file",
 		},
 	},
 }
