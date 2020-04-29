@@ -11,6 +11,8 @@ import (
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/config"
 
+	ttmpl "github.com/testground/plan-templates/templates"
+
 	"github.com/BurntSushi/toml"
 	"github.com/go-git/go-git/v5"
 	gitcfg "github.com/go-git/go-git/v5/config"
@@ -86,6 +88,13 @@ var PlanCommand = cli.Command{
 	},
 }
 
+// These are the variables used for executing templates during `testground plan create`
+// TODO (cory) Make these specific to the target lang?
+type templateVars struct {
+	Name   string
+	Module string
+}
+
 func createCommand(c *cli.Context) error {
 	if c.Args().Len() != 1 {
 		return errors.New("this command requires one argument -- specify the plan name")
@@ -117,7 +126,13 @@ func createCommand(c *cli.Context) error {
 		}
 	}
 
-	tset := GetTemplateSet(target_lang)
+	// Get file templates for the supplied target lang
+	asset_path := fmt.Sprintf("/%s-templates", target_lang)
+	var tset ttmpl.TemplateSet
+	err = ttmpl.Fill(asset_path, &tset)
+	if err != nil {
+		return err
+	}
 
 	if tset == nil {
 		return fmt.Errorf("unknown language target %s", target_lang)
