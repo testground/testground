@@ -16,5 +16,5 @@ if [ -z "$1" ]; then
 	exit 1
 fi
 
-kubectl exec -it tg-$BASE-$ID-single-$1 monitor.sh
+kubectl exec -it tg-$BASE-$ID-single-$1 -- monitor.sh
 
