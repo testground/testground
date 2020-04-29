@@ -81,7 +81,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 			ContainerName: "testground-influxdb",
 			ContainerConfig: &container.Config{
 				Image: "bitnami/influxdb",
-				Env:   []string{"INFLUXDB_HTTP_AUTH_ENABLED=false"},
+				Env:   []string{"INFLUXDB_HTTP_AUTH_ENABLED=false", "INFLUXDB_DB=testground"},
 			},
 			HostConfig: &container.HostConfig{
 				PortBindings: exposed,
