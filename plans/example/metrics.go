@@ -11,9 +11,11 @@ import (
 // seconds. In order to see the output, plans should be run with the `--collect` option. The metrics
 // are saved in a plain text file `metrics.out`
 func ExampleMetrics(runenv *runtime.RunEnv) error {
-	counter := runenv.M().NewCounter("example.counter1")
-	histogram := runenv.M().NewHistogram("example.histogram1", runenv.M().NewUniformSample(1028))
-	gauge := runenv.M().NewGauge("example.gauge1")
+	var (
+		counter   = runenv.R().NewCounter("example.counter1")
+		histogram = runenv.R().NewHistogram("example.histogram1", runenv.R().NewUniformSample(1028))
+		gauge     = runenv.R().NewGauge("example.gauge1")
+	)
 
 	rand.Seed(time.Now().UnixNano())
 
@@ -32,7 +34,7 @@ func ExampleMetrics(runenv *runtime.RunEnv) error {
 			runenv.RecordMessage("Doing work: %d", data)
 			counter.Inc(data)
 			histogram.Update(data)
-			gauge.Update(data)
+			gauge.Update(float64(data))
 		case <-done:
 			return nil
 		}
