@@ -2,7 +2,4 @@ module github.com/ipfs/testround/plans/example
 
 go 1.14
 
-require (
-	github.com/prometheus/client_golang v1.5.1
-	github.com/testground/sdk-go v0.1.1
-)
+require github.com/testground/sdk-go v0.1.2-0.20200429211839-829111209cba
