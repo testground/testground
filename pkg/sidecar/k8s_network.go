@@ -107,12 +107,23 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			CapabilityArgs: capabilityArgs,
 		}
 
-		err = retry(3, 2*time.Second, func() error {
-			_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
-			return err
-		})
-		if err != nil {
-			return fmt.Errorf("failed to add network through cni plugin: %w", err)
+		errc := make(chan error)
+
+		go func() {
+			err = retry(3, 2*time.Second, func() error {
+				_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
+				return err
+			})
+			errc <- err
+		}()
+
+		select {
+		case err := <-errc:
+			if err != nil {
+				return fmt.Errorf("failed to add network through cni plugin: %w", err)
+			}
+		case <-time.After(30 * time.Second):
+			return fmt.Errorf("timeout waiting on cninet.AddNetworkList")
 		}
 
 		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/testground/testground/pkg/logging"
@@ -167,7 +168,7 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 			handle := m.NewContainerRef(containerID)
 			err := worker(cctx, handle)
 			if err != nil {
-				if errors.Is(err, context.Canceled) {
+				if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") { // docker doesn't wrap errors
 					handle.S().Debugf("sidecar worker failed: %s", err)
 				} else {
 					handle.S().Errorf("sidecar worker failed: %s", err)
