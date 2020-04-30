@@ -198,6 +198,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			Name:  "REDIS_HOST",
 			Value: "testground-infra-redis-headless",
 		})
+		env = append(env, v1.EnvVar{
+			Name:  "INFLUXDB_URL",
+			Value: "http://influxdb:8086",
+		})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
@@ -304,6 +308,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 	}
 
+	if !cfg.KeepService {
+		ow.Info("cleaning up finished pods...")
+	}
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
@@ -599,20 +606,20 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		}
 		wg.Wait()
 
-		ow.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		ow.Debugw("testplan pods state", "running_for", time.Since(start).Truncate(time.Second), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
-			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start).Truncate(time.Second))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
-			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 
 		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
-			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 	}
@@ -694,9 +701,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 						},
 					},
 					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
+						Requests: v1.ResourceList{
 							v1.ResourceMemory: podResourceMemory,
 							v1.ResourceCPU:    podResourceCPU,
+						},
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: podResourceMemory,
 						},
 					},
 				},
