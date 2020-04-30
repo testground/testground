@@ -31,7 +31,7 @@ var BuildCommand = cli.Command{
 				&cli.BoolFlag{
 					Name:    "write-artifacts",
 					Aliases: []string{"w"},
-					Usage:   "Writes the resulting build artifacts to the composition file.",
+					Usage:   "writes the resulting build artifacts to the composition file.",
 				},
 				&cli.StringFlag{
 					Name: "link-sdk",
