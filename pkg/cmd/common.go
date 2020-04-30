@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -21,8 +21,8 @@ func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {
 	if err := cfg.Load(); err != nil {
 		return nil, nil, err
 	}
+	endpoint := c.String("endpoint")
 
-	endpoint := c.GlobalString("endpoint")
 	if endpoint != "" {
 		cfg.Client.Endpoint = endpoint
 	}
@@ -35,22 +35,27 @@ func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {
 // produces a synthetic composition to submit to the server.
 func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	var (
-		testcase = c.Args().First()
-
-		builder   = c.String("builder")
-		runner    = c.String("runner")
+		// Global struct
+		plan      = c.String("plan")
+		testcase  = c.String("testcase")
 		instances = c.Uint("instances")
-		artifact  = c.String("use-build")
+		builder   = c.String("builder")
+		buildcfg  = c.StringSlice("build-cfg")
+		runner    = c.String("runner")
+		runcfg    = c.StringSlice("run-cfg")
 
-		buildcfg     = c.StringSlice("build-cfg")
+		// Build struct
 		dependencies = c.StringSlice("dep")
 
-		runcfg     = c.StringSlice("run-cfg")
+		// Run struct
+		artifact   = c.String("use-build")
 		testparams = c.StringSlice("test-param")
 	)
 
 	comp := &api.Composition{
 		Global: api.Global{
+			Plan:           plan,
+			Case:           testcase,
 			Builder:        builder,
 			Runner:         runner,
 			TotalInstances: instances,
@@ -66,19 +71,6 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 				},
 			},
 		},
-	}
-
-	// Translate CLI params to the composition format.
-	switch ss := strings.Split(testcase, ":"); len(ss) {
-	case 0:
-		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
-	case 2:
-		comp.Global.Case = ss[1]
-		fallthrough
-	case 1:
-		comp.Global.Plan = ss[0]
-	default:
-		return nil, errors.New("wrong format for test case name, should be: `<path to testplan>:testcase`, where `<path to testplan> is relative to $TESTGROUND_HOME")
 	}
 
 	// Build configuration.

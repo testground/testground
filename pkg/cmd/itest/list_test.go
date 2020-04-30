@@ -6,6 +6,7 @@ import (
 
 func TestList(t *testing.T) {
 	err := runSingle(t,
+		"plan",
 		"list",
 	)
 
