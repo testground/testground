@@ -268,7 +268,13 @@ func rmCommand(c *cli.Context) error {
 	}
 
 	if c.Bool("yes") {
-		return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.String("plan")))
+		pdir := filepath.Join(cfg.Dirs().Plans(), c.String("plan"))
+		err := os.RemoveAll(pdir)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("plan at %s removed.\n", pdir)
+		return nil
 	}
 	fmt.Println("really delete? pass --yes flag if you are sure.")
 	return nil
