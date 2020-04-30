@@ -3,9 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/testground/testground/pkg/api"
@@ -18,6 +18,7 @@ import (
 	gitcfg "github.com/go-git/go-git/v5/config"
 	"github.com/mattn/go-zglob"
 	"github.com/urfave/cli/v2"
+	"github.com/whilp/git-urls"
 )
 
 var PlanCommand = cli.Command{
@@ -173,7 +174,7 @@ func importCommand(c *cli.Context) error {
 
 	source := c.String("source")
 
-	parsed, err := url.Parse(source)
+	parsed, err := giturls.Parse(source)
 	if err != nil {
 		return err
 	}
@@ -187,7 +188,8 @@ func importCommand(c *cli.Context) error {
 
 	// Use git to clone. Any scheme supported by git is acceptable.
 	if c.Bool("git") {
-		return clonePlan(dstPath, source)
+		// Remove the '.git' from the end, if there is one, then git clone.
+		return clonePlan(strings.TrimSuffix(dstPath, ".git"), source)
 	}
 
 	// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
@@ -223,7 +225,20 @@ func clonePlan(dst, src string) error {
 	}
 
 	_, err := git.PlainClone(dst, false, &cloneOpts)
-	return err
+	if err != nil {
+		msg := `could not clone %s.
+please double-check the git source is correct.
+1. the remote repository may not exist
+2. the local directory may not be empty.
+3. the permissions over the given transport (ssh, git, https, etc..) may be restricted.
+4. if using the SSH transport, double-check your ssh-agent is running with private keys added.
+this is the error message I received:
+
+%v
+`
+		return fmt.Errorf(msg, cloneOpts.URL, err)
+	}
+	return nil
 }
 
 func rmCommand(c *cli.Context) error {
