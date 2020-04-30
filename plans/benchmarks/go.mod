@@ -2,4 +2,4 @@ module github.com/ipfs/testround/plans/benchmarks
 
 go 1.14
 
-require github.com/testground/sdk-go v0.1.2-0.20200430120159-1ca69559eef3
+require github.com/testground/sdk-go v0.2.0
