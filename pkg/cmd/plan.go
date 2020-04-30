@@ -25,9 +25,8 @@ var PlanCommand = cli.Command{
 	Usage: "plan management",
 	Subcommands: cli.Commands{
 		&cli.Command{
-			Name:      "create",
-			Usage:     "create a plan named `PLAN_NAME`",
-			ArgsUsage: "`PLAN_NAME`: this will be the directory in $TESTGROUND_HOME",
+			Name:  "create",
+			Usage: "create a plan named `PLAN_NAME`",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "remote",
@@ -45,14 +44,24 @@ var PlanCommand = cli.Command{
 					Usage: "module name (used for initial templating",
 					Value: "github.com/your/module/name",
 				},
+				&cli.StringFlag{
+					Name:     "plan",
+					Aliases:  []string{"p"},
+					Usage:    "specifies the name of the plan to create",
+					Required: true,
+				},
 			},
 			Action: createCommand,
 		},
 		&cli.Command{
-			Name:      "import",
-			Usage:     "import a plan from the local filesystem or git repository",
-			ArgsUsage: "`SOURCE`: the location of the plan to be imported",
+			Name:  "import",
+			Usage: "import a plan from the local filesystem or git repository",
 			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:     "source",
+					Usage:    "specifies the source of the plan to be imported, can be git or local.",
+					Required: true,
+				},
 				&cli.BoolFlag{
 					Name:     "git",
 					Usage:    "use git to import (default: false)",
@@ -105,7 +114,7 @@ func createCommand(c *cli.Context) error {
 		return err
 	}
 
-	plan_name := c.Args().First()
+	plan_name := c.String("plan")
 	target_lang := c.String("target")
 	remote := c.String("remote")
 	module := c.String("module")
@@ -157,16 +166,12 @@ func createCommand(c *cli.Context) error {
 }
 
 func importCommand(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return errors.New("this command requires one argument, the location of the plan to import")
-	}
-
 	cfg := &config.EnvConfig{}
 	if err := cfg.Load(); err != nil {
 		return err
 	}
 
-	source := c.Args().Get(0)
+	source := c.String("source")
 
 	parsed, err := url.Parse(source)
 	if err != nil {
