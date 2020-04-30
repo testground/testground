@@ -18,6 +18,7 @@ const (
 var runners = map[string]func() (Reactor, error){
 	"docker": NewDockerReactor,
 	"k8s":    NewK8sReactor,
+	"mock":   NewMockReactor,
 	// TODO: local
 }
 

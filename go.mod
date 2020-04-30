@@ -6,6 +6,9 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/hcsshim v0.8.7 // indirect
+	github.com/alicebob/gopher-json v0.0.0-20180125190556-5a6b3ba71ee6 // indirect
+	github.com/alicebob/miniredis v2.5.0+incompatible // indirect
+	github.com/alicebob/miniredis/v2 v2.11.4
 	github.com/aws/aws-sdk-go v1.28.9
 	github.com/containerd/containerd v1.3.4 // indirect
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
@@ -18,6 +21,7 @@ require (
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/golang/snappy v0.0.1 // indirect
+	github.com/gomodule/redigo/redis v0.0.0-20200429221454-e14091dffc1b // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-multierror v1.0.0
@@ -43,6 +47,7 @@ require (
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
+	github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb // indirect
 	go.uber.org/zap v1.14.1
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	google.golang.org/grpc v1.29.1 // indirect
