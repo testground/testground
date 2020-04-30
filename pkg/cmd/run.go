@@ -48,40 +48,44 @@ var RunCommand = cli.Command{
 			},
 		},
 		&cli.Command{
-			Name:      "single",
-			Aliases:   []string{"s"},
-			Usage:     "(Builds and) runs a single group.",
-			Action:    runSingleCmd,
-			ArgsUsage: "[name]",
+			Name:    "single",
+			Aliases: []string{"s"},
+			Usage:   "(Builds and) runs a single group.",
+			Action:  runSingleCmd,
 			Flags: append(
 				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
-				&cli.StringFlag{
-					Name:  "runner, r",
-					Usage: "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+				&cli.BoolFlag{
+					Name:  "collect",
+					Usage: "collect assets at the end of the run phase.",
 				},
 				&cli.StringFlag{
-					Name:  "use-build, ub",
-					Usage: "specifies the artifact to use (from a previous build)",
+					Name:  "collect-file, o",
+					Usage: "destination for the assets if --collect is set",
 				},
 				&cli.UintFlag{
 					Name:  "instances, i",
 					Usage: "number of instances of the test case to run",
 				},
+				&cli.StringFlag{
+					Name:  "runner, r",
+					Usage: "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+				},
 				&cli.StringSliceFlag{
 					Name:  "run-cfg",
 					Usage: "override runner configuration",
+				},
+				&cli.StringFlag{
+					Name:     "testcase, t",
+					Usage:    "specifies the test case. must be defined by the test plan manifest.",
+					Required: true,
 				},
 				&cli.StringSliceFlag{
 					Name:  "test-param, p",
 					Usage: "provide a test parameter",
 				},
-				&cli.BoolFlag{
-					Name:  "collect",
-					Usage: "Collect assets at the end of the run phase.",
-				},
 				&cli.StringFlag{
-					Name:  "collect-file, o",
-					Usage: "Destination for the assets if --collect is set",
+					Name:  "use-build, ub",
+					Usage: "specifies the artifact to use (from a previous build)",
 				},
 			),
 		},

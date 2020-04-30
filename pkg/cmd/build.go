@@ -39,28 +39,32 @@ var BuildCommand = cli.Command{
 			},
 		},
 		&cli.Command{
-			Name:      "single",
-			Aliases:   []string{"s"},
-			Usage:     "Builds a single group, passing in all necesssary input via CLI flags.",
-			Action:    buildSingleCmd,
-			ArgsUsage: "[<testplan>]",
+			Name:    "single",
+			Aliases: []string{"s"},
+			Usage:   "Builds a single group, passing in all necesssary input via CLI flags.",
+			Action:  buildSingleCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:  "builder, b",
 					Usage: "specifies the builder to use; values include: 'docker:go', 'exec:go'",
 				},
 				&cli.StringSliceFlag{
-					Name:  "dep, d",
-					Usage: "set a dependency mapping",
-				},
-				&cli.StringSliceFlag{
 					Name:  "build-cfg",
 					Usage: "set a build config parameter",
+				},
+				&cli.StringSliceFlag{
+					Name:  "dep, d",
+					Usage: "set a dependency mapping",
 				},
 				&cli.StringFlag{
 					Name: "link-sdk",
 					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
 						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
+				},
+				&cli.StringFlag{
+					Name:     "plan, p",
+					Usage:    "specifies the plan to run",
+					Required: true,
 				},
 			},
 		},
