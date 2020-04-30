@@ -218,7 +218,7 @@ func importCommand(c *cli.Context) error {
 	err = importer(dstPath, source)
 	if err == nil {
 		fmt.Println("imported plans:")
-		printPlans(cfg, dstPath, true)
+		_ = printPlans(cfg, dstPath, true)
 	}
 	return err
 }
@@ -313,10 +313,10 @@ func printPlans(cfg *config.EnvConfig, rootDir string, testcases bool) error {
 
 		if testcases {
 			for _, tc := range manifest.TestCases {
-				fmt.Fprintf(tw, "%s\t%s\n", plan, tc.Name)
+				_, _ = fmt.Fprintf(tw, "%s\t%s\n", plan, tc.Name)
 			}
 		} else {
-			fmt.Fprintln(tw, plan)
+			_, _ = fmt.Fprintln(tw, plan)
 		}
 	}
 
