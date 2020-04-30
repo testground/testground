@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 	"text/template"
 
 	"github.com/testground/testground/pkg/api"
@@ -99,6 +100,12 @@ var PlanCommand = cli.Command{
 			Name:   "list",
 			Usage:  "enumerate all test cases known to the client",
 			Action: listCommand,
+			Flags: []cli.Flag{
+				&cli.BoolFlag{
+					Name:  "testcases",
+					Usage: "display testcases",
+				},
+			},
 		},
 	},
 }
@@ -211,7 +218,7 @@ func importCommand(c *cli.Context) error {
 	err = importer(dstPath, source)
 	if err == nil {
 		fmt.Println("imported plans:")
-		printPlans(cfg, dstPath)
+		printPlans(cfg, dstPath, true)
 	}
 	return err
 }
@@ -272,15 +279,18 @@ func listCommand(c *cli.Context) error {
 	if err := cfg.Load(); err != nil {
 		return err
 	}
-	return printPlans(cfg, cfg.Dirs().Plans())
+	return printPlans(cfg, cfg.Dirs().Plans(), c.Bool("testcases"))
 
 }
 
-func printPlans(cfg *config.EnvConfig, rootDir string) error {
+func printPlans(cfg *config.EnvConfig, rootDir string, testcases bool) error {
 	manifests, err := zglob.GlobFollowSymlinks(filepath.Join(rootDir, "**", "manifest.toml"))
 	if err != nil {
 		return fmt.Errorf("failed to discover test plans under %s: %w", cfg.Dirs().Plans(), err)
 	}
+
+	tw := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+	defer tw.Flush()
 
 	for _, file := range manifests {
 		dir := filepath.Dir(file)
@@ -295,8 +305,12 @@ func printPlans(cfg *config.EnvConfig, rootDir string) error {
 			return fmt.Errorf("failed to process manifest file at %s: %w", file, err)
 		}
 
-		for _, tc := range manifest.TestCases {
-			fmt.Println(plan + ":" + tc.Name)
+		if testcases {
+			for _, tc := range manifest.TestCases {
+				fmt.Fprintf(tw, "%s\t%s\n", plan, tc.Name)
+			}
+		} else {
+			fmt.Fprintln(tw, plan)
 		}
 	}
 
