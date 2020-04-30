@@ -100,8 +100,8 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
-github.com/testground/sdk-go v0.1.2-0.20200429211839-829111209cba h1:tzmRpWpL7mVG7yDk19471LUEgR/caAII9DN2bFesUME=
-github.com/testground/sdk-go v0.1.2-0.20200429211839-829111209cba/go.mod h1:92kY+PsOGRL8fn23uXNckfdf0Syo9gba4d61Lb2eqss=
+github.com/testground/sdk-go v0.2.0 h1:T2JENgmf/WVBtlejkSUKsy0/+LA+k1AFNXOZvGatp3w=
+github.com/testground/sdk-go v0.2.0/go.mod h1:92kY+PsOGRL8fn23uXNckfdf0Syo9gba4d61Lb2eqss=
 go.uber.org/atomic v1.6.0 h1:Ezj3JGmsOnG1MoRWQkPBsKLe9DwWD9QeXzTRzzldNVk=
 go.uber.org/atomic v1.6.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=
 go.uber.org/multierr v1.5.0 h1:KCa4XfM8CWFCpxXRGok+Q0SS/0XBhMDbHHGABQLvD2A=
