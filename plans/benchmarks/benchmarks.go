@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -38,9 +38,8 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	elapsed := time.Since(startupTime)
 	runenv.R().RecordPoint("time_to_network_init_secs", elapsed.Seconds())
@@ -61,42 +60,25 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
-
-	// A state name unique to the container...
-	//
-	// FIX(cory/raulk): this name is not unique in local:exec; it will be the
-	// host's name.
-	name, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	doneState := sync.State("net configured " + name)
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	// A new network configuration
-	netConfig := sync.NetworkConfig{
+	cfg := &network.Config{
 		Network: "default",
-		Default: sync.LinkShape{
+		Default: network.LinkShape{
 			Latency: 250 * time.Millisecond,
 		},
-		State: doneState,
+		CallbackState:  sync.State(fmt.Sprintf("callback-%d", rand.Int63())),
+		CallbackTarget: 1,
 	}
 
-	beforeNetConfig := time.Now()
+	before := time.Now()
 
 	// Send configuration to the sidecar.
-	_, err = client.Publish(ctx, sync.NetworkTopic(name), &netConfig)
-	if err != nil {
-		return err
-	}
-	// Wait for the signal that the network change is completed.
-	err = <-client.MustBarrier(ctx, doneState, 1).C
-	if err != nil {
-		return err
-	}
-	elapsed := time.Since(beforeNetConfig)
+	netclient.MustConfigureNetwork(ctx, cfg)
+
+	elapsed := time.Since(before)
 	runenv.R().RecordPoint("time_to_shape_network_secs", elapsed.Seconds())
 
 	return nil
@@ -113,9 +95,8 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	type cfg struct {
 		Name    string
@@ -129,7 +110,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 
 		t := cfg{
 			Name:    name,
-			Timer:   runenv.R().NewTimer(name),
+			Timer:   runenv.R().Timer(name),
 			Percent: percent,
 		}
 		tests = append(tests, &t)
@@ -183,9 +164,8 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	topic := sync.NewTopic("instances", "")
 
@@ -221,7 +201,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			Metric: metric,
 			Data:   &data,
 			Topic:  sync.NewTopic(name, ""),
-			Timer:  runenv.R().NewTimer(metric),
+			Timer:  runenv.R().Timer(metric),
 		}
 		tests = append(tests, ts)
 	}
@@ -243,7 +223,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 					return err
 				}
 				tst.Timer.UpdateSince(t)
-				runenv.R().RecordPoint(tst.Metric+ "_secs", time.Since(t).Seconds())
+				runenv.R().RecordPoint(tst.Metric+"_secs", time.Since(t).Seconds())
 
 				if i%500 == 0 {
 					runenv.RecordMessage("published %d items (series: %s)", i, tst.Metric)
@@ -292,7 +272,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				t := time.Now()
 				b := <-ch
 				tst.Timer.UpdateSince(t)
-				runenv.R().RecordPoint(tst.Metric+ "_secs", time.Since(t).Seconds())
+				runenv.R().RecordPoint(tst.Metric+"_secs", time.Since(t).Seconds())
 				if strings.Compare(*b, *tst.Data) != 0 {
 					return fmt.Errorf("received unexpected value")
 				}
