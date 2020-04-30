@@ -26,8 +26,8 @@ func StartTimeBench(runenv *runtime.RunEnv) error {
 // The metric it emits represents the time between plan start and when the network initialization
 // is completed.
 func NetworkInitBench(runenv *runtime.RunEnv) error {
-	// FIX(cory/raulk) this test will not work with local:exec, because it
-	// doesn't support the sidecar yet. We should probably skip it
+	// FIX(cory/raulk) this test will yield a false zero value on local:exec,
+	// because it doesn't support the sidecar yet. We should probably skip it
 	// conditionally, based on the runner. We might want to inject the runner
 	// name in the runenv, so tests like this can modify their behaviour
 	// accordingly.
@@ -128,21 +128,12 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 				testInstanceNum = 1.0
 			}
 
-			_, err := client.SignalEntry(ctx, readyState)
-			if err != nil {
-				return err
-			}
-
-			<-client.MustBarrier(ctx, readyState, runenv.TestInstanceCount).C
+			client.MustSignalAndWait(ctx, readyState, runenv.TestInstanceCount)
 
 			barrierTestStart := time.Now()
-			_, err = client.SignalEntry(ctx, testState)
-			if err != nil {
-				return err
-			}
-			<-client.MustBarrier(ctx, testState, testInstanceNum).C
-
+			client.MustSignalAndWait(ctx, testState, testInstanceNum)
 			elapsed := time.Since(barrierTestStart)
+
 			runenv.R().RecordPoint(tst.Name, elapsed.Seconds())
 
 			tst.Timer.Update(elapsed)
@@ -236,18 +227,13 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-		_, err = client.SignalEntry(ctx, end)
-		if err != nil {
-			return err
-		}
-
 		// wait for everyone to be done; this is necessary because the sync
 		// service applies TTL by electing the first 5 publishers on the Redis
 		// Stream to own the keepalive. In this case, all 5 publishers will be
 		// THE publisher. In an ordinary test case, each instance will write a
 		// key and therefore the ownership will be distributed. That does not
 		// happen here, as all key publishing is concentrated on the publisher.
-		<-client.MustBarrier(ctx, end, runenv.TestGroupInstanceCount).C
+		client.MustSignalAndWait(ctx, end, runenv.TestGroupInstanceCount)
 
 	case "receive":
 		defer func() {
@@ -272,7 +258,9 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				t := time.Now()
 				b := <-ch
 				tst.Timer.UpdateSince(t)
+
 				runenv.R().RecordPoint(tst.Metric+"_secs", time.Since(t).Seconds())
+
 				if strings.Compare(*b, *tst.Data) != 0 {
 					return fmt.Errorf("received unexpected value")
 				}
