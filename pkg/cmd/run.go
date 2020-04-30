@@ -31,19 +31,19 @@ var RunCommand = cli.Command{
 				},
 				&cli.BoolFlag{
 					Name:  "write-artifacts, w",
-					Usage: "Writes the resulting build artifacts to the composition file.",
+					Usage: "writes the resulting build artifacts to the composition file.",
 				},
 				&cli.BoolFlag{
 					Name:  "ignore-artifacts, i",
-					Usage: "Ignores any build artifacts present in the composition file.",
+					Usage: "ignores any build artifacts present in the composition file.",
 				},
 				&cli.BoolFlag{
 					Name:  "collect",
-					Usage: "Collect assets at the end of the run phase.",
+					Usage: "collect assets at the end of the run phase.",
 				},
 				&cli.StringFlag{
 					Name:  "collect-file, o",
-					Usage: "Destination for the assets if --collect is set",
+					Usage: "destination for the assets if --collect is set",
 				},
 			},
 		},
