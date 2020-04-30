@@ -180,6 +180,8 @@ func importCommand(c *cli.Context) error {
 		return err
 	}
 
+	var importer func(string, string) error
+
 	// determine the destation, either from flag or intuited from the soruce.
 	baseDest := c.String("name")
 	if baseDest == "" {
@@ -190,20 +192,28 @@ func importCommand(c *cli.Context) error {
 	// Use git to clone. Any scheme supported by git is acceptable.
 	if c.Bool("git") {
 		// Remove the '.git' from the end, if there is one, then git clone.
-		return clonePlan(strings.TrimSuffix(dstPath, ".git"), source)
+		dstPath = strings.TrimSuffix(dstPath, ".git")
+		importer = clonePlan
+	} else {
+
+		// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
+		switch parsed.Scheme {
+		case "file":
+			source = parsed.Path
+		case "":
+			// this is what we expect without file://; do nothing
+		default:
+			return fmt.Errorf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme)
+		}
+		importer = symlinkPlan
 	}
 
-	// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
-	var srcPath string
-	switch parsed.Scheme {
-	case "file":
-		srcPath = parsed.Path
-	case "":
-		srcPath = source
-	default:
-		return fmt.Errorf("unknown scheme %s for local files. did you forget to pass --git?", parsed.Scheme)
+	err = importer(dstPath, source)
+	if err == nil {
+		fmt.Println("imported plans:")
+		printPlans(cfg, dstPath)
 	}
-	return symlinkPlan(dstPath, srcPath)
+	return err
 }
 
 func symlinkPlan(dst, src string) error {
@@ -262,8 +272,12 @@ func listCommand(c *cli.Context) error {
 	if err := cfg.Load(); err != nil {
 		return err
 	}
+	return printPlans(cfg, cfg.Dirs().Plans())
 
-	manifests, err := zglob.GlobFollowSymlinks(filepath.Join(cfg.Dirs().Plans(), "**", "manifest.toml"))
+}
+
+func printPlans(cfg *config.EnvConfig, rootDir string) error {
+	manifests, err := zglob.GlobFollowSymlinks(filepath.Join(rootDir, "**", "manifest.toml"))
 	if err != nil {
 		return fmt.Errorf("failed to discover test plans under %s: %w", cfg.Dirs().Plans(), err)
 	}
