@@ -606,20 +606,20 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		}
 		wg.Wait()
 
-		ow.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		ow.Debugw("testplan pods state", "running_for", time.Since(start).Truncate(time.Second), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
-			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start).Truncate(time.Second))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
-			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 
 		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
-			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 	}
