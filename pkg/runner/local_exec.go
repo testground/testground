@@ -116,6 +116,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			runenv.TestStartTime = time.Now()
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
+			env = append(env, "INFLUXDB_URL=http://localhost:8086")
 
 			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 
@@ -183,8 +184,8 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 	opts := types.ContainerListOptions{}
 	opts.Filters = filters.NewArgs()
 	opts.Filters.Add("name", "testground-grafana")
-	opts.Filters.Add("name", "testground-prometheus")
 	opts.Filters.Add("name", "testground-redis")
+	opts.Filters.Add("name", "testground-influxdb")
 	opts.Filters.Add("name", "testground-sidecar")
 
 	infracontainers, err := cli.ContainerList(ctx, opts)
