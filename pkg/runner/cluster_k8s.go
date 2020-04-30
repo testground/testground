@@ -198,6 +198,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			Name:  "REDIS_HOST",
 			Value: "testground-infra-redis-headless",
 		})
+		env = append(env, v1.EnvVar{
+			Name:  "INFLUXDB_URL",
+			Value: "http://influxdb:8086",
+		})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
