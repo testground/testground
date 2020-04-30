@@ -12,9 +12,9 @@ import (
 // are saved in a plain text file `metrics.out`
 func ExampleMetrics(runenv *runtime.RunEnv) error {
 	var (
-		counter   = runenv.R().NewCounter("example.counter1")
-		histogram = runenv.R().NewHistogram("example.histogram1", runenv.R().NewUniformSample(1028))
-		gauge     = runenv.R().NewGauge("example.gauge1")
+		counter   = runenv.R().Counter("example.counter1")
+		histogram = runenv.R().Histogram("example.histogram1", runenv.R().NewUniformSample(1028))
+		gauge     = runenv.R().Gauge("example.gauge1")
 	)
 
 	rand.Seed(time.Now().UnixNano())
