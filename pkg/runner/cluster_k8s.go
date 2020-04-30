@@ -304,6 +304,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 	}
 
+	if !cfg.KeepService {
+		ow.Info("cleaning up finished pods...")
+	}
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
@@ -694,9 +697,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 						},
 					},
 					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
+						Requests: v1.ResourceList{
 							v1.ResourceMemory: podResourceMemory,
 							v1.ResourceCPU:    podResourceCPU,
+						},
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: podResourceMemory,
 						},
 					},
 				},
