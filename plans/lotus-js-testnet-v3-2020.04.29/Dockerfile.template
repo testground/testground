@@ -9,7 +9,7 @@ ARG GO_VERSION=1.13.8
 FROM node:13.8.0-buster
 
 # lotus-base testnet/3
-FROM 055e7a364845
+FROM c12c6e6b91ce
 
 # Copy Node.js
 WORKDIR /usr/local/bin
