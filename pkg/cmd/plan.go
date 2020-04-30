@@ -215,7 +215,7 @@ func symlinkPlan(dst, src string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("created symlink %s->%s\n", dst, src)
+	fmt.Printf("created symlink %s -> %s\n", dst, src)
 	return os.Symlink(ev, dst)
 }
 
@@ -240,7 +240,7 @@ this is the error message I received:
 `
 		return fmt.Errorf(msg, cloneOpts.URL, err)
 	}
-	fmt.Printf("cloned plan %s->%s\n", dst, src)
+	fmt.Printf("cloned plan %s -> %s\n", dst, src)
 	return nil
 }
 
