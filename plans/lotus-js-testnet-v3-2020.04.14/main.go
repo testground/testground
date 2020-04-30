@@ -36,7 +36,7 @@ func main() {
 }
 
 func run(runenv *runtime.RunEnv) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
 	defer cancel()
 
 	var genesisAddr string
@@ -511,7 +511,7 @@ func run(runenv *runtime.RunEnv) error {
 					return err
 				}
 
-				val, err := types.ParseFIL("0.00001")
+				val, err := types.ParseFIL("0.000005")
 				if err != nil {
 					return err
 				}
