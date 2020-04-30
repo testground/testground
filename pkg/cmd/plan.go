@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -87,6 +86,12 @@ var PlanCommand = cli.Command{
 					Required: false,
 					Value:    false,
 				},
+				&cli.StringFlag{
+					Name:     "plan",
+					Aliases:  []string{"p"},
+					Usage:    "specifies the name of the plan to create",
+					Required: true,
+				},
 			},
 			Action: rmCommand,
 		},
@@ -106,10 +111,6 @@ type templateVars struct {
 }
 
 func createCommand(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return errors.New("this command requires one argument -- specify the plan name")
-	}
-
 	cfg := &config.EnvConfig{}
 	if err := cfg.Load(); err != nil {
 		return err
@@ -242,17 +243,13 @@ this is the error message I received:
 }
 
 func rmCommand(c *cli.Context) error {
-	if c.Args().Len() != 1 {
-		return errors.New("this plan requires one argument, the name of the plan to remove.")
-	}
-
 	cfg := &config.EnvConfig{}
 	if err := cfg.Load(); err != nil {
 		return err
 	}
 
 	if c.Bool("yes") {
-		return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.Args().First()))
+		return os.RemoveAll(filepath.Join(cfg.Dirs().Plans(), c.String("plan")))
 	}
 	fmt.Println("really delete? pass --yes flag if you are sure.")
 	return nil
