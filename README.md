@@ -191,7 +191,7 @@ for you):
 ```shell script
 $ # from the root of this repo, run the following; it will symlink all test plans under $TESTGROUND_HOME/plans
 $ ln -s $PWD/plans/* $HOME/testground/plans
-$ testground run single --plan network --testcase ping-pong  --builder=docker:go --runner=local:docker --instances=2
+$ testground run single --plan network --testcase ping-pong --builder=docker:go --runner=local:docker --instances=2
 ```
 
 For project-specific test plans, check out these repos:
