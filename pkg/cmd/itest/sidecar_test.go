@@ -16,7 +16,10 @@ func TestSidecar(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"2",
-		"network/ping-pong",
+		"--plan",
+		"network",
+		"--testcase",
+		"ping-pong",
 	)
 
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 func TestDescribeExistingPlan(t *testing.T) {
 	err := runSingle(t,
 		"describe",
+		"--plan",
 		"placebo",
 	)
 
@@ -18,6 +19,7 @@ func TestDescribeExistingPlan(t *testing.T) {
 func TestDescribeInexistentPlan(t *testing.T) {
 	err := runSingle(t,
 		"describe",
+		"--plan",
 		"i-do-not-exist",
 	)
 

@@ -10,6 +10,7 @@ func TestBuildExecGo(t *testing.T) {
 		"single",
 		"--builder",
 		"exec:go",
+		"--plan",
 		"placebo",
 	)
 
@@ -27,6 +28,7 @@ func TestBuildDockerGo(t *testing.T) {
 		"single",
 		"--builder",
 		"docker:go",
+		"--plan",
 		"placebo",
 	)
 

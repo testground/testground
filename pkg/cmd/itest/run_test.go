@@ -14,7 +14,10 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
-		"placebo:abort",
+		"--plan",
+		"placebo",
+		"--testcase",
+		"abort",
 	)
 
 	if err == nil {
@@ -50,7 +53,10 @@ func TestIncompatibleRun(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
-		"placebo:ok",
+		"--plan",
+		"placebo",
+		"--testcase",
+		"ok",
 	)
 
 	if err == nil {
@@ -68,7 +74,10 @@ func TestCompatibleRunLocal(t *testing.T) {
 		"local:exec",
 		"--instances",
 		"1",
-		"placebo:ok",
+		"--plan",
+		"placebo",
+		"--testcase",
+		"ok",
 	)
 
 	if err != nil {
@@ -86,7 +95,10 @@ func TestCompatibleRunDocker(t *testing.T) {
 		"local:docker",
 		"--instances",
 		"1",
-		"placebo:ok",
+		"--plan",
+		"placebo",
+		"--testcase",
+		"ok",
 	)
 
 	if err != nil {
