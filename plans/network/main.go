@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
 	"time"
 
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -23,7 +23,7 @@ func pingpong(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	runenv.RecordMessage("before sync.MustWatcherWriter")
+	runenv.RecordMessage("before sync.MustBoundClient")
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
@@ -31,83 +31,55 @@ func pingpong(runenv *runtime.RunEnv) error {
 		return nil
 	}
 
-	runenv.RecordMessage("before sync.WaitNetworkInitialized")
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	runenv.RecordMessage("before netclient.MustWaitNetworkInitialized")
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	oldAddrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return err
 	}
 
-	config := sync.NetworkConfig{
+	config := &network.Config{
 		// Control the "default" network. At the moment, this is the only network.
 		Network: "default",
 
 		// Enable this network. Setting this to false will disconnect this test
 		// instance from this network. You probably don't want to do that.
 		Enable: true,
-		Default: sync.LinkShape{
+		Default: network.LinkShape{
 			Latency:   100 * time.Millisecond,
 			Bandwidth: 1 << 20, // 1Mib
 		},
-		State: "network-configured",
+		CallbackState: "network-configured",
 	}
 
-	runenv.RecordMessage("before writer config")
-	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
-	if err != nil {
-		return err
-	}
+	runenv.RecordMessage("before netclient.MustConfigureNetwork")
+	netclient.MustConfigureNetwork(ctx, config)
 
-	runenv.RecordMessage("before barrier")
-	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
-	if err != nil {
-		return err
-	}
+	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
 
 	// Make sure that the IP addresses don't change unless we request it.
-
-	newAddrs, err := net.InterfaceAddrs()
-	if err != nil {
+	if newAddrs, err := net.InterfaceAddrs(); err != nil {
 		return err
-	}
-
-	if !sameAddrs(oldAddrs, newAddrs) {
+	} else if !sameAddrs(oldAddrs, newAddrs) {
 		return fmt.Errorf("interfaces changed")
 	}
 
-	// Get a sequence number
-	runenv.RecordMessage("get a sequence number")
-	topic := sync.NewTopic("ip-allocation", "")
-	seq, err := client.Publish(ctx, topic, hostname)
-	if err != nil {
-		return err
-	}
-
 	runenv.RecordMessage("I am %d", seq)
-
-	if seq >= 1<<16 {
-		return fmt.Errorf("test-case only supports 2**16 instances")
-	}
 
 	ipC := byte((seq >> 8) + 1)
 	ipD := byte(seq)
 
 	config.IPv4 = &runenv.TestSubnet.IPNet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.State = "ip-changed"
+	config.CallbackState = "ip-changed"
 
 	var (
 		listener *net.TCPListener
 		conn     *net.TCPConn
 	)
+
 	if seq == 1 {
 		listener, err = net.ListenTCP("tcp4", &net.TCPAddr{Port: 1234})
 		if err != nil {
@@ -116,17 +88,8 @@ func pingpong(runenv *runtime.RunEnv) error {
 		defer listener.Close()
 	}
 
-	runenv.RecordMessage("before writing changed ip config to redis")
-	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
-	if err != nil {
-		return err
-	}
-
-	runenv.RecordMessage("waiting for barrier")
-	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
-	if err != nil {
-		return err
-	}
+	runenv.RecordMessage("before reconfiguring network")
+	netclient.MustConfigureNetwork(ctx, config)
 
 	switch seq {
 	case 1:
@@ -155,11 +118,13 @@ func pingpong(runenv *runtime.RunEnv) error {
 		buf := make([]byte, 1)
 
 		runenv.RecordMessage("waiting until ready")
+
 		// wait till both sides are ready
 		_, err = conn.Write([]byte{0})
 		if err != nil {
 			return err
 		}
+
 		_, err = conn.Read(buf)
 		if err != nil {
 			return err
@@ -167,19 +132,20 @@ func pingpong(runenv *runtime.RunEnv) error {
 
 		start := time.Now()
 
-		runenv.RecordMessage("writing my id")
 		// write sequence number.
+		runenv.RecordMessage("writing my id")
 		_, err = conn.Write([]byte{byte(seq)})
 		if err != nil {
 			return err
 		}
 
-		runenv.RecordMessage("reading their id")
 		// pong other sequence number
+		runenv.RecordMessage("reading their id")
 		_, err = conn.Read(buf)
 		if err != nil {
 			return err
 		}
+
 		runenv.RecordMessage("returning their id")
 		_, err = conn.Write(buf)
 		if err != nil {
@@ -210,41 +176,23 @@ func pingpong(runenv *runtime.RunEnv) error {
 		}
 		runenv.RecordMessage("ping RTT was %s [%s, %s]", rtt, rttMin, rttMax)
 
-		state := sync.State("ping-pong-" + test)
-
 		// Don't reconfigure the network until we're done with the first test.
-		_, err = client.SignalEntry(ctx, state)
-		if err != nil {
-			return err
-		}
-		err = <-client.MustBarrier(ctx, state, runenv.TestInstanceCount).C
-		if err != nil {
-			return err
-		}
+		state := sync.State("ping-pong-" + test)
+		client.MustSignalAndWait(ctx, state, runenv.TestInstanceCount)
+
 		return nil
 	}
-	err = pingPong("200", 200*time.Millisecond, 210*time.Millisecond)
+	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
 	if err != nil {
 		return err
 	}
 
 	config.Default.Latency = 10 * time.Millisecond
-	config.State = "latency-reduced"
-
-	runenv.RecordMessage("writing new config with latency reduced")
-	_, err = client.Publish(ctx, sync.NetworkTopic(hostname), &config)
-	if err != nil {
-		return err
-	}
-
-	runenv.RecordMessage("waiting at barrier")
-	err = <-client.MustBarrier(ctx, config.State, runenv.TestInstanceCount).C
-	if err != nil {
-		return err
-	}
+	config.CallbackState = "latency-reduced"
+	netclient.MustConfigureNetwork(ctx, config)
 
 	runenv.RecordMessage("ping pong")
-	err = pingPong("10", 20*time.Millisecond, 30*time.Millisecond)
+	err = pingPong("10", 20*time.Millisecond, 35*time.Millisecond)
 	if err != nil {
 		return err
 	}

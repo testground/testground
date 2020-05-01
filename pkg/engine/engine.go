@@ -154,9 +154,11 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		} else if !rep.ChecksSucceeded() {
+			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
+		} else {
+			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 		}
-
-		ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 	}
 
 	// This var compiles all configurations to coalesce.
@@ -286,9 +288,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
 		} else if !rep.FixesSucceeded() {
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+		} else if !rep.ChecksSucceeded() {
+			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
+		} else {
+			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 		}
-
-		ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 	}
 
 	// Check if builder and runner are compatible

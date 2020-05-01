@@ -69,7 +69,7 @@ var (
 	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
 
 	// resource requests and limits for the `collect-outputs` pod
-	collectOutputsResourceCPU    = resource.MustParse("2000m")
+	collectOutputsResourceCPU    = resource.MustParse("500m")
 	collectOutputsResourceMemory = resource.MustParse("1024Mi")
 )
 
@@ -198,6 +198,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			Name:  "REDIS_HOST",
 			Value: "testground-infra-redis-headless",
 		})
+		env = append(env, v1.EnvVar{
+			Name:  "INFLUXDB_URL",
+			Value: "http://influxdb:8086",
+		})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
@@ -304,6 +308,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 	}
 
+	if !cfg.KeepService {
+		ow.Info("cleaning up finished pods...")
+	}
 	return &api.RunOutput{RunID: input.RunID}, nil
 }
 
@@ -326,11 +333,6 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 	planNodes := res.Items
 
 	hh := &healthcheck.Helper{}
-
-	hh.Enlist("kops validate",
-		healthcheck.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
-		healthcheck.NotImplemented(),
-	)
 
 	hh.Enlist("efs pod",
 		healthcheck.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
@@ -599,20 +601,20 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		}
 		wg.Wait()
 
-		ow.Debugw("testplan pods state", "running_for", time.Since(start), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
+		ow.Debugw("testplan pods state", "running_for", time.Since(start).Truncate(time.Second), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
-			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start).Truncate(time.Second))
 		}
 
 		if counters["Succeeded"] == input.TotalInstances {
-			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start))
+			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 
 		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
-			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start))
+			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start).Truncate(time.Second))
 			return nil
 		}
 	}
@@ -694,9 +696,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 						},
 					},
 					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
+						Requests: v1.ResourceList{
 							v1.ResourceMemory: podResourceMemory,
 							v1.ResourceCPU:    podResourceCPU,
+						},
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: podResourceMemory,
 						},
 					},
 				},
@@ -823,6 +828,9 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 				Sysctls: testplanSysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
+			NodeSelector: map[string]string{
+				"testground.nodetype": "infra",
+			},
 			Containers: []v1.Container{
 				{
 					Name:    "collect-outputs",
@@ -837,8 +845,11 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 						},
 					},
 					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
+						Requests: v1.ResourceList{
 							v1.ResourceCPU:    collectOutputsResourceCPU,
+							v1.ResourceMemory: collectOutputsResourceMemory,
+						},
+						Limits: v1.ResourceList{
 							v1.ResourceMemory: collectOutputsResourceMemory,
 						},
 					},

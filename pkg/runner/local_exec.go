@@ -116,7 +116,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			runenv.TestStartTime = time.Now()
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
-			env = append(env, "INFLUXDB_ADDR=http://localhost:8086")
+			env = append(env, "INFLUXDB_URL=http://localhost:8086")
 
 			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 

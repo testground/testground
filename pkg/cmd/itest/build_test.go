@@ -8,9 +8,10 @@ func TestBuildExecGo(t *testing.T) {
 	err := runSingle(t,
 		"build",
 		"single",
-		"placebo",
 		"--builder",
 		"exec:go",
+		"--plan",
+		"placebo",
 	)
 
 	if err != nil {
@@ -25,9 +26,10 @@ func TestBuildDockerGo(t *testing.T) {
 	err := runSingle(t,
 		"build",
 		"single",
-		"placebo",
 		"--builder",
 		"docker:go",
+		"--plan",
+		"placebo",
 	)
 
 	if err != nil {

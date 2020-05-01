@@ -5,34 +5,20 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
-
-// This method emits the time as output. It does *not* emit a prometheus metric.
-func emitTime(runenv *runtime.RunEnv, name string, duration time.Duration) {
-	runenv.RecordMetric(&runtime.MetricDefinition{
-		Name:           name,
-		Unit:           "seconds",
-		ImprovementDir: -1,
-	}, duration.Seconds())
-}
 
 // StartTimeBench does nothing but start up and report the time it took to start.
 // This relies on the testground daemon to inject the time when the plan is scheduled
 // into the runtime environment
 func StartTimeBench(runenv *runtime.RunEnv) error {
 	elapsed := time.Since(runenv.TestStartTime)
-	emitTime(runenv, "Time to start", elapsed)
-
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "start_time", Help: "time from plan scheduled to plan booted"})
-	gauge.Set(float64(elapsed))
+	runenv.R().RecordPoint("time_to_start_secs", elapsed.Seconds())
 	return nil
 }
 
@@ -40,8 +26,8 @@ func StartTimeBench(runenv *runtime.RunEnv) error {
 // The metric it emits represents the time between plan start and when the network initialization
 // is completed.
 func NetworkInitBench(runenv *runtime.RunEnv) error {
-	// FIX(cory/raulk) this test will not work with local:exec, because it
-	// doesn't support the sidecar yet. We should probably skip it
+	// FIX(cory/raulk) this test will yield a false zero value on local:exec,
+	// because it doesn't support the sidecar yet. We should probably skip it
 	// conditionally, based on the runner. We might want to inject the runner
 	// name in the runenv, so tests like this can modify their behaviour
 	// accordingly.
@@ -52,15 +38,11 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	elapsed := time.Since(startupTime)
-	emitTime(runenv, "Time to network init", elapsed)
-
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "net_init_time", Help: "Time waiting for network initialization"})
-	gauge.Set(float64(elapsed))
+	runenv.R().RecordPoint("time_to_network_init_secs", elapsed.Seconds())
 	return nil
 }
 
@@ -78,45 +60,26 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
-
-	// A state name unique to the container...
-	//
-	// FIX(cory/raulk): this name is not unique in local:exec; it will be the
-	// host's name.
-	name, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	doneState := sync.State("net configured " + name)
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	// A new network configuration
-	netConfig := sync.NetworkConfig{
+	cfg := &network.Config{
 		Network: "default",
-		Default: sync.LinkShape{
+		Default: network.LinkShape{
 			Latency: 250 * time.Millisecond,
 		},
-		State: doneState,
+		CallbackState:  sync.State(fmt.Sprintf("callback-%d", rand.Int63())),
+		CallbackTarget: 1,
 	}
 
-	beforeNetConfig := time.Now()
+	before := time.Now()
 
 	// Send configuration to the sidecar.
-	_, err = client.Publish(ctx, sync.NetworkTopic(name), &netConfig)
-	if err != nil {
-		return err
-	}
-	// Wait for the signal that the network change is completed.
-	err = <-client.MustBarrier(ctx, doneState, 1).C
-	if err != nil {
-		return err
-	}
-	duration := time.Since(beforeNetConfig)
-	emitTime(runenv, "Time to configure link shape", duration)
-	gauge := runenv.M().NewGauge(runtime.GaugeOpts{Name: "link_shape_time", Help: "time waiting for change in network link shape"})
-	gauge.Set(float64(duration))
+	netclient.MustConfigureNetwork(ctx, cfg)
+
+	elapsed := time.Since(before)
+	runenv.R().RecordPoint("time_to_shape_network_secs", elapsed.Seconds())
 
 	return nil
 }
@@ -132,22 +95,22 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
 	type cfg struct {
 		Name    string
-		Gauge   prometheus.Gauge
+		Timer   runtime.Timer
 		Percent float64
 	}
 
 	var tests []*cfg
 	for percent := 0.2; percent <= 1.0; percent += 0.2 {
 		name := fmt.Sprintf("barrier_time_%d_percent", int(percent*100))
+
 		t := cfg{
 			Name:    name,
-			Gauge:   runenv.M().NewGauge(runtime.GaugeOpts{Name: name, Help: fmt.Sprintf("time waiting for %f barrier", percent)}),
+			Timer:   runenv.R().Timer(name),
 			Percent: percent,
 		}
 		tests = append(tests, &t)
@@ -165,27 +128,15 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 				testInstanceNum = 1.0
 			}
 
-			_, err := client.SignalEntry(ctx, readyState)
-			if err != nil {
-				return err
-			}
-
-			<-client.MustBarrier(ctx, readyState, runenv.TestInstanceCount).C
+			client.MustSignalAndWait(ctx, readyState, runenv.TestInstanceCount)
 
 			barrierTestStart := time.Now()
-			_, err = client.SignalEntry(ctx, testState)
-			if err != nil {
-				return err
-			}
-			<-client.MustBarrier(ctx, sync.State(testState), testInstanceNum).C
+			client.MustSignalAndWait(ctx, testState, testInstanceNum)
+			elapsed := time.Since(barrierTestStart)
 
-			duration := time.Since(barrierTestStart)
-			emitTime(runenv, tst.Name, duration)
+			runenv.R().RecordPoint(tst.Name, elapsed.Seconds())
 
-			// I picked `Add` here instead of `Set` so the measurement will have to be rated.
-			// The reason I did this is so the rate will drop to zero after the end of the test
-			// Use rate(barrier_time_XX_percent) in prometheus graphs.
-			tst.Gauge.Add(float64(duration))
+			tst.Timer.Update(elapsed)
 		}
 	}
 
@@ -204,11 +155,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	if err := client.WaitNetworkInitialized(ctx, runenv); err != nil {
-		return err
-	}
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
 
-	topic := sync.NewTopic("instances","")
+	topic := sync.NewTopic("instances", "")
 
 	seq, err := client.Publish(ctx, topic, &runenv.TestRun)
 	if err != nil {
@@ -221,10 +171,10 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 	}
 
 	type testSpec struct {
-		Name    string
-		Data    *string
-		Topic   *sync.Topic
-		Summary runtime.Summary
+		Metric string
+		Data   *string
+		Topic  *sync.Topic
+		Timer  runtime.Timer
 	}
 
 	// Create tests ranging from 64B to 4KiB.
@@ -236,15 +186,13 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		rand.Read(d)
 		data := string(d)
 
+		metric := name + "_" + mode
+
 		ts := &testSpec{
-			Name: name,
-			Data: &data,
-			Topic: sync.NewTopic(name, ""),
-			Summary: runenv.M().NewSummary(runtime.SummaryOpts{
-				Name:       name + "_" + mode,
-				Help:       fmt.Sprintf("time to %s %d bytes", mode, size),
-				Objectives: map[float64]float64{0.5: 0.05, 0.75: 0.025, 0.9: 0.01, 0.95: 0.001, 0.99: 0.001},
-			}),
+			Metric: metric,
+			Data:   &data,
+			Topic:  sync.NewTopic(name, ""),
+			Timer:  runenv.R().Timer(metric),
 		}
 		tests = append(tests, ts)
 	}
@@ -260,25 +208,21 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 
 		for _, tst := range tests {
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				t := time.Now()
 				_, err = client.Publish(ctx, tst.Topic, tst.Data)
 				if err != nil {
 					return err
 				}
-				t.ObserveDuration()
+				tst.Timer.UpdateSince(t)
+				runenv.R().RecordPoint(tst.Metric+"_secs", time.Since(t).Seconds())
 
 				if i%500 == 0 {
-					runenv.RecordMessage("published %d items (series: %s)", i, tst.Name)
+					runenv.RecordMessage("published %d items (series: %s)", i, tst.Metric)
 				}
 			}
 		}
 		// signal to subscribers they can start.
 		_, err = client.SignalEntry(ctx, handoff)
-		if err != nil {
-			return err
-		}
-
-		_, err = client.SignalEntry(ctx, end)
 		if err != nil {
 			return err
 		}
@@ -289,7 +233,7 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 		// THE publisher. In an ordinary test case, each instance will write a
 		// key and therefore the ownership will be distributed. That does not
 		// happen here, as all key publishing is concentrated on the publisher.
-		<-client.MustBarrier(ctx, end, runenv.TestGroupInstanceCount).C
+		client.MustSignalAndWait(ctx, end, runenv.TestGroupInstanceCount)
 
 	case "receive":
 		defer func() {
@@ -311,14 +255,17 @@ func SubtreeBench(runenv *runtime.RunEnv) error {
 				return err
 			}
 			for i := 1; i <= iterations; i++ {
-				t := prometheus.NewTimer(tst.Summary)
+				t := time.Now()
 				b := <-ch
-				t.ObserveDuration()
+				tst.Timer.UpdateSince(t)
+
+				runenv.R().RecordPoint(tst.Metric+"_secs", time.Since(t).Seconds())
+
 				if strings.Compare(*b, *tst.Data) != 0 {
 					return fmt.Errorf("received unexpected value")
 				}
 				if i%500 == 0 {
-					runenv.RecordMessage("received %d items (series: %s)", i, tst.Name)
+					runenv.RecordMessage("received %d items (series: %s)", i, tst.Metric)
 				}
 			}
 		}
