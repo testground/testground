@@ -833,6 +833,9 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 				Sysctls: testplanSysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
+			NodeSelector: map[string]string{
+				"testground.nodetype": "infra",
+			},
 			Containers: []v1.Container{
 				{
 					Name:    "collect-outputs",
