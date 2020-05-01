@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/sidecar"
@@ -28,15 +28,16 @@ var SidecarCommand = cli.Command{
 		return err
 	},
 	Flags: []cli.Flag{
-		cli.GenericFlag{
-			Name:     "runner, r",
+		&cli.GenericFlag{
+			Name:     "runner",
+			Aliases:  []string{"r"},
 			Required: true,
 			Usage:    `Specifies the runner that will be scheduling tasks that should be managed by this sidecar. Options: ` + strings.Join(sidecar.GetRunners(), ", "),
 			Value: &EnumValue{
 				Allowed: sidecar.GetRunners(),
 			},
 		},
-		cli.BoolFlag{
+		&cli.BoolFlag{
 			Name:  "pprof",
 			Usage: "Enable pprof service on port 6060",
 		},

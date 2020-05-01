@@ -7,7 +7,7 @@ import (
 	"github.com/testground/testground/pkg/cmd"
 	"github.com/testground/testground/pkg/logging"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 	"go.uber.org/zap/zapcore"
 )
 

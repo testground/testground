@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 
 	"github.com/testground/testground/pkg/config"
 )
@@ -17,18 +15,19 @@ var DescribeCommand = cli.Command{
 	Usage:       "describe a test plan",
 	ArgsUsage:   "<plan name>",
 	Description: "This command loads the test plan manifest from $TESTGROUND_HOME/plans/<plan name>, and explains its contents.",
-	Action:      describeCommand,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name:     "plan",
+			Aliases:  []string{"p"},
+			Usage:    "specifies the plan to describe",
+			Required: true,
+		},
+	},
+	Action: describeCommand,
 }
 
 func describeCommand(c *cli.Context) error {
-	if c.NArg() == 0 {
-		return errors.New("missing test plan location")
-	}
-
-	plan := c.Args().First()
-	if strings.Contains(plan, ":") {
-		return errors.New("this command expects a test plan, not a test case")
-	}
+	plan := c.String("plan")
 
 	cfg := &config.EnvConfig{}
 	if err := cfg.Load(); err != nil {

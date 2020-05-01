@@ -191,7 +191,7 @@ for you):
 ```shell script
 $ # from the root of this repo, run the following; it will symlink all test plans under $TESTGROUND_HOME/plans
 $ ln -s $PWD/plans/* $HOME/testground/plans
-$ testground run single network:ping-pong --builder=docker:go --runner=local:docker --instances=2
+$ testground run single --plan network --testcase ping-pong --builder=docker:go --runner=local:docker --instances=2
 ```
 
 For project-specific test plans, check out these repos:
@@ -199,13 +199,13 @@ For project-specific test plans, check out these repos:
 * https://github.com/libp2p/test-plans
 * https://github.com/ipfs/test-plans
 
-To use them, clone them into `$TESTGROUND_HOME/plans`. Same remark as above applies.
+To use them, import them into `$TESTGROUND_HOME/plans` using the following testground commands:
 
 ```shell script
-$ git clone https://github.com/libp2p/test-plans.git $HOME/testground/plans/libp2p
-$ git clone https://github.com/ipfs/test-plans.git $HOME/testground/plans/ipfs
+$ testground plan import --git --source https://github.com/libp2p/test-plans.git --name libp2p
+$ testground plan import --git --source https://github.com/ipfs/test-plans.git --name ipfs
 $ # to run the find-peers test case from the libp2p/dht test plan (this is not a complete command!)
-$ testground run single libp2p/dht:find-peers --builder docker:go --runner local:docker <options>
+$ testground run single --plan libp2p/dht --testcase find-peers --builder docker:go --runner local:docker <options>
 ``` 
 
 
