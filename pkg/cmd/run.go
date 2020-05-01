@@ -26,24 +26,28 @@ var RunCommand = cli.Command{
 			Action:  runCompositionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:  "file, f",
-					Usage: "path to a composition `FILE`",
+					Name:    "file",
+					Aliases: []string{"f"},
+					Usage:   "path to a composition `FILE`",
 				},
 				&cli.BoolFlag{
-					Name:  "write-artifacts, w",
-					Usage: "writes the resulting build artifacts to the composition file.",
+					Name:    "write-artifacts",
+					Aliases: []string{"w"},
+					Usage:   "writes the resulting build artifacts to the composition file.",
 				},
 				&cli.BoolFlag{
-					Name:  "ignore-artifacts, i",
-					Usage: "ignores any build artifacts present in the composition file.",
+					Name:    "ignore-artifacts",
+					Aliases: []string{"i"},
+					Usage:   "ignores any build artifacts present in the composition file.",
 				},
 				&cli.BoolFlag{
 					Name:  "collect",
 					Usage: "collect assets at the end of the run phase.",
 				},
 				&cli.StringFlag{
-					Name:  "collect-file, o",
-					Usage: "destination for the assets if --collect is set",
+					Name:    "collect-file",
+					Aliases: []string{"o"},
+					Usage:   "destination for the assets if --collect is set",
 				},
 			},
 		},
