@@ -334,11 +334,6 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 
 	hh := &healthcheck.Helper{}
 
-	hh.Enlist("kops validate",
-		healthcheck.CheckCommandStatus(ctx, "kops", "validate", "cluster"),
-		healthcheck.NotImplemented(),
-	)
-
 	hh.Enlist("efs pod",
 		healthcheck.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
