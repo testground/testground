@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+  "encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -33,6 +34,10 @@ import (
 
 func main() {
 	runtime.Invoke(run)
+}
+
+type Params struct {
+  TestInstanceCount   int
 }
 
 func run(runenv *runtime.RunEnv) error {
@@ -181,12 +186,26 @@ func run(runenv *runtime.RunEnv) error {
 
 	// Serve token files
 	mux.HandleFunc("/.lotus/token", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Add("Cache-Control", "no-cache")
 		http.ServeFile(w, r, "/root/.lotus/token")
 	})
 
 	mux.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Add("Cache-Control", "no-cache")
 		http.ServeFile(w, r, "/root/.lotusstorage/token")
 	})
+
+	mux.HandleFunc("/params", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Cache-Control", "no-cache")
+    params := Params{TestInstanceCount: runenv.TestInstanceCount}
+    js, err := json.Marshal(params)
+    if err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+      return
+    }
+    w.Header().Set("Content-Type", "application/json")
+    w.Write(js)
+  })
 
 	switch {
 	case seq == 1: // genesis node
