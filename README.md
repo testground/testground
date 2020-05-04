@@ -4,7 +4,7 @@
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://protocol.ai)
 ![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
-[![](https://travis-ci.com/testground/testground.svg?branch=master)](https://travis-ci.com/testground/testground)
+[![CircleCI](https://circleci.com/gh/testground/testground.svg?style=svg)](https://circleci.com/gh/testground/testground)
 
 Testground is a platform for testing, benchmarking, and simulating distributed and p2p
 systems at scale. It's designed to be multi-lingual and runtime-agnostic, scaling gracefully
@@ -37,6 +37,7 @@ from 2 to 10k instances, only when needed.
 ## How does it work?
 
 1. **You develop distributed test plans as if you were writing unit tests against local APIs.**
+    - No puppeteering necessary.
     - No need to package and ship the system or component under test as a separate daemon.
     - No need to expose every internal setting over an external API, just for the sake of testing.
     
@@ -124,11 +125,13 @@ Compiling test plans against specific versions of upstream dependencies (e.g. mo
 
 So that a single test plan can work with a range of versions of the components under test, as these evolve over time.
 
-### Metrics and diagnostics 📈
+### Results and diagnostics, raw and aggregated data points 📈
 
-Automatic pprof and metrics exposition and push to ~Prometheus~ (being replaced by InfluxDB).
+**Diagnostics:** Automatic diagnostics via pprof (for Go test plans), with metrics emitted to InfluxDB in real-time. Metrics can be raw data points or aggregated measurements, such as histograms, counters, gauges, moving averages, etc.
 
-### Declarative jobs, we call them _compositions_ 🧵
+**Results:** When the test plan concludes, all results are pushed in batch to InfluxDB for later exploration, analysis, and visualization.
+
+### Declarative jobs, we call them _compositions_ 🎼
 
 Create tailored test runs by composing scenarios declaratively, with different groups, cohorts, upstream deps, test
 params, etc. 
@@ -225,14 +228,14 @@ Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a con
 
 ### Core team 💪
 
-* @raulk 🎈 _(founder and tech lead)_
-* @nonsense ⛷ _(core engineer)_
-* @coryschwartz 🦉 _(core engineer)_
-* @robmat05 🍝 _(technical project manager)_
+* [@raulk](https://github.com/raulk) 🎈 _(founder and tech lead)_
+* [@nonsense](https://github.com/nonsense) ⛷ _(core engineer)_
+* [@coryschwartz](https://github.com/coryschwartz) 🦉 _(core engineer)_
+* [@robmat05](https://github.com/robmat05) 🍝 _(technical project manager)_
 
 ### Collaborators ❤
 
-@daviddias, @stebalien, @hacdias, @jimpick, @aschmahmann, @dirkmc, @yusefnapora.
+[@daviddias](https://github.com/daviddias), [@stebalien](https://github.com/stebalien), [@hacdias](https://github.com/hacdias), [@jimpick](https://github.com/jimpick), [@aschmahmann](https://github.com/aschmahmann), [@dirkmc](https://github.com/dirkmc), [@yusefnapora](https://github.com/yusefnapora).
 
 ### Meeting notes
 
