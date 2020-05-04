@@ -14,22 +14,15 @@ repo = "repo to be used for testground"
 username = "username"
 access_token = "docker hub access token"
 
-# You can set parameter for run or build strategies that apply in your
+# You can set parameters for runners and builders that apply to your
 # environment. They will be applied with the following precedence (highest
 # to lowest):
 #
 #   1. CLI --run-param, --build-param flags.
 #   2. .env.toml.
-#   3. Test plan definition.
+#   3. Test plan manifest.
 #   4. Runner defaults (applied by the runner).
 #
-[runners."cluster:swarm"]
-docker_endpoint = "tcp://localhost:4545"
-docker_tls = false
-docker_tls_ca_cert_path = "/"
-docker_tls_cert_path = "/"
-docker_tls_key_path = "/"
-
 [runners."cluster:k8s"]
 pod_resource_cpu      = "100m"
 pod_resource_memory   = "100Mi"
