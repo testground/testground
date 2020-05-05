@@ -5,7 +5,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
-	"strings"
 
 	"github.com/urfave/cli/v2"
 
@@ -17,7 +16,7 @@ var ErrNotLinux = fmt.Errorf("the sidecar only supports linux, not %s", runtime.
 
 var SidecarCommand = cli.Command{
 	Name:   "sidecar",
-	Usage:  "runs the sidecar daemon",
+	Usage:  "run the sidecar process",
 	Action: sidecarCommand,
 	OnUsageError: func(c *cli.Context, err error, isSubcommand bool) error {
 		if runtime.GOOS != "linux" {
@@ -28,18 +27,14 @@ var SidecarCommand = cli.Command{
 		return err
 	},
 	Flags: []cli.Flag{
-		&cli.GenericFlag{
+		&cli.StringFlag{
 			Name:     "runner",
-			Aliases:  []string{"r"},
+			Usage:    "runner that will be scheduling tasks that should be managed by this sidecar; supported: 'local:docker', 'cluster:k8s'",
 			Required: true,
-			Usage:    `Specifies the runner that will be scheduling tasks that should be managed by this sidecar. Options: ` + strings.Join(sidecar.GetRunners(), ", "),
-			Value: &EnumValue{
-				Allowed: sidecar.GetRunners(),
-			},
 		},
 		&cli.BoolFlag{
 			Name:  "pprof",
-			Usage: "Enable pprof service on port 6060",
+			Usage: "enable pprof service on port 6060",
 		},
 	},
 }
