@@ -11,12 +11,12 @@ import (
 
 var TerminateCommand = cli.Command{
 	Name:   "terminate",
-	Usage:  "terminates all jobs running on a runner",
+	Usage:  "terminate all jobs and supporting processes of a runner",
 	Action: terminateCommand,
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "runner",
-			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+			Usage:    "runner to terminate; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
 	},

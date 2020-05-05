@@ -14,12 +14,12 @@ var DescribeCommand = cli.Command{
 	Name:        "describe",
 	Usage:       "describe a test plan",
 	ArgsUsage:   "<plan name>",
-	Description: "This command loads the test plan manifest from $TESTGROUND_HOME/plans/<plan name>, and explains its contents.",
+	Description: "Loads the test plan manifest from $TESTGROUND_HOME/plans/<plan name>, and explains its contents",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "plan",
 			Aliases:  []string{"p"},
-			Usage:    "specifies the plan to describe",
+			Usage:    "describe plan with name `NAME`",
 			Required: true,
 		},
 	},

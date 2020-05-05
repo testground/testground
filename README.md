@@ -205,8 +205,8 @@ For project-specific test plans, check out these repos:
 To use them, import them into `$TESTGROUND_HOME/plans` using the following testground commands:
 
 ```shell script
-$ testground plan import --git --source https://github.com/libp2p/test-plans.git --name libp2p
-$ testground plan import --git --source https://github.com/ipfs/test-plans.git --name ipfs
+$ testground plan import --git --from https://github.com/libp2p/test-plans.git --name libp2p
+$ testground plan import --git --from https://github.com/ipfs/test-plans.git --name ipfs
 $ # to run the find-peers test case from the libp2p/dht test plan (this is not a complete command!)
 $ testground run single --plan libp2p/dht --testcase find-peers --builder docker:go --runner local:docker <options>
 ``` 

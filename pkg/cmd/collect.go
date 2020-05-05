@@ -16,20 +16,20 @@ import (
 // CollectCommand is the specification of the `collect` command.
 var CollectCommand = cli.Command{
 	Name:      "collect",
-	Usage:     "Produces a tgz file with the output from a certain run",
+	Usage:     "collect the output assets of the supplied run into a .tgz archive",
 	Action:    collectCommand,
 	ArgsUsage: "[run_id]",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "runner",
 			Aliases:  []string{"r"},
-			Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+			Usage:    "runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
 		&cli.StringFlag{
 			Name:    "output",
 			Aliases: []string{"o"},
-			Usage:   "specifies a named output for the tgz file",
+			Usage:   "write the output archive to `FILENAME`",
 		},
 	},
 }

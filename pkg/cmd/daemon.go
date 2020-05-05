@@ -15,7 +15,7 @@ import (
 // DaemonCommand is the specification of the `daemon` command.
 var DaemonCommand = cli.Command{
 	Name:   "daemon",
-	Usage:  "start a long-running daemon process",
+	Usage:  "start a long-running testground daemon process",
 	Action: daemonCommand,
 }
 
