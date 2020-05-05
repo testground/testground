@@ -9,8 +9,18 @@
 # teals:    40c491
 
 ###
+### Special magic GitHub labels
+###
+- name: "good first issue"
+  color: 7057ff
+  description: "Good for newcomers"
+- name: "help wanted"
+  color: 008672
+  description: "Extra attention is needed"
+
+###
 ### Areas
-#
+###
 - name: area/ux-cli
   color: 0bb1ed
   description: "Area: UX/CLI"
@@ -56,7 +66,7 @@
 
 ###
 ### Kinds
-#
+###
 - name: kind/bug
   color: c92712
   description: "Kind: Bug"
@@ -96,7 +106,7 @@
 
 ###
 ### Difficulties
-#
+###
 - name: dif/trivial
   color: b2b7ff
   description: "Can be confidently tackled by newcomers, who are widely unfamiliar with testground."
@@ -115,7 +125,7 @@
 
 ###
 ### Efforts
-#
+###
 - name: effort/minutes
   color: e8fffe
   description: "Effort: Minutes"
@@ -137,7 +147,7 @@
 
 ###
 ### Impacts
-#
+###
 - name: impact/regression
   color: f1f5f8
   description: "Impact: Regression"
@@ -156,7 +166,7 @@
 
 ###
 ### Topics
-#
+###
 - name: topic/interoperability
   color: bf0f73
   description: "Topic: Interoperability"
@@ -191,7 +201,7 @@
 
 ###
 ### Hints
-#
+###
 - name: hint/good-first-issue
   color: 0623cc
   description: "Hint: Good First Issue"
@@ -231,7 +241,7 @@
 
 ###
 ### Statuses
-#
+###
 - name: status/done
   color: edb3a6
   description: "Status: Done"
