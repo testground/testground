@@ -15,46 +15,46 @@ import (
 
 var BuildCommand = cli.Command{
 	Name:  "build",
-	Usage: "builds a test plan",
+	Usage: "request the daemon to build a test plan",
 	Subcommands: cli.Commands{
 		&cli.Command{
 			Name:    "composition",
 			Aliases: []string{"c"},
-			Usage:   "Builds a composition.",
+			Usage:   "builds a composition.",
 			Action:  buildCompositionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "file",
-					Aliases: []string{"f"},
-					Usage:   "path to a composition `FILE`",
+					Name:     "file",
+					Aliases:  []string{"f"},
+					Usage:    "path to a `COMPOSITION`",
+					Required: true,
 				},
 				&cli.BoolFlag{
 					Name:    "write-artifacts",
 					Aliases: []string{"w"},
-					Usage:   "writes the resulting build artifacts to the composition file.",
+					Usage:   "write the resulting build artifacts to the composition file",
 				},
 				&cli.StringFlag{
-					Name: "link-sdk",
-					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
-						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
+					Name:  "link-sdk",
+					Usage: "link the test plan against a local SDK; `SDK_NAME` can be a full path, or a directory under $TESTGROUND_HOME/sdks",
 				},
 			},
 		},
 		&cli.Command{
 			Name:    "single",
 			Aliases: []string{"s"},
-			Usage:   "Builds a single group, passing in all necesssary input via CLI flags.",
+			Usage:   "builds a single group, passing in all necessary input via CLI flags.",
 			Action:  buildSingleCmd,
-			Flags: []cli.Flag{
+			Flags: cli.FlagsByName{
+				&cli.StringSliceFlag{
+					Name:  "build-cfg",
+					Usage: "set a build config parameter",
+				},
 				&cli.StringFlag{
 					Name:     "builder",
 					Aliases:  []string{"b"},
 					Usage:    "specifies the builder to use; values include: 'docker:go', 'exec:go'",
 					Required: true,
-				},
-				&cli.StringSliceFlag{
-					Name:  "build-cfg",
-					Usage: "set a build config parameter",
 				},
 				&cli.StringSliceFlag{
 					Name:    "dep",

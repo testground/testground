@@ -17,44 +17,45 @@ import (
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
 	Name:  "run",
-	Usage: "(Builds and) runs a test case. List test cases with the `list` command.",
+	Usage: "request the daemon to (build and) run a test case",
 	Subcommands: cli.Commands{
 		&cli.Command{
 			Name:    "composition",
 			Aliases: []string{"c"},
-			Usage:   "(Builds and) runs a composition.",
+			Usage:   "(build and) run a composition",
 			Action:  runCompositionCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "file",
-					Aliases: []string{"f"},
-					Usage:   "path to a composition `FILE`",
+					Name:     "file",
+					Aliases:  []string{"f"},
+					Usage:    "path to a `COMPOSITION`",
+					Required: true,
 				},
 				&cli.BoolFlag{
 					Name:    "write-artifacts",
 					Aliases: []string{"w"},
-					Usage:   "writes the resulting build artifacts to the composition file.",
+					Usage:   "write the resulting build artifacts to the composition file",
 				},
 				&cli.BoolFlag{
 					Name:    "ignore-artifacts",
 					Aliases: []string{"i"},
-					Usage:   "ignores any build artifacts present in the composition file.",
+					Usage:   "ignore any build artifacts present in the composition file",
 				},
 				&cli.BoolFlag{
 					Name:  "collect",
-					Usage: "collect assets at the end of the run phase.",
+					Usage: "collect assets at the end of the run phase; without --collect-file, it writes to <run_id>.tgz",
 				},
 				&cli.StringFlag{
 					Name:    "collect-file",
 					Aliases: []string{"o"},
-					Usage:   "destination for the assets if --collect is set",
+					Usage:   "write the collection output archive to `FILENAME`",
 				},
 			},
 		},
 		&cli.Command{
 			Name:    "single",
 			Aliases: []string{"s"},
-			Usage:   "(Builds and) runs a single group.",
+			Usage:   "(build and) run a single group",
 			Action:  runSingleCmd,
 			Flags: append(
 				BuildCommand.Subcommands[1].Flags, // inject all build single command flags.
@@ -76,7 +77,7 @@ var RunCommand = cli.Command{
 				&cli.StringFlag{
 					Name:     "runner",
 					Aliases:  []string{"r"},
-					Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+					Usage:    "runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
 					Required: true,
 				},
 				&cli.StringSliceFlag{
@@ -86,18 +87,18 @@ var RunCommand = cli.Command{
 				&cli.StringFlag{
 					Name:     "testcase",
 					Aliases:  []string{"t"},
-					Usage:    "specifies the test case. must be defined by the test plan manifest.",
+					Usage:    "test case to run; must be defined in the test plan manifest",
 					Required: true,
 				},
 				&cli.StringSliceFlag{
 					Name:    "test-param",
 					Aliases: []string{"tp"},
-					Usage:   "provide a test parameter",
+					Usage:   "set a test parameter",
 				},
 				&cli.StringFlag{
 					Name:    "use-build",
 					Aliases: []string{"ub"},
-					Usage:   "specifies the artifact to use (from a previous build)",
+					Usage:   "build artifact to use (from a previous build)",
 				},
 			),
 		},

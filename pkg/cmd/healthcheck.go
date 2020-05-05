@@ -12,12 +12,12 @@ import (
 
 var HealthcheckCommand = cli.Command{
 	Name:   "healthcheck",
-	Usage:  "checks, and optionally heals, the preconditions for the runner to be able to run properly",
+	Usage:  "validate/fix the preconditions for the runner to be able to operate properly",
 	Action: healthcheckCommand,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "fix",
-			Usage: "should try to fix the preconditions",
+			Usage: "attempt to fix failing preconditions",
 		},
 		&cli.StringFlag{
 			Name:     "runner",
