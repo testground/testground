@@ -52,7 +52,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 			ContainerName: "testground-redis",
 			ContainerConfig: &container.Config{
 				Image: "library/redis",
-				Cmd:   []string{"--save", "\"\"", "--appendonly", "no", "--maxclients", "120000"},
+				Cmd:   []string{"--save", "", "--appendonly", "no", "--maxclients", "120000", "--stop-writes-on-bgsave-error", "no"},
 			},
 			HostConfig: &container.HostConfig{
 				PortBindings: exposed,
