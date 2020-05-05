@@ -68,14 +68,16 @@ var RunCommand = cli.Command{
 					Usage:   "destination for the assets if --collect is set",
 				},
 				&cli.UintFlag{
-					Name:    "instances",
-					Aliases: []string{"i"},
-					Usage:   "number of instances of the test case to run",
+					Name:     "instances",
+					Aliases:  []string{"i"},
+					Usage:    "number of instances of the test case to run",
+					Required: true,
 				},
 				&cli.StringFlag{
-					Name:    "runner",
-					Aliases: []string{"r"},
-					Usage:   "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+					Name:     "runner",
+					Aliases:  []string{"r"},
+					Usage:    "specifies the runner to use; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+					Required: true,
 				},
 				&cli.StringSliceFlag{
 					Name:  "run-cfg",

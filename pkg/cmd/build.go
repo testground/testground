@@ -47,9 +47,10 @@ var BuildCommand = cli.Command{
 			Action:  buildSingleCmd,
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:    "builder",
-					Aliases: []string{"b"},
-					Usage:   "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Name:     "builder",
+					Aliases:  []string{"b"},
+					Usage:    "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Required: true,
 				},
 				&cli.StringSliceFlag{
 					Name:  "build-cfg",
