@@ -51,9 +51,10 @@ var BuildCommand = cli.Command{
 					Usage: "set a build config parameter",
 				},
 				&cli.StringFlag{
-					Name:    "builder",
-					Aliases: []string{"b"},
-					Usage:   "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Name:     "builder",
+					Aliases:  []string{"b"},
+					Usage:    "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Required: true,
 				},
 				&cli.StringSliceFlag{
 					Name:    "dep",
