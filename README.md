@@ -6,6 +6,8 @@
 ![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
 [![CircleCI](https://circleci.com/gh/testground/testground.svg?style=svg)](https://circleci.com/gh/testground/testground)
 
+[**Go to full docs site >>>**](https://docs.testground.ai)
+
 Testground is a platform for testing, benchmarking, and simulating distributed and p2p
 systems at scale. It's designed to be multi-lingual and runtime-agnostic, scaling gracefully
 from 2 to 10k instances, only when needed.
@@ -22,12 +24,10 @@ from 2 to 10k instances, only when needed.
 
 
 - [Getting started](#getting-started)
+- [Documentation](#documentation)
 - [How does it work?](#how-does-it-work)
 - [Features](#features)
-- [Documentation](#documentation)
 - [Where to find test plans?](#where-to-find-test-plans)
-- [Developing test plans](#developing-test-plans)
-- [Scaling out](#scaling-out)
 - [Contributing](#contributing)
 - [Team](#team)
 - [License](#license)
@@ -58,6 +58,14 @@ $ testground run single --plan=network --testcase=ping-pong \
 ``` 
 
 **See [Getting started](https://docs.testground.ai/getting-started) and the rest of the docs on our [docs website](https://docs.testground.ai/) for more info! 🚀**
+
+## Documentation
+
+This README is just the tip of the iceberg! **Check out our full documentation site at [docs.testground.ai](https://docs.testground.ai).**
+
+There you will find a conceptual system walkthrough, tips on writing test plans, instructions on running test plans, configuring runners and builders, deploying Kubernetes clusters, and a lot more.
+
+_NOTE: the documentation is work-in-progress (is it ever done?). Please report any problems or inaccuracies by [opening a docs issue on this repo](https://github.com/testground/testground/issues/new?assignees=&labels=docs&template=DOCS.md&title=docs%20site:%20%3Cdescribe%20the%20problem%3E)._
 
 ## How does it work?
 
@@ -166,11 +174,6 @@ params, etc.
 Emit and collect/export/download test outputs (logs, assets, event trails, run events, etc.) from all participants
 in a run. 
 
-
-## Documentation
-
-\<Full documentation site at WIP>
-
 ## Where to find test plans?
 
 There are some basic, project-agnostic Testground test plans in the [`plans`](./plans) directory.
@@ -199,15 +202,6 @@ $ testground plan import --git --from https://github.com/ipfs/test-plans.git --n
 $ # to run the find-peers test case from the libp2p/dht test plan (this is not a complete command!)
 $ testground run single --plan libp2p/dht --testcase find-peers --builder docker:go --runner local:docker <options>
 ``` 
-
-
-## Developing test plans
-
-\<WIP>
-
-## Scaling out 
-
-<\WIP>
 
 ## Contributing
 
