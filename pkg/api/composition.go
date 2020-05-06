@@ -111,7 +111,7 @@ type Dependencies []Dependency
 type Build struct {
 	// Selectors specifies any source selection strings to be sent to the
 	// builder. In the case of go builders, this field maps to build tags.
-	Selectors []string
+	Selectors []string `toml:"selectors" json:"selectors"`
 
 	// Dependencies specifies any upstream dependency overrides to apply to this
 	// build.
