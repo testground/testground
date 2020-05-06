@@ -6,8 +6,6 @@
 ![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
 [![CircleCI](https://circleci.com/gh/testground/testground.svg?style=svg)](https://circleci.com/gh/testground/testground)
 
-[**Go to full docs site >>>**](https://docs.testground.ai)
-
 Testground is a platform for testing, benchmarking, and simulating distributed and p2p
 systems at scale. It's designed to be multi-lingual and runtime-agnostic, scaling gracefully
 from 2 to 10k instances, only when needed.
@@ -36,21 +34,26 @@ from 2 to 10k instances, only when needed.
 
 ## Getting started
 
-_NOTE: currently, we don't distribute binaries, so you will have to build from source. Follow the instructions._
+_NOTE: currently, we don't distribute binaries, so you will have to build from source._
 
 ***Prerequisites: Go 1.14+, Docker daemon running.***
 
 ```shell script
 $ git clone https://github.com/testground/testground.git
+
 $ cd testground
+
 $ make install       # builds testground and the Docker image, used by the local:docker runner.
+
 $ testground daemon  # will start the daemon listening on localhost:8042 by default.
-#
+
 # => open a different console (client-side), in the same directory (testground/testground repo checkout)
-#
-# imports the network test plan from this repo into $TESTGROUND_HOME/plans; read more about this path: https://docs.testground.ai/getting-started#running-testground
+
+# import the network test plan from this repo into $TESTGROUND_HOME/plans
+# read more about this path at https://docs.testground.ai/getting-started#running-testground
 $ testground plan import --from ./plans/network
-# run two instances of the ping-pong test case from the network plan,
+
+# run two instances of the `ping-pong` test case from the `network` plan,
 # building with docker:go, running with local:docker
 $ testground run single --plan=network --testcase=ping-pong \
                         --builder=docker:go --runner=local:docker \
@@ -65,7 +68,7 @@ This README is just the tip of the iceberg! **Check out our full documentation s
 
 There you will find a conceptual system walkthrough, tips on writing test plans, instructions on running test plans, configuring runners and builders, deploying Kubernetes clusters, and a lot more.
 
-_NOTE: the documentation is work-in-progress (is it ever done?). Please report any problems or inaccuracies by [opening a docs issue on this repo](https://github.com/testground/testground/issues/new?assignees=&labels=docs&template=DOCS.md&title=docs%20site:%20%3Cdescribe%20the%20problem%3E)._
+Please report any problems or inaccuracies by [opening a docs issue on this repo](https://github.com/testground/testground/issues/new?assignees=&labels=docs&template=DOCS.md&title=docs%20site:%20%3Cdescribe%20the%20problem%3E).
 
 ## How does it work?
 
