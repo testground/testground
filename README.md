@@ -21,9 +21,9 @@ from 2 to 10k instances, only when needed.
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
+- [Getting started](#getting-started)
 - [How does it work?](#how-does-it-work)
 - [Features](#features)
-- [Getting started](#getting-started)
 - [Documentation](#documentation)
 - [Where to find test plans?](#where-to-find-test-plans)
 - [Developing test plans](#developing-test-plans)
@@ -33,6 +33,31 @@ from 2 to 10k instances, only when needed.
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+## Getting started
+
+_NOTE: currently, we don't distribute binaries, so you will have to build from source. Follow the instructions._
+
+***Prerequisites: Go 1.14+, Docker daemon running.***
+
+```shell script
+$ git clone https://github.com/testground/testground.git
+$ cd testground
+$ make install       # builds testground and the Docker image, used by the local:docker runner.
+$ testground daemon  # will start the daemon listening on localhost:8042 by default.
+#
+# => open a different console (client-side), in the same directory (testground/testground repo checkout)
+#
+# imports the network test plan from this repo into $TESTGROUND_HOME/plans; read more about this path: https://docs.testground.ai/getting-started#running-testground
+$ testground plan import --from ./plans/network
+# run two instances of the ping-pong test case from the network plan,
+# building with docker:go, running with local:docker
+$ testground run single --plan=network --testcase=ping-pong \
+                        --builder=docker:go --runner=local:docker \
+                        --instances=2
+``` 
+
+**See [Getting started](https://docs.testground.ai/getting-started) and the rest of the docs on our [docs website](https://docs.testground.ai/) for more info! 🚀**
 
 ## How does it work?
 
@@ -141,42 +166,6 @@ params, etc.
 Emit and collect/export/download test outputs (logs, assets, event trails, run events, etc.) from all participants
 in a run. 
 
-## Getting started
-
-Currently, we don't distribute binaries, so you will have to build from source.
-
-***Prerequisites: Go 1.14+, Docker daemon running.***
-
-```shell script
-$ git clone https://github.com/testground/testground.git
-$ cd testground
-$ make install       # builds testground and the Docker image, used by the local:docker runner.
-$ testground daemon  # will start the daemon listening on localhost:8042 by default.
-$ ###### WIP, clone a test plan into $TESTGROUND_HOME/plans, and run it locally. ###### 
-``` 
-
-**`$TESTGROUND_HOME` is an important directory.** If not explicitly set, testground uses `$HOME/testground` as a default.
-
-The layout of **`$TESTGROUND_HOME`** is as follows:
-
-```
-$TESTGROUND_HOME
- |
- |__ plans              >>> [c] contains test plans, can be git checkouts, symlinks to local dirs, or the source itself
- |    |__ suite-a       >>> test plans can be grouped in suites (which in turn can be nested); this enables you to host many test plans in a single repo / directory.
- |    |    |__ plan-1   >>> source of a test plan identified by suite-a/plan-1 (relative to $TESTGROUND_HOME/plans) 
- |    |    |__ plan-2
- |    |__ plan-3        >>> source of a test plan identified by plan-3 (relative to $TESTGROUND_HOME/plans)
- |
- |__ sdks               >>> [c] hosts the test development SDKs that the client knows about, so they can be used with the --link-sdk option.
- |    |__ sdk-go
- |
- |__ data               >>> [d] data directory  
-      |__ outputs
-      |__ work
- 
-[c] = used client-side // [d] = used mostly daemon-side.
-``` 
 
 ## Documentation
 
