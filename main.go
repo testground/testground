@@ -14,6 +14,7 @@ import (
 func main() {
 	app := cli.NewApp()
 	app.Name = "testground"
+	app.Usage = "a platform for testing, benchmarking, and simulating distributed and p2p systems at scale"
 	app.Description = "testground is a platform for testing, benchmarking," +
 		"and simulating distributed and p2p systems at scale."
 	app.Commands = cmd.RootCommands
