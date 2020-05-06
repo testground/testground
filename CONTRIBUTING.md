@@ -6,13 +6,7 @@ We appreciate your time and attention for going over these. Please open an issue
 
 ## Contributing Code
 
-If you plan to contribute code, make sure to install the [pre-commit](https://github.com/pre-commit/pre-commit) tool, which manages our pre-commit hooks for things like linters, go fmt, go vet, etc.
-
-We provide a `Makefile` rule to facilitate the setup:
-
-```sh
-$ make pre-commit
-```
+If you plan to contribute code, and you submit a pull request, make sure that it passes all required checks on our CI, including linters, go fmt, tests, etc.
 
 [![](https://cdn.rawgit.com/jbenet/contribute-ipfs-gif/master/img/contribute.gif)](https://github.com/ipfs/community/blob/master/CONTRIBUTING.md)
 
