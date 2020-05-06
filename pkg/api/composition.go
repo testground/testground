@@ -111,7 +111,7 @@ type Dependencies []Dependency
 type Build struct {
 	// Selectors specifies any source selection strings to be sent to the
 	// builder. In the case of go builders, this field maps to build tags.
-	Selectors []string
+	Selectors []string `toml:"selectors" json:"selectors"`
 
 	// Dependencies specifies any upstream dependency overrides to apply to this
 	// build.
@@ -227,6 +227,9 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 
 	// Apply manifest-mandated build configuration.
 	if bcfg, ok := manifest.Builders[c.Global.Builder]; ok {
+		if c.Global.BuildConfig == nil {
+			c.Global.BuildConfig = make(map[string]interface{})
+		}
 		for k, v := range bcfg {
 			// Apply parameters that are not explicitly set in the Composition.
 			if _, ok := c.Global.BuildConfig[k]; !ok {
@@ -271,6 +274,9 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 
 	// Apply manifest-mandated run configuration.
 	if rcfg, ok := manifest.Runners[c.Global.Runner]; ok {
+		if c.Global.RunConfig == nil {
+			c.Global.RunConfig = make(map[string]interface{})
+		}
 		for k, v := range rcfg {
 			// Apply parameters that are not explicitly set in the Composition.
 			if _, ok := c.Global.RunConfig[k]; !ok {

@@ -1,9 +1,13 @@
 package cmd
 
-import "github.com/urfave/cli/v2"
+import (
+	"sort"
+
+	"github.com/urfave/cli/v2"
+)
 
 // RootCommands collects all subcommands of the testground CLI.
-var RootCommands = cli.Commands{
+var RootCommands = cli.CommandsByName{
 	&RunCommand,
 	&PlanCommand,
 	&BuildCommand,
@@ -13,6 +17,10 @@ var RootCommands = cli.Commands{
 	&CollectCommand,
 	&TerminateCommand,
 	&HealthcheckCommand,
+}
+
+func init() {
+	sort.Sort(RootCommands)
 }
 
 var RootFlags = []cli.Flag{
@@ -26,6 +34,6 @@ var RootFlags = []cli.Flag{
 	},
 	&cli.StringFlag{
 		Name:  "endpoint",
-		Usage: "set the daemon endpoint URI (overrides .env.toml)",
+		Usage: "set the daemon endpoint `URI` (overrides .env.toml)",
 	},
 }

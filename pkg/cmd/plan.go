@@ -23,32 +23,32 @@ import (
 
 var PlanCommand = cli.Command{
 	Name:  "plan",
-	Usage: "plan management",
+	Usage: "manage the plans known to the client",
 	Subcommands: cli.Commands{
 		&cli.Command{
 			Name:  "create",
-			Usage: "create a plan named `PLAN_NAME`",
+			Usage: "creates a new test plan, using a template from github.com/testground/plan-templates",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
 					Name:     "remote",
-					Usage:    "origin for your repository i.e. git@github.com:your/repo",
+					Usage:    "`URL` of the repo where this plan will be hosted i.e. git@github.com:your/repo",
 					Required: false,
 				},
 				&cli.StringFlag{
 					Name:     "target",
-					Usage:    "target language (default: go), avail: [go]",
+					Usage:    "use template for target `LANGUAGE`; values: go",
 					Required: false,
 					Value:    "go",
 				},
 				&cli.StringFlag{
 					Name:  "module",
-					Usage: "module name (used for initial templating",
+					Usage: "set `MODULE_NAME`, used for initial templating",
 					Value: "github.com/your/module/name",
 				},
 				&cli.StringFlag{
 					Name:     "plan",
 					Aliases:  []string{"p"},
-					Usage:    "specifies the name of the plan to create",
+					Usage:    "set `NAME` of the plan to create",
 					Required: true,
 				},
 			},
@@ -56,23 +56,24 @@ var PlanCommand = cli.Command{
 		},
 		&cli.Command{
 			Name:  "import",
-			Usage: "import a plan from the local filesystem or git repository",
+			Usage: "import a plan from the local filesystem or a git repository into $TESTGROUND_HOME",
 			Flags: []cli.Flag{
 				&cli.StringFlag{
-					Name:     "source",
-					Usage:    "specifies the source of the plan to be imported, can be git or local.",
+					Name:     "from",
+					Usage:    "the source `URL` of the plan to be imported; either a path, or a Git remote",
 					Required: true,
 				},
 				&cli.BoolFlag{
 					Name:     "git",
-					Usage:    "use git to import (default: false)",
+					Usage:    "import from a git repository",
 					Required: false,
 					Value:    false,
 				},
 				&cli.StringFlag{
-					Name:     "name",
-					Usage:    "override the name of the plan directory (default: automatic)",
-					Required: false,
+					Name:        "name",
+					Usage:       "override the `NAME` of the plan directory",
+					Required:    false,
+					DefaultText: "automatic",
 				},
 			},
 			Action: importCommand,
@@ -98,7 +99,7 @@ var PlanCommand = cli.Command{
 		},
 		&cli.Command{
 			Name:   "list",
-			Usage:  "enumerate all test cases known to the client",
+			Usage:  "enumerate all test plans or test cases known to the client",
 			Action: listCommand,
 			Flags: []cli.Flag{
 				&cli.BoolFlag{
@@ -123,12 +124,14 @@ func createCommand(c *cli.Context) error {
 		return err
 	}
 
-	plan_name := c.String("plan")
-	target_lang := c.String("target")
-	remote := c.String("remote")
-	module := c.String("module")
+	var (
+		planName   = c.String("plan")
+		targetLang = c.String("target")
+		remote     = c.String("remote")
+		module     = c.String("module")
+	)
 
-	pdir := filepath.Join(cfg.Dirs().Plans(), plan_name)
+	pdir := filepath.Join(cfg.Dirs().Plans(), planName)
 	repo, err := git.PlainInit(pdir, false)
 	if err != nil {
 		return err
@@ -145,15 +148,15 @@ func createCommand(c *cli.Context) error {
 	}
 
 	// Get file templates for the supplied target lang
-	asset_path := fmt.Sprintf("/%s-templates", target_lang)
+	assetPath := fmt.Sprintf("/%s-templates", targetLang)
 	var tset ttmpl.TemplateSet
-	err = ttmpl.Fill(asset_path, &tset)
+	err = ttmpl.Fill(assetPath, &tset)
 	if err != nil {
 		return err
 	}
 
 	if tset == nil {
-		return fmt.Errorf("unknown language target %s", target_lang)
+		return fmt.Errorf("unknown language target %s", targetLang)
 	}
 
 	for _, ts := range tset {
@@ -165,7 +168,7 @@ func createCommand(c *cli.Context) error {
 		if err != nil {
 			return err
 		}
-		err = tmpl.Execute(f, templateVars{Name: plan_name, Module: module})
+		err = tmpl.Execute(f, templateVars{Name: planName, Module: module})
 		if err != nil {
 			return err
 		}
@@ -180,9 +183,9 @@ func importCommand(c *cli.Context) error {
 		return err
 	}
 
-	source := c.String("source")
+	from := c.String("from")
 
-	parsed, err := giturls.Parse(source)
+	parsed, err := giturls.Parse(from)
 	if err != nil {
 		return err
 	}
@@ -206,7 +209,7 @@ func importCommand(c *cli.Context) error {
 		// not using git, simply symlink the directory. Remove the file:// scheme if it is included.
 		switch parsed.Scheme {
 		case "file":
-			source = parsed.Path
+			from = parsed.Path
 		case "":
 			// this is what we expect without file://; do nothing
 		default:
@@ -215,7 +218,7 @@ func importCommand(c *cli.Context) error {
 		importer = symlinkPlan
 	}
 
-	err = importer(dstPath, source)
+	err = importer(dstPath, from)
 	if err == nil {
 		fmt.Println("imported plans:")
 		_ = printPlans(cfg, dstPath, true)
@@ -247,7 +250,7 @@ func clonePlan(dst, src string) error {
 	if err != nil {
 		msg := `could not clone %s.
 please double-check the git source is correct.
-1. the remote repository may not exist
+1. the remote repository may not exist.
 2. the local directory may not be empty.
 3. the permissions over the given transport (ssh, git, https, etc..) may be restricted.
 4. if using the SSH transport, double-check your ssh-agent is running with private keys added.
@@ -276,7 +279,8 @@ func rmCommand(c *cli.Context) error {
 		fmt.Printf("plan at %s removed.\n", pdir)
 		return nil
 	}
-	fmt.Println("really delete? pass --yes flag if you are sure.")
+
+	fmt.Println("really delete? pass --yes flag to confirm.")
 	return nil
 }
 

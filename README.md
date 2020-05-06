@@ -21,18 +21,54 @@ from 2 to 10k instances, only when needed.
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [How does it work?](#how-does-it-work)
-- [Features](#features)
 - [Getting started](#getting-started)
 - [Documentation](#documentation)
+- [How does it work?](#how-does-it-work)
+- [Features](#features)
 - [Where to find test plans?](#where-to-find-test-plans)
-- [Developing test plans](#developing-test-plans)
-- [Scaling out](#scaling-out)
 - [Contributing](#contributing)
 - [Team](#team)
 - [License](#license)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
+## Getting started
+
+_NOTE: currently, we don't distribute binaries, so you will have to build from source._
+
+***Prerequisites: Go 1.14+, Docker daemon running.***
+
+```shell script
+$ git clone https://github.com/testground/testground.git
+
+$ cd testground
+
+$ make install       # builds testground and the Docker image, used by the local:docker runner.
+
+$ testground daemon  # will start the daemon listening on localhost:8042 by default.
+
+# => open a different console (client-side), in the same directory (testground/testground repo checkout)
+
+# import the network test plan from this repo into $TESTGROUND_HOME/plans
+# read more about this path at https://docs.testground.ai/getting-started#running-testground
+$ testground plan import --from ./plans/network
+
+# run two instances of the `ping-pong` test case from the `network` plan,
+# building with docker:go, running with local:docker
+$ testground run single --plan=network --testcase=ping-pong \
+                        --builder=docker:go --runner=local:docker \
+                        --instances=2
+``` 
+
+**See [Getting started](https://docs.testground.ai/getting-started) and the rest of the docs on our [docs website](https://docs.testground.ai/) for more info! 🚀**
+
+## Documentation
+
+This README is just the tip of the iceberg! **Check out our full documentation site at [docs.testground.ai](https://docs.testground.ai).**
+
+There you will find a conceptual system walkthrough, tips on writing test plans, instructions on running test plans, configuring runners and builders, deploying Kubernetes clusters, and a lot more.
+
+Please report any problems or inaccuracies by [opening a docs issue on this repo](https://github.com/testground/testground/issues/new?assignees=&labels=docs&template=DOCS.md&title=docs%20site:%20%3Cdescribe%20the%20problem%3E).
 
 ## How does it work?
 
@@ -141,47 +177,6 @@ params, etc.
 Emit and collect/export/download test outputs (logs, assets, event trails, run events, etc.) from all participants
 in a run. 
 
-## Getting started
-
-Currently, we don't distribute binaries, so you will have to build from source.
-
-***Prerequisites: Go 1.14+, Docker daemon running.***
-
-```shell script
-$ git clone https://github.com/testground/testground.git
-$ cd testground
-$ make install       # builds testground and the Docker image, used by the local:docker runner.
-$ testground daemon  # will start the daemon listening on localhost:8042 by default.
-$ ###### WIP, clone a test plan into $TESTGROUND_HOME/plans, and run it locally. ###### 
-``` 
-
-**`$TESTGROUND_HOME` is an important directory.** If not explicitly set, testground uses `$HOME/testground` as a default.
-
-The layout of **`$TESTGROUND_HOME`** is as follows:
-
-```
-$TESTGROUND_HOME
- |
- |__ plans              >>> [c] contains test plans, can be git checkouts, symlinks to local dirs, or the source itself
- |    |__ suite-a       >>> test plans can be grouped in suites (which in turn can be nested); this enables you to host many test plans in a single repo / directory.
- |    |    |__ plan-1   >>> source of a test plan identified by suite-a/plan-1 (relative to $TESTGROUND_HOME/plans) 
- |    |    |__ plan-2
- |    |__ plan-3        >>> source of a test plan identified by plan-3 (relative to $TESTGROUND_HOME/plans)
- |
- |__ sdks               >>> [c] hosts the test development SDKs that the client knows about, so they can be used with the --link-sdk option.
- |    |__ sdk-go
- |
- |__ data               >>> [d] data directory  
-      |__ outputs
-      |__ work
- 
-[c] = used client-side // [d] = used mostly daemon-side.
-``` 
-
-## Documentation
-
-\<Full documentation site at WIP>
-
 ## Where to find test plans?
 
 There are some basic, project-agnostic Testground test plans in the [`plans`](./plans) directory.
@@ -205,20 +200,11 @@ For project-specific test plans, check out these repos:
 To use them, import them into `$TESTGROUND_HOME/plans` using the following testground commands:
 
 ```shell script
-$ testground plan import --git --source https://github.com/libp2p/test-plans.git --name libp2p
-$ testground plan import --git --source https://github.com/ipfs/test-plans.git --name ipfs
+$ testground plan import --git --from https://github.com/libp2p/test-plans.git --name libp2p
+$ testground plan import --git --from https://github.com/ipfs/test-plans.git --name ipfs
 $ # to run the find-peers test case from the libp2p/dht test plan (this is not a complete command!)
 $ testground run single --plan libp2p/dht --testcase find-peers --builder docker:go --runner local:docker <options>
 ``` 
-
-
-## Developing test plans
-
-\<WIP>
-
-## Scaling out 
-
-<\WIP>
 
 ## Contributing
 
