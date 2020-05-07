@@ -174,6 +174,7 @@ func createCommand(c *cli.Context) error {
 		}
 		f.Close()
 	}
+	fmt.Println("new test plan created under:", pdir)
 	return nil
 }
 
