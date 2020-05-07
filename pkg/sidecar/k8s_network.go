@@ -89,8 +89,8 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
-			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
-			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
+			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.IP.String(), "container", n.container.ID)
+			netconf, err = newNetworkConfigList("ip", cfg.IPv4.IP.String())
 		}
 		if err != nil {
 			return fmt.Errorf("failed to generate new network config list: %w", err)
@@ -207,12 +207,7 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 						"name": "weave",
 						"type": "weave-net",
 						"ipam": {
-								"ips": [
-								  {
-									  "version": "4",
-										"address": "` + addr + `"
-								  }
-								]
+								"ips": ["` + addr + `"]
 						},
 						"hairpinMode": true
 				}
