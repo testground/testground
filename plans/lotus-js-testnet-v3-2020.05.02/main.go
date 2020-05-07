@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-  "encoding/json"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -37,7 +37,7 @@ func main() {
 }
 
 type Params struct {
-  TestInstanceCount   int
+	TestInstanceCount int
 }
 
 func run(runenv *runtime.RunEnv) error {
@@ -186,26 +186,29 @@ func run(runenv *runtime.RunEnv) error {
 
 	// Serve token files
 	mux.HandleFunc("/.lotus/token", func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Add("Cache-Control", "no-cache")
+		w.Header().Add("Cache-Control", "no-cache")
 		http.ServeFile(w, r, "/root/.lotus/token")
 	})
 
 	mux.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Add("Cache-Control", "no-cache")
+		w.Header().Add("Cache-Control", "no-cache")
 		http.ServeFile(w, r, "/root/.lotusstorage/token")
 	})
 
+	fs := http.FileServer(http.Dir("/root/downloads"))
+	mux.Handle("/downloads/", http.StripPrefix("/downloads/", fs))
+
 	mux.HandleFunc("/params", func(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Cache-Control", "no-cache")
-    params := Params{TestInstanceCount: runenv.TestInstanceCount}
-    js, err := json.Marshal(params)
-    if err != nil {
-      http.Error(w, err.Error(), http.StatusInternalServerError)
-      return
-    }
-    w.Header().Set("Content-Type", "application/json")
-    w.Write(js)
-  })
+		w.Header().Set("Cache-Control", "no-cache")
+		params := Params{TestInstanceCount: runenv.TestInstanceCount}
+		js, err := json.Marshal(params)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(js)
+	})
 
 	switch {
 	case seq == 1: // genesis node
@@ -368,7 +371,7 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-    delay := 5
+		delay := 5
 		runenv.RecordMessage("Sleeping %v seconds", delay)
 		time.Sleep(time.Duration(delay) * time.Second)
 
@@ -450,7 +453,7 @@ func run(runenv *runtime.RunEnv) error {
 			}
 		}
 
-    delay = 15
+		delay = 15
 		runenv.RecordMessage("Sleeping %v seconds", delay)
 		time.Sleep(time.Duration(delay) * time.Second)
 
@@ -738,12 +741,12 @@ func run(runenv *runtime.RunEnv) error {
 			time.Sleep(1 * time.Second)
 			count++
 			if count > 300 {
-        if runenv.BooleanParam("keep-alive") {
-          runenv.RecordMessage("Timeout waiting for funds transfer")
-          select {}
-        } else {
-          return fmt.Errorf("Timeout waiting for funds transfer")
-        }
+				if runenv.BooleanParam("keep-alive") {
+					runenv.RecordMessage("Timeout waiting for funds transfer")
+					select {}
+				} else {
+					return fmt.Errorf("Timeout waiting for funds transfer")
+				}
 			}
 		}
 

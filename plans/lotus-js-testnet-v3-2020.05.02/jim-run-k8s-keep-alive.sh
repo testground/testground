@@ -3,7 +3,7 @@
 INSTANCES=$1
 
 if [ -z "$INSTANCES" ]; then
-  INSTANCES=12
+  INSTANCES=6
 fi
 
 DIR=$(basename `pwd`)

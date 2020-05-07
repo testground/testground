@@ -9,7 +9,7 @@ ARG GO_VERSION=1.13.8
 FROM node:13.8.0-buster
 
 # lotus-base testnet/3
-FROM d04c130f9da1
+FROM df421719f46c
 
 # Copy Node.js
 WORKDIR /usr/local/bin
@@ -74,7 +74,7 @@ RUN apt-get install -y nginx \
 # based on lotus' tools/dockers/docker-examples/basic-miner-busybox
 
 RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates llvm clang mesa-opencl-icd ocl-icd-opencl-dev \
-  vim less htop jq
+  vim less htop jq file
 
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
 
@@ -124,6 +124,8 @@ RUN cd /plan \
   && go list -m all > /testground_dep_list
 
 WORKDIR /root
+
+RUN mkdir /root/downloads
 
 ENV PATH="/lotus:/plan:${PATH}"
 
