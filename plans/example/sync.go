@@ -71,7 +71,7 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 	sleep := rand.Intn(5)
 	runenv.RecordMessage("i'm a follower; signalling ready after %d seconds", sleep)
 	time.Sleep(time.Duration(sleep) * time.Second)
-	runenv.RecordMessage("follower signalling now", sleep)
+	runenv.RecordMessage("follower signalling now")
 
 	// signal entry in the 'ready' state.
 	client.MustSignalEntry(ctx, readyState)
