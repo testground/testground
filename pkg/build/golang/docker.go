@@ -455,6 +455,7 @@ FROM busybox:1.31.1-glibc
 
 COPY --from=0 /testground_dep_list /
 COPY --from=0 /plan/testplan /
+COPY --from=0 /plan/artifacts /artifacts
 
 EXPOSE 6060
 ENTRYPOINT [ "/testplan", "--vv"]
