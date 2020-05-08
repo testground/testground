@@ -2,7 +2,6 @@ package sidecar
 
 import (
 	"context"
-	"fmt"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 	"math/rand"
