@@ -84,13 +84,13 @@ type DockerGoBuilderConfig struct {
 	RuntimeImage string `toml:"runtime_image"`
 
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
-	DockerfileExtensions *DockerfileExtensions `toml:"dockerfile_extensions"`
+	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
 }
 
 type DockerfileTemplateVars struct {
 	WithSDK              bool
 	RuntimeImage         string
-	DockerfileExtensions *DockerfileExtensions
+	DockerfileExtensions DockerfileExtensions
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -137,7 +137,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	vars := &DockerfileTemplateVars{
 		WithSDK:              sdksrc != "",
 		RuntimeImage:         cfg.RuntimeImage,
-		DockerfileExtensions: &(*cfg.DockerfileExtensions), // copy
+		DockerfileExtensions: cfg.DockerfileExtensions,
 	}
 
 	if err = dockerfileTmpl.Execute(f, &vars); err != nil {
