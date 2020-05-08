@@ -23,9 +23,9 @@ var (
 type ExecGoBuilder struct{}
 
 type ExecGoBuilderConfig struct {
-	ModulePath string `toml:"module_path" overridable:"yes"`
-	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
+	ModulePath string `toml:"module_path"`
+	ExecPkg    string `toml:"exec_pkg"`
+	FreshGomod bool   `toml:"fresh_gomod"`
 }
 
 // Build builds a testplan written in Go and outputs an executable.
