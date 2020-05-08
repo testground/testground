@@ -442,7 +442,7 @@ const DockerfileTemplate = `
 #:::
 
 # GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.14
+ARG GO_VERSION=1.14.2
 
 # This Dockerfile performs a multi-stage build and RUNTIME_IMAGE is the image
 # onto which to copy the resulting binary. 
@@ -481,7 +481,8 @@ COPY /sdk/go.mod /sdk/go.mod
 {{.DockerfileExtensions.PreModDownload}}
 
 # Download deps.
-RUN cd ${PLAN_DIR} \
+RUN echo "Using go proxy: ${GO_PROXY}" \
+    && cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
     && go mod download
 
@@ -498,7 +499,7 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && GOOS=linux GOARCH=amd64 go build -o testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
