@@ -2,28 +2,34 @@ package sidecar
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 	"math/rand"
+	"strconv"
 	"testing"
 	"time"
 )
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 const (
-	CONFIGUREDNETWORK   = "testNewNet"
+	CONFIGUREDNETWORK   = "testtesttest_net"
 	CONFIGUREDBANDWIDTH = uint64(12345)
+	NETWORKDONE         = "configureddone"
 )
 
 func unique_runenv() (hostname string, runenv *runtime.RunEnv) {
-	rand.Seed(time.Now().UnixNano())
-	unique := string(rand.Int())
+	unique := strconv.Itoa(rand.Int())
 	params := runtime.RunParams{
-		TestPlan:               "sidecarPlan",
-		TestCase:               "sidecarCase",
+		TestPlan:               "sidecarPlan" + unique,
+		TestCase:               "sidecarCase" + unique,
 		TestRun:                unique,
 		TestInstanceCount:      1,
-		TestInstanceRole:       "sidecarRole",
-		TestGroupID:            "sidecarGroup",
+		TestInstanceRole:       "sidecarRole" + unique,
+		TestGroupID:            "sidecarGroup" + unique,
 		TestGroupInstanceCount: 1,
 	}
 	hostname = "sidecar.test." + unique
@@ -31,141 +37,103 @@ func unique_runenv() (hostname string, runenv *runtime.RunEnv) {
 	return
 }
 
-func verifyDefaultNetwork(n *sync.NetworkConfig) bool {
-	return n.Network == "default" && n.Enable
+func verifyDefaultNetwork(t *testing.T, n *MockNetwork) {
+	assert.Len(t, n.Configured, 1, "expected exactly one network to be configured")
+	def := n.Configured[0]
+	assert.Equal(t, "default", def.Network, "expected default network to be named `default`")
 }
 
-func verifyConfiguredNetwork(n *sync.NetworkConfig) bool {
-	return n.Network == CONFIGUREDNETWORK && n.Enable && n.Default.Bandwidth == CONFIGUREDBANDWIDTH
+func verifyConfiguredNetwork(t *testing.T, n *MockNetwork) {
+	assert.Len(t, n.Configured, 2, "expected exactly two networks to be configured")
+	con := n.Configured[1]
+	assert.Equal(t, CONFIGUREDNETWORK, con.Network, "expected configured network name to be passed to network driver")
+	assert.Equal(t, CONFIGUREDBANDWIDTH, con.Default.Bandwidth, "expected requested bandwidth to be set")
 }
 
-// This function is a test plan which requests a network change.
-func planRequestNetworkConfigure(ctx context.Context, runenv *runtime.RunEnv, hostname string, errs chan error, done chan int, doConfigure bool) {
+// planRequestNetworkConfigure is a testground plan.
+// It requests a change to the network configuration via the sync service.
+func planRequestNetworkConfigure(ctx context.Context, runenv *runtime.RunEnv, hostname string, done chan int, doConfigure bool) (err error) {
 	client, err := sync.NewBoundClient(ctx, runenv)
 	if err != nil {
-		errs <- err
 		return
 	}
 
 	err = client.WaitNetworkInitialized(ctx, runenv)
 	if err != nil {
-		errs <- err
 		return
 	}
 
-	netCfg := sync.NetworkConfig{
-		Network: CONFIGUREDNETWORK,
-		State:   "mynetworkdone",
-		Default: sync.LinkShape{
-			Bandwidth: CONFIGUREDBANDWIDTH,
-		},
-	}
 	if doConfigure {
+		netCfg := sync.NetworkConfig{
+			Network: CONFIGUREDNETWORK,
+			State:   NETWORKDONE,
+			Default: sync.LinkShape{
+				Bandwidth: CONFIGUREDBANDWIDTH,
+			},
+		}
 		topic := sync.NetworkTopic(hostname)
-		client.MustPublishAndWait(ctx, topic, netCfg, "mynetworkdone", 1)
+		client.MustPublishAndWait(ctx, topic, netCfg, NETWORKDONE, 1)
 	}
 
-	// I have no idea why this sleep is necessary....
 	time.Sleep(time.Second)
-
 	close(done)
+	return nil
 }
 
-// TestSidecarConfiguresDefaultNetwork and TestSidecarConfiguresRequestedNetwork verify that the
-// sidecar handler function is working correctly. This function listens for events on the sync
-// service and responds by passing network configurations to a network handler. In this test, a mock
-// network handler is used to simply record what configurations are passed to it.
-// TODO: these tests rely on the real sync service client, but they shouldn't.
+// subtestSidecarNetworking starts planRequstNetworkConfigure and the real sidecar handler.
+// The sidecar handler is setup to use a mock network so we can capture what would be passed to a
+// real docker or kubernetes network.
+func subtestSidecarNetworking(validator func(*testing.T, *MockNetwork), doConfigure bool) func(*testing.T) {
+	return func(t *testing.T) {
+		hostname, runenv := unique_runenv()
+		nw := NewMockNetwork()
 
-// Verify when no additional configuration is performed, the default network is configured and enabled.
-func TestSidecarConfiguresDefaultNetwork(t *testing.T) {
-	hostname, runenv := unique_runenv()
-	nw := NewMockNetwork()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		errsCh := make(chan error)
+		planDone := make(chan int)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	errsCh := make(chan error)
-	planDone := make(chan int)
-
-	go planRequestNetworkConfigure(ctx, runenv, hostname, errsCh, planDone, false)
-
-	client, err := sync.NewBoundClient(ctx, runenv)
-	if err != nil {
-		t.Error(err)
-		t.FailNow()
-		return
-	}
-	inst, err := NewInstance(client, runenv, hostname, nw)
-	errsCh <- err
-
-	go func() {
-		errsCh <- handler(ctx, inst)
-	}()
-
-	// If the plan returns an error, we should fail.
-	// If the plan finishes, we should check that the network has been configured.
-	for {
-		select {
-		case <-planDone:
-			numConf := len(nw.Configured)
-			if numConf != 1 {
-				t.Error("Expected to be configured one time. Actual number of configures:", numConf)
-			}
-			if !verifyDefaultNetwork(nw.Configured[0]) {
-				t.Error("the default network configuration is incorrect.")
-			}
-			return
-		case err := <-errsCh:
-			if err != nil {
-				t.Error(err)
-				t.Fail()
-			}
-		}
-	}
-}
-
-// Verify when no additional configuration is performed, the default network is configured and enabled.
-func TestSidecarConfiguresRequestedNetwork(t *testing.T) {
-	hostname, runenv := unique_runenv()
-	nw := NewMockNetwork()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	errsCh := make(chan error)
-	planDone := make(chan int)
-
-	go planRequestNetworkConfigure(ctx, runenv, hostname, errsCh, planDone, false)
-
-	client, err := sync.NewBoundClient(ctx, runenv)
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-		return
-	}
-	inst, err := NewInstance(client, runenv, hostname, nw)
-	errsCh <- err
-
-	go func() {
-		errsCh <- handler(ctx, inst)
-	}()
-
-	// If the plan returns an error, we should fail.
-	// If the plan finishes, we should check that the network has been configured.
-	for {
-		select {
-		case <-planDone:
-			numConf := len(nw.Configured)
-			if numConf != 2 {
-				t.Error("Expected to be configured twice. Actual number of configures:", numConf)
-				t.Fail()
-			}
-			if !verifyConfiguredNetwork(nw.Configured[1]) {
-				t.Error("the configured network configuration is incorrect.")
-			}
-			return
-		case err := <-errsCh:
+		// Create Sidecar instance
+		client, err := sync.NewBoundClient(ctx, runenv)
+		if err != nil {
 			t.Error(err)
-			t.Fail()
+			t.FailNow()
+		}
+		inst, err := NewInstance(client, runenv, hostname, nw)
+		if err != nil {
+			t.Error(err)
+			t.FailNow()
+		}
+
+		// Start the plan
+		go func() {
+			errsCh <- planRequestNetworkConfigure(ctx, runenv, hostname, planDone, doConfigure)
+		}()
+
+		// Start sidecar handler
+		go func() {
+			errsCh <- handler(ctx, inst)
+		}()
+
+		// Wait until the plan finishes or an error occurs.
+		for {
+			select {
+			case <-planDone:
+				validator(t, nw)
+				return
+			case err := <-errsCh:
+				if err != nil {
+					t.Error(err)
+					t.FailNow()
+				}
+			}
 		}
 	}
+}
+
+func TestSidecarConfiguresNetworking(t *testing.T) {
+	// Don't configure the network, accepting the defaults.
+	t.Run("DefaultNetworkConfiguration", subtestSidecarNetworking(verifyDefaultNetwork, false))
+	// Configure the network to change the bandwidth, etc.
+	t.Run("ConfiguredNetwork", subtestSidecarNetworking(verifyConfiguredNetwork, true))
 }
