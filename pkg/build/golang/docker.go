@@ -40,20 +40,31 @@ type DockerGoBuilder struct {
 	proxyLk sync.Mutex
 }
 
+type DockerfileExtensions struct {
+	PreModDownload  string `toml:"pre_mod_download"`
+	PostModDownload string `toml:"post_mod_download"`
+	PreSourceCopy   string `toml:"pre_source_copy"`
+	PostSourceCopy  string `toml:"post_source_copy"`
+	PreBuild        string `toml:"pre_build"`
+	PostBuild       string `toml:"post_build"`
+	PreRuntimeCopy  string `toml:"pre_runtime_copy"`
+	PostRuntimeCopy string `toml:"post_runtime_copy"`
+}
+
 type DockerGoBuilderConfig struct {
 	Enabled    bool
-	GoVersion  string `toml:"go_version" overridable:"yes"`
-	ModulePath string `toml:"module_path" overridable:"yes"`
-	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
-	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
+	GoVersion  string `toml:"go_version"`
+	ModulePath string `toml:"module_path"`
+	ExecPkg    string `toml:"exec_pkg"`
+	FreshGomod bool   `toml:"fresh_gomod"`
 
 	// PushRegistry, if true, will push the resulting image to a Docker
 	// registry.
-	PushRegistry bool `toml:"push_registry" overridable:"yes"`
+	PushRegistry bool `toml:"push_registry"`
 
 	// RegistryType is the type of registry this builder will push the generated
 	// Docker image to, if PushRegistry is true.
-	RegistryType string `toml:"registry_type" overridable:"yes"`
+	RegistryType string `toml:"registry_type"`
 
 	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
@@ -63,10 +74,23 @@ type DockerGoBuilderConfig struct {
 	//   * The "direct" mode sets the `GOPROXY=direct` env var on the go build.
 	//   * The "remote" mode specifies a custom proxy. The `GoProxyURL` field
 	//     must be non-empty.
-	GoProxyMode string `toml:"go_proxy_mode" overridable:"yes"`
+	GoProxyMode string `toml:"go_proxy_mode"`
 
 	// GoProxyURL specifies the URL of the proxy when GoProxyMode = "custom".
-	GoProxyURL string `toml:"go_proxy_url" overridable:"yes"`
+	GoProxyURL string `toml:"go_proxy_url"`
+
+	// RuntimeImage is the runtime image that the test plan binary will be
+	// copied into. Defaults to busybox:1.31.1-glibc.
+	RuntimeImage string `toml:"runtime_image"`
+
+	// DockefileExtensions enables plans to inject custom Dockerfile directives.
+	DockerfileExtensions *DockerfileExtensions `toml:"dockerfile_extensions"`
+}
+
+type DockerfileTemplateVars struct {
+	WithSDK              bool
+	RuntimeImage         string
+	DockerfileExtensions *DockerfileExtensions
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -109,7 +133,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Dockerfile at %s: %w", dockerfileDst, err)
 	}
-	if err = dockerfileTmpl.Execute(f, struct{ WithSDK bool }{sdksrc != ""}); err != nil {
+
+	vars := &DockerfileTemplateVars{
+		WithSDK:              sdksrc != "",
+		RuntimeImage:         cfg.RuntimeImage,
+		DockerfileExtensions: &(*cfg.DockerfileExtensions), // copy
+	}
+
+	if err = dockerfileTmpl.Execute(f, &vars); err != nil {
 		return nil, fmt.Errorf("failed to execute Dockerfile template and/or write into file %s: %w", dockerfileDst, err)
 	}
 
@@ -163,6 +194,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 	if cfg.ExecPkg != "" {
 		args["TESTPLAN_EXEC_PKG"] = &cfg.ExecPkg
+	}
+	if cfg.RuntimeImage != "" {
+		args["RUNTIME_IMAGE"] = &cfg.RuntimeImage
 	}
 
 	// set BUILD_TAGS arg if the user has provided selectors.
@@ -410,16 +444,27 @@ const DockerfileTemplate = `
 # GO_VERSION is the golang version this image will be built against.
 ARG GO_VERSION=1.14
 
-# Dynamically select the golang version.
-FROM golang:${GO_VERSION}-buster
+# This Dockerfile performs a multi-stage build and RUNTIME_IMAGE is the image
+# onto which to copy the resulting binary. 
+# Picking a different runtime base image from the build image allows us to
+# slim down the deployable considerably.
+#
+# The user can override the runtime image by passing in the appropriate builder
+# configuration option.
+ARG RUNTIME_IMAGE=busybox:1.31.1-glibc
 
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
 ARG TESTPLAN_EXEC_PKG="."
+
 # GO_PROXY is the go proxy that will be used, or direct by default.
 ARG GO_PROXY=direct
+
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
+
+# Dynamically select the golang version.
+FROM golang:${GO_VERSION}-buster AS builder
 
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 # PLAN_DIR is the location containing the plan source inside the container.
@@ -432,16 +477,29 @@ COPY /plan/go.mod ${PLAN_DIR}
 COPY /sdk/go.mod /sdk/go.mod
 {{end}}
 
+{{.DockerfileExtensions.PreModDownload}}
+
 # Download deps.
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
     && go mod download
 
+{{.DockerfileExtensions.PostModDownload}}
+
+{{.DockerfileExtensions.PreSourceCopy}}
+
 # Now copy the rest of the source and run the build.
 COPY . /
+
+{{.DockerfileExtensions.PostSourceCopy}}
+
+{{.DockerfileExtensions.PreBuild}}
+
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
     && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+
+{{.DockerfileExtensions.PostBuild}}
 
 # Store module dependencies
 RUN cd ${PLAN_DIR} \
@@ -451,11 +509,15 @@ RUN cd ${PLAN_DIR} \
 #::: RUNTIME CONTAINER
 #:::
 
-FROM busybox:1.31.1-glibc
+FROM ${RUNTIME_IMAGE} AS binary
 
-COPY --from=0 /testground_dep_list /
-COPY --from=0 /plan/testplan /
+{{.DockerfileExtensions.PreRuntimeCopy}}
+
+COPY --from=builder /testground_dep_list /
+COPY --from=builder /plan/testplan /
+
+{{.DockerfileExtensions.PostRuntimeCopy}}
 
 EXPOSE 6060
-ENTRYPOINT [ "/testplan", "--vv"]
+ENTRYPOINT [ "/testplan"]
 `
