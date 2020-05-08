@@ -173,7 +173,7 @@
 - name: topic/multi-language
   color: bf0f73
   description: "Topic: Multi-language"
-- name: topic/docs
+- name: topic/specs
   color: bf0f73
   description: "Topic: Specs"
 - name: topic/docs
