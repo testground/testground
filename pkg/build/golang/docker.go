@@ -453,6 +453,9 @@ ARG GO_VERSION=1.14
 # configuration option.
 ARG RUNTIME_IMAGE=busybox:1.31.1-glibc
 
+# Dynamically select the golang version.
+FROM golang:${GO_VERSION}-buster AS builder
+
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
 ARG TESTPLAN_EXEC_PKG="."
@@ -463,10 +466,8 @@ ARG GO_PROXY=direct
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
 
-# Dynamically select the golang version.
-FROM golang:${GO_VERSION}-buster AS builder
-
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
+
 # PLAN_DIR is the location containing the plan source inside the container.
 ENV PLAN_DIR /plan/
 
