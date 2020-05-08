@@ -2,6 +2,7 @@ package sidecar
 
 import (
 	"context"
+	"fmt"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 	"math/rand"
@@ -65,6 +66,9 @@ func planRequestNetworkConfigure(ctx context.Context, runenv *runtime.RunEnv, ho
 		client.MustPublishAndWait(ctx, topic, netCfg, "mynetworkdone", 1)
 	}
 
+	// I have no idea why this sleep is necessary....
+	time.Sleep(time.Second)
+
 	close(done)
 }
 
@@ -81,23 +85,23 @@ func TestSidecarConfiguresDefaultNetwork(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	planErrs := make(chan error)
+	errsCh := make(chan error)
 	planDone := make(chan int)
 
-	go planRequestNetworkConfigure(ctx, runenv, hostname, planErrs, planDone, false)
+	go planRequestNetworkConfigure(ctx, runenv, hostname, errsCh, planDone, false)
 
 	client, err := sync.NewBoundClient(ctx, runenv)
 	if err != nil {
 		t.Error(err)
-		t.Fail()
+		t.FailNow()
 		return
 	}
 	inst, err := NewInstance(client, runenv, hostname, nw)
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-	}
-	go handler(ctx, inst)
+	errsCh <- err
+
+	go func() {
+		errsCh <- handler(ctx, inst)
+	}()
 
 	// If the plan returns an error, we should fail.
 	// If the plan finishes, we should check that the network has been configured.
@@ -112,9 +116,11 @@ func TestSidecarConfiguresDefaultNetwork(t *testing.T) {
 				t.Error("the default network configuration is incorrect.")
 			}
 			return
-		case err := <-planErrs:
-			t.Error(err)
-			t.Fail()
+		case err := <-errsCh:
+			if err != nil {
+				t.Error(err)
+				t.Fail()
+			}
 		}
 	}
 }
@@ -126,10 +132,10 @@ func TestSidecarConfiguresRequestedNetwork(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	planErrs := make(chan error)
+	errsCh := make(chan error)
 	planDone := make(chan int)
 
-	go planRequestNetworkConfigure(ctx, runenv, hostname, planErrs, planDone, false)
+	go planRequestNetworkConfigure(ctx, runenv, hostname, errsCh, planDone, false)
 
 	client, err := sync.NewBoundClient(ctx, runenv)
 	if err != nil {
@@ -138,11 +144,11 @@ func TestSidecarConfiguresRequestedNetwork(t *testing.T) {
 		return
 	}
 	inst, err := NewInstance(client, runenv, hostname, nw)
-	if err != nil {
-		t.Error(err)
-		t.Fail()
-	}
-	go handler(ctx, inst)
+	errsCh <- err
+
+	go func() {
+		errsCh <- handler(ctx, inst)
+	}()
 
 	// If the plan returns an error, we should fail.
 	// If the plan finishes, we should check that the network has been configured.
@@ -152,12 +158,13 @@ func TestSidecarConfiguresRequestedNetwork(t *testing.T) {
 			numConf := len(nw.Configured)
 			if numConf != 2 {
 				t.Error("Expected to be configured twice. Actual number of configures:", numConf)
+				t.Fail()
 			}
 			if !verifyConfiguredNetwork(nw.Configured[1]) {
 				t.Error("the configured network configuration is incorrect.")
 			}
 			return
-		case err := <-planErrs:
+		case err := <-errsCh:
 			t.Error(err)
 			t.Fail()
 		}
