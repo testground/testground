@@ -76,8 +76,6 @@ jobs:
 
   build-test:
     executor: linux
-    environment:
-      REDIS_HOST: 127.0.0.1
     steps:
       - setup
       - run:
