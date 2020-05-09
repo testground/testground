@@ -38,6 +38,7 @@ func main() {
 
 type Params struct {
 	TestInstanceCount int
+	TestRun           string
 }
 
 func run(runenv *runtime.RunEnv) error {
@@ -200,7 +201,10 @@ func run(runenv *runtime.RunEnv) error {
 
 	mux.HandleFunc("/params", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-cache")
-		params := Params{TestInstanceCount: runenv.TestInstanceCount}
+		params := Params{
+			TestInstanceCount: runenv.TestInstanceCount,
+			TestRun:           runenv.TestRun,
+		}
 		js, err := json.Marshal(params)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
