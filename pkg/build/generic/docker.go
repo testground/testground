@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/build/common"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpc"
 
@@ -27,7 +28,9 @@ type DockerGenericBuilder struct {
 }
 
 type DockerGenericBuilderConfig struct {
-	BuildArgs map[string]*string `toml:"build_args"`
+	BuildArgs    map[string]*string `toml:"build_args"`
+	PushRegistry bool               `toml:"push_registry"`
+	RegistryType string             `toml:"registry_type"`
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -40,15 +43,10 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id      = in.BuildID
-		basesrc = in.BaseSrcPath
-		plansrc = in.TestPlanSrcPath
-		sdksrc  = in.SDKSrcPath
-
+		id       = in.BuildID
+		plansrc  = in.TestPlanSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
-	_ = basesrc
-	_ = sdksrc
 
 	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -78,7 +76,19 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		ArtifactPath: in.BuildID,
 	}
 
-	return out, nil
+	if cfg.PushRegistry {
+		pushStart := time.Now()
+		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
+		switch cfg.RegistryType {
+		case "aws":
+			err = common.PushToAWSRegistry(ctx, ow, cli, in, out)
+		case "dockerhub":
+			err = common.PushToDockerHubRegistry(ctx, ow, cli, in, out)
+		default:
+			err = fmt.Errorf("no registry type specified or unrecognized value: %s", cfg.RegistryType)
+		}
+	}
+	return out, err
 }
 
 func (*DockerGenericBuilder) ID() string {
