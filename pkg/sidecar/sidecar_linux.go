@@ -67,7 +67,7 @@ func handler(ctx context.Context, instance *Instance) error {
 
 	// Network configuration loop.
 	err := instance.Network.ConfigureNetwork(ctx, &sync.NetworkConfig{
-		Network: "default",
+		Network: defaultDataNetwork,
 		Enable:  true,
 	})
 
