@@ -23,7 +23,7 @@ type DockerGenericBuilder struct {
 }
 
 type DockerGenericBuilderConfig struct {
-	BuildArgs    map[string]*string `toml:"build_args"`
+	BuildArgs    map[string]*string `toml:"build_args"` // ok if nil
 	PushRegistry bool               `toml:"push_registry"`
 	RegistryType string             `toml:"registry_type"`
 }
