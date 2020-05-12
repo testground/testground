@@ -122,4 +122,4 @@ jobs:
       - run:
           name: "start sidecar"
           command: |
-            kubectl run testground_sidecar --image iptestground/sidecar:edge --runner k8s
+            ./kubectl run testground_sidecar --image iptestground/sidecar:edge --runner k8s
