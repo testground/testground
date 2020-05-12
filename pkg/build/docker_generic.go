@@ -42,6 +42,9 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		plansrc  = in.TestPlanSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
