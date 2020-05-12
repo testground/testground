@@ -3,6 +3,7 @@ package build
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -39,12 +40,16 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 
 	var (
 		id       = in.BuildID
+		basesrc  = in.BaseSrcPath
 		plansrc  = in.TestPlanSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 	if err != nil {
 		return nil, err
 	}
+
+	_ = plansrc
+	_ = filepath.Join
 
 	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
@@ -54,10 +59,11 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		Tags:        []string{id, in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
+		Dockerfile:  "/plan/Dockerfile",
 	}
 
 	imageOpts := docker.BuildImageOpts{
-		BuildCtx:  plansrc,
+		BuildCtx:  basesrc,
 		BuildOpts: &opts,
 	}
 
