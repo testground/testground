@@ -114,22 +114,25 @@ jobs:
           command: GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0 && kind create cluster
       - run:
           name: "load sidecar into kind"
-          command: kind load docker-image iptestground/sidecar:edge
+          command: 
       - run:
           name: "start services"
           command: |
+            # Only creating a single-node cluster.
             ./kubectl run testground-infra-redis-headless --image redis
-      - run:
-          name: "start sidecar"
-          command: |
-            ./kubectl run testground-sidecar --image iptestground/sidecar:edge -- sidecar --runner k8s
+            ./kubectl label nodes kind-control-plane testground.nodetype=plan
+            ./kubectl apply -f ~/.circleci/pv.yaml
+            ./kubectl apply -f ~/.circleci/pvc.yaml
+            kind load docker-image iptestground/sidecar:edge
+            ./kubectl run testground-sidecar --image iptestground/sidecar:edge -- sidecar --runner mock
+            sleep 60
       - run:
           name: "run a plan"
           command: |
+            cp env-example.toml ~/testground/.env.toml
             testground daemon &
             testground plan import --from plans/placebo
-            testground build single --builder docker:go --plan placebo
-            # grep for the build number?
-            kind import docker-image <build number>
-            testground run single --runner cluster:k8s --use-build <build number>
-
+            testground build single --builder docker:go --plan placebo | tee output.txt
+            export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' output.txt)
+            kind load docker-image $ARTIFACT
+            testground run single --runner cluster:k8s --use-build $ARTIFACT
