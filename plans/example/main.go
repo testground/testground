@@ -27,6 +27,8 @@ func run(runenv *runtime.RunEnv) error {
 		return ExampleSync(runenv)
 	case "metrics":
 		return ExampleMetrics(runenv)
+	case "artifact":
+		return ExampleArtifact(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)
