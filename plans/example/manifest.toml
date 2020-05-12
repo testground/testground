@@ -6,10 +6,10 @@ runner = "local:exec"
 
 [builders."docker:generic"]
   enabled = true
-  [builders."docker:generic".build_args]
-  build_image = "golang:alpine"
-  run_image = "alpine"
   
+[builders."docker:generic".build_args]
+build_image = "golang:alpine"
+run_image = "alpine"
 
 [builders."docker:go"]
 enabled = true
