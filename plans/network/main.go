@@ -182,17 +182,17 @@ func pingpong(runenv *runtime.RunEnv) error {
 
 		return nil
 	}
-	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
+	err = pingPong("200", 200*time.Millisecond, 300*time.Millisecond)
 	if err != nil {
 		return err
 	}
 
-	config.Default.Latency = 10 * time.Millisecond
+	config.Default.Latency = 50 * time.Millisecond
 	config.CallbackState = "latency-reduced"
 	netclient.MustConfigureNetwork(ctx, config)
 
 	runenv.RecordMessage("ping pong")
-	err = pingPong("10", 20*time.Millisecond, 35*time.Millisecond)
+	err = pingPong("100", 100*time.Millisecond, 200*time.Millisecond)
 	if err != nil {
 		return err
 	}
