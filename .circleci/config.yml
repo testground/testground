@@ -46,6 +46,9 @@ workflows:
       - build-test:
           requires:
             - prepare-tidy
+      - kind-test:
+          requires:
+            - prepare-tidy
 
 jobs:
   prepare-tidy:
@@ -90,3 +93,33 @@ jobs:
             mkdir -p $HOME/testground/plans
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+
+  kind-test:
+    executor: linux
+    steps:
+      - setup
+      # Importantly, build the sidecar docker image.
+      - run:
+          name: "build sidecar image"
+          command: make docker 
+      # https://kubernetes.io/docs/tasks/tools/install-kubectl/
+      - run:
+          name: "install kubectl"
+          command: |
+            curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+            chmod +x kubectl
+      # https://kind.sigs.k8s.io/docs/user/quick-start/
+      - run:
+          name: "install kind"
+          command: GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0 && kind create cluster
+      - run:
+          name: "load sidecar into kind"
+          command: kind load docker-image iptestground/sidecar:edge
+      - run:
+          name: "start services"
+          command: |
+            ./kubectl run testground-
+      - run:
+          name: "start sidecar"
+          command: |
+            kubectl run testground_sidecar --image iptestground/sidecar:edge --runner k8s
