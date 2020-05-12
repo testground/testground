@@ -113,9 +113,6 @@ jobs:
           name: "install kind"
           command: GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0 && kind create cluster
       - run:
-          name: "load sidecar into kind"
-          command: 
-      - run:
           name: "start services"
           command: |
             # Only creating a single-node cluster.
