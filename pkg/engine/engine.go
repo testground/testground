@@ -7,8 +7,7 @@ import (
 	"sync"
 
 	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/build/generic"
-	"github.com/testground/testground/pkg/build/golang"
+	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
@@ -20,9 +19,9 @@ import (
 
 // AllBuilders enumerates all builders known to the system.
 var AllBuilders = []api.Builder{
-	&golang.DockerGoBuilder{},
-	&golang.ExecGoBuilder{},
-	&generic.DockerGenericBuilder{},
+	&build.DockerGoBuilder{},
+	&build.ExecGoBuilder{},
+	&build.DockerGenericBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.

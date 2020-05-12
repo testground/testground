@@ -24,18 +24,8 @@ var RunCommand = cli.Command{
 			Aliases: []string{"c"},
 			Usage:   "(build and) run a composition",
 			Action:  runCompositionCmd,
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:     "file",
-					Aliases:  []string{"f"},
-					Usage:    "path to a `COMPOSITION`",
-					Required: true,
-				},
-				&cli.BoolFlag{
-					Name:    "write-artifacts",
-					Aliases: []string{"w"},
-					Usage:   "write the resulting build artifacts to the composition file",
-				},
+			Flags: append(
+				BuildCommand.Subcommands[0].Flags, // inject all build single command flags.
 				&cli.BoolFlag{
 					Name:    "ignore-artifacts",
 					Aliases: []string{"i"},
@@ -50,7 +40,7 @@ var RunCommand = cli.Command{
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
-			},
+			),
 		},
 		&cli.Command{
 			Name:    "single",
