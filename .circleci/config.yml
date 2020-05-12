@@ -101,7 +101,7 @@ jobs:
       # Importantly, build the sidecar docker image.
       - run:
           name: "build sidecar image"
-          command: make docker 
+          command: make install
       # https://kubernetes.io/docs/tasks/tools/install-kubectl/
       - run:
           name: "install kubectl"
@@ -122,4 +122,4 @@ jobs:
       - run:
           name: "start sidecar"
           command: |
-            ./kubectl run testground_sidecar --image iptestground/sidecar:edge --runner k8s
+            ./kubectl run testground-sidecar --image iptestground/sidecar:edge -- sidecar --runner k8s
