@@ -1,4 +1,4 @@
-package golang_test
+package build_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/build/golang"
+	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/engine"
 	"github.com/testground/testground/pkg/rpc"
@@ -31,7 +31,7 @@ func TestBuildSelector(t *testing.T) {
 		os.RemoveAll(basedir)
 	})
 
-	err = copy.Copy("../../../plans/placebo", plandir)
+	err = copy.Copy("../../plans/placebo", plandir)
 	require.NoError(err)
 
 	env := &config.EnvConfig{}
@@ -39,7 +39,7 @@ func TestBuildSelector(t *testing.T) {
 	require.NoError(err)
 
 	cfg := &engine.EngineConfig{
-		Builders:  []api.Builder{new(golang.DockerGoBuilder), new(golang.ExecGoBuilder)},
+		Builders:  []api.Builder{new(build.DockerGoBuilder), new(build.ExecGoBuilder)},
 		Runners:   []api.Runner{},
 		EnvConfig: env,
 	}
