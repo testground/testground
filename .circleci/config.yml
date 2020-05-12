@@ -79,11 +79,8 @@ jobs:
     steps:
       - setup
       - run:
-          name: "make build-all"
-          command: make build-all
-      - run:
-          name: "make docker"
-          command: make docker
+          name: "install"
+          command: make install
       - run:
           name: "make test"
           command: |
