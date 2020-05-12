@@ -1,4 +1,4 @@
-package generic
+package build
 
 import (
 	"context"
@@ -7,16 +7,11 @@ import (
 	"time"
 
 	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/build/common"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpc"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-)
-
-const (
-	buildNetworkName = "testground-build"
 )
 
 var (
@@ -81,9 +76,9 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
 		switch cfg.RegistryType {
 		case "aws":
-			err = common.PushToAWSRegistry(ctx, ow, cli, in, out)
+			err = pushToAWSRegistry(ctx, ow, cli, in, out)
 		case "dockerhub":
-			err = common.PushToDockerHubRegistry(ctx, ow, cli, in, out)
+			err = pushToDockerHubRegistry(ctx, ow, cli, in, out)
 		default:
 			err = fmt.Errorf("no registry type specified or unrecognized value: %s", cfg.RegistryType)
 		}

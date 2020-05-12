@@ -1,4 +1,4 @@
-package common
+package build
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func PushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	// Get a Docker registry authentication token from AWS ECR.
 	auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 	if err != nil {
@@ -59,7 +59,7 @@ func PushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client
 	return nil
 }
 
-func PushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
+func pushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	uri := in.EnvConfig.DockerHub.Repo + "/testground"
 
 	tag := uri + ":" + in.BuildID

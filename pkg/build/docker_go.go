@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/build/common"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpc"
 
@@ -244,12 +243,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		pushStart := time.Now()
 		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
 		if cfg.RegistryType == "aws" {
-			err := common.PushToAWSRegistry(ctx, ow, cli, in, out)
+			err := pushToAWSRegistry(ctx, ow, cli, in, out)
 			return out, err
 		}
 
 		if cfg.RegistryType == "dockerhub" {
-			err := common.PushToDockerHubRegistry(ctx, ow, cli, in, out)
+			err := pushToDockerHubRegistry(ctx, ow, cli, in, out)
 			return out, err
 		}
 
