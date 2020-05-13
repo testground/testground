@@ -285,7 +285,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	if !cfg.KeepContainers {
 		defer func() {
-			_ = deleteContainers(cli, ow, containers)
+			_ = deleteContainers(cli, log, containers)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
