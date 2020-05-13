@@ -131,7 +131,7 @@ jobs:
             echo $ARTIFACT > artifact.txt
             docker tag $ARTIFACT testplan:placebo
             kind load docker-image testplan:placebo
-            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --collect
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect
       - run:
           name: "verify collection"
           command: |
