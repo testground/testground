@@ -142,18 +142,17 @@ jobs:
           command: |
             testground daemon &
             testground plan import --from plans/placebo
-            testground build single --builder docker:go --plan placebo | tee output.txt
-            export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' output.txt)
-            echo $ARTIFACT > artifact.txt
+            testground build single --builder docker:go --plan placebo | tee build.out
+            export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
             docker tag $ARTIFACT testplan:placebo
             kind load docker-image testplan:placebo
-            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
       - run:
           name: "verify output"
           command: |
-            ARTIFACT=$(cat artifact.txt)
-            SIZEOUT=$(docker exec kind-control-plane md5sum /vol/"$ARTIFACT"/single/0/run.out | wc -c)
-            SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$ARTIFACT"/single/0/err.out | wc -c)
+            RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
+            SIZEOUT=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/run.out | wc -c)
+            SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/err.out | wc -c)
             test SIZEOUT -gt 0
             test SIZEERR -eq 0
 
