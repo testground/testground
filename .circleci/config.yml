@@ -44,7 +44,7 @@ commands:
             cp $GOPATH/bin/kind ~/bin/kind
             fi
       - save_cache:
-          key: 'bin-cache-{{ .Branch }}'
+          key: 'x-bin-cache-{{ .Branch }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/bin
 
@@ -86,7 +86,7 @@ jobs:
           name: "make mod-download"
           command: make mod-download
       - save_cache:
-          key: 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          key: 'x-v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/pkg/mod
 
