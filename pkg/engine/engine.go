@@ -354,11 +354,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 
 	out, err := run.Run(ctx, &in, ow)
 	if err == nil {
-		ow.Infow("run finished successfully", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run finished successfully", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		ow.Infow("run canceled", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run canceled", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
 	} else {
-		ow.Warnw("run finished in error", "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		ow.Warnw("run finished in error", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
 	return out, err
