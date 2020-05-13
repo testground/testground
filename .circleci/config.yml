@@ -70,7 +70,9 @@ workflows:
       - build-test:
           requires:
             - prepare-tidy
-      - kind-test
+      - kind-test:
+          requires:
+            - prepare-tidy
 
 jobs:
   prepare-tidy:
@@ -123,7 +125,7 @@ jobs:
       - setup-install-bins
       - run:
           name: "build testground"
-          command: go build .
+          command: make goinstall
       - run:
           name: "build sidecar image"
           command: docker inspect --type=image iptestground/sidecar:edge || make docker-sidecar
@@ -141,13 +143,13 @@ jobs:
       - run:
           name: "run a plan"
           command: |
-            ./testground daemon &
-            ./testground plan import --from plans/placebo
-            ./testground build single --builder docker:go --plan placebo | tee build.out
+            testground daemon &
+            testground plan import --from plans/placebo
+            testground build single --builder docker:go --plan placebo | tee build.out
             export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
             docker tag $ARTIFACT testplan:placebo
             kind load docker-image testplan:placebo
-            ./testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
       - run:
           name: "verify output"
           command: |
