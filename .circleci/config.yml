@@ -41,7 +41,7 @@ commands:
           command: |
             if [ ! -f ~/bin/kind ]; then
             curl -L https://github.com/kubernetes-sigs/kind/releases/download/v0.8.1/kind-linux-amd64 -o ~/bin/kind
-            chmod +x ~?bin/kind
+            chmod +x ~/bin/kind
             fi
       - save_cache:
           key: 'bin-cache-{{ .Branch }}'
