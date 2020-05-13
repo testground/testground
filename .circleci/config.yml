@@ -35,14 +35,14 @@ commands:
       - run:
           name: "install kubectl"
           command: |
-            if [ -f ~/bin/kind ]; then
+            if [ ! -f ~/bin/kind ]; then
             curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
             chmod +x ~/bin/kubectl
             fi
       - run:
           name: "install kind"
           command: |
-            if [ -f ~/bin/kind ]; then
+            if [ ! -f ~/bin/kind ]; then
             GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
             cp $GOPATH/bin/kind ~/bin/kind
             fi
