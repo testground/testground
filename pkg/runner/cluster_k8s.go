@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -65,14 +66,6 @@ const (
 	NetworkInitialisationFailed     = "network initialisation failed"
 )
 
-var (
-	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
-
-	// resource requests and limits for the `collect-outputs` pod
-	collectOutputsResourceCPU    = resource.MustParse("500m")
-	collectOutputsResourceMemory = resource.MustParse("1024Mi")
-)
-
 var k8sSubnetIdx uint64 = 0
 
 func init() {
@@ -103,8 +96,14 @@ type ClusterK8sRunnerConfig struct {
 	KeepService bool `toml:"keep_service"`
 
 	// Resources requested for each pod from the Kubernetes cluster
-	PodResourceMemory string `toml:"pod_resource_memory"`
-	PodResourceCPU    string `toml:"pod_resource_cpu"`
+	TestplanPodMemory string `toml:"testplan_pod_memory"`
+	TestplanPodCPU    string `toml:"testplan_pod_cpu"`
+
+	// Resources requested for the `collect-outputs` pod from the Kubernetes cluster
+	CollectOutputsPodMemory string `toml:"collect_outputs_pod_memory"`
+	CollectOutputsPodCPU    string `toml:"collect_outputs_pod_cpu"`
+
+	Sysctls []string `toml:"sysctls"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -141,8 +140,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	defaultCPU := resource.MustParse(cfg.PodResourceCPU)
-	defaultMemory := resource.MustParse(cfg.PodResourceMemory)
+	defaultCPU := resource.MustParse(cfg.TestplanPodCPU)
+	defaultMemory := resource.MustParse(cfg.TestplanPodMemory)
 
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan,
@@ -390,7 +389,8 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	c.initPool()
 
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
-	err := c.ensureCollectOutputsPod(ctx)
+
+	err := c.ensureCollectOutputsPod(ctx, input)
 	if err != nil {
 		return err
 	}
@@ -491,7 +491,7 @@ func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase
 }
 
 // ensureCollectOutputsPod ensures that we have a collect-outputs pod running
-func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context) error {
+func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context, input *api.CollectionInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -502,7 +502,7 @@ func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context) error {
 		return err
 	}
 	if len(res.Items) == 0 {
-		err = c.createCollectOutputsPod(ctx)
+		err = c.createCollectOutputsPod(ctx, input)
 		if err != nil {
 			return err
 		}
@@ -624,6 +624,15 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	var sysctls []v1.Sysctl
+	for _, v := range cfg.Sysctls {
+		sysctl := strings.Split(v, "=")
+
+		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
+	}
+
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
 
@@ -651,7 +660,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				},
 			},
 			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: testplanSysctls,
+				Sysctls: sysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
@@ -798,9 +807,14 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 	return nil
 }
 
-func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
+func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *api.CollectionInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
+
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	collectOutputsCPU := resource.MustParse(cfg.CollectOutputsPodCPU)
+	collectOutputsMemory := resource.MustParse(cfg.CollectOutputsPodMemory)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
@@ -824,9 +838,6 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 					},
 				},
 			},
-			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: testplanSysctls,
-			},
 			RestartPolicy: v1.RestartPolicyNever,
 			NodeSelector: map[string]string{
 				"testground.nodetype": "infra",
@@ -846,11 +857,11 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 					},
 					Resources: v1.ResourceRequirements{
 						Requests: v1.ResourceList{
-							v1.ResourceCPU:    collectOutputsResourceCPU,
-							v1.ResourceMemory: collectOutputsResourceMemory,
+							v1.ResourceCPU:    collectOutputsCPU,
+							v1.ResourceMemory: collectOutputsMemory,
 						},
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: collectOutputsResourceMemory,
+							v1.ResourceMemory: collectOutputsMemory,
 						},
 					},
 				},
