@@ -125,7 +125,7 @@ jobs:
       - setup-install-bins
       - run:
           name: "build testground"
-          command: make goinstall
+          command: make install
       - run:
           name: "configure cluster"
           command: |
