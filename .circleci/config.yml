@@ -113,16 +113,14 @@ jobs:
           name: "install kind"
           command: GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0 && kind create cluster
       - run:
-          name: "start services"
+          name: "configure cluster"
           command: |
-            # Only creating a single-node cluster.
-            ./kubectl run testground-infra-redis-headless --image redis
-            ./kubectl label nodes kind-control-plane testground.nodetype=plan
-            ./kubectl apply -f ~/.circleci/pv.yaml
-            ./kubectl apply -f ~/.circleci/pvc.yaml
-            kind load docker-image iptestground/sidecar:edge
-            ./kubectl run testground-sidecar --image iptestground/sidecar:edge -- sidecar --runner mock
-            sleep 60
+            ./kubectl apply -f .circleci/pv.yaml
+            ./kubectl apply -f .circleci/pvc.yaml
+      # The placebo does not require a sidecar.
+      # To prevent kind from attempting to download the image from docker hub,
+      # build and load the image before executing it.
+      # The plan is renamed as `testplan:placebo` because kind will check dockerhub if the tag is `latest`.
       - run:
           name: "run a plan"
           command: |
@@ -131,5 +129,15 @@ jobs:
             testground plan import --from plans/placebo
             testground build single --builder docker:go --plan placebo | tee output.txt
             export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' output.txt)
-            kind load docker-image $ARTIFACT
-            testground run single --runner cluster:k8s --use-build $ARTIFACT
+            echo $ARTIFACT > artifact.txt
+            docker tag $ARTIFACT testplan:placebo
+            kind load docker-image testplan:placebo
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --collect
+      - run:
+          name: "verify collection"
+          command: |
+            ARTIFACT=$(cat artifact.txt)
+            tar -xzvf "$ARTIFACT".tgz
+            COLLECTED=$(md5sum $ARTIFACT/single/0/run.out)
+            EXPECTED=$(docker exec kind-control-plane md5sum /vol/single/0/run.out)
+            test "$EXPECTED" == "$COLLECTED"
