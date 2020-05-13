@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,8 +67,6 @@ const (
 )
 
 var (
-	testplanSysctls = []v1.Sysctl{{Name: "net.core.somaxconn", Value: "10000"}}
-
 	// resource requests and limits for the `collect-outputs` pod
 	collectOutputsResourceCPU    = resource.MustParse("500m")
 	collectOutputsResourceMemory = resource.MustParse("1024Mi")
@@ -105,6 +104,8 @@ type ClusterK8sRunnerConfig struct {
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
+
+	Sysctls []string `toml:"sysctls"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -624,6 +625,15 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	var sysctls []v1.Sysctl
+	for _, v := range cfg.Sysctls {
+		sysctl := strings.Split(v, "=")
+
+		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
+	}
+
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
 
@@ -651,7 +661,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				},
 			},
 			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: testplanSysctls,
+				Sysctls: sysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
@@ -823,9 +833,6 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 						},
 					},
 				},
-			},
-			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: testplanSysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			NodeSelector: map[string]string{
