@@ -22,8 +22,8 @@ commands:
       - checkout
       - restore_cache:
           keys:
-            - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
-            - 'bin-cache-{{ .Branch }}'
+            - 'x-v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+            - 'x-bin-cache-{{ .Branch }}'
 
   setup-install-bins:
     description: "install 3rd-party binaries for integration tests"
