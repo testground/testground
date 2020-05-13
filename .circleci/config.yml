@@ -23,15 +23,12 @@ commands:
       - restore_cache:
           keys:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
-            - 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+            - 'bin-cache-{{ .Branch }}'
 
   setup-install-bins:
-    description: "install binaries for integration tests"
+    description: "install 3rd-party binaries for integration tests"
     steps:
       - setup
-      - run:
-          name: "build testground"
-          command: test -f ~/bin/testground || go build -o ~/bin/testground
       - run:
           name: "install kubectl"
           command: |
@@ -47,7 +44,7 @@ commands:
             cp $GOPATH/bin/kind ~/bin/kind
             fi
       - save_cache:
-          key: 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          key: 'bin-cache-{{ .Branch }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/bin
 
@@ -124,6 +121,9 @@ jobs:
     steps:
       - setup-install-bins
       - run:
+          name: "build testground"
+          command: make goinstall
+      - run:
           name: "build sidecar image"
           command: docker inspect --type=image iptestground/sidecar:edge || make docker-sidecar
       - run:
@@ -152,7 +152,7 @@ jobs:
           command: |
             RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
             SIZEOUT=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/run.out | wc -c)
-            SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/err.out | wc -c)
+            SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/run.err | wc -c)
             test SIZEOUT -gt 0
             test SIZEERR -eq 0
 
