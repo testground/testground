@@ -150,8 +150,9 @@ jobs:
       - run:
           name: "verify output"
           command: |
-            SIZEOUT=$(docker exec kind-control-plane md5sum /vol/single/0/run.out | wc -c)
-            SIZEERR=$(docker exec kind-control-plane md5sum /vol/single/0/err.out | wc -c)
+            ARTIFACT=$(cat artifact.txt)
+            SIZEOUT=$(docker exec kind-control-plane md5sum /vol/"$ARTIFACT"/single/0/run.out | wc -c)
+            SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$ARTIFACT"/single/0/err.out | wc -c)
             test SIZEOUT -gt 0
             test SIZEERR -eq 0
 
