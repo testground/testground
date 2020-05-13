@@ -25,7 +25,7 @@ commands:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
             - 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
 
-  install-bins:
+  setup-install-bins:
     description: "install binaries for integration tests"
     steps:
       - setup
@@ -122,8 +122,7 @@ jobs:
   kind-test:
     executor: linux
     steps:
-      - setup
-      - install-bins
+      - setup-install-bins
       - run:
           name: "build sidecar image"
           command: docker inspect --type=image iptestground/sidecar:edge || make docker
