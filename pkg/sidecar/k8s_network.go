@@ -17,6 +17,10 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
+const (
+	defaultDataNetwork = "default"
+)
+
 type k8sLink struct {
 	*NetlinkLink
 	IPv4, IPv6 *net.IPNet
@@ -40,8 +44,8 @@ func (n *K8sNetwork) Close() error {
 }
 
 func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
-	if cfg.Network != "default" {
-		return errors.New("configured network is not default")
+	if cfg.Network != defaultDataNetwork {
+		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
 	link, online := n.activeLinks[cfg.Network]

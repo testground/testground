@@ -29,7 +29,7 @@ var SidecarCommand = cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "runner",
-			Usage:    "runner that will be scheduling tasks that should be managed by this sidecar; supported: 'docker', 'k8s'",
+			Usage:    "runner that will be scheduling tasks that should be managed by this sidecar; supported: 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
 		&cli.BoolFlag{
