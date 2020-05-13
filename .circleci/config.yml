@@ -127,9 +127,6 @@ jobs:
           name: "build testground"
           command: make goinstall
       - run:
-          name: "build sidecar image"
-          command: docker inspect --type=image iptestground/sidecar:edge || make docker-sidecar
-      - run:
           name: "configure cluster"
           command: |
             kind create cluster --wait 90s
