@@ -25,6 +25,32 @@ commands:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
             - 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
 
+  install-bins:
+    description: "install binaries for integration tests"
+    steps:
+      - setup
+      - run:
+          name: "build testground"
+          command: test -f ~/bin/testground || go build -o ~/bin/testground
+      - run:
+          name: "install kubectl"
+          command: |
+            if [ -f ~/bin/kind ]; then
+            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
+            chmod +x ~/bin/kubectl
+            fi
+      - run:
+          name: "install kind"
+          command: |
+            if [ -f ~/bin/kind ]; then
+            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
+            cp $GOPATH/bin/kind ~/bin/kind
+            fi
+      - save_cache:
+          key: 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          paths:
+            - << pipeline.parameters.workspace-dir >>/bin
+
 executors:
   linux:
     machine:
@@ -64,31 +90,6 @@ jobs:
           key: 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/pkg/mod
-  install-bins:
-    executor: linux
-    steps:
-      - setup
-      - run:
-          name: "build testground"
-          command: test -f ~/bin/testground || go build -o ~/bin/testground
-      - run:
-          name: "install kubectl"
-          command: |
-            if [ -f ~/bin/kind ]; then
-            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
-            chmod +x ~/bin/kubectl
-            fi
-      - run:
-          name: "install kind"
-          command: |
-            if [ -f ~/bin/kind ]; then
-            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
-            cp $GOPATH/bin/kind ~/bin/kind
-            fi
-      - save_cache:
-          key: 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
-          paths:
-            - << pipeline.parameters.workspace-dir >>/bin
 
   lint:
     executor: linux
