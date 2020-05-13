@@ -11,4 +11,5 @@ spec:
   accessModes:
     - ReadWriteOnce
   hostPath:
-    path: "vol"
+    path: "/vol"
+    type: "DirectoryOrCreate"
