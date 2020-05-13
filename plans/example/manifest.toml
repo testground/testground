@@ -9,7 +9,7 @@ runner = "local:exec"
   
 [builders."docker:generic".build_args]
 build_image = "golang:alpine"
-run_image = "alpine"
+run_image = "scratch"
 
 [builders."docker:go"]
 enabled = true
