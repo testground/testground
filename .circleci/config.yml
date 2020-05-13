@@ -32,7 +32,7 @@ executors:
     working_directory: << pipeline.parameters.workspace-dir >>/project
     environment:
       GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
-      PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:/usr/local/bin:/usr/bin:/bin
+      PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:<< pipeline.parameters.workspace-dir >>/bin:/usr/local/bin:/usr/bin:/bin
       GOVERSION: << pipeline.parameters.go-version >>
 
 workflows:
