@@ -23,6 +23,7 @@ commands:
       - restore_cache:
           keys:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+            - 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
 
 executors:
   linux:
@@ -46,9 +47,6 @@ workflows:
       - build-test:
           requires:
             - prepare-tidy
-      - kind-test:
-          requires:
-            - prepare-tidy
 
 jobs:
   prepare-tidy:
@@ -65,6 +63,31 @@ jobs:
           key: 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/pkg/mod
+  install-bins:
+    executor: linux
+    steps:
+      - setup
+      - run:
+          name: "build testground"
+          command: test -f ~/bin/testground || go build -o ~/bin/testground
+      - run:
+          name: "install kubectl"
+          command: |
+            if [ -f ~/bin/kind ]; then
+            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
+            chmod +x ~/bin/kubectl
+            fi
+      - run:
+          name: "install kind"
+          command: |
+            if [ -f ~/bin/kind ]; then
+            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
+            cp $GOPATH/bin/kind ~/bin/kind
+            fi
+      - save_cache:
+          key: 'v1-bin-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          paths:
+            - << pipeline.parameters.workspace-dir >>/bin
 
   lint:
     executor: linux
@@ -98,25 +121,10 @@ jobs:
     executor: linux
     steps:
       - setup
-      # Importantly, build the sidecar docker image.
+      - install-bins
       - run:
           name: "build sidecar image"
           command: docker inspect --type=image iptestground/sidecar:edge || make docker
-      # https://kubernetes.io/docs/tasks/tools/install-kubectl/
-      - run:
-          name: "build testground"
-          command: go build -o ~/bin/testground
-      - run:
-          name: "install kubectl"
-          command: |
-            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
-            chmod +x ~/bin/kubectl
-      # https://kind.sigs.k8s.io/docs/user/quick-start/
-      - run:
-          name: "install kind"
-          command: |
-            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
-            cp $GOPATH/bin/kind ~/bin/kind
       - run:
           name: "configure cluster"
           command: |
