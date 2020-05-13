@@ -142,8 +142,15 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	defaultCPU := resource.MustParse(cfg.PodResourceCPU)
-	defaultMemory := resource.MustParse(cfg.PodResourceMemory)
+	var defaultCPU, defaultMemory resource.Quantity
+	defaultCPU, err := resource.ParseQuantity(cfg.PodResourceCPU)
+	if err != nil {
+		defaultCPU = resource.MustParse("100m")
+	}
+	defaultMemory, err = resource.ParseQuantity(cfg.PodResourceMemory)
+	if err != nil {
+		defaultMemory = resource.MustParse("100Mi")
+	}
 
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan,
