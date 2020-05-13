@@ -101,23 +101,29 @@ jobs:
       # Importantly, build the sidecar docker image.
       - run:
           name: "build sidecar image"
-          command: make install
+          command: docker inspect --type=image iptestground/sidecar:edge || make docker
       # https://kubernetes.io/docs/tasks/tools/install-kubectl/
+      - run:
+          name: "build testground"
+          command: go build -o ~/bin/testground
       - run:
           name: "install kubectl"
           command: |
-            curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
-            chmod +x kubectl
+            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
+            chmod +x ~/bin/kubectl
       # https://kind.sigs.k8s.io/docs/user/quick-start/
       - run:
           name: "install kind"
-          command: GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0 && kind create cluster
+          command: |
+            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
+            cp $GOPATH/bin/kind ~/bin/kind
       - run:
           name: "configure cluster"
           command: |
-            ./kubectl apply -f .circleci/pv.yaml
-            ./kubectl apply -f .circleci/pvc.yaml
-            ./kubectl label nodes kind-control-plane testground.nodetype=plan
+            kind create cluster --wait 60
+            kubectl apply -f .circleci/pv.yaml
+            kubectl apply -f .circleci/pvc.yaml
+            kubectl label nodes kind-control-plane testground.nodetype=plan
       # The placebo does not require a sidecar.
       # To prevent kind from attempting to download the image from docker hub,
       # build and load the image before executing it.
@@ -132,12 +138,12 @@ jobs:
             echo $ARTIFACT > artifact.txt
             docker tag $ARTIFACT testplan:placebo
             kind load docker-image testplan:placebo
-            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok
       - run:
-          name: "verify collection"
+          name: "verify output"
           command: |
-            ARTIFACT=$(cat artifact.txt)
-            tar -xzvf "$ARTIFACT".tgz
-            COLLECTED=$(md5sum $ARTIFACT/single/0/run.out)
-            EXPECTED=$(docker exec kind-control-plane md5sum /vol/single/0/run.out)
-            test "$EXPECTED" == "$COLLECTED"
+            SIZEOUT=$(docker exec kind-control-plane md5sum /vol/single/0/run.out | wc -c)
+            SIZEERR=$(docker exec kind-control-plane md5sum /vol/single/0/err.out | wc -c)
+            test SIZEOUT -gt 0
+            test SIZEERR -eq 0
+
