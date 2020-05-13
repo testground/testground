@@ -3,7 +3,6 @@ package build
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"time"
 
@@ -41,15 +40,11 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	var (
 		id       = in.BuildID
 		basesrc  = in.BaseSrcPath
-		plansrc  = in.TestPlanSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	_ = plansrc
-	_ = filepath.Join
 
 	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
