@@ -125,7 +125,7 @@ jobs:
       - setup-install-bins
       - run:
           name: "build sidecar image"
-          command: docker inspect --type=image iptestground/sidecar:edge || make docker
+          command: docker inspect --type=image iptestground/sidecar:edge || make docker-sidecar
       - run:
           name: "configure cluster"
           command: |
