@@ -117,6 +117,7 @@ jobs:
           command: |
             ./kubectl apply -f .circleci/pv.yaml
             ./kubectl apply -f .circleci/pvc.yaml
+            ./kubectl label nodes kind-control-plane testground.nodetype=plan
       # The placebo does not require a sidecar.
       # To prevent kind from attempting to download the image from docker hub,
       # build and load the image before executing it.
