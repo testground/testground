@@ -1,0 +1,24 @@
+[metadata]
+name    = "storm"
+author  = "ave"
+
+[global]
+plan    = "benchmarks"
+case    = "storm"
+builder = "docker:go"
+runner  = "local:docker"
+total_instances = 50
+
+[global.run_config]
+
+[[groups]]
+id = "first"
+instances = { count = 50 }
+
+  [groups.run.test_params]
+  conn_count = '10'
+  conn_outgoing = '10'
+  conn_delay_ms = '30000'
+  concurrent_dials = '2'
+  data_size_kb     = '1024'
+
