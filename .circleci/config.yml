@@ -153,6 +153,5 @@ jobs:
             RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
             SIZEOUT=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/run.out | wc -c)
             SIZEERR=$(docker exec kind-control-plane md5sum /vol/"$RUNID"/single/0/run.err | wc -c)
-            test SIZEOUT -gt 0
-            test SIZEERR -eq 0
+            exit test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 
