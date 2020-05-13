@@ -22,8 +22,8 @@ commands:
       - checkout
       - restore_cache:
           keys:
-            - 'x-v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
-            - 'x-bin-cache-{{ .Branch }}'
+            - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+            - 'bin-cache-{{ .Branch }}'
 
   setup-install-bins:
     description: "install 3rd-party binaries for integration tests"
@@ -32,7 +32,7 @@ commands:
       - run:
           name: "install kubectl"
           command: |
-            if [ ! -f ~/bin/kind ]; then
+            if [ ! -f ~/bin/kubectl ]; then
             curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
             chmod +x ~/bin/kubectl
             fi
@@ -40,11 +40,10 @@ commands:
           name: "install kind"
           command: |
             if [ ! -f ~/bin/kind ]; then
-            GO111MODULE="on" go get sigs.k8s.io/kind@v0.8.0
-            cp $GOPATH/bin/kind ~/bin/kind
+            curl -L https://github.com/kubernetes-sigs/kind/releases/download/v0.8.1/kind-linux-amd64 -o ~/bin/kind
             fi
       - save_cache:
-          key: 'x-bin-cache-{{ .Branch }}'
+          key: 'bin-cache-{{ .Branch }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/bin
 
@@ -86,7 +85,7 @@ jobs:
           name: "make mod-download"
           command: make mod-download
       - save_cache:
-          key: 'x-v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+          key: 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
           paths:
             - << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/pkg/mod
 
