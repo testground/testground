@@ -124,7 +124,6 @@ jobs:
       - run:
           name: "run a plan"
           command: |
-            cp env-example.toml ~/testground/.env.toml
             testground daemon &
             testground plan import --from plans/placebo
             testground build single --builder docker:go --plan placebo | tee output.txt
