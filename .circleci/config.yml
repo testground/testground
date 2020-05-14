@@ -23,6 +23,30 @@ commands:
       - restore_cache:
           keys:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
+            - 'bin-cache-{{ .Branch }}'
+
+  setup-install-bins:
+    description: "install 3rd-party binaries for integration tests"
+    steps:
+      - setup
+      - run:
+          name: "install kubectl"
+          command: |
+            if [ ! -f ~/bin/kubectl ]; then
+            curl -L https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl -o ~/bin/kubectl
+            chmod +x ~/bin/kubectl
+            fi
+      - run:
+          name: "install kind"
+          command: |
+            if [ ! -f ~/bin/kind ]; then
+            curl -L https://github.com/kubernetes-sigs/kind/releases/download/v0.8.1/kind-linux-amd64 -o ~/bin/kind
+            chmod +x ~/bin/kind
+            fi
+      - save_cache:
+          key: 'bin-cache-{{ .Branch }}'
+          paths:
+            - << pipeline.parameters.workspace-dir >>/bin
 
 executors:
   linux:
@@ -32,7 +56,7 @@ executors:
     working_directory: << pipeline.parameters.workspace-dir >>/project
     environment:
       GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
-      PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:/usr/local/bin:/usr/bin:/bin
+      PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:<< pipeline.parameters.workspace-dir >>/bin:/usr/local/bin:/usr/bin:/bin
       GOVERSION: << pipeline.parameters.go-version >>
 
 workflows:
@@ -44,6 +68,9 @@ workflows:
           requires:
             - prepare-tidy
       - build-test:
+          requires:
+            - prepare-tidy
+      - kind-test:
           requires:
             - prepare-tidy
 
@@ -90,3 +117,44 @@ jobs:
             mkdir -p $HOME/testground/plans
             ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
             go test -v ./...
+
+  # Tests the k8s runner can successfully submit jobs.
+  kind-test:
+    executor: linux
+    steps:
+      - setup-install-bins
+      - run:
+          name: "build testground"
+          command: make install
+      - run:
+          name: "configure cluster"
+          command: |
+            kind create cluster --wait 90s
+            kubectl apply -f .circleci/pv.yaml
+            kubectl apply -f .circleci/pvc.yaml
+            kubectl label nodes kind-control-plane testground.nodetype=plan
+      # The placebo does not require a sidecar.
+      # To prevent kind from attempting to download the image from docker hub,
+      # build and load the image before executing it.
+      # The plan is renamed as `testplan:placebo` because kind will check dockerhub if the tag is `latest`.
+      - run:
+          name: "run a plan"
+          command: |
+            testground daemon &
+            testground plan import --from plans/placebo
+            testground build single --builder docker:go --plan placebo | tee build.out
+            export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
+            docker tag $ARTIFACT testplan:placebo
+            kind load docker-image testplan:placebo
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
+      - run:
+          name: "verify output"
+          command: |
+            RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
+            echo "checking run $RUNID"
+            SIZEOUT=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.out | wc -c)
+            echo "run.out is $SIZEOUT bytes."
+            SIZEERR=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.err | wc -c)
+            test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
+            exit $?
+
