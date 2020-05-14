@@ -106,16 +106,13 @@ jobs:
     steps:
       - setup
       - run:
-          name: "make build-all"
-          command: make build-all
-      - run:
-          name: "make docker"
-          command: make docker
+          name: "install"
+          command: make install
       - run:
           name: "make test"
           command: |
-            mkdir -p $HOME/testground/plans
-            ln -s $HOME/project/plans/placebo $HOME/testground/plans/placebo
+            testground plan import --from $HOME/project/plans/placebo
+            testground plan import --from $HOME/project/plans/example
             go test -v ./...
 
   # Tests the k8s runner can successfully submit jobs.

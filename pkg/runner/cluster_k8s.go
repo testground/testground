@@ -376,7 +376,7 @@ func (*ClusterK8sRunner) ConfigType() reflect.Type {
 }
 
 func (*ClusterK8sRunner) CompatibleBuilders() []string {
-	return []string{"docker:go"}
+	return []string{"docker:go", "docker:generic"}
 }
 
 func (c *ClusterK8sRunner) initPool() {
