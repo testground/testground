@@ -129,7 +129,7 @@ jobs:
       - run:
           name: "configure cluster"
           command: |
-            kind create cluster --wait 90s
+            kind create cluster --wait 90s --config=.circleci/kind-config.yaml
             kubectl apply -f .circleci/pv.yaml
             kubectl apply -f .circleci/pvc.yaml
             kubectl label nodes kind-control-plane testground.nodetype=plan
