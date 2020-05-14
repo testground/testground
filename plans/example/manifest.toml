@@ -4,6 +4,13 @@ name = "example"
 builder = "exec:go"
 runner = "local:exec"
 
+[builders."docker:generic"]
+  enabled = true
+  
+[builders."docker:generic".build_args]
+build_image = "golang:alpine"
+run_image = "scratch"
+
 [builders."docker:go"]
 enabled = true
 
@@ -48,4 +55,8 @@ instances = { min = 2, max = 200, default = 5 }
 
 [[testcases]]
 name = "metrics"
+instances = { min = 1, max = 200, default = 5 }
+
+[[testcases]]
+name = "artifact"
 instances = { min = 1, max = 200, default = 5 }

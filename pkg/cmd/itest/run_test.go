@@ -105,3 +105,25 @@ func TestCompatibleRunDocker(t *testing.T) {
 		t.Fail()
 	}
 }
+
+// example:artifact *only* works with docker:generic
+func TestDockerGenericCustomizesImage(t *testing.T) {
+	err := runSingle(t,
+		"run",
+		"single",
+		"--builder",
+		"docker:generic",
+		"--runner",
+		"local:docker",
+		"--instances",
+		"1",
+		"--plan",
+		"example",
+		"--testcase",
+		"artifact",
+	)
+
+	if err != nil {
+		t.Fail()
+	}
+}

@@ -21,6 +21,7 @@ import (
 var AllBuilders = []api.Builder{
 	&build.DockerGoBuilder{},
 	&build.ExecGoBuilder{},
+	&build.DockerGenericBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.
