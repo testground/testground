@@ -87,7 +87,9 @@ func handler(ctx context.Context, instance *Instance) error {
 		return fmt.Errorf("failed to signal network ready: %w", err)
 	}
 
-	instance.S().Infof("all networks ready")
+	instance.S().Info("all networks ready")
+
+	instance.S().Infof("got hostname:", instance.Hostname)
 
 	// Now let the test case tell us how to configure the network.
 	topic := sync.NetworkTopic(instance.Hostname)

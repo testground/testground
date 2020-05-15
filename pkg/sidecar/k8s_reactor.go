@@ -29,11 +29,11 @@ import (
 const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
-	podCidr              = "100.96.0.0/11"
+	podCidr              = "100.244.0.0/11"
 )
 
 var (
-	kubeDnsClusterIP = net.IPv4(100, 64, 0, 10)
+	kubeDnsClusterIP = net.IPv4(10, 96, 0, 10)
 )
 
 type K8sReactor struct {

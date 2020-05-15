@@ -11,7 +11,6 @@ import (
 	"github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/typeurl"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -31,6 +30,7 @@ type Manager struct {
 type ContainerRef struct {
 	logging.Logging
 	ID      string
+	PID     uint32
 	Manager *Manager
 }
 
@@ -47,11 +47,12 @@ func NewManager() *Manager {
 	}
 }
 
-func (m *Manager) NewContainerRef(id string) *ContainerRef {
+func (m *Manager) NewContainerRef(id string, pid uint32) *ContainerRef {
 	return &ContainerRef{
 		Logging: logging.NewLogging(m.S().With("container", id).Desugar()),
 		ID:      id,
 		Manager: m,
+		PID:     pid,
 	}
 }
 
@@ -65,20 +66,27 @@ func (c *ContainerRef) Env(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	spew.Dump(container)
+	spec, err := container.Spec(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, errors.New("wtf env")
+	return spec.Process.Env, nil
 }
 
 func (c *ContainerRef) Hostname(ctx context.Context) (string, error) {
-	container, err := c.Manager.Client.LoadContainer(ctx, c.ID)
-	if err != nil {
-		return "", err
-	}
+	return c.ID, nil
+	//container, err := c.Manager.Client.LoadContainer(ctx, c.ID)
+	//if err != nil {
+	//return "", err
+	//}
 
-	spew.Dump(container)
+	//spec, err := container.Spec(ctx)
+	//if err != nil {
+	//return "", err
+	//}
 
-	return "", errors.New("wtf hostname")
+	//return spec.Hostname, nil
 }
 
 func (c *ContainerRef) Labels(ctx context.Context) (map[string]string, error) {
@@ -87,20 +95,16 @@ func (c *ContainerRef) Labels(ctx context.Context) (map[string]string, error) {
 		return nil, err
 	}
 
-	spew.Dump(container.Labels(ctx))
+	cnt, err := container.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, errors.New("wtf labels")
+	return cnt.Labels, nil
 }
 
 func (c *ContainerRef) Pid(ctx context.Context) (int, error) {
-	container, err := c.Manager.Client.LoadContainer(ctx, c.ID)
-	if err != nil {
-		return 0, err
-	}
-
-	spew.Dump(container.Labels(ctx))
-
-	return 0, errors.New("pid labels")
+	return int(c.PID), nil
 }
 
 func (c *ContainerRef) IsRunning(ctx context.Context) (bool, error) {
@@ -173,7 +177,7 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 		}
 	}
 
-	start := func(containerID string) {
+	start := func(containerID string, pid uint32) {
 		if _, ok := managers[containerID]; ok {
 			return
 		}
@@ -187,7 +191,7 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 
 		go func() {
 			defer close(done)
-			handle := m.NewContainerRef(containerID)
+			handle := m.NewContainerRef(containerID, pid)
 			err := worker(cctx, handle)
 			if err != nil {
 				if errors.Is(err, context.Canceled) || strings.Contains(err.Error(), "context canceled") { // docker doesn't wrap errors
@@ -200,22 +204,24 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 	}
 
 	// Manage existing containers.
-	nodes, err := m.Client.Containers(ctx)
-	if err != nil {
-		return err
-	}
+	//nodes, err := m.Client.Containers(ctx)
+	//if err != nil {
+	//return err
+	//}
 
-	for _, n := range nodes {
-		start(n.ID())
-	}
+	//for _, n := range nodes {
+	//start(n.ID())
+	//}
 
 	// Manage new containers.
 	es := m.Client.EventService()
 
 	filters := []string{
-		"topic==\"/containers/create\"",
+		//"topic==\"/containers/create\"",
 		"topic==\"/containers/delete\"",
-		"topic==\"/containers/update\"",
+		//"topic==\"/containers/update\"",
+		//"topic==\"/tasks/create\"",
+		"topic==\"/tasks/start\"",
 	}
 	eventCh, errs := es.Subscribe(ctx, filters...)
 
@@ -227,9 +233,15 @@ func (m *Manager) Watch(ctx context.Context, worker WorkerFn, labels ...string) 
 				return err
 			}
 			switch event.Event.TypeUrl {
-			case "containerd.events.ContainerCreate":
-				containerCreate := iface.(*events.ContainerCreate)
-				start(containerCreate.ID)
+			//case "containerd.events.TaskCreate":
+			//containerCreate := iface.(*events.TaskCreate)
+			//start(containerCreate.ContainerID)
+			case "containerd.events.TaskStart":
+				ts := iface.(*events.TaskStart)
+				start(ts.ContainerID, ts.Pid)
+			//case "containerd.events.ContainerCreate":
+			//containerCreate := iface.(*events.ContainerCreate)
+			//start(containerCreate.ID)
 			case "containerd.events.ContainerDelete":
 				containerCreate := iface.(*events.ContainerDelete)
 				stop(containerCreate.ID)
