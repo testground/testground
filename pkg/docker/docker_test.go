@@ -1,4 +1,4 @@
-package docker
+package docker_test
 
 import (
 	"context"
@@ -13,10 +13,13 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
-	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/docker"
+	"github.com/testground/testground/pkg/rpctest"
 )
 
-var cli *client.Client
+var (
+	cli *client.Client
+)
 
 func init() {
 	var err error
@@ -26,7 +29,6 @@ func init() {
 	}
 
 	cli.NegotiateAPIVersion(context.Background())
-
 	rand.Seed(time.Now().UnixNano())
 }
 
@@ -37,7 +39,7 @@ func pullImage(ctx context.Context, imageID string) error {
 	if err != nil {
 		return err
 	}
-	return PipeOutput(c, os.Stderr)
+	return docker.PipeOutput(c, os.Stderr)
 }
 
 // cleanup function which deletes a container
@@ -94,16 +96,16 @@ func pull_create_delete(t *testing.T, imageName string) (containerID string) {
 }
 
 func TestFindImageFindsImages(t *testing.T) {
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	imageName := "hello-world"
-	ow := rpc.NewOutputWriter(nil, nil)
 	err := pullImage(ctx, imageName)
 	if err != nil {
 		t.Error(err)
 	}
-	_, found, err := FindImage(ctx, ow, cli, imageName)
+	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
 	if err != nil {
 		t.Error(err)
 	}
@@ -114,13 +116,13 @@ func TestFindImageFindsImages(t *testing.T) {
 }
 
 func TestFindImageDoesNotFindNonExist(t *testing.T) {
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 	defer cancel()
 
 	imageName := strconv.Itoa(rand.Int())
-	ow := rpc.NewOutputWriter(nil, nil)
 
-	_, found, err := FindImage(ctx, ow, cli, imageName)
+	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
 	if err != nil {
 		t.Error(err)
 	}
