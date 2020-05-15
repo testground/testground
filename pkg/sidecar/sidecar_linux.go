@@ -16,8 +16,9 @@ const (
 )
 
 var runners = map[string]func() (Reactor, error){
-	"docker": NewDockerReactor,
-	"k8s":    NewK8sReactor,
+	"docker":         NewDockerReactor,
+	"k8s-docker":     NewK8sReactor,
+	"k8s-containerd": NewK8sContainerdReactor,
 	// TODO: local
 }
 

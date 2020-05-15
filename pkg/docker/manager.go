@@ -69,6 +69,10 @@ func (c *ContainerRef) Inspect(ctx context.Context) (types.ContainerJSON, error)
 	return c.Manager.ContainerInspect(ctx, c.ID)
 }
 
+func (c *ContainerRef) Id() string {
+	return c.ID
+}
+
 // IsOnline returns whether or not the container is online.
 func (c *ContainerRef) IsOnline(ctx context.Context) (bool, error) {
 	info, err := c.Inspect(ctx)

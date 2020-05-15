@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/sync"
-	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 
 	"github.com/containernetworking/cni/libcni"
@@ -30,7 +29,7 @@ type k8sLink struct {
 }
 
 type K8sNetwork struct {
-	container   *docker.ContainerRef
+	container   ContainerRef
 	activeLinks map[string]*k8sLink
 	nl          *netlink.Handle
 	cninet      *libcni.CNIConfig
@@ -66,7 +65,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
 		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
 		// Disconnect and reconnect to change the IP addresses.
-		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
+		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.Id())
 		//
 		// NOTE: We probably don't need to do this on local docker.
 		// However, we probably do with swarm.
@@ -90,10 +89,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			err     error
 		)
 		if cfg.IPv4 == nil {
-			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.ID)
+			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.Id())
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
-			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
+			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.Id())
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {
@@ -104,7 +103,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 		capabilityArgs := map[string]interface{}{} // empty
 
 		rt := &libcni.RuntimeConf{
-			ContainerID:    n.container.ID,
+			ContainerID:    n.container.Id(),
 			NetNS:          n.netnsPath,
 			IfName:         dataNetworkIfname,
 			Args:           cniArgs,
@@ -156,7 +155,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 			netconf:     netconf,
 		}
 
-		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
+		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.Id())
 
 		n.activeLinks[cfg.Network] = link
 	}
