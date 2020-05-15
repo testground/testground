@@ -17,7 +17,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
-	"github.com/docker/docker/pkg/archive"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpctest"
 )
