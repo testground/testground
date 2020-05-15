@@ -67,26 +67,9 @@ func randomBuildContext(t *testing.T) (string, string) {
 	// Create a simple Dockerfile.
 	dockerfile := filepath.Join(d, "Dockerfile")
 	cont := fmt.Sprintf("FROM scratch\nCOPY Dockerfile /\n# random comment %s\n", rndname)
-	ioutil.WriteFile(dockerfile, []byte(cont), os.ModePerm)
+	err = ioutil.WriteFile(dockerfile, []byte(cont), os.ModePerm)
+	errfail(t, err)
 	return rndname, d
-}
-
-func buildImage(ctx context.Context, name string, buildCtx string) error {
-	ar, err := archive.TarWithOptions(buildCtx, &archive.TarOptions{})
-	if err != nil {
-		return err
-	}
-	defer ar.Close()
-	opts := types.ImageBuildOptions{
-		Tags: []string{name},
-	}
-	resp, err := cli.ImageBuild(ctx, ar, opts)
-	if err != nil {
-		return err
-	}
-	_, err = ioutil.ReadAll(resp.Body)
-	resp.Body.Close()
-	return nil
 }
 
 // cleanup function which deletes a container
@@ -183,7 +166,8 @@ func TestBuildImageBuildsImages(t *testing.T) {
 		Name:     rndname,
 		BuildCtx: d,
 	}
-	docker.BuildImage(ctx, ow, cli, &opts)
+	err := docker.BuildImage(ctx, ow, cli, &opts)
+	errfail(t, err)
 
 	// Check that it exists.
 	_, found, err := docker.FindImage(ctx, ow, cli, rndname)
