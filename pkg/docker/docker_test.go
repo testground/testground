@@ -2,9 +2,13 @@ package docker_test
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 
+	"github.com/docker/docker/pkg/archive"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpctest"
 )
@@ -32,6 +37,16 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+func errfail(t *testing.T, err error) {
+	if err != nil {
+		t.Error(err)
+		t.FailNow()
+	}
+}
+
+// Utility functions for test.
+// These functions intentionally *don't* use tested functions.
+
 // pull an image from docker hub.
 func pullImage(ctx context.Context, imageID string) error {
 	options := types.ImagePullOptions{}
@@ -39,16 +54,46 @@ func pullImage(ctx context.Context, imageID string) error {
 	if err != nil {
 		return err
 	}
-	return docker.PipeOutput(c, os.Stderr)
+	_, err = ioutil.ReadAll(c)
+	return err
+}
+
+func randomBuildContext(t *testing.T) (string, string) {
+	rndname := strings.ToLower(t.Name() + "-" + strconv.Itoa(rand.Int()))
+
+	d, err := ioutil.TempDir("", rndname)
+	errfail(t, err)
+
+	// Create a simple Dockerfile.
+	dockerfile := filepath.Join(d, "Dockerfile")
+	cont := fmt.Sprintf("FROM scratch\nCOPY Dockerfile /\n# random comment %s\n", rndname)
+	ioutil.WriteFile(dockerfile, []byte(cont), os.ModePerm)
+	return rndname, d
+}
+
+func buildImage(ctx context.Context, name string, buildCtx string) error {
+	ar, err := archive.TarWithOptions(buildCtx, &archive.TarOptions{})
+	if err != nil {
+		return err
+	}
+	defer ar.Close()
+	opts := types.ImageBuildOptions{
+		Tags: []string{name},
+	}
+	resp, err := cli.ImageBuild(ctx, ar, opts)
+	if err != nil {
+		return err
+	}
+	_, err = ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	return nil
 }
 
 // cleanup function which deletes a container
-func deleteContainer(t *testing.T, containerID string) func() {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+func deleteContainer(ctx context.Context, t *testing.T, containerID string) func() {
 	options := types.ContainerRemoveOptions{
 		RemoveVolumes: true,
-		RemoveLinks:   true,
+		RemoveLinks:   false,
 		Force:         true,
 	}
 	return func() {
@@ -77,24 +122,20 @@ func createContainer(ctx context.Context, containerName string, imageID string) 
 // create a container with a randomized name
 // Configure the container to be deleted when the test completes.
 // return the container ID.
-func pull_create_delete(t *testing.T, imageName string) (containerID string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-	defer cancel()
-	containerName := t.Name() + "-" + strconv.FormatUint(rand.Uint64(), 16)
+func pull_create_delete(ctx context.Context, t *testing.T, imageName string) (containerID string, containerName string) {
+	containerName = t.Name() + "-" + strconv.FormatUint(rand.Uint64(), 16)
 
 	err := pullImage(ctx, imageName)
-	if err != nil {
-		t.Fatal(err)
-	}
+	errfail(t, err)
 
 	containerID, err = createContainer(ctx, containerName, imageName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(deleteContainer(t, containerID))
+	errfail(t, err)
+
+	t.Cleanup(deleteContainer(ctx, t, containerID))
 	return
 }
 
+// Pull an image (to ensure it exists) then make sure FindImage can find it.
 func TestFindImageFindsImages(t *testing.T) {
 	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
@@ -102,19 +143,17 @@ func TestFindImageFindsImages(t *testing.T) {
 
 	imageName := "hello-world"
 	err := pullImage(ctx, imageName)
-	if err != nil {
-		t.Error(err)
-	}
+	errfail(t, err)
+
 	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
-	if err != nil {
-		t.Error(err)
-	}
+	errfail(t, err)
 
 	if !found {
 		t.Fail()
 	}
 }
 
+// Find an image with a random name. Make sure it fails.
 func TestFindImageDoesNotFindNonExist(t *testing.T) {
 	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
 	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
@@ -123,11 +162,74 @@ func TestFindImageDoesNotFindNonExist(t *testing.T) {
 	imageName := strconv.Itoa(rand.Int())
 
 	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
-	if err != nil {
-		t.Error(err)
-	}
+	errfail(t, err)
 
 	if found {
 		t.Fail()
 	}
 }
+
+// Create a new Dockerfile with fresh content.
+// Use BuildImage to build it. Make sure it exists.
+func TestBuildImageBuildsImages(t *testing.T) {
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	rndname, d := randomBuildContext(t)
+
+	// Build the image
+	opts := docker.BuildImageOpts{
+		Name:     rndname,
+		BuildCtx: d,
+	}
+	docker.BuildImage(ctx, ow, cli, &opts)
+
+	// Check that it exists.
+	_, found, err := docker.FindImage(ctx, ow, cli, rndname)
+	errfail(t, err)
+	if !found {
+		t.Fail()
+	}
+}
+
+// TODO(cory)
+// TestEnsureImage
+
+// Ensure a container exists. and then make sure CheckContainer can find it.
+func TestCheckContainerFindsExistingContainer(t *testing.T) {
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx := context.Background()
+
+	image := "hello-world:latest"
+	id, name := pull_create_delete(ctx, t, image)
+	cont, err := docker.CheckContainer(ctx, ow, cli, name)
+	errfail(t, err)
+	if cont == nil {
+		t.Log("container not found. nil.")
+		t.Fail()
+	}
+	if cont.ID != id {
+		t.Log("incorrect container found. id does not match that created.")
+		t.Fail()
+	}
+}
+
+// Try to find a container which does not exist. Make sure it cant be found.
+func TestCheckContainerDoesNotFindNonExist(t *testing.T) {
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	name := strconv.Itoa(rand.Int())
+
+	cont, err := docker.CheckContainer(ctx, ow, cli, name)
+	errfail(t, err)
+
+	if cont != nil {
+		t.Fail()
+	}
+}
+
+// TODO(cory)
+// TestEnsureContainer
