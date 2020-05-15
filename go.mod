@@ -10,11 +10,13 @@ require (
 	github.com/containerd/containerd v1.3.3
 	//github.com/containerd/containerd v1.3.4
 	github.com/containerd/continuity v0.0.0-20200413184840-d3ef23f19fbb // indirect
+	github.com/containerd/typeurl v0.0.0-20180627222232-a93fcdb778cd
 	github.com/containernetworking/cni v0.7.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/distribution v2.7.1-0.20190205005809-0d3efadf0154+incompatible // indirect
 	//github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
+	github.com/docker/engine-api v0.4.0
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/docker/go-units v0.4.0
@@ -23,9 +25,12 @@ require (
 	github.com/go-git/go-git/v5 v5.0.0
 	github.com/go-playground/validator/v10 v10.1.0
 	github.com/gogo/googleapis v1.4.0 // indirect
+	github.com/gogo/protobuf v1.3.1
+	github.com/golang/protobuf v1.3.3
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
+	github.com/hashicorp/consul/api v1.4.0
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes/client-go v11.0.0+incompatible
