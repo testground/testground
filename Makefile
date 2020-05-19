@@ -37,5 +37,11 @@ docker-sidecar:
 docker-testground:
 	docker build -t iptestground/testground:edge -f Dockerfile.testground .
 
-test:
+clean:
+	rm -rfi $${TESTGROUND_HOME}/plans/placebo
+	rm -rfi $${TESTGROUND_HOME}/plans/example
+
+test: install
+	testground plan import --from ./plans/placebo || true
+	testground plan import --from ./plans/example || true
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
