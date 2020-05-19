@@ -157,7 +157,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// Get a netlink handle.
 	nshandle, err := netns.GetFromPid(info.State.Pid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup the net namespace: %s", err)
+		return nil, fmt.Errorf("failed to lookup the net namespace for pid %d: %s", info.State.Pid, err)
 	}
 	defer nshandle.Close()
 
