@@ -1,0 +1,26 @@
+name = "ipfs-base-master-2020.05.14"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/ipfs-base-master-2020.05.14"
+
+[defaults]
+builder = "docker:ipfs"
+runner = "local:docker"
+
+[build_strategies."docker:ipfs"]
+enabled = true
+go_version = "1.14"
+module_path = "github.com/ipfs/testground/plans/ipfs-base"
+exec_pkg = "."
+copy_ipfs = true
+ipfs_path = "../ipfs-master-2020.05.14"
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "placeholder"
+instances = { min = 1, max = 1, default = 1 }
+
