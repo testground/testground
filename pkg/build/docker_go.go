@@ -100,15 +100,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id      = in.BuildID
 		basesrc = in.BaseSrcPath
 		plansrc = in.TestPlanSrcPath
 		sdksrc  = in.SDKSrcPath
 
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
-
-	ow = ow.With("build_id", id)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -205,7 +202,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
 		BuildArgs:   args,
 		NetworkMode: "host",
 	}
@@ -222,20 +218,20 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	buildStart := time.Now()
 
-	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
+	imageID, err := docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "image_id", imageID, "took", time.Since(buildStart).Truncate(time.Second))
 
-	deps, err := parseDependenciesFromDocker(ctx, ow, cli, in.BuildID)
+	deps, err := parseDependenciesFromDocker(ctx, ow, cli, imageID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
 	}
 
 	out := &api.BuildOutput{
-		ArtifactPath: in.BuildID,
+		ArtifactPath: imageID,
 		Dependencies: deps,
 	}
 

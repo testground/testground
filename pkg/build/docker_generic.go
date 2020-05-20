@@ -38,7 +38,6 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id       = in.BuildID
 		basesrc  = in.BaseSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
@@ -46,12 +45,10 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return nil, err
 	}
 
-	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
 		Dockerfile:  "/plan/Dockerfile",
@@ -64,7 +61,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 
 	buildStart := time.Now()
 
-	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
+	imageID, err := docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
@@ -72,7 +69,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
 
 	out := &api.BuildOutput{
-		ArtifactPath: in.BuildID,
+		ArtifactPath: imageID,
 	}
 
 	if cfg.PushRegistry {
