@@ -49,6 +49,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	defer cancel()
 
 	opts := types.ImageBuildOptions{
+		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
 		Dockerfile:  "/plan/Dockerfile",
@@ -61,22 +62,29 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 
 	buildStart := time.Now()
 
-	imageID, err := docker.BuildImage(ctx, ow, cli, &imageOpts)
+	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
+
+	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("couldnt get docker image id: %w", err)
+	}
+
+	ow.Infow("got docker image id", "image_id", imageID)
 
 	out := &api.BuildOutput{
 		ArtifactPath: imageID,
 	}
 
-	// Default tag for the testplan image
-	defaultImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+	// Testplan image tag
+	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
 
-	ow.Infow("tagging image", "image_id", imageID, "tag", defaultImageTag)
-	if err = cli.ImageTag(ctx, out.ArtifactPath, defaultImageTag); err != nil {
+	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
 		return out, err
 	}
 

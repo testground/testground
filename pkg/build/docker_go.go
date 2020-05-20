@@ -202,6 +202,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
+		Tags:        []string{in.BuildID},
 		BuildArgs:   args,
 		NetworkMode: "host",
 	}
@@ -218,12 +219,19 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	buildStart := time.Now()
 
-	imageID, err := docker.BuildImage(ctx, ow, cli, &imageOpts)
+	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "image_id", imageID, "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
+
+	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("couldnt get docker image id: %w", err)
+	}
+
+	ow.Infow("got docker image id", "image_id", imageID)
 
 	deps, err := parseDependenciesFromDocker(ctx, ow, cli, imageID)
 	if err != nil {
@@ -235,11 +243,11 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		Dependencies: deps,
 	}
 
-	// Default tag for the testplan image
-	defaultImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+	// Testplan image tag
+	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
 
-	ow.Infow("tagging image", "image_id", imageID, "tag", defaultImageTag)
-	if err = cli.ImageTag(ctx, out.ArtifactPath, defaultImageTag); err != nil {
+	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
 		return out, err
 	}
 

@@ -1,15 +1,12 @@
 package docker
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 
@@ -38,10 +35,10 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 // When BuildImageOpts.BuildOpts has nil value, a default set of options will be constructed using
 // the Name, and the constructed options are sent to the docker client.
 // The build output is directed to stdout via PipeOutput.
-func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) (string, error) {
+func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) error {
 	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer buildCtx.Close()
 
@@ -54,41 +51,11 @@ func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client
 
 	buildResponse, err := client.ImageBuild(ctx, buildCtx, *buildOpts)
 	if err != nil {
-		return "", err
+		return err
 	}
 	defer buildResponse.Body.Close()
 
-	var br bytes.Buffer
-	w := io.MultiWriter(&br, ow.StdoutWriter())
-
-	err = PipeOutput(buildResponse.Body, w)
-	if err != nil {
-		return "", err
-	}
-
-	return getImageId(&br)
-}
-
-func getImageId(buf *bytes.Buffer) (string, error) {
-	scanner := bufio.NewScanner(buf)
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if strings.HasPrefix(line, "Successfully built") {
-			sp := strings.Split(line, " ")
-			if len(sp) != 3 {
-				return "", errors.New("expected 3 elements on the Successfully built line")
-			}
-
-			return sp[2], nil
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-
-	return "", errors.New("couldn't find Docker ImageID")
+	return PipeOutput(buildResponse.Body, ow.StdoutWriter())
 }
 
 // EnsureImage builds an image only of one does not yet exist.
@@ -104,7 +71,7 @@ func EnsureImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Clien
 		return false, nil
 	}
 	ow.Infof("image %s not found; building", opts.Name)
-	_, err = BuildImage(ctx, ow, client, opts)
+	err = BuildImage(ctx, ow, client, opts)
 	if err != nil {
 		ow.Warn(err)
 		return false, err
@@ -135,4 +102,24 @@ func FindImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client,
 		}
 	}
 	return nil, false, nil
+}
+
+func GetImageID(ctx context.Context, cli *client.Client, defaultTag string) (string, error) {
+	filters := filters.NewArgs()
+	filters.Add("reference", defaultTag)
+	listOpts := types.ImageListOptions{
+		Filters: filters,
+	}
+
+	images, err := cli.ImageList(ctx, listOpts)
+	if err != nil {
+		return "", fmt.Errorf("docker image list failed: %w", err)
+	}
+
+	if len(images) != 1 {
+		return "", fmt.Errorf("unexpected number of images returned by docker image list, expected 1, got: %d", len(images))
+	}
+
+	// get 3cde7451eb28 from sha256:3cde7451eb28a3199f2c7d4e8e02a98f2e96b9a34dd4a9bc7eeaa5a192a1536f
+	return images[0].ID[7 : 7+12], nil
 }
