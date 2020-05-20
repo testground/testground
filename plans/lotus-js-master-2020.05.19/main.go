@@ -777,13 +777,118 @@ func run(runenv *runtime.RunEnv) error {
 		}
 
 		runenv.RecordMessage("Start the node")
-		cmdNode := exec.Command(
+		cmdNodeInitial := exec.Command(
 			"/lotus/lotus",
 			"daemon",
 			"--genesis=/root/dev.gen",
 			"--bootstrap=false",
 		)
 		// cmdNode.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
+		outfile, err = os.Create("/outputs/node-initial.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdNodeInitial.Stdout = outfile
+		cmdNodeInitial.Stderr = outfile
+		err = cmdNodeInitial.Start()
+		if err != nil {
+			return err
+		}
+
+		delay = 5
+		runenv.RecordMessage("Sleeping %v seconds", delay)
+		time.Sleep(time.Duration(delay) * time.Second)
+
+		runenv.RecordMessage("Stopping node process (to reload config)")
+		err = cmdNodeInitial.Process.Kill()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Modify Lotus config")
+		cmdModifyLotusConfig := exec.Command(
+			"/usr/bin/perl",
+			"-pi",
+			"-e",
+			"s/^#  UseIpfs = false$/  UseIpfs = true/",
+			"/root/.lotus/config.toml",
+		)
+		outfile, err = os.Create("/outputs/modify-lotus-config.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdModifyLotusConfig.Stdout = outfile
+		cmdModifyLotusConfig.Stderr = outfile
+		err = cmdModifyLotusConfig.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Initialize IPFS")
+		cmdIpfsInit := exec.Command(
+			"/go/bin/ipfs",
+			"init",
+		)
+		outfile, err = os.Create("/outputs/ipfs-init.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdIpfsInit.Stdout = outfile
+		cmdIpfsInit.Stderr = outfile
+		err = cmdIpfsInit.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("IPFS: Enable Graphsync")
+		cmdIpfsEnableGraphsync := exec.Command(
+			"/go/bin/ipfs",
+			"config",
+			"--json",
+			"Experimental.GraphsyncEnabled",
+			"true",
+		)
+		outfile, err = os.Create("/outputs/ipfs-enable-graphsync.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdIpfsEnableGraphsync.Stdout = outfile
+		cmdIpfsEnableGraphsync.Stderr = outfile
+		err = cmdIpfsEnableGraphsync.Run()
+		if err != nil {
+			return err
+		}
+
+		runenv.RecordMessage("Start IPFS")
+		cmdIpfs := exec.Command(
+			"/go/bin/ipfs",
+			"daemon",
+		)
+		outfile, err = os.Create("/outputs/ipfs.out")
+		if err != nil {
+			return err
+		}
+		defer outfile.Close()
+		cmdIpfs.Stdout = outfile
+		cmdIpfs.Stderr = outfile
+		err = cmdIpfs.Start()
+		if err != nil {
+			return err
+		}
+
+		delay = 5
+		runenv.RecordMessage("Sleeping %v seconds", delay)
+		time.Sleep(time.Duration(delay) * time.Second)
+
+		runenv.RecordMessage("Restart node")
+		cmdNode := exec.Command(
+			"/lotus/lotus",
+			"daemon",
+		)
 		outfile, err = os.Create("/outputs/node.out")
 		if err != nil {
 			return err
@@ -796,8 +901,11 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-		time.Sleep(5 * time.Second)
+		delay = 5
+		runenv.RecordMessage("Sleeping %v seconds", delay)
+		time.Sleep(time.Duration(delay) * time.Second)
 
+		runenv.RecordMessage("Connect to API")
 		api, closer, err := connectToAPI()
 		if err != nil {
 			return err
