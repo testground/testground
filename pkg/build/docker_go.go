@@ -235,6 +235,14 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		Dependencies: deps,
 	}
 
+	// Default tag for the testplan image
+	defaultImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+
+	ow.Infow("tagging image", "image_id", imageID, "tag", defaultImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, defaultImageTag); err != nil {
+		return out, err
+	}
+
 	if cfg.PushRegistry {
 		pushStart := time.Now()
 		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
