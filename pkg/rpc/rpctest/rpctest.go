@@ -8,9 +8,9 @@ import (
 )
 
 // NewRecordedOutputWriter returns an OutputWriter where the response is recorded.
-func NewRecordedOutputWriter(req_id string) (rec *httptest.ResponseRecorder, ow *rpc.OutputWriter) {
+func NewRecordedOutputWriter(reqID string) (rec *httptest.ResponseRecorder, ow *rpc.OutputWriter) {
 	req := httptest.NewRequest("GET", "/", strings.NewReader(""))
-	req.Header.Add("X-Request-ID", req_id)
+	req.Header.Add("X-Request-ID", reqID)
 	rec = httptest.NewRecorder()
 	ow = rpc.NewOutputWriter(rec, req)
 	return rec, ow
