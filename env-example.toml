@@ -24,6 +24,9 @@ access_token = "docker hub access token"
 [runners."cluster:k8s"]
 pod_resource_cpu      = "100m"
 pod_resource_memory   = "100Mi"
+sysctls = [
+  "net.core.somaxconn=10000",
+]
 
 [runners."local:docker"]
 ulimits = [

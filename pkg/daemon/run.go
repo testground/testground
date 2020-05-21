@@ -12,10 +12,10 @@ import (
 
 func (d *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log := logging.S().With("ruid", r.Header.Get("X-Request-ID"))
+		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
 
-		log.Debugw("handle request", "command", "run")
-		defer log.Debugw("request handled", "command", "run")
+		log.Infow("handle request", "command", "run")
+		defer log.Infow("request handled", "command", "run")
 
 		tgw := rpc.NewOutputWriter(w, r)
 

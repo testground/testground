@@ -21,7 +21,7 @@ import (
 func (d *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ruid := r.Header.Get("X-Request-ID")
-		log := logging.S().With("ruid", ruid)
+		log := logging.S().With("req_id", ruid)
 
 		log.Infow("handle request", "command", "build")
 		defer log.Infow("request handled", "command", "build")

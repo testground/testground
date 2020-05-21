@@ -1,22 +1,21 @@
 name = "example"
-# hashicorp/go-getter URLs, so in the future we can support fetching test plans
-# from GitHub.
-source_path = "file://${TESTGROUND_SRCDIR}/plans/example"
 
 [defaults]
 builder = "exec:go"
 runner = "local:exec"
 
+[builders."docker:generic"]
+  enabled = true
+  
+[builders."docker:generic".build_args]
+build_image = "golang:alpine"
+run_image = "scratch"
+
 [builders."docker:go"]
 enabled = true
-go_version = "1.13"
-module_path = "github.com/testground/testground/plans/example"
-exec_pkg = "."
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/testground/testground/plans/example"
-exec_pkg = "."
 
 [runners."local:docker"]
 enabled = true
@@ -56,4 +55,8 @@ instances = { min = 2, max = 200, default = 5 }
 
 [[testcases]]
 name = "metrics"
+instances = { min = 1, max = 200, default = 5 }
+
+[[testcases]]
+name = "artifact"
 instances = { min = 1, max = 200, default = 5 }

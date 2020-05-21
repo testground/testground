@@ -13,6 +13,9 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+var linkSdkUsage = "links the test plan against a local SDK. The full `DIR_PATH`, or the NAME can be supplied, " +
+	"in the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME"
+
 var BuildCommand = cli.Command{
 	Name:  "build",
 	Usage: "request the daemon to build a test plan",
@@ -36,7 +39,7 @@ var BuildCommand = cli.Command{
 				},
 				&cli.StringFlag{
 					Name:  "link-sdk",
-					Usage: "link the test plan against a local SDK; `SDK_NAME` can be a full path, or a directory under $TESTGROUND_HOME/sdks",
+					Usage: linkSdkUsage,
 				},
 			},
 		},
@@ -62,9 +65,8 @@ var BuildCommand = cli.Command{
 					Usage:   "set a dependency mapping",
 				},
 				&cli.StringFlag{
-					Name: "link-sdk",
-					Usage: "links the test plan against a local SDK. The full `DIR_PATH`, or the `NAME` can be supplied," +
-						"In the latter case, the testground client will expect to find the SDK under $TESTGROUND_HOME/sdks/NAME",
+					Name:  "link-sdk",
+					Usage: linkSdkUsage,
 				},
 				&cli.StringFlag{
 					Name:     "plan",
