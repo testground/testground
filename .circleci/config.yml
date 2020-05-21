@@ -111,9 +111,8 @@ jobs:
       - run:
           name: "make test"
           command: |
-            testground plan import --from $HOME/project/plans/placebo
-            testground plan import --from $HOME/project/plans/example
-            go test -v ./...
+            cd $HOME/project
+            make test
 
   # Tests the k8s runner can successfully submit jobs.
   kind-test:
