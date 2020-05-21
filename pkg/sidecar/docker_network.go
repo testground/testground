@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/testground/sdk-go/sync"
+	sdknw "github.com/testground/sdk-go/network"
 	"github.com/testground/testground/pkg/docker"
 
 	"github.com/docker/docker/api/types/network"
@@ -47,7 +47,7 @@ func (dn *DockerNetwork) ListActive() []string {
 	return networks
 }
 
-func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
+func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config) error {
 	netId, available := dn.availableLinks[cfg.Network]
 	if !available {
 		return fmt.Errorf("unsupported network: %s", cfg.Network)

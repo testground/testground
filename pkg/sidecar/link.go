@@ -10,7 +10,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 
-	"github.com/testground/sdk-go/sync"
+	"github.com/testground/sdk-go/network"
 )
 
 var (
@@ -151,7 +151,7 @@ func toMicroseconds(t time.Duration) uint32 {
 
 // Shape applies the link "shape" to the link, setting the bandwidth, latency,
 // jitter, etc.
-func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
+func (l *NetlinkLink) Shape(shape network.LinkShape) error {
 	rate := shape.Bandwidth
 	if rate == 0 {
 		rate = math.MaxUint64

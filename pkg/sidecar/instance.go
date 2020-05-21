@@ -6,6 +6,7 @@ import (
 	"context"
 	"io"
 
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
@@ -38,7 +39,7 @@ type Instance struct {
 type Network interface {
 	io.Closer
 
-	ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error
+	ConfigureNetwork(ctx context.Context, cfg *network.Config) error
 	ListActive() []string
 }
 
