@@ -6,7 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/testground/sdk-go/sync"
+	sdknw "github.com/testground/sdk-go/network"
+	sdksync "github.com/testground/sdk-go/sync"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -67,7 +68,7 @@ func handler(ctx context.Context, instance *Instance) error {
 	}()
 
 	// Network configuration loop.
-	err := instance.Network.ConfigureNetwork(ctx, &sync.NetworkConfig{
+	err := instance.Network.ConfigureNetwork(ctx, &sdknw.Config{
 		Network: defaultDataNetwork,
 		Enable:  true,
 	})
@@ -76,7 +77,7 @@ func handler(ctx context.Context, instance *Instance) error {
 		return err
 	}
 
-	ctx = sync.WithRunParams(ctx, &instance.RunEnv.RunParams)
+	ctx = sdksync.WithRunParams(ctx, &instance.RunEnv.RunParams)
 
 	// Wait for all the sidecars to enter the "network-initialized" state.
 	instance.S().Infof("waiting for all networks to be ready")
@@ -90,8 +91,8 @@ func handler(ctx context.Context, instance *Instance) error {
 	instance.S().Infof("all networks ready")
 
 	// Now let the test case tell us how to configure the network.
-	topic := sync.NetworkTopic(instance.Hostname)
-	networkChanges := make(chan *sync.NetworkConfig, 16)
+	topic := sdksync.NewTopic("network"+instance.Hostname, sdknw.Config{})
+	networkChanges := make(chan *sdknw.Config, 16)
 	if _, err := instance.Client.Subscribe(ctx, topic, networkChanges); err != nil {
 		return fmt.Errorf("failed to subscribe to network changes: %s", err)
 	}
@@ -116,10 +117,10 @@ func handler(ctx context.Context, instance *Instance) error {
 				return fmt.Errorf("failed to update network %s: %w", cfg.Network, err)
 			}
 
-			if cfg.State != "" {
-				_, err := instance.Client.SignalEntry(ctx, cfg.State)
+			if cfg.CallbackState != "" {
+				_, err := instance.Client.SignalEntry(ctx, cfg.CallbackState)
 				if err != nil {
-					return fmt.Errorf("failed to signal network state change %s: %w", cfg.State, err)
+					return fmt.Errorf("failed to signal network state change %s: %w", cfg.CallbackState, err)
 				}
 			}
 		}

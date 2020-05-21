@@ -3,7 +3,7 @@ package sidecar
 import (
 	"context"
 	"errors"
-	"github.com/testground/sdk-go/sync"
+	sdknw "github.com/testground/sdk-go/network"
 	gosync "sync"
 )
 
@@ -21,7 +21,7 @@ func (*MockReactor) Handle(ctx context.Context, handler InstanceHandler) error {
 
 func NewMockNetwork() *MockNetwork {
 	active := make([]string, 0)
-	configured := make([]*sync.NetworkConfig, 0)
+	configured := make([]*sdknw.Config, 0)
 	mux := gosync.Mutex{}
 	return &MockNetwork{
 		Active:     active,
@@ -35,7 +35,7 @@ func NewMockNetwork() *MockNetwork {
 // Network
 type MockNetwork struct {
 	Active     []string
-	Configured []*sync.NetworkConfig
+	Configured []*sdknw.Config
 	Closed     bool
 	L          gosync.Locker
 }
@@ -45,7 +45,7 @@ func (m *MockNetwork) Close() error {
 	return nil
 }
 
-func (m *MockNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
+func (m *MockNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config) error {
 	if m.Closed {
 		return errors.New("mock network is closed.")
 	}

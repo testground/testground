@@ -6,8 +6,9 @@ import (
 	"context"
 	"io"
 
+	sdknw "github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
-	"github.com/testground/sdk-go/sync"
+	sdksync "github.com/testground/sdk-go/sync"
 
 	"github.com/testground/testground/pkg/logging"
 
@@ -27,7 +28,7 @@ type Instance struct {
 	logging.Logging
 
 	Hostname string
-	Client   *sync.Client
+	Client   sdksync.Interface
 	RunEnv   *runtime.RunEnv
 	Network  Network
 }
@@ -38,12 +39,12 @@ type Instance struct {
 type Network interface {
 	io.Closer
 
-	ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error
+	ConfigureNetwork(ctx context.Context, cfg *sdknw.Config) error
 	ListActive() []string
 }
 
 // NewInstance constructs a new test instance handle.
-func NewInstance(client *sync.Client, runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
+func NewInstance(client sdksync.Interface, runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
 	return &Instance{
 		Logging:  logging.NewLogging(logging.S().With("sidecar", true, "run_id", runenv.TestRun).Desugar()),
 		Hostname: hostname,

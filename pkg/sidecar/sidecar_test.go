@@ -2,13 +2,16 @@ package sidecar
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	"github.com/testground/sdk-go/runtime"
-	"github.com/testground/sdk-go/sync"
+	_ "context"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	sdknw "github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/runtime"
+	sdksync "github.com/testground/sdk-go/sync"
 )
 
 func init() {
@@ -52,6 +55,8 @@ func verifyConfiguredNetwork(t *testing.T, n *MockNetwork) {
 
 // planRequestNetworkConfigure is a testground plan.
 // It requests a change to the network configuration via the sync service.
+
+/*
 func planRequestNetworkConfigure(ctx context.Context, runenv *runtime.RunEnv, hostname string, done chan int, doConfigure bool) (err error) {
 	client, err := sync.NewBoundClient(ctx, runenv)
 	if err != nil {
@@ -79,7 +84,9 @@ func planRequestNetworkConfigure(ctx context.Context, runenv *runtime.RunEnv, ho
 	close(done)
 	return nil
 }
+*/
 
+/*
 // subtestSidecarNetworking starts planRequstNetworkConfigure and the real sidecar handler.
 // The sidecar handler is setup to use a mock network so we can capture what would be passed to a
 // real docker or kubernetes network.
@@ -131,9 +138,42 @@ func subtestSidecarNetworking(validator func(*testing.T, *MockNetwork), doConfig
 	}
 }
 
+
 func TestSidecarConfiguresNetworking(t *testing.T) {
 	// Don't configure the network, accepting the defaults.
 	t.Run("DefaultNetworkConfiguration", subtestSidecarNetworking(verifyDefaultNetwork, false))
 	// Configure the network to change the bandwidth, etc.
 	t.Run("ConfiguredNetwork", subtestSidecarNetworking(verifyConfiguredNetwork, true))
+}
+*/
+
+func TestSomething(t *testing.T) {
+	hostname, runenv := unique_runenv()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	client := sdksync.NewInmemClient()
+	// Note: Cannot use sdk-go's network.Client. It does not support the InMemory client.
+	topic := sdksync.NewTopic("network"+hostname, sdknw.Config{})
+	nw := NewMockNetwork()
+	t.Log(len(nw.Configured))
+
+	// start sidecar handler.
+	inst, err := NewInstance(client, runenv, hostname, nw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go handler(ctx, inst)
+
+	// Now act like a test plan
+	client.SignalEntry(ctx, "network-initialized")
+	// Request a network change
+	// Warning: don't use PublishAndWait. It results in a stack overflow.
+	_, err = client.Publish(ctx, topic, &sdknw.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Let the landler do its work.
+	time.Sleep(10 * time.Second)
 }

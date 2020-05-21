@@ -9,7 +9,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/testground/sdk-go/sync"
+	sdknw "github.com/testground/sdk-go/network"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 
@@ -43,7 +43,7 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
-func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
+func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config) error {
 	if cfg.Network != defaultDataNetwork {
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
