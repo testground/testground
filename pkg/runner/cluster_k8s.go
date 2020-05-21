@@ -673,11 +673,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
 				{
-					Name:    "mkdir-outputs",
-					Image:   "busybox",
-					Args:    []string{"-c", "mkdir -p $TEST_OUTPUTS_PATH"},
-					Command: []string{"sh"},
-					Env:     env,
+					Name:            "mkdir-outputs",
+					Image:           "busybox",
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Args:            []string{"-c", "mkdir -p $TEST_OUTPUTS_PATH"},
+					Command:         []string{"sh"},
+					Env:             env,
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
@@ -695,10 +696,11 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 			},
 			Containers: []v1.Container{
 				{
-					Name:  podName,
-					Image: g.ArtifactPath,
-					Args:  []string{},
-					Env:   env,
+					Name:            podName,
+					Image:           g.ArtifactPath,
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Args:            []string{},
+					Env:             env,
 					Ports: []v1.ContainerPort{
 						{
 							Name:          "pprof",
