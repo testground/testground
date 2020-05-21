@@ -18,7 +18,7 @@ import (
 	"github.com/docker/docker/client"
 
 	"github.com/testground/testground/pkg/docker"
-	"github.com/testground/testground/pkg/rpctest"
+	"github.com/testground/testground/pkg/rpc/rpctest"
 )
 
 var (
@@ -176,9 +176,6 @@ func TestBuildImageBuildsImages(t *testing.T) {
 	}
 }
 
-// TODO(cory)
-// TestEnsureImage
-
 // Ensure a container exists. and then make sure CheckContainer can find it.
 func TestCheckContainerFindsExistingContainer(t *testing.T) {
 	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
@@ -213,6 +210,3 @@ func TestCheckContainerDoesNotFindNonExist(t *testing.T) {
 		t.Fail()
 	}
 }
-
-// TODO(cory)
-// TestEnsureContainer
