@@ -22,8 +22,10 @@ access_token = "docker hub access token"
 #   4. Runner defaults (applied by the runner).
 #
 [runners."cluster:k8s"]
-pod_resource_cpu      = "100m"
-pod_resource_memory   = "100Mi"
+testplan_pod_cpu            = "100m"
+testplan_pod_memory         = "100Mi"
+collect_outputs_pod_cpu     = "100m"
+collect_outputs_pod_memory  = "100Mi"
 sysctls = [
   "net.core.somaxconn=10000",
 ]
