@@ -20,6 +20,7 @@ import (
 // AllBuilders enumerates all builders known to the system.
 var AllBuilders = []api.Builder{
 	&build.DockerGoBuilder{},
+	&build.NullOpBuilder{},
 	&build.ExecGoBuilder{},
 	&build.DockerGenericBuilder{},
 }

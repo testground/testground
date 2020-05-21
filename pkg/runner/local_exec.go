@@ -160,7 +160,7 @@ func (*LocalExecutableRunner) ConfigType() reflect.Type {
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
-	return []string{"exec:go"}
+	return []string{"exec:go", "exec:nullop"}
 }
 
 func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
