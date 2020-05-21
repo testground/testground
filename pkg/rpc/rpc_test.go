@@ -18,6 +18,10 @@ type testcase struct {
 	expected interface{}     // expected chunk value
 }
 
+// testBody decodes the rpc body received, which is a json stream of rpc.Chunks
+// Ensure received body conforms to the expectations defined in the testcase.
+// Each method tested should produce a chunk of certain "ChunkType" and should
+// carry the payload expected.
 func testBody(t *testing.T, test *testcase, rdr io.Reader) {
 	dec := json.NewDecoder(rdr)
 	for dec.More() {
@@ -59,12 +63,16 @@ func testBody(t *testing.T, test *testcase, rdr io.Reader) {
 				}
 
 			case rpc.ChunkTypeError:
-				t.Log("ChunkTypeError", ch.Payload)
+				if ch.Payload != nil {
+					t.Log("ChunkTypeError", ch.Payload)
+					t.Fail()
+				}
 			}
 		})
 	}
 }
 
+// Test methods directly attached to the outputWriter
 func TestLogging(t *testing.T) {
 
 	// Info and Warn send.
@@ -85,6 +93,7 @@ func TestLogging(t *testing.T) {
 
 	for _, test := range tcs {
 		rec, ow := rpctest.NewRecordedOutputWriter(t.Name() + test.f)
+		// Call method with data. i.e. ow.Infof("test")
 		reflect.ValueOf(ow).MethodByName(test.f).Call([]reflect.Value{reflect.ValueOf(test.param)})
 		ow.Flush()
 
@@ -94,14 +103,11 @@ func TestLogging(t *testing.T) {
 	}
 }
 
-// Test that content serialized through the writers is received with the correct ChunkType and
-// content is expected.
+// test writing directly to the writers.
 func TestWriters(t *testing.T) {
 	data := []byte("test")
 	tcs := []testcase{
-		// expect encoded raw binary
 		{"BinaryWriter", []rpc.ChunkType{rpc.ChunkTypeBinary}, data, "dGVzdA=="},
-		// expect encoded zap logger output
 		{"InfoWriter", []rpc.ChunkType{rpc.ChunkTypeProgress}, data, "TWF5IDIxIDA2OjMzOjIyLjEzNDI3NgkbWzM0bUlORk8bWzBtCXRlc3QJeyJyZXFfaWQiOiAiVGVzdFdyaXRlcnNJbmZvV3JpdGVyIn0K"},
 	}
 
