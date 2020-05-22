@@ -104,7 +104,7 @@ func createContainer(ctx context.Context, containerName string, imageID string) 
 // create a container with a randomized name
 // Configure the container to be deleted when the test completes.
 // return the container ID.
-func pull_create_delete(ctx context.Context, t *testing.T, imageName string) (containerID string, containerName string) {
+func pullCreateDelete(t *testing.T, ctx context.Context, imageName string) (containerID string, containerName string) {
 	containerName = t.Name() + "-" + strconv.FormatUint(rand.Uint64(), 16)
 
 	err := pullImage(ctx, imageName)
