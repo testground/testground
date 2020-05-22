@@ -14,7 +14,7 @@ import (
 )
 
 type BuildImageOpts struct {
-	Name      string                   // reuired for EnsureImage
+	Name      string                   // required for EnsureImage
 	BuildCtx  string                   // required
 	BuildOpts *types.ImageBuildOptions // optional
 }
