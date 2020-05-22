@@ -38,7 +38,6 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id       = in.BuildID
 		basesrc  = in.BaseSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
@@ -46,12 +45,11 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return nil, err
 	}
 
-	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
+		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
 		Dockerfile:  "/plan/Dockerfile",
@@ -69,10 +67,25 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
+
+	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("couldnt get docker image id: %w", err)
+	}
+
+	ow.Infow("got docker image id", "image_id", imageID)
 
 	out := &api.BuildOutput{
-		ArtifactPath: in.BuildID,
+		ArtifactPath: imageID,
+	}
+
+	// Testplan image tag
+	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+
+	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
+		return out, err
 	}
 
 	if cfg.PushRegistry {

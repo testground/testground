@@ -33,7 +33,7 @@ func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client
 	}
 
 	// Tag the image under the AWS ECR repository.
-	tag := uri + ":" + in.BuildID
+	tag := uri + ":" + out.ArtifactPath
 	ow.Infow("tagging image", "tag", tag)
 	if err = client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
 		return err
@@ -62,7 +62,7 @@ func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client
 func pushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.BuildInput, out *api.BuildOutput) error {
 	uri := in.EnvConfig.DockerHub.Repo + "/testground"
 
-	tag := uri + ":" + in.BuildID
+	tag := uri + ":" + out.ArtifactPath
 	ow.Infow("tagging image", "source", out.ArtifactPath, "repo", uri, "tag", tag)
 
 	if err := client.ImageTag(ctx, out.ArtifactPath, tag); err != nil {
