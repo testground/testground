@@ -55,14 +55,6 @@ type DockerGoBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
 
-	// PushRegistry, if true, will push the resulting image to a Docker
-	// registry.
-	PushRegistry bool `toml:"push_registry"`
-
-	// RegistryType is the type of registry this builder will push the generated
-	// Docker image to, if PushRegistry is true.
-	RegistryType string `toml:"registry_type"`
-
 	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
@@ -249,22 +241,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
 	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
 		return out, err
-	}
-
-	if cfg.PushRegistry {
-		pushStart := time.Now()
-		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
-		if cfg.RegistryType == "aws" {
-			err := pushToAWSRegistry(ctx, ow, cli, in, out)
-			return out, err
-		}
-
-		if cfg.RegistryType == "dockerhub" {
-			err := pushToDockerHubRegistry(ctx, ow, cli, in, out)
-			return out, err
-		}
-
-		return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
 	}
 
 	return out, nil
