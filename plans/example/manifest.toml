@@ -60,3 +60,7 @@ instances = { min = 1, max = 200, default = 5 }
 [[testcases]]
 name = "artifact"
 instances = { min = 1, max = 200, default = 5 }
+
+[[testcases]]
+name = "drop"
+instances = { min = 1, max = 200, default = 5 }
