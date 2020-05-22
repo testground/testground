@@ -190,8 +190,7 @@ func TestCheckContainerFindsExistingContainer(t *testing.T) {
 		t.Fail()
 	}
 	if cont.ID != id {
-		t.Log("incorrect container found. id does not match that created.")
-		t.Fail()
+		t.Fatalf("incorrect container found. id does not match that created. expected %s, got %s", id, cont.ID)
 	}
 }
 
