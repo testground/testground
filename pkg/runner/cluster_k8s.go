@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/testground/sdk-go/runtime"
@@ -101,6 +102,9 @@ type ClusterK8sRunnerConfig struct {
 
 	KeepService bool `toml:"keep_service"`
 
+	// Provider is the infrastructure provider to use. Values: aws (default).
+	Provider string `toml:"provider"`
+
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
@@ -142,8 +146,22 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
+	// Right now we only support provider = "aws"; no provider defaults to "aws".
+	if cfg.Provider == "" {
+		cfg.Provider = "aws"
+	}
+	if strings.TrimSpace(strings.ToLower(cfg.Provider)) != "aws" {
+		return nil, fmt.Errorf("cluster:k8s provided not supported: %s; only aws is supported at this time", cfg.Provider)
+	}
+
+	// Push all local images associated with this run to the remote registry.
+	err := c.pushImagesToRegistry(ctx, ow, input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to push images to AWS ECR; err: %w", err)
+	}
+
 	var defaultCPU, defaultMemory resource.Quantity
-	defaultCPU, err := resource.ParseQuantity(cfg.PodResourceCPU)
+	defaultCPU, err = resource.ParseQuantity(cfg.PodResourceCPU)
 	if err != nil {
 		defaultCPU = resource.MustParse("100m")
 	}
@@ -815,6 +833,19 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 		return err
 	}
 	return nil
+}
+
+func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.OutputWriter, in *api.RunInput) error {
+	// Create a docker client.
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+
+	start := time.Now()
+	ow.Info("pushing images for run to AWS ECR")
+	defer func() { ow.Infow("pushing of images finished", "took", time.Since(start).Truncate(time.Second)) }()
+	return pushToAWSRegistry(ctx, ow, cli, in)
 }
 
 func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
