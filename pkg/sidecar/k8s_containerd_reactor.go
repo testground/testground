@@ -8,41 +8,27 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
-	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/sidecar/containerd"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/hashicorp/go-multierror"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	controlNetworkIfname = "eth0"
-	dataNetworkIfname    = "eth1"
-	podCidr              = "100.244.0.0/11"
-)
-
-var (
-	kubeDnsClusterIP = net.IPv4(10, 96, 0, 10)
-)
-
-type K8sReactor struct {
+type K8sContainerdReactor struct {
 	client          *sync.Client
-	manager         *docker.Manager
+	manager         *containerd.Manager
 	allowedServices []AllowedService
 }
 
-func NewK8sReactor() (Reactor, error) {
+func NewK8sContainerdReactor() (Reactor, error) {
 	wantedServices := []struct {
 		name string
 		host string
@@ -70,10 +56,7 @@ func NewK8sReactor() (Reactor, error) {
 		resolvedServices = append(resolvedServices, AllowedService{s.name, ip.IP})
 	}
 
-	docker, err := docker.NewManager()
-	if err != nil {
-		return nil, err
-	}
+	manager := containerd.NewManager()
 
 	client, err := sync.NewGenericClient(context.Background(), logging.S())
 	if err != nil {
@@ -83,15 +66,15 @@ func NewK8sReactor() (Reactor, error) {
 	// sidecar nodes perform Redis GC.
 	client.EnableBackgroundGC(nil)
 
-	return &K8sReactor{
+	return &K8sContainerdReactor{
 		client:          client,
-		manager:         docker,
+		manager:         manager,
 		allowedServices: resolvedServices,
 	}, nil
 }
 
-func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error {
-	return d.manager.Watch(ctx, func(cctx context.Context, container *docker.ContainerRef) error {
+func (d *K8sContainerdReactor) Handle(ctx context.Context, handler InstanceHandler) error {
+	return d.manager.Watch(ctx, func(cctx context.Context, container *containerd.ContainerRef) error {
 		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(cctx, container)
 		if err != nil {
@@ -110,26 +93,30 @@ func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error 
 	})
 }
 
-func (d *K8sReactor) Close() error {
+func (d *K8sContainerdReactor) Close() error {
 	var err *multierror.Error
 	err = multierror.Append(err, d.manager.Close())
 	err = multierror.Append(err, d.client.Close())
 	return err.ErrorOrNil()
 }
 
-func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.ContainerRef) (inst *Instance, err error) {
+func (d *K8sContainerdReactor) manageContainer(ctx context.Context, container *containerd.ContainerRef) (inst *Instance, err error) {
 	// Get the state/config of the cluster
-	info, err := container.Inspect(ctx)
+	isrunning, err := container.IsRunning(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("inspect failed: %w", err)
 	}
 
-	if !info.State.Running {
+	if !isrunning {
 		return nil, fmt.Errorf("container is not running: %s", container.ID)
 	}
 
 	// Construct the runtime environment
-	params, err := runtime.ParseRunParams(info.Config.Env)
+	env, err := container.Env(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("env failed: %w", err)
+	}
+	params, err := runtime.ParseRunParams(env)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse run environment: %w", err)
 	}
@@ -138,7 +125,11 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		return nil, nil
 	}
 
-	podName, ok := info.Config.Labels["io.kubernetes.pod.name"]
+	labels, err := container.Labels(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("labels failed: %w", err)
+	}
+	podName, ok := labels["io.kubernetes.pod.name"]
 	if !ok {
 		return nil, fmt.Errorf("couldn't get pod name from container labels for: %s", container.ID)
 	}
@@ -159,8 +150,13 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 	// Initialise CNI config
 	cninet := libcni.NewCNIConfig(filepath.SplitList("/host/opt/cni/bin"), nil)
 
+	// Get PID
+	pid, err := container.Pid(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("pid failed: %w", err)
+	}
 	// Get a netlink handle.
-	nshandle, err := netns.GetFromPid(info.State.Pid)
+	nshandle, err := netns.GetFromPid(pid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup the net namespace: %s", err)
 	}
@@ -179,7 +175,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 
 	// Finally, construct the network manager.
 	network := &K8sNetwork{
-		netnsPath:   fmt.Sprintf("/proc/%d/ns/net", info.State.Pid),
+		netnsPath:   fmt.Sprintf("/proc/%d/ns/net", pid),
 		cninet:      cninet,
 		container:   container,
 		subnet:      runenv.TestSubnet.String(),
@@ -295,43 +291,10 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		}
 	}
 
-	return NewInstance(d.client, runenv, info.Config.Hostname, network)
-}
-
-func waitForPodRunningPhase(ctx context.Context, podName string) error {
-	k8scfg, err := clientcmd.BuildConfigFromFlags("", "")
+	// Get Hostname
+	hostname, err := container.Hostname(ctx)
 	if err != nil {
-		return fmt.Errorf("error in wait for pod running phase: %v", err)
+		return nil, fmt.Errorf("hostname failed: %w", err)
 	}
-
-	k8sClientset, err := kubernetes.NewForConfig(k8scfg)
-	if err != nil {
-		return fmt.Errorf("error in wait for pod running phase: %v", err)
-	}
-
-	var phase string
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("wait for pod context (pod name: %s) erred with: %w", podName, ctx.Err())
-		default:
-			if phase == "Running" {
-				return nil
-			}
-			pod, err := k8sClientset.CoreV1().Pods("default").Get(podName, metav1.GetOptions{})
-			if err != nil {
-				return fmt.Errorf("error in wait for pod running phase: %v", err)
-			}
-
-			phase = string(pod.Status.Phase)
-
-			time.Sleep(1 * time.Second)
-		}
-	}
-}
-
-type AllowedService struct {
-	Name string
-	IP   net.IP
+	return NewInstance(d.client, runenv, hostname, network)
 }
