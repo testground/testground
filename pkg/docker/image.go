@@ -121,5 +121,8 @@ func GetImageID(ctx context.Context, cli *client.Client, defaultTag string) (str
 	}
 
 	// get 3cde7451eb28 from sha256:3cde7451eb28a3199f2c7d4e8e02a98f2e96b9a34dd4a9bc7eeaa5a192a1536f
+	if !strings.HasPrefix(images[0].ID, "sha256:") {
+		panic(fmt.Sprintf("expected image ID to start with 'sha256:', instead got: %s", images[0].ID))
+	}
 	return images[0].ID[7 : 7+12], nil
 }
