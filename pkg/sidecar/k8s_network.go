@@ -169,6 +169,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 	if err := link.Shape(cfg.Default); err != nil {
 		return fmt.Errorf("failed to shape link: %w", err)
 	}
+	if err := link.AddRules(cfg.Rules); err != nil {
+		return err
+	}
 	return nil
 }
 

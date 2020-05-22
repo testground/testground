@@ -90,7 +90,7 @@ func handler(ctx context.Context, instance *Instance) error {
 	instance.S().Infof("all networks ready")
 
 	// Now let the test case tell us how to configure the network.
-	topic := sync.NewTopic("network"+instance.Hostname, network.Config{})
+	topic := sync.NewTopic("network:"+instance.Hostname, network.Config{})
 	networkChanges := make(chan *network.Config, 16)
 	if _, err := instance.Client.Subscribe(ctx, topic, networkChanges); err != nil {
 		return fmt.Errorf("failed to subscribe to network changes: %s", err)

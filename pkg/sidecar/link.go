@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 
 	"github.com/testground/sdk-go/network"
 )
@@ -177,6 +178,29 @@ func (l *NetlinkLink) Shape(shape network.LinkShape) error {
 		DuplicateCorr: shape.DuplicateCorr,
 	}); err != nil {
 		return err
+	}
+	return nil
+}
+
+// TODO(cory) actually process the shape per network.
+// For now, this simply adds a route based on the Filter
+func (l *NetlinkLink) AddRules(rules []network.LinkRule) error {
+	for _, rule := range rules {
+		r := netlink.Route{
+			Dst: &rule.Subnet,
+		}
+		switch rule.Filter {
+		case network.Accept:
+			continue
+		case network.Reject:
+			r.Type = nl.FR_ACT_PROHIBIT
+		case network.Drop:
+			r.Type = nl.FR_ACT_BLACKHOLE
+		}
+		err := l.handle.RouteAdd(&r)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
