@@ -28,6 +28,94 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
+// Pull an image (to ensure it exists) then make sure FindImage can find it.
+func TestFindImageFindsImages(t *testing.T) {
+	initDockerClientOrSkip(t)
+
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	imageName := "hello-world"
+	err := pullImage(ctx, imageName)
+	require.NoError(t, err)
+
+	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
+	require.NoError(t, err)
+	require.NotNil(t, found)
+}
+
+// Find an image with a random name. Make sure it fails.
+func TestFindImageDoesNotFindNonExist(t *testing.T) {
+	initDockerClientOrSkip(t)
+
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	imageName := strconv.Itoa(rand.Int())
+
+	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
+// Create a new Dockerfile with fresh content.
+// Use BuildImage to build it. Make sure it exists.
+func TestBuildImageBuildsImages(t *testing.T) {
+	initDockerClientOrSkip(t)
+
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	rndname, dir := randomBuildContext(t)
+	defer os.Remove(dir) // cleanup
+
+	// Build the image
+	opts := docker.BuildImageOpts{
+		Name:     rndname,
+		BuildCtx: dir,
+	}
+	err := docker.BuildImage(ctx, ow, cli, &opts)
+	require.NoError(t, err)
+
+	// Check that it exists.
+	_, found, err := docker.FindImage(ctx, ow, cli, rndname)
+	require.NoError(t, err)
+	require.True(t, found)
+}
+
+// Ensure a container exists. and then make sure CheckContainer can find it.
+func TestCheckContainerFindsExistingContainer(t *testing.T) {
+	initDockerClientOrSkip(t)
+
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx := context.Background()
+
+	image := "hello-world:latest"
+	id, name := pullCreateDelete(t, ctx, image)
+	cont, err := docker.CheckContainer(ctx, ow, cli, name)
+	require.NoError(t, err)
+	require.NotNil(t, cont)
+	require.Equal(t, id, cont.ID)
+}
+
+// Try to find a container which does not exist. Make sure it cant be found.
+func TestCheckContainerDoesNotFindNonExist(t *testing.T) {
+	initDockerClientOrSkip(t)
+
+	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
+	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
+	defer cancel()
+
+	name := strconv.Itoa(rand.Int())
+
+	cont, err := docker.CheckContainer(ctx, ow, cli, name)
+	require.NoError(t, err)
+	require.Nil(t, cont)
+}
+
 func initDockerClientOrSkip(t *testing.T) {
 	t.Helper()
 	var err error
@@ -116,92 +204,4 @@ func pullCreateDelete(t *testing.T, ctx context.Context, imageName string) (cont
 
 	t.Cleanup(deleteContainerFn(ctx, t, containerID))
 	return containerID, containerName
-}
-
-// Pull an image (to ensure it exists) then make sure FindImage can find it.
-func TestFindImageFindsImages(t *testing.T) {
-	initDockerClientOrSkip(t)
-
-	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-	defer cancel()
-
-	imageName := "hello-world"
-	err := pullImage(ctx, imageName)
-	require.NoError(t, err)
-
-	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
-	require.NoError(t, err)
-	require.NotNil(t, found)
-}
-
-// Find an image with a random name. Make sure it fails.
-func TestFindImageDoesNotFindNonExist(t *testing.T) {
-	initDockerClientOrSkip(t)
-
-	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-	defer cancel()
-
-	imageName := strconv.Itoa(rand.Int())
-
-	_, found, err := docker.FindImage(ctx, ow, cli, imageName)
-	require.NoError(t, err)
-	require.False(t, found)
-}
-
-// Create a new Dockerfile with fresh content.
-// Use BuildImage to build it. Make sure it exists.
-func TestBuildImageBuildsImages(t *testing.T) {
-	initDockerClientOrSkip(t)
-
-	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-	defer cancel()
-
-	rndname, dir := randomBuildContext(t)
-	defer os.Remove(dir) // cleanup
-
-	// Build the image
-	opts := docker.BuildImageOpts{
-		Name:     rndname,
-		BuildCtx: dir,
-	}
-	err := docker.BuildImage(ctx, ow, cli, &opts)
-	require.NoError(t, err)
-
-	// Check that it exists.
-	_, found, err := docker.FindImage(ctx, ow, cli, rndname)
-	require.NoError(t, err)
-	require.True(t, found)
-}
-
-// Ensure a container exists. and then make sure CheckContainer can find it.
-func TestCheckContainerFindsExistingContainer(t *testing.T) {
-	initDockerClientOrSkip(t)
-
-	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
-	ctx := context.Background()
-
-	image := "hello-world:latest"
-	id, name := pullCreateDelete(t, ctx, image)
-	cont, err := docker.CheckContainer(ctx, ow, cli, name)
-	require.NoError(t, err)
-	require.NotNil(t, cont)
-	require.Equal(t, id, cont.ID)
-}
-
-// Try to find a container which does not exist. Make sure it cant be found.
-func TestCheckContainerDoesNotFindNonExist(t *testing.T) {
-	initDockerClientOrSkip(t)
-
-	_, ow := rpctest.NewRecordedOutputWriter(t.Name())
-	ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
-	defer cancel()
-
-	name := strconv.Itoa(rand.Int())
-
-	cont, err := docker.CheckContainer(ctx, ow, cli, name)
-	require.NoError(t, err)
-	require.Nil(t, cont)
 }
