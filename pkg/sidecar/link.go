@@ -186,18 +186,29 @@ func (l *NetlinkLink) Shape(shape network.LinkShape) error {
 // For now, this simply adds a route based on the Filter
 func (l *NetlinkLink) AddRules(rules []network.LinkRule) error {
 	for _, rule := range rules {
+		dropRoute := nl.FR_ACT_BLACKHOLE
+		rejectRoute := nl.FR_ACT_PROHIBIT
 		r := netlink.Route{
 			Dst: &rule.Subnet,
 		}
 		switch rule.Filter {
+		// delete drop and reject routes, if they exist.
 		case network.Accept:
+			r.Type = dropRoute
+			_ = l.handle.RouteDel(&r)
+			r.Type = rejectRoute
+			_ = l.handle.RouteDel(&r)
 			continue
+
+		// Setup a reject route.
 		case network.Reject:
-			r.Type = nl.FR_ACT_PROHIBIT
+			r.Type = rejectRoute
+
+		// setup a blackhole route.
 		case network.Drop:
-			r.Type = nl.FR_ACT_BLACKHOLE
+			r.Type = dropRoute
 		}
-		err := l.handle.RouteAdd(&r)
+		err := l.handle.RouteReplace(&r)
 		if err != nil {
 			return err
 		}
