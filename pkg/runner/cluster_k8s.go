@@ -102,7 +102,7 @@ type ClusterK8sRunnerConfig struct {
 
 	KeepService bool `toml:"keep_service"`
 
-	// Provider is the infrastructure provider to use. Values: aws (default).
+	// Provider is the infrastructure provider to use
 	Provider string `toml:"provider"`
 
 	// Resources requested for each pod from the Kubernetes cluster
@@ -146,22 +146,16 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	// Right now we only support provider = "aws"; no provider defaults to "aws".
-	if cfg.Provider == "" {
-		cfg.Provider = "aws"
-	}
-	if strings.TrimSpace(strings.ToLower(cfg.Provider)) != "aws" {
-		return nil, fmt.Errorf("cluster:k8s provided not supported: %s; only aws is supported at this time", cfg.Provider)
-	}
-
-	// Push all local images associated with this run to the remote registry.
-	err := c.pushImagesToRegistry(ctx, ow, input)
-	if err != nil {
-		return nil, fmt.Errorf("failed to push images to AWS ECR; err: %w", err)
+	switch cfg.Provider {
+	case "aws", "dockerhub":
+		err := c.pushImagesToRegistry(ctx, ow, input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+		}
 	}
 
 	var defaultCPU, defaultMemory resource.Quantity
-	defaultCPU, err = resource.ParseQuantity(cfg.PodResourceCPU)
+	defaultCPU, err := resource.ParseQuantity(cfg.PodResourceCPU)
 	if err != nil {
 		defaultCPU = resource.MustParse("100m")
 	}
@@ -836,6 +830,8 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 }
 
 func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.OutputWriter, in *api.RunInput) error {
+	cfg := *in.RunnerConfig.(*ClusterK8sRunnerConfig)
+
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -843,9 +839,18 @@ func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.Out
 	}
 
 	start := time.Now()
-	ow.Info("pushing images for run to AWS ECR")
+	ow.Info("pushing images...")
 	defer func() { ow.Infow("pushing of images finished", "took", time.Since(start).Truncate(time.Second)) }()
-	return pushToAWSRegistry(ctx, ow, cli, in)
+
+	if cfg.Provider == "aws" {
+		return pushToAWSRegistry(ctx, ow, cli, in)
+	}
+
+	if cfg.Provider == "dockerhub" {
+		return pushToDockerHubRegistry(ctx, ow, cli, in)
+	}
+
+	return errors.New("unknown provider")
 }
 
 func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {

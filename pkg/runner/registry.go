@@ -2,6 +2,8 @@ package runner
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/testground/testground/pkg/api"
@@ -70,6 +72,55 @@ func pushToAWSRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client
 		// replace the artifact path by the pushed image.
 		g.ArtifactPath = tag
 		ow.Infow("pushed image for group", "group_id", g.ID, "tag", tag)
+	}
+
+	return nil
+}
+
+func pushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.RunInput) error {
+	uri := in.EnvConfig.DockerHub.Repo + "/testground"
+
+	pushed := make(map[string]string, len(in.Groups))
+	for _, g := range in.Groups {
+		if uri, ok := pushed[g.ArtifactPath]; ok {
+			ow.Infow("omitting push of previously pushed image", "group_id", g.ID, "tag", uri)
+			g.ArtifactPath = uri
+			continue
+		}
+
+		tag := uri + ":" + in.TestPlan
+		ow.Infow("tagging image", "source", in.TestPlan, "repo", uri, "tag", tag)
+
+		if err := client.ImageTag(ctx, g.ArtifactPath, tag); err != nil {
+			return err
+		}
+
+		auth := types.AuthConfig{
+			Username: in.EnvConfig.DockerHub.Username,
+			Password: in.EnvConfig.DockerHub.AccessToken,
+		}
+		authBytes, err := json.Marshal(auth)
+		if err != nil {
+			return err
+		}
+		authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+		rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+			RegistryAuth: authBase64,
+		})
+		if err != nil {
+			return err
+		}
+
+		ow.Infow("pushed image", "source", g.ArtifactPath, "tag", tag, "repo", uri)
+
+		pushed[g.ArtifactPath] = tag
+		g.ArtifactPath = tag
+
+		// Pipe the docker output to stdout.
+		if err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
+			return err
+		}
 	}
 
 	return nil
