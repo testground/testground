@@ -70,8 +70,9 @@ workflows:
       - build-test:
           requires:
             - prepare-tidy
-      - kind-test:
+      - integration-test:
           requires:
+            - build-test
             - prepare-tidy
 
 jobs:
@@ -114,8 +115,7 @@ jobs:
             cd $HOME/project
             make test
 
-  # Tests the k8s runner can successfully submit jobs.
-  kind-test:
+  integration-test:
     executor: linux
     steps:
       - setup-install-bins
@@ -126,5 +126,11 @@ jobs:
           name: "create kind cluster"
           command: make kind-cluster
       - run:
-          name: "run integration tests on kind"
-          command: make test-integration
+          name: "run cluster:k8s integration tests"
+          command: make test-integ-cluster-k8s
+      - run:
+          name: "run local:docker integration tests"
+          command: make test-integ-local-docker
+      - run:
+          name: "run local:exec integration tests"
+          command: make test-integ-local-exec

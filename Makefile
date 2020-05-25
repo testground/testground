@@ -42,12 +42,15 @@ test: install
 	testground plan import --from ./plans/example
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
 
-test-integration:
+test-integration: test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec
+test-integ-cluster-k8s:
 	./integration_tests/01_k8s_kind_placebo_ok.sh
 	./integration_tests/02_k8s_kind_placebo_stall.sh
-	./integration_tests/03_exec_go_placebo_ok.sh
+test-integ-local-docker:
 	./integration_tests/04_docker_placebo_ok.sh
 	./integration_tests/05_docker_placebo_stall.sh
+test-integ-local-exec:
+	./integration_tests/03_exec_go_placebo_ok.sh
 
 kind-cluster:
 	kind create cluster --wait 90s
