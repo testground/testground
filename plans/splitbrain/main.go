@@ -58,7 +58,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 		client := sync.MustBoundClient(ctx, runenv)
 
 		if !runenv.TestSidecar {
-			return nil
+			return fmt.Errorf("this plan must be run with sidecar enabled")
 		}
 
 		netclient := network.NewClient(client, runenv)

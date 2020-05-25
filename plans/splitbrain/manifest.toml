@@ -1,19 +1,9 @@
-name = "network"
-
-[defaults]
-builder = "exec:go"
-runner = "local:exec"
+name = "splitbrain"
 
 [builders."docker:go"]
 enabled = true
 
-[builders."exec:go"]
-enabled = true
-
 [runners."local:docker"]
-enabled = true
-
-[runners."local:exec"]
 enabled = true
 
 [runners."cluster:k8s"]
