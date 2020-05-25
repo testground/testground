@@ -1,22 +1,8 @@
 #!/bin/bash
 
-set -o errexit
-set -e
+my_dir="$(dirname "$0")"
+source "$my_dir/header.sh"
 
-err_report() {
-    echo "Error on line $1 $2"
-}
-FILENAME=`basename $0`
-trap 'err_report $LINENO $FILENAME' ERR
-
-function finish {
-  kill -15 $DAEMONPID
-}
-trap finish EXIT
-
-TEMPDIR=`mktemp -d`
-testground daemon &
-DAEMONPID=$!
 testground plan import --from plans/placebo
 testground build single --builder docker:go --plan placebo | tee build.out
 export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
@@ -31,7 +17,5 @@ tar -xzvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
 SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
-popd
 test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
-
-exit $?
+popd
