@@ -43,4 +43,5 @@ test: install
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
 
 test-integration:
-	./integration_tests/01_k8s_kind_placebo.sh
+	./integration_tests/01_k8s_kind_placebo_ok.sh
+	./integration_tests/02_k8s_kind_placebo_stall.sh
