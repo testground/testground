@@ -1,14 +1,13 @@
 #!/bin/bash
 
 set -o errexit
-set -o pipefail
 set -e
 
 err_report() {
-    echo "Error on line $1"
+    echo "Error on line $1 $2"
 }
-
-trap 'err_report $LINENO' ERR
+FILENAME=`basename $0`
+trap 'err_report $LINENO $FILENAME' ERR
 
 function finish {
   kill -15 $DAEMONPID
@@ -30,10 +29,10 @@ docker tag $ARTIFACT testplan:placebo
 kind load docker-image testplan:placebo
 pushd $TEMPDIR
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 2 --plan placebo --testcase stall &
-sleep 10
+sleep 20
 BEFORE=$(kubectl get pods | grep placebo | grep Running | wc -l)
 testground terminate --runner=cluster:k8s
-sleep 5
+sleep 10
 AFTER=$(kubectl get pods | grep placebo | grep Running | wc -l)
 test $BEFORE -gt $AFTER
 exit $?

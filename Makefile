@@ -45,6 +45,9 @@ test: install
 test-integration:
 	./integration_tests/01_k8s_kind_placebo_ok.sh
 	./integration_tests/02_k8s_kind_placebo_stall.sh
+	./integration_tests/03_exec_go_placebo_ok.sh
+	./integration_tests/04_docker_placebo_ok.sh
+	./integration_tests/05_docker_placebo_stall.sh
 
 kind-cluster:
 	kind create cluster --wait 90s

@@ -4,7 +4,7 @@ set -o errexit
 set -e
 
 err_report() {
-    echo "Error on line $1 : $2"
+    echo "Error on line $1 $2"
 }
 FILENAME=`basename $0`
 trap 'err_report $LINENO $FILENAME' ERR
@@ -22,13 +22,9 @@ testground build single --builder docker:go --plan placebo | tee build.out
 export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
 docker tag $ARTIFACT testplan:placebo
 
-# The placebo:ok does not require a sidecar.
-# To prevent kind from attempting to download the image from DockerHub, build and load the image before executing it.
-# The plan is renamed as `testplan:placebo` because kind will check DockerHub if the tag is `latest`.
-
-kind load docker-image testplan:placebo
 pushd $TEMPDIR
-testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
+testground healthcheck --runner local:docker --fix
+testground run single --runner local:docker --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 tar -xzvvf $RUNID.tgz
