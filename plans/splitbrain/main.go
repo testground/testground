@@ -12,101 +12,98 @@ import (
 	"github.com/testground/sdk-go/sync"
 )
 
-type brainside int
+type region int
 
 const (
-	leftbrain = iota
-	rightbrain
-	galaxybrain
+	regionA = iota
+	regionB
+	regionC
 )
 
-func (s brainside) String() string {
-	return [...]string{"leftbrain", "rightbrain", "galaxybrain"}[s]
+func (r region) String() string {
+	return [...]string{"region_A", "region_B", "region_C"}[r]
 }
 
 type node struct {
-	Side  int
-	IPNet *net.IPNet
+	Region region
+	IP     *net.IP
 }
 
 func main() {
 	testcases := map[string]runtime.TestCaseFn{
-		"drop":   shirtsAndSkins(network.Drop),
-		"reject": shirtsAndSkins(network.Reject),
-		"accept": shirtsAndSkins(network.Accept),
+		"drop":   routeFilter(network.Drop),
+		"reject": routeFilter(network.Reject),
+		"accept": routeFilter(network.Accept),
 	}
 	runtime.InvokeMap(testcases)
 }
 
-func setup(ctx context.Context, runenv *runtime.RunEnv) (client *sync.Client, nwclient *network.Client) {
-	client = sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	if !runenv.TestSidecar {
-		return nil, nil
+func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
+	if runenv.TestCase == "accept" {
+		return false
 	}
-
-	nwclient = network.NewClient(client, runenv)
-	nwclient.MustWaitNetworkInitialized(ctx)
-	return client, nwclient
+	if (a.Region == regionA && b.Region == regionB) || (a.Region == regionB && b.Region == regionA) {
+		return true
+	}
+	return false
 }
 
-func shirtsAndSkins(action network.FilterAction) runtime.TestCaseFn {
+func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 
 	return func(runenv *runtime.RunEnv) error {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
 
-		client, nwclient := setup(ctx, runenv)
+		client := sync.MustBoundClient(ctx, runenv)
 
-		eth1, err := net.InterfaceByName("eth1")
-		if err != nil {
-			return err
-		}
-		addrs, err := eth1.Addrs()
-		if err != nil {
-			return err
+		if !runenv.TestSidecar {
+			return nil
 		}
 
-		ip, nw, err := net.ParseCIDR(addrs[0].String())
-		if err != nil {
-			return err
-		}
+		nwclient := network.NewClient(client, runenv)
+		nwclient.MustWaitNetworkInitialized(ctx)
 
-		// Start an HTTP server
-		runenv.RecordMessage("I have address %s", ip)
+		// Each node starts an HTTP server to test for connectivity
 		runenv.RecordMessage("Starting http server")
-		http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) { fmt.Fprintln(w, "hello.") })
+		http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+			runenv.RecordMessage("received http request from %s", req.RemoteAddr)
+			fmt.Fprintln(w, "hello.")
+		})
 		go http.ListenAndServe(":8765", nil)
 
-		seq := client.MustSignalEntry(ctx, "pickaside")
+		// Race to signal this point, the sequence ID determines to which region this node belongs.
+		seq := client.MustSignalEntry(ctx, "region-select")
+		ip := nwclient.MustGetDataNetworkIP()
+		me := node{region(int(seq) % 3), &ip}
+		runenv.RecordMessage("my ip is %s", ip)
 
-		// Generate a player and publish the address to the sync service.
-		me := node{int(seq) % 3, nw}
+		// publish my address so other nodes know how to reach me.
 		nodeTopic := sync.NewTopic("nodes", node{})
 		nodeCh := make(chan *node, 0)
-		client.MustPublishSubscribe(ctx, nodeTopic, &me, nodeCh)
+		_, sub := client.MustPublishSubscribe(ctx, nodeTopic, &me, nodeCh)
 
 		// Wait until we have received all addresses
 		nodes := make([]*node, 0)
-		for found := 0; found < runenv.TestInstanceCount; {
+		for found := 1; found <= runenv.TestInstanceCount; found++ {
 			n := <-nodeCh
-			nodes = append(nodes, n)
+			if !me.IP.Equal(*n.IP) {
+				nodes = append(nodes, n)
+			}
 		}
 
-		// leftbrain blocks the right brain using the prescribed method
-		// leftbrain and rightbrain can't talk to each other
-		// everyone can talk to galaxybrain nodes.
-		if me.Side == leftbrain {
+		// nodes from regionA apply a network policy for the nodes in regionB
+		if me.Region == regionA {
 			cfg := network.Config{
-				Network: "default",
+				Network:       "default",
+				CallbackState: "reconfigured",
+				Enable:        true,
 			}
 
 			for _, p := range nodes {
-				if p.Side == rightbrain {
+				if p.Region == regionB {
 					pnet := net.IPNet{
-						IP:   p.IPNet.IP,
+						IP:   *p.IP,
 						Mask: net.IPMask([]byte{255, 255, 255, 255}),
 					}
 					cfg.Rules = append(cfg.Rules, network.LinkRule{
@@ -117,36 +114,53 @@ func shirtsAndSkins(action network.FilterAction) runtime.TestCaseFn {
 					})
 				}
 			}
-			err := nwclient.ConfigureNetwork(ctx, &cfg)
-			if err != nil {
-				return err
-			}
+			go nwclient.ConfigureNetwork(ctx, &cfg)
 		}
+		time.Sleep(30)
 
 		// Wait until *all* nodes have received all addresses.
 		client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
-		_ = nwclient
 
+		var unexpected error
 		var errs int
 		var status200 int
 		var total int
 
 		// Try to reach out to each node and see what happens.
+		httpclient := http.Client{
+			Timeout: time.Minute,
+		}
+
+		// When running the "accept" testcase, there should be no failures.
+		// For the others, region A cannot reacon region B, so we expect failures.
 		for _, p := range nodes {
-			resp, err := http.Get(p.IPNet.IP.String() + ":8765")
+			total++
+			remoteAddr := "http://" + p.IP.String() + ":8765"
+			runenv.RecordMessage("(region %s) contacting %s", me.Region, remoteAddr)
+			resp, err := httpclient.Get(remoteAddr)
 			if err != nil {
 				errs++
+				if !expectErrors(runenv, &me, p) {
+					runenv.RecordFailure(err)
+					unexpected = err
+				}
+				continue
 			}
 			if resp.StatusCode == 200 {
 				status200++
 			}
-			total++
 		}
 
-		runenv.RecordMessage("HTTP errors:", errs)
-		runenv.RecordMessage("200 status codes", status200)
-		runenv.RecordMessage("tottal", total)
+		runenv.RecordMessage("could not connect %d", errs)
+		runenv.RecordMessage("200 status codes %d", status200)
+		runenv.RecordMessage("total, %d", total)
 
-		return nil
+		client.Close()
+		err := <-sub.Done()
+		if err != nil {
+			runenv.RecordFailure(err)
+		}
+
+		return unexpected
 	}
 }
