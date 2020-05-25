@@ -17,6 +17,7 @@ pushd $TEMPDIR
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
+file $RUNID.tgz
 tar -xzvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
