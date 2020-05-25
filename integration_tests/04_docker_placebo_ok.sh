@@ -13,7 +13,7 @@ testground healthcheck --runner local:docker --fix
 testground run single --runner local:docker --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
-tar -xzvvf $RUNID.tgz
+tar -xvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
 SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
