@@ -15,6 +15,6 @@ function finish {
 trap finish EXIT
 
 TEMPDIR=`mktemp -d`
-testground daemon &
+testground daemon > daemon.out 2>&1 &
 DAEMONPID=$!
 

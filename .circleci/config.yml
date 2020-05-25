@@ -67,12 +67,16 @@ workflows:
       - lint:
           requires:
             - prepare-tidy
-      - build-test:
+      - build:
           requires:
+            - prepare-tidy
+      - go-test:
+          requires:
+            - build
             - prepare-tidy
       - integration-test:
           requires:
-            - build-test
+            - build
             - prepare-tidy
 
 jobs:
@@ -102,13 +106,18 @@ jobs:
           name: "make lint"
           command: make lint
 
-  build-test:
+  build:
     executor: linux
     steps:
       - setup
       - run:
           name: "install"
           command: make install
+
+  go-test:
+    executor: linux
+    steps:
+      - setup
       - run:
           name: "make test"
           command: |
