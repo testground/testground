@@ -39,7 +39,7 @@ func main() {
 }
 
 func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
-	if runenv.TestCase == "accept" {
+	if runenv.TestCase == "accept" || a.Region == regionC || b.Region == regionC {
 		return false
 	}
 	if (a.Region == regionA && b.Region == regionB) || (a.Region == regionB && b.Region == regionA) {
