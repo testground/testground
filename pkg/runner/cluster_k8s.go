@@ -150,9 +150,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	switch cfg.Provider {
-	case "aws", "dockerhub":
-		err := c.pushImagesToRegistry(ctx, ow, input)
+	// if `provider` is set, we have to push to a docker registry
+	if cfg.Provider != "" {
+		err := c.pushImagesToDockerRegistry(ctx, ow, input)
 		if err != nil {
 			return nil, fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
 		}
@@ -833,7 +833,7 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 	return nil
 }
 
-func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.OutputWriter, in *api.RunInput) error {
+func (c *ClusterK8sRunner) pushImagesToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, in *api.RunInput) error {
 	cfg := *in.RunnerConfig.(*ClusterK8sRunnerConfig)
 
 	// Create a docker client.
@@ -843,10 +843,14 @@ func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.Out
 	}
 
 	start := time.Now()
-	ow.Info("pushing images...")
+	ow.Info("pushing images")
 	defer func() { ow.Infow("pushing of images finished", "took", time.Since(start).Truncate(time.Second)) }()
 
-	if cfg.Provider == "aws" {
+	var ipo types.ImagePushOptions // Auth params for Docker client
+	var uri string                 // URI of Docker registry to push images to
+
+	switch cfg.Provider {
+	case "aws":
 		// Setup docker registry authentication
 		auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
 		if err != nil {
@@ -854,22 +858,19 @@ func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.Out
 		}
 		ow.Infow("acquired ECR authentication token")
 
+		ipo = types.ImagePushOptions{
+			RegistryAuth: aws.ECR.EncodeAuthToken(auth),
+		}
+
 		// Setup docker registry repository
 		repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan)
-		uri, err := aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
+		uri, err = aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
 		if err != nil {
 			return err
 		}
 		ow.Infow("ensured ECR repository exists", "name", repo)
 
-		ipo := types.ImagePushOptions{
-			RegistryAuth: aws.ECR.EncodeAuthToken(auth),
-		}
-
-		return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
-	}
-
-	if cfg.Provider == "dockerhub" {
+	case "dockerhub":
 		// Setup docker registry authentication
 		auth := types.AuthConfig{
 			Username: in.EnvConfig.DockerHub.Username,
@@ -881,17 +882,18 @@ func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.Out
 		}
 		authBase64 := base64.URLEncoding.EncodeToString(authBytes)
 
-		ipo := types.ImagePushOptions{
+		ipo = types.ImagePushOptions{
 			RegistryAuth: authBase64,
 		}
 
 		// Setup docker registry repository
-		uri := in.EnvConfig.DockerHub.Repo + "/testground"
+		uri = in.EnvConfig.DockerHub.Repo + "/testground"
 
-		return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
+	default:
+		return fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}
 
-	return errors.New("unknown provider")
+	return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 }
 
 func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
