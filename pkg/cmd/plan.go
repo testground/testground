@@ -10,6 +10,7 @@ import (
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/logging"
 
 	ttmpl "github.com/testground/plan-templates/templates"
 
@@ -18,7 +19,7 @@ import (
 	gitcfg "github.com/go-git/go-git/v5/config"
 	"github.com/mattn/go-zglob"
 	"github.com/urfave/cli/v2"
-	"github.com/whilp/git-urls"
+	giturls "github.com/whilp/git-urls"
 )
 
 var PlanCommand = cli.Command{
@@ -199,6 +200,12 @@ func importCommand(c *cli.Context) error {
 		baseDest = filepath.Base(parsed.Path)
 	}
 	dstPath := filepath.Join(cfg.Dirs().Home(), "plans", baseDest)
+
+	// check if path exists
+	if _, err := os.Stat(dstPath); !os.IsNotExist(err) {
+		logging.S().Warnw("destination dir already exists", "path", dstPath)
+		return nil
+	}
 
 	// Use git to clone. Any scheme supported by git is acceptable.
 	if c.Bool("git") {

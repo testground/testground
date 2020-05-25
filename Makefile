@@ -41,3 +41,6 @@ test: install
 	testground plan import --from ./plans/placebo || true
 	testground plan import --from ./plans/example || true
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
+
+test-integration:
+	./integration_tests/01_k8s_kind_placebo.sh
