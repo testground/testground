@@ -128,13 +128,14 @@ jobs:
             kind create cluster --wait 90s
             kubectl apply -f .circleci/pv.yaml
             kubectl apply -f .circleci/pvc.yaml
-            kubectl label nodes kind-control-plane testground.nodetype=plan
+            kubectl label nodes kind-control-plane testground.node.role.plan=true
+            kubectl label nodes kind-control-plane testground.node.role.infra=true
       # The placebo does not require a sidecar.
-      # To prevent kind from attempting to download the image from docker hub,
+      # To prevent kind from attempting to download the image from DockerHub,
       # build and load the image before executing it.
-      # The plan is renamed as `testplan:placebo` because kind will check dockerhub if the tag is `latest`.
+      # The plan is renamed as `testplan:placebo` because kind will check DockerHub if the tag is `latest`.
       - run:
-          name: "run a plan"
+          name: "run a plan on k8s kind"
           command: |
             testground daemon &
             testground plan import --from plans/placebo
@@ -142,15 +143,12 @@ jobs:
             export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
             docker tag $ARTIFACT testplan:placebo
             kind load docker-image testplan:placebo
-            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
-      - run:
-          name: "verify output"
-          command: |
+            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
             RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
             echo "checking run $RUNID"
-            SIZEOUT=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.out | wc -c)
+            tar -xzvvf $RUNID.tgz
+            SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
             echo "run.out is $SIZEOUT bytes."
-            SIZEERR=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.err | wc -c)
+            SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
             test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
             exit $?
-
