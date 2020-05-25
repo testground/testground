@@ -105,22 +105,24 @@ func pushToDockerHubRegistry(ctx context.Context, ow *rpc.OutputWriter, client *
 		}
 		authBase64 := base64.URLEncoding.EncodeToString(authBytes)
 
-		rc, err := client.ImagePush(ctx, uri, types.ImagePushOptions{
+		ow.Infow("pushing image for group", "group_id", g.ID, "tag", tag)
+		rc, err := client.ImagePush(ctx, tag, types.ImagePushOptions{
 			RegistryAuth: authBase64,
 		})
 		if err != nil {
 			return err
 		}
 
-		ow.Infow("pushed image", "source", g.ArtifactPath, "tag", tag, "repo", uri)
-
-		pushed[g.ArtifactPath] = tag
-		g.ArtifactPath = tag
-
 		// Pipe the docker output to stdout.
 		if err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
 			return err
 		}
+
+		pushed[g.ArtifactPath] = tag
+
+		// replace the artifact path by the pushed image.
+		g.ArtifactPath = tag
+		ow.Infow("pushed image for group", "group_id", g.ID, "tag", tag)
 	}
 
 	return nil
