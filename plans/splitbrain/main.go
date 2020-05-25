@@ -83,7 +83,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 
 		// publish my address so other nodes know how to reach me.
 		nodeTopic := sync.NewTopic("nodes", node{})
-		nodeCh := make(chan *node, 0)
+		nodeCh := make(chan *node)
 		_, sub := client.MustPublishSubscribe(ctx, nodeTopic, &me, nodeCh)
 
 		// Wait until we have received all addresses
@@ -117,12 +117,15 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 					})
 				}
 			}
-			go netclient.ConfigureNetwork(ctx, &cfg)
+			go netclient.MustConfigureNetwork(ctx, &cfg)
 		}
-		time.Sleep(30)
+		time.Sleep(10 * time.Second)
 
 		// Wait until *all* nodes have received all addresses.
-		client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
+		_, err := client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
+		if err != nil {
+			return err
+		}
 
 		var unexpected error
 		var errs int
@@ -159,7 +162,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 		runenv.RecordMessage("total, %d", total)
 
 		client.Close()
-		err := <-sub.Done()
+		err = <-sub.Done()
 		if err != nil {
 			runenv.RecordFailure(err)
 		}
