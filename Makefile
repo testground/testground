@@ -38,8 +38,8 @@ docker-testground:
 	docker build -t iptestground/testground:edge -f Dockerfile.testground .
 
 test: install
-	testground plan import --from ./plans/placebo || true
-	testground plan import --from ./plans/example || true
+	testground plan import --from ./plans/placebo
+	testground plan import --from ./plans/example
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
 
 test-integration:
