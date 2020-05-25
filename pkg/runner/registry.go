@@ -20,8 +20,8 @@ func pushToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, client *cli
 			continue
 		}
 
-		tag := uri + ":" + in.TestPlan
-		ow.Infow("tagging image", "source", in.TestPlan, "repo", uri, "tag", tag)
+		tag := uri + ":" + g.ArtifactPath
+		ow.Infow("tagging image", "group_id", g.ID, "tag", tag)
 
 		if err := client.ImageTag(ctx, g.ArtifactPath, tag); err != nil {
 			return err
