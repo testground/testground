@@ -61,8 +61,8 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 			return nil
 		}
 
-		nwclient := network.NewClient(client, runenv)
-		nwclient.MustWaitNetworkInitialized(ctx)
+		netclient := network.NewClient(client, runenv)
+		netclient.MustWaitNetworkInitialized(ctx)
 
 		// Each node starts an HTTP server to test for connectivity
 		runenv.RecordMessage("Starting http server")
@@ -74,7 +74,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 
 		// Race to signal this point, the sequence ID determines to which region this node belongs.
 		seq := client.MustSignalEntry(ctx, "region-select")
-		ip := nwclient.MustGetDataNetworkIP()
+		ip := netclient.MustGetDataNetworkIP()
 		me := node{region(int(seq) % 3), &ip}
 		runenv.RecordMessage("my ip is %s", ip)
 
@@ -114,7 +114,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 					})
 				}
 			}
-			go nwclient.ConfigureNetwork(ctx, &cfg)
+			go netclient.ConfigureNetwork(ctx, &cfg)
 		}
 		time.Sleep(30)
 
