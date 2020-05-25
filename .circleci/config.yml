@@ -101,7 +101,6 @@ jobs:
   build-test:
     executor: linux
     steps:
-      - setup
       - setup-install-bins
       - run:
           name: "build testground"
