@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,12 +20,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/logging"
@@ -843,11 +847,48 @@ func (c *ClusterK8sRunner) pushImagesToRegistry(ctx context.Context, ow *rpc.Out
 	defer func() { ow.Infow("pushing of images finished", "took", time.Since(start).Truncate(time.Second)) }()
 
 	if cfg.Provider == "aws" {
-		return pushToAWSRegistry(ctx, ow, cli, in)
+		// Setup docker registry authentication
+		auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
+		if err != nil {
+			return err
+		}
+		ow.Infow("acquired ECR authentication token")
+
+		// Setup docker registry repository
+		repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan)
+		uri, err := aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
+		if err != nil {
+			return err
+		}
+		ow.Infow("ensured ECR repository exists", "name", repo)
+
+		ipo := types.ImagePushOptions{
+			RegistryAuth: aws.ECR.EncodeAuthToken(auth),
+		}
+
+		return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 	}
 
 	if cfg.Provider == "dockerhub" {
-		return pushToDockerHubRegistry(ctx, ow, cli, in)
+		// Setup docker registry authentication
+		auth := types.AuthConfig{
+			Username: in.EnvConfig.DockerHub.Username,
+			Password: in.EnvConfig.DockerHub.AccessToken,
+		}
+		authBytes, err := json.Marshal(auth)
+		if err != nil {
+			return err
+		}
+		authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+		ipo := types.ImagePushOptions{
+			RegistryAuth: authBase64,
+		}
+
+		// Setup docker registry repository
+		uri := in.EnvConfig.DockerHub.Repo + "/testground"
+
+		return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 	}
 
 	return errors.New("unknown provider")
