@@ -26,6 +26,7 @@ testplan_pod_cpu            = "100m"
 testplan_pod_memory         = "100Mi"
 collect_outputs_pod_cpu     = "100m"
 collect_outputs_pod_memory  = "100Mi"
+provider                    = "aws"
 sysctls = [
   "net.core.somaxconn=10000",
 ]
