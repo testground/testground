@@ -70,7 +70,10 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 			runenv.RecordMessage("received http request from %s", req.RemoteAddr)
 			fmt.Fprintln(w, "hello.")
 		})
-		go http.ListenAndServe(":8765", nil)
+		go func() {
+			err := http.ListenAndServe(":8765", nil)
+			runenv.RecordFailure(err)
+		}()
 
 		// Race to signal this point, the sequence ID determines to which region this node belongs.
 		seq := client.MustSignalEntry(ctx, "region-select")
