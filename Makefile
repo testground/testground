@@ -6,7 +6,7 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
-.PHONY: install tidy mod-download lint build-all docker install test
+.PHONY: install tidy mod-download lint build-all docker goinstall test-go kind-cluster test-integration
 
 install: goinstall docker
 
@@ -37,7 +37,7 @@ docker-sidecar:
 docker-testground:
 	docker build -t iptestground/testground:edge -f Dockerfile.testground .
 
-test: install
+test-go:
 	testground plan import --from ./plans/placebo
 	testground plan import --from ./plans/example
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)

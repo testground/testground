@@ -17,4 +17,3 @@ trap finish EXIT
 TEMPDIR=`mktemp -d`
 testground daemon > daemon.out 2>&1 &
 DAEMONPID=$!
-

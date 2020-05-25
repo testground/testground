@@ -67,16 +67,8 @@ workflows:
       - lint:
           requires:
             - prepare-tidy
-      - build:
+      - build-test:
           requires:
-            - prepare-tidy
-      - go-test:
-          requires:
-            - build
-            - prepare-tidy
-      - integration-test:
-          requires:
-            - build
             - prepare-tidy
 
 jobs:
@@ -106,31 +98,19 @@ jobs:
           name: "make lint"
           command: make lint
 
-  build:
+  build-test:
     executor: linux
     steps:
       - setup
-      - run:
-          name: "install"
-          command: make install
-
-  go-test:
-    executor: linux
-    steps:
-      - setup
-      - run:
-          name: "make test"
-          command: |
-            cd $HOME/project
-            make test
-
-  integration-test:
-    executor: linux
-    steps:
       - setup-install-bins
       - run:
           name: "build testground"
           command: make install
+      - run:
+          name: "make test-go"
+          command: |
+            cd $HOME/project
+            make test-go
       - run:
           name: "create kind cluster"
           command: make kind-cluster
