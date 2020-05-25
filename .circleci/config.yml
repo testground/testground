@@ -123,18 +123,8 @@ jobs:
           name: "build testground"
           command: make install
       - run:
-          name: "configure cluster"
-          command: |
-            kind create cluster --wait 90s
-            kubectl apply -f .circleci/pv.yaml
-            kubectl apply -f .circleci/pvc.yaml
-            kubectl label nodes kind-control-plane testground.node.role.plan=true
-            kubectl label nodes kind-control-plane testground.node.role.infra=true
-      # The placebo does not require a sidecar.
-      # To prevent kind from attempting to download the image from DockerHub,
-      # build and load the image before executing it.
-      # The plan is renamed as `testplan:placebo` because kind will check DockerHub if the tag is `latest`.
+          name: "create kind cluster"
+          command: make kind-cluster
       - run:
-          name: "run a plan on k8s kind"
-          command: |
-            make test-integration
+          name: "run integration tests on kind"
+          command: make test-integration

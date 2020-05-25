@@ -45,3 +45,10 @@ test: install
 test-integration:
 	./integration_tests/01_k8s_kind_placebo_ok.sh
 	./integration_tests/02_k8s_kind_placebo_stall.sh
+
+kind-cluster:
+	kind create cluster --wait 90s
+	kubectl apply -f .circleci/pv.yaml
+	kubectl apply -f .circleci/pvc.yaml
+	kubectl label nodes kind-control-plane testground.node.role.plan=true
+	kubectl label nodes kind-control-plane testground.node.role.infra=true
