@@ -644,7 +644,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	}
 }
 
-func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
+func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -761,7 +761,7 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 }
 
 // checkClusterResources returns whether we can fit the input groups in the current cluster
-func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
+func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []*api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
 	neededCPUs := 0.0
 
 	defaultPodCPU, err := strconv.ParseFloat(fallbackCPU.AsDec().String(), 64)
