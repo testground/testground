@@ -354,9 +354,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	if !cfg.Background {
 		pretty := NewPrettyPrinter(ow)
 
-		// This goroutine takes attaches the sidecar container logs to the pretty printer.
+		// This goroutine tails the sidecar container logs and appends them to the pretty printer.
 		go func() {
-			t := time.Now().Add(time.Duration(-10) * time.Second)
+			t := time.Now().Add(time.Duration(-10) * time.Second) // sidecar is a long running daemon, so we care only about logs around the execution of our test run
 			stream, err := cli.ContainerLogs(ctx, "testground-sidecar", types.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: false,
