@@ -11,18 +11,17 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func pushToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.RunInput, ipo types.ImagePushOptions, uri string) error {
-	pushed := make(map[string]string, len(in.Groups))
+func (c *ClusterK8sRunner) pushToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, in *api.RunInput, ipo types.ImagePushOptions, uri string) error {
 	for _, g := range in.Groups {
-		if pap, ok := pushed[g.ArtifactPath]; ok {
-			ow.Infow("omitting push of previously pushed image", "group_id", g.ID, "tag", pap)
-			g.ArtifactPath = pap
+		tag := uri + ":" + g.ArtifactPath
+
+		if _, ok := c.imagesLRU.Get(tag); ok {
+			ow.Infow("image already pushed and tagged", "group_id", g.ID, "tag", tag)
+			g.ArtifactPath = tag
 			continue
 		}
 
-		tag := uri + ":" + g.ArtifactPath
 		ow.Infow("tagging image", "group_id", g.ID, "tag", tag)
-
 		if err := client.ImageTag(ctx, g.ArtifactPath, tag); err != nil {
 			return err
 		}
@@ -37,7 +36,7 @@ func pushToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, client *cli
 			return err
 		}
 
-		pushed[g.ArtifactPath] = tag
+		c.imagesLRU.Add(tag, struct{}{})
 
 		// replace the artifact path by the pushed image.
 		g.ArtifactPath = tag

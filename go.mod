@@ -22,6 +22,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/golang-lru v0.5.1
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
