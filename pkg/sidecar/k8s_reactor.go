@@ -47,7 +47,7 @@ type K8sReactor struct {
 	runidsCache     *lru.Cache
 }
 
-func NewK8sReactor() (*K8sReactor, error) {
+func NewK8sReactor() (Reactor, error) {
 	docker, err := docker.NewManager()
 	if err != nil {
 		return nil, err

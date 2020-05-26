@@ -42,7 +42,7 @@ type DockerReactor struct {
 	runidsCache    *lru.Cache
 }
 
-func NewDockerReactor() (*DockerReactor, error) {
+func NewDockerReactor() (Reactor, error) {
 	docker, err := docker.NewManager()
 	if err != nil {
 		return nil, err
