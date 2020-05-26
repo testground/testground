@@ -354,6 +354,32 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	if !cfg.Background {
 		pretty := NewPrettyPrinter(ow)
 
+		// This goroutine takes attaches the sidecar container logs to the pretty printer.
+		go func() {
+			t := time.Now().Add(time.Duration(-10) * time.Second)
+			stream, err := cli.ContainerLogs(ctx, "testground-sidecar", types.ContainerLogsOptions{
+				ShowStdout: true,
+				ShowStderr: false,
+				Since:      t.Format("2006-01-02T15:04:05"),
+				Follow:     true,
+			})
+
+			if err != nil {
+				doneCh <- err
+				return
+			}
+
+			rstdout, wstdout := io.Pipe()
+			rstderr, wstderr := io.Pipe()
+			go func() {
+				_, _ = stdcopy.StdCopy(wstdout, wstderr, stream)
+				_ = wstdout.Close()
+				_ = wstderr.Close()
+			}()
+
+			pretty.Append("sidecar     ", rstdout, rstderr)
+		}()
+
 		// This goroutine takes started containers and attaches them to the pretty printer.
 		go func() {
 		Outer:
