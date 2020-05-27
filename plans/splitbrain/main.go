@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/testground/sdk-go/network"
@@ -82,28 +83,34 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 		seq := client.MustSignalEntry(ctx, "region-select")
 		ip := netclient.MustGetDataNetworkIP()
 		me := node{region(int(seq) % 3), &ip}
-		runenv.RecordMessage("my ip is %s", ip)
+		runenv.RecordMessage("my ip is %s and I am in region %s", ip, me.Region)
 
 		// publish my address so other nodes know how to reach me.
 		nodeTopic := sync.NewTopic("nodes", node{})
 		nodeCh := make(chan *node)
-		_, sub := client.MustPublishSubscribe(ctx, nodeTopic, &me, nodeCh)
+		_, _ = client.MustPublishSubscribe(ctx, nodeTopic, &me, nodeCh)
 
 		// Wait until we have received all addresses
 		nodes := make([]*node, 0)
 		for found := 1; found <= runenv.TestInstanceCount; found++ {
 			n := <-nodeCh
+			runenv.RecordMessage("received node (%s) %s", n.Region.String(), n.IP.String())
 			if !me.IP.Equal(*n.IP) {
 				nodes = append(nodes, n)
 			}
 		}
 
 		// nodes from regionA apply a network policy for the nodes in regionB
+		hostname, err := os.Hostname()
+		if err != nil {
+			return err
+		}
 		if me.Region == regionA {
 			cfg := network.Config{
-				Network:       "default",
-				CallbackState: "reconfigured",
-				Enable:        true,
+				Network:        "default",
+				CallbackState:  sync.State("reconfigured" + hostname),
+				CallbackTarget: 1,
+				Enable:         true,
 			}
 
 			for _, p := range nodes {
@@ -120,15 +127,17 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 					})
 				}
 			}
-			go netclient.MustConfigureNetwork(ctx, &cfg)
+			netclient.MustConfigureNetwork(ctx, &cfg)
 		}
-		time.Sleep(10 * time.Second)
 
 		// Wait until *all* nodes have received all addresses.
-		_, err := client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
+		_, err = client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
 		if err != nil {
 			return err
 		}
+
+		// The http doesn't start instantly, just hang on a sec.
+		time.Sleep(10 * time.Second)
 
 		var unexpected error
 		var errs int
@@ -164,12 +173,9 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 		runenv.RecordMessage("200 status codes %d", status200)
 		runenv.RecordMessage("total, %d", total)
 
-		client.Close()
-		err = <-sub.Done()
-		if err != nil {
-			runenv.RecordFailure(err)
-		}
+		client.MustSignalAndWait(ctx, "testcomplete", runenv.TestInstanceCount)
 
+		client.Close()
 		return unexpected
 	}
 }
