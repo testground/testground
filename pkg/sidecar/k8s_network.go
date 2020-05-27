@@ -161,11 +161,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		n.activeLinks[cfg.Network] = link
 	}
 
-	// We don't yet support applying per-subnet rules.
-	if len(cfg.Rules) != 0 {
-		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
-	}
-
 	if err := link.Shape(cfg.Default); err != nil {
 		return fmt.Errorf("failed to shape link: %w", err)
 	}
