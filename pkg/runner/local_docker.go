@@ -216,6 +216,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		// Serialize the runenv into env variables to pass to docker.
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
+		env = append(env, "REDIS_HOST=testground-redis")
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
