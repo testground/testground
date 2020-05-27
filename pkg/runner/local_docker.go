@@ -558,6 +558,7 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	infraOpts := types.ContainerListOptions{}
 	infraOpts.Filters = filters.NewArgs()
 	infraOpts.Filters.Add("name", "testground-grafana")
+	infraOpts.Filters.Add("name", "testground-goproxy")
 	infraOpts.Filters.Add("name", "testground-influxdb")
 	infraOpts.Filters.Add("name", "testground-redis")
 	infraOpts.Filters.Add("name", "testground-sidecar")

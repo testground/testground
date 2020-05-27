@@ -184,6 +184,7 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 	opts := types.ContainerListOptions{}
 	opts.Filters = filters.NewArgs()
 	opts.Filters.Add("name", "testground-grafana")
+	opts.Filters.Add("name", "testground-goproxy")
 	opts.Filters.Add("name", "testground-redis")
 	opts.Filters.Add("name", "testground-influxdb")
 	opts.Filters.Add("name", "testground-sidecar")
