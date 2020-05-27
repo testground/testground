@@ -177,10 +177,6 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 				return
 			}
 
-		case runtime.EventTypeMetric:
-			m, _ := json.Marshal(evt.Metric)
-			c.print(idx, id, ts, Metric, string(m))
-
 		case runtime.EventTypeMessage:
 			c.print(idx, id, ts, Message, evt.Message)
 

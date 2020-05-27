@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 
-	"github.com/testground/sdk-go/sync"
+	"github.com/testground/sdk-go/network"
 )
 
 var (
@@ -151,7 +152,7 @@ func toMicroseconds(t time.Duration) uint32 {
 
 // Shape applies the link "shape" to the link, setting the bandwidth, latency,
 // jitter, etc.
-func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
+func (l *NetlinkLink) Shape(shape network.LinkShape) error {
 	rate := shape.Bandwidth
 	if rate == 0 {
 		rate = math.MaxUint64
@@ -177,6 +178,40 @@ func (l *NetlinkLink) Shape(shape sync.LinkShape) error {
 		DuplicateCorr: shape.DuplicateCorr,
 	}); err != nil {
 		return err
+	}
+	return nil
+}
+
+// TODO(cory) actually process the shape per network.
+// For now, this simply adds a route based on the Filter
+func (l *NetlinkLink) AddRules(rules []network.LinkRule) error {
+	for _, rule := range rules {
+		dropRoute := nl.FR_ACT_BLACKHOLE
+		rejectRoute := nl.FR_ACT_PROHIBIT
+		r := netlink.Route{
+			Dst: &rule.Subnet,
+		}
+		switch rule.Filter {
+		// delete drop and reject routes, if they exist.
+		case network.Accept:
+			r.Type = dropRoute
+			_ = l.handle.RouteDel(&r)
+			r.Type = rejectRoute
+			_ = l.handle.RouteDel(&r)
+			continue
+
+		// Setup a reject route.
+		case network.Reject:
+			r.Type = rejectRoute
+
+		// setup a blackhole route.
+		case network.Drop:
+			r.Type = dropRoute
+		}
+		err := l.handle.RouteReplace(&r)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

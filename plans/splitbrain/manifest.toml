@@ -1,0 +1,23 @@
+name = "splitbrain"
+
+[builders."docker:go"]
+enabled = true
+
+[runners."local:docker"]
+enabled = true
+
+[runners."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "drop"
+instances = { min = 2, max = 200, default = 2 }
+
+[[testcases]]
+name = "reject"
+instances = { min = 2, max = 200, default = 2 }
+
+[[testcases]]
+name = "accept"
+instances = { min = 2, max = 200, default = 2 }

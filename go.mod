@@ -21,7 +21,7 @@ require (
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
-	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/imdario/mergo v0.3.8
 	github.com/kubernetes/client-go v11.0.0+incompatible
 	github.com/logrusorgru/aurora v0.0.0-20191017060258-dc85c304c434
@@ -36,10 +36,9 @@ require (
 	github.com/otiai10/copy v1.0.2
 	github.com/pborman/uuid v1.2.0
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
-	github.com/testground/sdk-go v0.1.1
+	github.com/testground/sdk-go v0.2.1
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0

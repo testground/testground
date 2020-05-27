@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/testground/sdk-go/sync"
+	sdknw "github.com/testground/sdk-go/network"
 	"github.com/testground/testground/pkg/docker"
 
 	"github.com/docker/docker/api/types/network"
@@ -47,7 +47,7 @@ func (dn *DockerNetwork) ListActive() []string {
 	return networks
 }
 
-func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
+func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config) error {
 	netId, available := dn.availableLinks[cfg.Network]
 	if !available {
 		return fmt.Errorf("unsupported network: %s", cfg.Network)
@@ -130,13 +130,13 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.Network
 		dn.activeLinks[cfg.Network] = link
 	}
 
-	// We don't yet support applying per-subnet rules.
-	if len(cfg.Rules) != 0 {
-		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
-	}
-
 	if err := link.Shape(cfg.Default); err != nil {
 		return err
 	}
+
+	if err := link.AddRules(cfg.Rules); err != nil {
+		return err
+	}
+
 	return nil
 }

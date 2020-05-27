@@ -9,7 +9,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/testground/sdk-go/sync"
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 
@@ -43,7 +43,7 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
-func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConfig) error {
+func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) error {
 	if cfg.Network != defaultDataNetwork {
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
@@ -161,13 +161,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *sync.NetworkConf
 		n.activeLinks[cfg.Network] = link
 	}
 
-	// We don't yet support applying per-subnet rules.
-	if len(cfg.Rules) != 0 {
-		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
-	}
-
 	if err := link.Shape(cfg.Default); err != nil {
 		return fmt.Errorf("failed to shape link: %w", err)
+	}
+	if err := link.AddRules(cfg.Rules); err != nil {
+		return err
 	}
 	return nil
 }
