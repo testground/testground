@@ -70,9 +70,6 @@ workflows:
       - build-test:
           requires:
             - prepare-tidy
-      - kind-test:
-          requires:
-            - prepare-tidy
 
 jobs:
   prepare-tidy:
@@ -104,53 +101,24 @@ jobs:
   build-test:
     executor: linux
     steps:
-      - setup
-      - run:
-          name: "install"
-          command: make install
-      - run:
-          name: "make test"
-          command: |
-            cd $HOME/project
-            make test
-
-  # Tests the k8s runner can successfully submit jobs.
-  kind-test:
-    executor: linux
-    steps:
       - setup-install-bins
       - run:
           name: "build testground"
           command: make install
       - run:
-          name: "configure cluster"
+          name: "make test-go"
           command: |
-            kind create cluster --wait 90s
-            kubectl apply -f .circleci/pv.yaml
-            kubectl apply -f .circleci/pvc.yaml
-            kubectl label nodes kind-control-plane testground.nodetype=plan
-      # The placebo does not require a sidecar.
-      # To prevent kind from attempting to download the image from docker hub,
-      # build and load the image before executing it.
-      # The plan is renamed as `testplan:placebo` because kind will check dockerhub if the tag is `latest`.
+            cd $HOME/project
+            make test-go
       - run:
-          name: "run a plan"
-          command: |
-            testground daemon &
-            testground plan import --from plans/placebo
-            testground build single --builder docker:go --plan placebo | tee build.out
-            export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
-            docker tag $ARTIFACT testplan:placebo
-            kind load docker-image testplan:placebo
-            testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok | tee run.out
+          name: "create kind cluster"
+          command: make kind-cluster
       - run:
-          name: "verify output"
-          command: |
-            RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
-            echo "checking run $RUNID"
-            SIZEOUT=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.out | wc -c)
-            echo "run.out is $SIZEOUT bytes."
-            SIZEERR=$(docker exec kind-control-plane cat /vol/"$RUNID"/single/0/run.err | wc -c)
-            test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
-            exit $?
-
+          name: "run cluster:k8s integration tests"
+          command: make test-integ-cluster-k8s
+      - run:
+          name: "run local:docker integration tests"
+          command: make test-integ-local-docker
+      - run:
+          name: "run local:exec integration tests"
+          command: make test-integ-local-exec

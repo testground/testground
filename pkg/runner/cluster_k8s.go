@@ -349,7 +349,7 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 
 	// How many plan worker nodes are there?
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "testground.nodetype=plan",
+		LabelSelector: "testground.node.role.plan=true",
 	})
 	if err != nil {
 		return nil, err
@@ -741,7 +741,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
-			NodeSelector: map[string]string{"testground.nodetype": "plan"},
+			NodeSelector: map[string]string{"testground.node.role.plan": "true"},
 		},
 	}
 
@@ -773,7 +773,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 	defer c.pool.Release(client)
 
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
-		LabelSelector: "testground.nodetype=plan",
+		LabelSelector: "testground.node.role.plan=true",
 	})
 	if err != nil {
 		return false, err
@@ -924,7 +924,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			NodeSelector: map[string]string{
-				"testground.nodetype": "infra",
+				"testground.node.role.infra": "true",
 			},
 			Containers: []v1.Container{
 				{
