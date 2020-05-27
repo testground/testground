@@ -1,3 +1,9 @@
+// This plan demonstrates chaging the network on a per-host or per-net basis to make some nodes
+// unreachable to a subset of the test. The nodes are in three "regions", which you might imagine to
+// be countries with restrictive policies, corporate firewalls, misconfigured routers, etc. In this
+// plan, all the nodes in "regionA" cannot reach "regionB" because the network between them is
+// broken. We should expect to see nodes in "regionC" can reach all nodes on the network, while A
+// and B cannot.
 package main
 
 import (
@@ -70,10 +76,7 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 			runenv.RecordMessage("received http request from %s", req.RemoteAddr)
 			fmt.Fprintln(w, "hello.")
 		})
-		go func() {
-			err := http.ListenAndServe(":8765", nil)
-			runenv.RecordFailure(err)
-		}()
+		go func() { _ = http.ListenAndServe(":8765", nil) }()
 
 		// Race to signal this point, the sequence ID determines to which region this node belongs.
 		seq := client.MustSignalEntry(ctx, "region-select")
