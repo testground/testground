@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,11 +20,14 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/logging"
@@ -101,6 +106,9 @@ type ClusterK8sRunnerConfig struct {
 
 	KeepService bool `toml:"keep_service"`
 
+	// Provider is the infrastructure provider to use
+	Provider string `toml:"provider"`
+
 	// Resources requested for each pod from the Kubernetes cluster
 	PodResourceMemory string `toml:"pod_resource_memory"`
 	PodResourceCPU    string `toml:"pod_resource_cpu"`
@@ -141,6 +149,14 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	// if `provider` is set, we have to push to a docker registry
+	if cfg.Provider != "" {
+		err := c.pushImagesToDockerRegistry(ctx, ow, input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+		}
+	}
 
 	var defaultCPU, defaultMemory resource.Quantity
 	defaultCPU, err := resource.ParseQuantity(cfg.PodResourceCPU)
@@ -628,7 +644,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	}
 }
 
-func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
+func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -745,7 +761,7 @@ func (fw FakeWriterAt) WriteAt(p []byte, offset int64) (n int, err error) {
 }
 
 // checkClusterResources returns whether we can fit the input groups in the current cluster
-func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
+func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []*api.RunGroup, fallbackMemory resource.Quantity, fallbackCPU resource.Quantity) (bool, error) {
 	neededCPUs := 0.0
 
 	defaultPodCPU, err := strconv.ParseFloat(fallbackCPU.AsDec().String(), 64)
@@ -815,6 +831,69 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 		return err
 	}
 	return nil
+}
+
+func (c *ClusterK8sRunner) pushImagesToDockerRegistry(ctx context.Context, ow *rpc.OutputWriter, in *api.RunInput) error {
+	cfg := *in.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	// Create a docker client.
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
+	}
+
+	start := time.Now()
+	ow.Info("pushing images")
+	defer func() { ow.Infow("pushing of images finished", "took", time.Since(start).Truncate(time.Second)) }()
+
+	var ipo types.ImagePushOptions // Auth params for Docker client
+	var uri string                 // URI of Docker registry to push images to
+
+	switch cfg.Provider {
+	case "aws":
+		// Setup docker registry authentication
+		auth, err := aws.ECR.GetAuthToken(in.EnvConfig.AWS)
+		if err != nil {
+			return err
+		}
+		ow.Infow("acquired ECR authentication token")
+
+		ipo = types.ImagePushOptions{
+			RegistryAuth: aws.ECR.EncodeAuthToken(auth),
+		}
+
+		// Setup docker registry repository
+		repo := fmt.Sprintf("testground-%s-%s", in.EnvConfig.AWS.Region, in.TestPlan)
+		uri, err = aws.ECR.EnsureRepository(in.EnvConfig.AWS, repo)
+		if err != nil {
+			return err
+		}
+		ow.Infow("ensured ECR repository exists", "name", repo)
+
+	case "dockerhub":
+		// Setup docker registry authentication
+		auth := types.AuthConfig{
+			Username: in.EnvConfig.DockerHub.Username,
+			Password: in.EnvConfig.DockerHub.AccessToken,
+		}
+		authBytes, err := json.Marshal(auth)
+		if err != nil {
+			return err
+		}
+		authBase64 := base64.URLEncoding.EncodeToString(authBytes)
+
+		ipo = types.ImagePushOptions{
+			RegistryAuth: authBase64,
+		}
+
+		// Setup docker registry repository
+		uri = in.EnvConfig.DockerHub.Repo + "/testground"
+
+	default:
+		return fmt.Errorf("unknown provider: %s", cfg.Provider)
+	}
+
+	return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 }
 
 func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {

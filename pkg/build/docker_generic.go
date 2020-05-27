@@ -23,9 +23,7 @@ type DockerGenericBuilder struct {
 }
 
 type DockerGenericBuilderConfig struct {
-	BuildArgs    map[string]*string `toml:"build_args"` // ok if nil
-	PushRegistry bool               `toml:"push_registry"`
-	RegistryType string             `toml:"registry_type"`
+	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -88,18 +86,6 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return out, err
 	}
 
-	if cfg.PushRegistry {
-		pushStart := time.Now()
-		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
-		switch cfg.RegistryType {
-		case "aws":
-			err = pushToAWSRegistry(ctx, ow, cli, in, out)
-		case "dockerhub":
-			err = pushToDockerHubRegistry(ctx, ow, cli, in, out)
-		default:
-			err = fmt.Errorf("no registry type specified or unrecognized value: %s", cfg.RegistryType)
-		}
-	}
 	return out, err
 }
 

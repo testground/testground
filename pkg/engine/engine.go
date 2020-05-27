@@ -337,12 +337,12 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		TestPlan:       plan,
 		TestCase:       tcase,
 		TotalInstances: int(comp.Global.TotalInstances),
-		Groups:         make([]api.RunGroup, 0, len(comp.Groups)),
+		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
 	}
 
 	// Trigger a build for each group, and wait until all of them are done.
 	for _, grp := range comp.Groups {
-		g := api.RunGroup{
+		g := &api.RunGroup{
 			ID:           grp.ID,
 			Instances:    int(grp.CalculatedInstanceCount()),
 			ArtifactPath: grp.Run.Artifact,

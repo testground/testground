@@ -56,7 +56,7 @@ type RunInput struct {
 	TotalInstances int
 
 	// Groups enumerates the groups participating in this run.
-	Groups []RunGroup
+	Groups []*RunGroup
 }
 
 type RunGroup struct {
