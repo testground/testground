@@ -204,6 +204,19 @@ func (c *PrettyPrinter) Manage(id string, stdout, stderr io.ReadCloser) {
 	}()
 }
 
+// Append is the same as Manage, but doesn't wait for instance to exit.
+func (c *PrettyPrinter) Append(id string, stdout, stderr io.ReadCloser) {
+	idx := atomic.AddUint32(&c.count, 1) - 1
+
+	go func() {
+		c.processStderr(idx, id, stderr)
+	}()
+
+	go func() {
+		c.processStdout(idx, id, stdout)
+	}()
+}
+
 func (c *PrettyPrinter) print(idx uint32, id string, now time.Time, evtType eventType, message ...interface{}) {
 	var (
 		elapsed = now.Sub(c.start)
