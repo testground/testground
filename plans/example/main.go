@@ -29,8 +29,6 @@ func run(runenv *runtime.RunEnv) error {
 		return ExampleMetrics(runenv)
 	case "artifact":
 		return ExampleArtifact(runenv)
-	case "drop":
-		return ExampleDropNetwork(runenv)
 	default:
 		msg := fmt.Sprintf("Unknown Testcase %s", c)
 		return errors.New(msg)
