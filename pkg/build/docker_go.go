@@ -55,14 +55,6 @@ type DockerGoBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
 
-	// PushRegistry, if true, will push the resulting image to a Docker
-	// registry.
-	PushRegistry bool `toml:"push_registry"`
-
-	// RegistryType is the type of registry this builder will push the generated
-	// Docker image to, if PushRegistry is true.
-	RegistryType string `toml:"registry_type"`
-
 	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
@@ -100,15 +92,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id      = in.BuildID
 		basesrc = in.BaseSrcPath
 		plansrc = in.TestPlanSrcPath
 		sdksrc  = in.SDKSrcPath
 
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
-
-	ow = ow.With("build_id", id)
 
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
@@ -205,7 +194,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
+		Tags:        []string{in.BuildID},
 		BuildArgs:   args,
 		NetworkMode: "host",
 	}
@@ -227,32 +216,31 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
-	deps, err := parseDependenciesFromDocker(ctx, ow, cli, in.BuildID)
+	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("couldnt get docker image id: %w", err)
+	}
+
+	ow.Infow("got docker image id", "image_id", imageID)
+
+	deps, err := parseDependenciesFromDocker(ctx, ow, cli, imageID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list module dependencies; %w", err)
 	}
 
 	out := &api.BuildOutput{
-		ArtifactPath: in.BuildID,
+		ArtifactPath: imageID,
 		Dependencies: deps,
 	}
 
-	if cfg.PushRegistry {
-		pushStart := time.Now()
-		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
-		if cfg.RegistryType == "aws" {
-			err := pushToAWSRegistry(ctx, ow, cli, in, out)
-			return out, err
-		}
+	// Testplan image tag
+	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
 
-		if cfg.RegistryType == "dockerhub" {
-			err := pushToDockerHubRegistry(ctx, ow, cli, in, out)
-			return out, err
-		}
-
-		return nil, fmt.Errorf("no registry type specified, or unrecognised value: %s", cfg.RegistryType)
+	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
+		return out, err
 	}
 
 	return out, nil

@@ -177,10 +177,6 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 				return
 			}
 
-		case runtime.EventTypeMetric:
-			m, _ := json.Marshal(evt.Metric)
-			c.print(idx, id, ts, Metric, string(m))
-
 		case runtime.EventTypeMessage:
 			c.print(idx, id, ts, Message, evt.Message)
 
@@ -204,6 +200,19 @@ func (c *PrettyPrinter) Manage(id string, stdout, stderr io.ReadCloser) {
 
 	go func() {
 		defer c.wg.Done()
+		c.processStdout(idx, id, stdout)
+	}()
+}
+
+// Append is the same as Manage, but doesn't wait for instance to exit.
+func (c *PrettyPrinter) Append(id string, stdout, stderr io.ReadCloser) {
+	idx := atomic.AddUint32(&c.count, 1) - 1
+
+	go func() {
+		c.processStderr(idx, id, stderr)
+	}()
+
+	go func() {
 		c.processStdout(idx, id, stdout)
 	}()
 }

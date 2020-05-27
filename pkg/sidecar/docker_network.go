@@ -130,13 +130,13 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config
 		dn.activeLinks[cfg.Network] = link
 	}
 
-	// We don't yet support applying per-subnet rules.
-	if len(cfg.Rules) != 0 {
-		return fmt.Errorf("TODO: per-subnet bandwidth rules not supported")
-	}
-
 	if err := link.Shape(cfg.Default); err != nil {
 		return err
 	}
+
+	if err := link.AddRules(cfg.Rules); err != nil {
+		return err
+	}
+
 	return nil
 }

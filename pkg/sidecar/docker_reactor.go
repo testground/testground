@@ -16,7 +16,7 @@ import (
 	"github.com/vishvananda/netns"
 
 	"github.com/testground/sdk-go/runtime"
-	sdksync "github.com/testground/sdk-go/sync"
+	"github.com/testground/sdk-go/sync"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 )
@@ -32,7 +32,7 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
-	client         sdksync.Interface
+	client         *sync.Client
 	servicesRoutes []net.IP
 	manager        *docker.Manager
 }
@@ -63,7 +63,7 @@ func NewDockerReactor() (Reactor, error) {
 		return nil, err
 	}
 
-	client, err := sdksync.NewGenericClient(context.Background(), logging.S())
+	client, err := sync.NewGenericClient(context.Background(), logging.S())
 	if err != nil {
 		return nil, err
 	}

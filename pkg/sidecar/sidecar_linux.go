@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	sdknw "github.com/testground/sdk-go/network"
-	sdksync "github.com/testground/sdk-go/sync"
+	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/sync"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -19,7 +19,6 @@ const (
 var runners = map[string]func() (Reactor, error){
 	"docker": NewDockerReactor,
 	"k8s":    NewK8sReactor,
-	"mock":   NewMockReactor,
 	// TODO: local
 }
 
@@ -68,7 +67,7 @@ func handler(ctx context.Context, instance *Instance) error {
 	}()
 
 	// Network configuration loop.
-	err := instance.Network.ConfigureNetwork(ctx, &sdknw.Config{
+	err := instance.Network.ConfigureNetwork(ctx, &network.Config{
 		Network: defaultDataNetwork,
 		Enable:  true,
 	})
@@ -77,7 +76,7 @@ func handler(ctx context.Context, instance *Instance) error {
 		return err
 	}
 
-	ctx = sdksync.WithRunParams(ctx, &instance.RunEnv.RunParams)
+	ctx = sync.WithRunParams(ctx, &instance.RunEnv.RunParams)
 
 	// Wait for all the sidecars to enter the "network-initialized" state.
 	instance.S().Infof("waiting for all networks to be ready")
@@ -91,8 +90,8 @@ func handler(ctx context.Context, instance *Instance) error {
 	instance.S().Infof("all networks ready")
 
 	// Now let the test case tell us how to configure the network.
-	topic := sdksync.NewTopic("network"+instance.Hostname, sdknw.Config{})
-	networkChanges := make(chan *sdknw.Config, 16)
+	topic := sync.NewTopic("network:"+instance.Hostname, network.Config{})
+	networkChanges := make(chan *network.Config, 16)
 	if _, err := instance.Client.Subscribe(ctx, topic, networkChanges); err != nil {
 		return fmt.Errorf("failed to subscribe to network changes: %s", err)
 	}

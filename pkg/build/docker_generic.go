@@ -23,9 +23,7 @@ type DockerGenericBuilder struct {
 }
 
 type DockerGenericBuilderConfig struct {
-	BuildArgs    map[string]*string `toml:"build_args"` // ok if nil
-	PushRegistry bool               `toml:"push_registry"`
-	RegistryType string             `toml:"registry_type"`
+	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -38,7 +36,6 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		id       = in.BuildID
 		basesrc  = in.BaseSrcPath
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
@@ -46,12 +43,11 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return nil, err
 	}
 
-	ow = ow.With("build_id", id)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	opts := types.ImageBuildOptions{
-		Tags:        []string{id, in.BuildID},
+		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
 		Dockerfile:  "/plan/Dockerfile",
@@ -69,24 +65,27 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
-	ow.Infow("build completed", "took", time.Since(buildStart).Truncate(time.Second))
+	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
+
+	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
+	if err != nil {
+		return nil, fmt.Errorf("couldnt get docker image id: %w", err)
+	}
+
+	ow.Infow("got docker image id", "image_id", imageID)
 
 	out := &api.BuildOutput{
-		ArtifactPath: in.BuildID,
+		ArtifactPath: imageID,
 	}
 
-	if cfg.PushRegistry {
-		pushStart := time.Now()
-		defer func() { ow.Infow("image push completed", "took", time.Since(pushStart).Truncate(time.Second)) }()
-		switch cfg.RegistryType {
-		case "aws":
-			err = pushToAWSRegistry(ctx, ow, cli, in, out)
-		case "dockerhub":
-			err = pushToDockerHubRegistry(ctx, ow, cli, in, out)
-		default:
-			err = fmt.Errorf("no registry type specified or unrecognized value: %s", cfg.RegistryType)
-		}
+	// Testplan image tag
+	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+
+	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
+	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
+		return out, err
 	}
+
 	return out, err
 }
 

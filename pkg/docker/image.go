@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/archive"
 
@@ -13,7 +14,7 @@ import (
 )
 
 type BuildImageOpts struct {
-	Name      string                   // reuired for EnsureImage
+	Name      string                   // required for EnsureImage
 	BuildCtx  string                   // required
 	BuildOpts *types.ImageBuildOptions // optional
 }
@@ -53,6 +54,7 @@ func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client
 		return err
 	}
 	defer buildResponse.Body.Close()
+
 	return PipeOutput(buildResponse.Body, ow.StdoutWriter())
 }
 
@@ -100,4 +102,27 @@ func FindImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client,
 		}
 	}
 	return nil, false, nil
+}
+
+func GetImageID(ctx context.Context, cli *client.Client, defaultTag string) (string, error) {
+	filters := filters.NewArgs()
+	filters.Add("reference", defaultTag)
+	listOpts := types.ImageListOptions{
+		Filters: filters,
+	}
+
+	images, err := cli.ImageList(ctx, listOpts)
+	if err != nil {
+		return "", fmt.Errorf("docker image list failed: %w", err)
+	}
+
+	if len(images) != 1 {
+		return "", fmt.Errorf("unexpected number of images returned by docker image list, expected 1, got: %d", len(images))
+	}
+
+	// get 3cde7451eb28 from sha256:3cde7451eb28a3199f2c7d4e8e02a98f2e96b9a34dd4a9bc7eeaa5a192a1536f
+	if !strings.HasPrefix(images[0].ID, "sha256:") {
+		panic(fmt.Sprintf("expected image ID to start with 'sha256:', instead got: %s", images[0].ID))
+	}
+	return images[0].ID[7 : 7+12], nil
 }
