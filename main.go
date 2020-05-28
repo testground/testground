@@ -21,7 +21,6 @@ func main() {
 	app.Flags = cmd.RootFlags
 	// Disable the built-in -v flag (version), to avoid collisions with the
 	// verbosity flags.
-	// TODO implement a `testground version` command instead.
 	app.HideVersion = true
 	app.Before = func(c *cli.Context) error {
 		configureLogging(c)
