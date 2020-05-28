@@ -32,7 +32,7 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
-	client         *sync.Client
+	client         sync.Interface
 	servicesRoutes []net.IP
 	manager        *docker.Manager
 }
