@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	gosync "sync"
 	"time"
 
 	"github.com/testground/sdk-go/runtime"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/hashicorp/go-multierror"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
@@ -37,12 +39,49 @@ var (
 )
 
 type K8sReactor struct {
+	gosync.Mutex
+
 	client          *sync.Client
 	manager         *docker.Manager
 	allowedServices []AllowedService
+	runidsCache     *lru.Cache
 }
 
 func NewK8sReactor() (Reactor, error) {
+	docker, err := docker.NewManager()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := sync.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return nil, err
+	}
+
+	// sidecar nodes perform Redis GC.
+	client.EnableBackgroundGC(nil)
+
+	cache, _ := lru.New(32)
+
+	r := &K8sReactor{
+		client:      client,
+		manager:     docker,
+		runidsCache: cache,
+	}
+
+	r.ResolveServices("constructor")
+
+	return r, nil
+}
+
+func (d *K8sReactor) ResolveServices(runid string) {
+	d.Lock()
+	defer d.Unlock()
+
+	if _, ok := d.runidsCache.Get(runid); ok {
+		return
+	}
+
 	wantedServices := []struct {
 		name string
 		host string
@@ -70,24 +109,8 @@ func NewK8sReactor() (Reactor, error) {
 		resolvedServices = append(resolvedServices, AllowedService{s.name, ip.IP})
 	}
 
-	docker, err := docker.NewManager()
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := sync.NewGenericClient(context.Background(), logging.S())
-	if err != nil {
-		return nil, err
-	}
-
-	// sidecar nodes perform Redis GC.
-	client.EnableBackgroundGC(nil)
-
-	return &K8sReactor{
-		client:          client,
-		manager:         docker,
-		allowedServices: resolvedServices,
-	}, nil
+	d.runidsCache.Add(runid, struct{}{})
+	d.allowedServices = resolvedServices
 }
 
 func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error {
@@ -142,6 +165,9 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 	if !ok {
 		return nil, fmt.Errorf("couldn't get pod name from container labels for: %s", container.ID)
 	}
+
+	// Resolve allowed services, so that we update network routes
+	d.ResolveServices(params.TestRun)
 
 	err = waitForPodRunningPhase(ctx, podName)
 	if err != nil {

@@ -117,6 +117,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 			env = append(env, "INFLUXDB_URL=http://localhost:8086")
+			env = append(env, "REDIS_HOST=localhost")
 
 			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 
@@ -184,6 +185,7 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 	opts := types.ContainerListOptions{}
 	opts.Filters = filters.NewArgs()
 	opts.Filters.Add("name", "testground-grafana")
+	opts.Filters.Add("name", "testground-goproxy")
 	opts.Filters.Add("name", "testground-redis")
 	opts.Filters.Add("name", "testground-influxdb")
 	opts.Filters.Add("name", "testground-sidecar")

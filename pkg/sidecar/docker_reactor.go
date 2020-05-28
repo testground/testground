@@ -8,10 +8,12 @@ import (
 	"net"
 	"os"
 	"strings"
+	gosync "sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/hashicorp/go-multierror"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 
@@ -33,12 +35,47 @@ var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
 	client         sync.Interface
+	gosync.Mutex
 	servicesRoutes []net.IP
 	manager        *docker.Manager
+	runidsCache    *lru.Cache
 }
 
 func NewDockerReactor() (Reactor, error) {
-	// TODO: Generalize this to a list of services.
+	docker, err := docker.NewManager()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := sync.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return nil, err
+	}
+
+	// sidecar nodes perform Redis GC.
+	client.EnableBackgroundGC(nil)
+
+	cache, _ := lru.New(32)
+
+	r := &DockerReactor{
+		client:      client,
+		manager:     docker,
+		runidsCache: cache,
+	}
+
+	r.ResolveServices("constructor")
+
+	return r, nil
+}
+
+func (d *DockerReactor) ResolveServices(runid string) {
+	d.Lock()
+	defer d.Unlock()
+
+	if _, ok := d.runidsCache.Get(runid); ok {
+		return
+	}
+
 	wantedRoutes := []string{
 		os.Getenv(EnvRedisHost),
 		os.Getenv(EnvInfluxdbHost),
@@ -58,24 +95,8 @@ func NewDockerReactor() (Reactor, error) {
 		resolvedRoutes = append(resolvedRoutes, ip.IP)
 	}
 
-	docker, err := docker.NewManager()
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := sync.NewGenericClient(context.Background(), logging.S())
-	if err != nil {
-		return nil, err
-	}
-
-	// sidecar nodes perform Redis GC.
-	client.EnableBackgroundGC(nil)
-
-	return &DockerReactor{
-		client:         client,
-		servicesRoutes: resolvedRoutes,
-		manager:        docker,
-	}, nil
+	d.runidsCache.Add(runid, struct{}{})
+	d.servicesRoutes = resolvedRoutes
 }
 
 func (d *DockerReactor) Handle(globalctx context.Context, handler InstanceHandler) error {
@@ -132,6 +153,9 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	}
 
 	logging.S().Debugw("handle container", "name", info.Name, "image", info.Image)
+
+	// Resolve allowed services, so that we update network routes
+	d.ResolveServices(params.TestRun)
 
 	// Remove the TestOutputsPath. We can't store anything from the sidecar.
 	params.TestOutputsPath = ""
