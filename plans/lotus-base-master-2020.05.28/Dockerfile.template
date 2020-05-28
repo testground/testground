@@ -1,0 +1,44 @@
+#:::
+#::: BUILD CONTAINER
+#:::
+
+# GO_VERSION is the golang version this image will be built against.
+ARG GO_VERSION=1.14.2
+
+# Dynamically select the golang version.
+# TODO: Not sure how this interplays with image caching.
+FROM golang:${GO_VERSION}-buster
+
+# TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
+# The image will build that package only.
+ARG TESTPLAN_EXEC_PKG
+# GO_PROXY is the go proxy that will be used, or direct by default.
+ARG GO_PROXY=direct
+
+# Lotus Debian dependencies
+# based on lotus' tools/dockers/docker-examples/basic-miner-busybox
+
+ENV SRC_DIR /lotus
+
+RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates llvm clang mesa-opencl-icd ocl-icd-opencl-dev \
+  vim less htop jq
+
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Now copy the rest of the source and run the build.
+COPY . /
+
+# Lotus
+
+RUN cd $SRC_DIR \
+  && . $HOME/.cargo/env \
+  && make clean \
+  && FFI_BUILD_FROM_SOURCE=1 make debug
+
+# Store module dependencies
+RUN touch /testground_dep_list
+
+RUN mkdir /var/tmp/filecoin-proof-parameters
+
+ENV PATH="/usr/local/bin:${PATH}"
+
