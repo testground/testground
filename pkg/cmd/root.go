@@ -17,6 +17,7 @@ var RootCommands = cli.CommandsByName{
 	&CollectCommand,
 	&TerminateCommand,
 	&HealthcheckCommand,
+	&VersionCommand,
 }
 
 func init() {
