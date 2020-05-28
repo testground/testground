@@ -36,6 +36,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/kubernetes/client-go/tools/remotecommand"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,8 +120,9 @@ type ClusterK8sRunnerConfig struct {
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
 type ClusterK8sRunner struct {
-	config KubernetesConfig
-	pool   *pool
+	config    KubernetesConfig
+	pool      *pool
+	imagesLRU *lru.Cache
 }
 
 type KubernetesConfig struct {
@@ -407,6 +409,8 @@ func (c *ClusterK8sRunner) initPool() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		c.imagesLRU, _ = lru.New(256)
 	})
 }
 
@@ -893,7 +897,7 @@ func (c *ClusterK8sRunner) pushImagesToDockerRegistry(ctx context.Context, ow *r
 		return fmt.Errorf("unknown provider: %s", cfg.Provider)
 	}
 
-	return pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
+	return c.pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 }
 
 func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
