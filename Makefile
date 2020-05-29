@@ -11,7 +11,7 @@ endef
 install: goinstall docker
 
 goinstall:
-	go install .
+	go install -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
 
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
@@ -32,10 +32,10 @@ build-all:
 docker: docker-testground docker-sidecar
 
 docker-sidecar:
-	docker build -t iptestground/sidecar:edge -f Dockerfile.sidecar .
+	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/sidecar:edge -f Dockerfile.sidecar .
 
 docker-testground:
-	docker build -t iptestground/testground:edge -f Dockerfile.testground .
+	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground:edge -f Dockerfile.testground .
 
 test-go:
 	testground plan import --from ./plans/placebo

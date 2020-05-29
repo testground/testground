@@ -15,7 +15,11 @@ RUN cd / && go mod download
 
 # Now copy the rest of the source and run the build.
 COPY . /
-RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o testground
+
+# Testground version
+ARG TG_VERSION
+
+RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=${TG_VERSION}" -o testground
 
 #:::
 #::: RUNTIME CONTAINER
