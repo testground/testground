@@ -28,7 +28,7 @@ type Instance struct {
 	logging.Logging
 
 	Hostname string
-	Client   *sync.Client
+	Client   sync.Interface
 	RunEnv   *runtime.RunEnv
 	Network  Network
 }
@@ -44,7 +44,7 @@ type Network interface {
 }
 
 // NewInstance constructs a new test instance handle.
-func NewInstance(client *sync.Client, runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
+func NewInstance(client sync.Interface, runenv *runtime.RunEnv, hostname string, network Network) (*Instance, error) {
 	return &Instance{
 		Logging:  logging.NewLogging(logging.S().With("sidecar", true, "run_id", runenv.TestRun).Desugar()),
 		Hostname: hostname,
