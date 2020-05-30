@@ -52,7 +52,9 @@ func (s *TaskStorage) Reload() error {
 		if err != nil {
 			return err
 		}
-		heap.Push(s.tq, tsk)
+		if tsk.State != TaskStateComplete {
+			heap.Push(s.tq, tsk)
+		}
 	}
 	iter.Release()
 	return iter.Error()
@@ -65,7 +67,7 @@ func (s *TaskStorage) Push(tsk *Task) error {
 	if s.Len() >= s.Max {
 		return fmt.Errorf("push rejected. too many items.")
 	}
-	tsk.State = TaskState(TaskStateScheduled)
+	tsk.State = TaskStateScheduled
 	key := []byte(tsk.ID)
 	val, err := json.Marshal(tsk)
 	if err != nil {

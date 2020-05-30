@@ -3,11 +3,11 @@ package daemon
 import "time"
 
 const (
-	TaskStateRequested int = iota // when client requests a task
-	TaskStateScheduled            // daemon accepts the task into the queue
-	TaskStateBuilding             // daemon is building the task
-	TaskStateRunning              // daemon is running the task
-	TaskStateComplete             // daemon is not running the task. ready to collect.
+	TaskStateRequested TaskState = iota // when client requests a task
+	TaskStateScheduled                  // daemon accepts the task into the queue
+	TaskStateBuilding                   // daemon is building the task
+	TaskStateRunning                    // daemon is running the task
+	TaskStateComplete                   // daemon is not running the task. ready to collect.
 )
 
 type TaskState int
