@@ -50,14 +50,7 @@ func (q TaskQueue) Swap(i, j int) {
 }
 
 func (q *TaskQueue) Push(x interface{}) {
-	t := new(Task)
-	switch x.(type) {
-	case Task:
-		v := x.(Task)
-		t = &v
-	case *Task:
-		t = x.(*Task)
-	}
+	t := x.(*Task)
 	*q = append(*q, t)
 }
 
