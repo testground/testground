@@ -86,7 +86,7 @@ func (s *TaskStorage) Pop() (*Task, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	if s.Len() == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("attempted pop on empty queue, returning nil pointer!")
 	}
 	tsk := heap.Pop(s.tq).(*Task)
 	key := []byte(tsk.ID)
