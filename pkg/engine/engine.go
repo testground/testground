@@ -11,6 +11,7 @@ import (
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
+	"github.com/testground/testground/pkg/task"
 
 	"github.com/google/uuid"
 	"github.com/logrusorgru/aurora"
@@ -49,6 +50,7 @@ type Engine struct {
 	runners map[string]api.Runner
 	envcfg  *config.EnvConfig
 	ctx     context.Context
+	stor    *task.TaskStorage
 }
 
 var _ api.Engine = (*Engine)(nil)
@@ -88,6 +90,30 @@ func NewDefaultEngine(ecfg *config.EnvConfig) (*Engine, error) {
 	e, err := NewEngine(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	return e, nil
+}
+
+func NewServiceEngine(ecfg *config.EnvConfig) (*Engine, error) {
+	cfg := &EngineConfig{
+		Builders: []api.Builder{
+			&build.DockerGoBuilder{},
+			&build.DockerGenericBuilder{},
+		},
+		Runners: []api.Runner{
+			&runner.ClusterK8sRunner{},
+		},
+		EnvConfig: ecfg,
+	}
+	e, err := NewEngine(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	e.stor = &task.TaskStorage{
+		Max:  ecfg.TaskStorage.Max,
+		Path: ecfg.TaskStorage.Path,
 	}
 
 	return e, nil
@@ -447,4 +473,8 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func (e *Engine) TaskStorage() *task.TaskStorage {
+	return e.stor
 }

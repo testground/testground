@@ -14,6 +14,7 @@ var RootCommands = cli.CommandsByName{
 	&DescribeCommand,
 	&SidecarCommand,
 	&DaemonCommand,
+	&ServiceCommand,
 	&CollectCommand,
 	&TerminateCommand,
 	&HealthcheckCommand,

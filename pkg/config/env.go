@@ -11,16 +11,22 @@ type ConfigMap map[string]interface{}
 type EnvConfig struct {
 	dirs Directories
 
-	AWS       AWSConfig            `toml:"aws"`
-	DockerHub DockerHubConfig      `toml:"dockerhub"`
-	Builders  map[string]ConfigMap `toml:"builders"`
-	Runners   map[string]ConfigMap `toml:"runners"`
-	Daemon    DaemonConfig         `toml:"daemon"`
-	Client    ClientConfig         `toml:"client"`
+	AWS         AWSConfig            `toml:"aws"`
+	DockerHub   DockerHubConfig      `toml:"dockerhub"`
+	Builders    map[string]ConfigMap `toml:"builders"`
+	Runners     map[string]ConfigMap `toml:"runners"`
+	Daemon      DaemonConfig         `toml:"daemon"`
+	Client      ClientConfig         `toml:"client"`
+	TaskStorage TaskStorageConfig    `toml:"taskstorage"`
 }
 
 func (e EnvConfig) Dirs() Directories {
 	return e.dirs
+}
+
+type TaskStorageConfig struct {
+	Path string `toml:"path"`
+	Max  int    `toml:"max"`
 }
 
 type AWSConfig struct {

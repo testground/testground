@@ -5,6 +5,7 @@ import (
 
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/task"
 )
 
 type Engine interface {
@@ -22,4 +23,5 @@ type Engine interface {
 
 	EnvConfig() config.EnvConfig
 	Context() context.Context
+	TaskStorage() *task.TaskStorage
 }
