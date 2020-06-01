@@ -59,3 +59,5 @@ kind-cluster:
 	kubectl apply -f .circleci/pvc.yaml
 	kubectl label nodes kind-control-plane testground.node.role.plan=true
 	kubectl label nodes kind-control-plane testground.node.role.infra=true
+	kind load docker-image iptestground/sidecar:edge
+	kubectl apply -f .circleci/sidecar.yaml
