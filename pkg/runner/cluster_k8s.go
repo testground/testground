@@ -706,13 +706,6 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					Args:            []string{"-c", "until nc -vz $HOST_IP 6060; do echo \"Waiting for local sidecar to listen to $HOST_IP:6060\"; sleep 2; done;"},
 					Command:         []string{"sh"},
 					Env:             env,
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:             sharedVolumeName,
-							MountPath:        "/outputs",
-							MountPropagation: &mountPropagationMode,
-						},
-					},
 					Resources: v1.ResourceRequirements{
 						Limits: v1.ResourceList{
 							v1.ResourceMemory: resource.MustParse("10Mi"),
