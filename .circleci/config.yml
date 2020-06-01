@@ -24,6 +24,19 @@ commands:
           keys:
             - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
             - 'bin-cache-{{ .Branch }}'
+  setup-macos:
+    description: "install go, checkout and restore cache"
+    steps:
+      - run:
+          name: "install go on macos"
+          command: |
+            brew --version
+            [ ! -d /usr/local/opt/go@1.14 ] && brew update && brew install go@1.14 && echo "done installing go"
+            echo 'export GOPATH="$HOME/go"' >> $BASH_ENV
+            echo 'export PATH="/usr/local/opt/go@1.14/bin:$GOPATH/bin:$PATH"' >> $BASH_ENV
+            source $BASH_ENV
+            go version
+      - checkout
 
   setup-install-bins:
     description: "install 3rd-party binaries for integration tests"
@@ -67,7 +80,10 @@ workflows:
       - lint:
           requires:
             - prepare-tidy
-      - build-test:
+      - build-test-linux:
+          requires:
+            - prepare-tidy
+      - build-test-macos:
           requires:
             - prepare-tidy
 
@@ -98,7 +114,7 @@ jobs:
           name: "make lint"
           command: make lint
 
-  build-test:
+  build-test-linux:
     executor: linux
     steps:
       - setup-install-bins
@@ -122,3 +138,17 @@ jobs:
       - run:
           name: "run local:exec integration tests"
           command: make test-integ-local-exec
+
+  build-test-macos:
+    macos:
+      xcode: 11.3.0
+    steps:
+      - setup-macos
+      - run:
+          name: "build testground"
+          command: make install
+      - run:
+          name: "make test-go"
+          command: |
+            cd $HOME/project
+            make test-go
