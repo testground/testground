@@ -198,7 +198,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	}
 
 	if !enoughResources {
-		return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+		ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
