@@ -48,9 +48,6 @@ func sidecarCommand(c *cli.Context) error {
 func startHTTPServer() {
 	logging.S().Info("starting http server")
 	go func() {
-		http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-			fmt.Fprintf(w, "All good!")
-		})
 		_ = http.ListenAndServe(":6060", nil)
 	}()
 }
