@@ -28,7 +28,7 @@ commands:
     description: "install go, checkout and restore cache"
     steps:
       - run:
-          name: "install go on macos"
+          name: "install go on macOS"
           command: |
             brew --version
             [ ! -d /usr/local/opt/go@1.14 ] && brew update && brew install go@1.14 && echo "done installing go"
@@ -83,7 +83,7 @@ workflows:
       - build-test-linux:
           requires:
             - prepare-tidy
-      - build-test-macos:
+      - build-macos:
           requires:
             - prepare-tidy
 
@@ -139,16 +139,11 @@ jobs:
           name: "run local:exec integration tests"
           command: make test-integ-local-exec
 
-  build-test-macos:
+  build-macos:
     macos:
       xcode: 11.3.0
     steps:
       - setup-macos
       - run:
           name: "build testground"
-          command: make install
-      - run:
-          name: "make test-go"
-          command: |
-            cd $HOME/project
-            make test-go
+          command: make goinstall
