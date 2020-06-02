@@ -104,6 +104,9 @@ type ClusterK8sRunnerConfig struct {
 	// Provider is the infrastructure provider to use
 	Provider string `toml:"provider"`
 
+	// Whether Kubernetes cluster has an autoscaler running
+	AutoscalerEnabled bool `toml:"autoscaler_enabled"`
+
 	// Resources requested for each testplan pod from the Kubernetes cluster
 	TestplanPodMemory string `toml:"testplan_pod_memory"`
 	TestplanPodCPU    string `toml:"testplan_pod_cpu"`
@@ -189,7 +192,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	}
 
 	if !enoughResources {
-		ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
+		if cfg.AutoscalerEnabled {
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
+		} else {
+			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+		}
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
