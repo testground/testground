@@ -64,6 +64,8 @@ func New(cfg *config.EnvConfig) (srv *Service, err error) {
 		return nil, err
 	}
 
+	go Runloop(engine)
+
 	return srv, nil
 }
 
