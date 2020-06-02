@@ -42,15 +42,15 @@ func (d *Service) submitHandler(engine api.Engine) func(w http.ResponseWriter, r
 			tgw.WriteError("failed to consume request", "err", err)
 			return
 		}
-
-		task := task.Task{
+		// make a task
+		tsk := task.Task{
 			Priority: 0,
 			Created:  time.Now(),
 			ID:       ruid,
 			State:    task.TaskStateScheduled,
 		}
 
-		engine.TaskStorage().Push(&task)
+		engine.TaskStorage().Push(&tsk)
 
 		tgw.Infof("submitted %s.", ruid)
 	}

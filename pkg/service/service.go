@@ -22,9 +22,11 @@ type Service struct {
 }
 
 // New creates a new Daemon and attaches the following handlers:
-// * POST /task: submit a new task
-// * GET /task/<task-id>: return the current state of a task
+//
+// * POST /build: sends a `build` request to the daemon. builds a test plan.
+// A type-safe client for this server can be found in the `pkg/client` package.
 func New(cfg *config.EnvConfig) (srv *Service, err error) {
+	srv = new(Service)
 
 	engine, err := engine.NewServiceEngine(cfg)
 	if err != nil {
@@ -34,7 +36,6 @@ func New(cfg *config.EnvConfig) (srv *Service, err error) {
 	if err != nil {
 		return nil, err
 	}
-	defer engine.TaskStorage().Close()
 
 	r := mux.NewRouter()
 
@@ -46,10 +47,12 @@ func New(cfg *config.EnvConfig) (srv *Service, err error) {
 		})
 	})
 
-	r.HandleFunc("/task", srv.submitHandler(engine)).Methods("POST")
-	//	r.HandleFunc("/task/{taskid}", srv.taskinfoHandler(engine)).Methods("GET")
+	// TODO Don't use /build,  /task POST
+	r.HandleFunc("/build", srv.submitHandler(engine)).Methods("POST")
+	r.HandleFunc("/task/{taskid}", srv.taskinfoHandler(engine)).Methods("GET")
 
 	srv.doneCh = make(chan struct{})
+
 	srv.server = &http.Server{
 		Handler:      r,
 		WriteTimeout: 1200 * time.Second,
