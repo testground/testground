@@ -1,0 +1,19 @@
+[runners."cluster:k8s"]
+testplan_pod_cpu            = "10m"
+testplan_pod_memory         = "10Mi"
+collect_outputs_pod_cpu     = "10m"
+collect_outputs_pod_memory  = "10Mi"
+autoscaler_enabled          = false
+provider                    = ""
+sysctls = []
+
+[runners."local:docker"]
+ulimits = [
+  "nofile=1048576:1048576",
+]
+
+[daemon]
+listen = ":8080"
+
+[client]
+endpoint = "localhost:8080"
