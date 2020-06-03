@@ -32,10 +32,6 @@ var SidecarCommand = cli.Command{
 			Usage:    "runner that will be scheduling tasks that should be managed by this sidecar; supported: 'local:docker', 'cluster:k8s'",
 			Required: true,
 		},
-		&cli.BoolFlag{
-			Name:  "pprof",
-			Usage: "enable pprof service on port 6060",
-		},
 	},
 }
 
@@ -44,12 +40,14 @@ func sidecarCommand(c *cli.Context) error {
 		return ErrNotLinux
 	}
 
-	if c.Bool("pprof") {
-		logging.S().Info("starting pprof")
-		go func() {
-			_ = http.ListenAndServe(":6060", nil)
-		}()
-	}
+	startHTTPServer()
 
 	return sidecar.Run(c.String("runner"))
+}
+
+func startHTTPServer() {
+	logging.S().Info("starting http server")
+	go func() {
+		_ = http.ListenAndServe(":6060", nil)
+	}()
 }
