@@ -161,8 +161,15 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 	}
 
-	defaultCPU := resource.MustParse(cfg.TestplanPodCPU)
-	defaultMemory := resource.MustParse(cfg.TestplanPodMemory)
+	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
+	}
+
+	defaultMemory, err := resource.ParseQuantity(cfg.TestplanPodMemory)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
+	}
 
 	template := runtime.RunParams{
 		TestPlan:          input.TestPlan,
