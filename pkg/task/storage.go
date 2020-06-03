@@ -3,7 +3,7 @@ package task
 import (
 	"container/heap"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -12,6 +12,11 @@ import (
 
 const (
 	SCHEMAVERSION int = 1
+)
+
+var (
+	ErrQueueEmpty = errors.New("empty queue")
+	ErrQueueFull  = errors.New("queue full")
 )
 
 func NewQueue(max int, path string) (*Queue, error) {
@@ -58,8 +63,8 @@ type Queue struct {
 func (s *Queue) Push(tsk *Task) error {
 	s.Lock()
 	defer s.Unlock()
-	if s.Len() >= s.max {
-		return fmt.Errorf("push rejected. too many items.")
+	if s.tq.Len() >= s.max {
+		return ErrQueueFull
 	}
 	err := s.put(tsk)
 	if err != nil {
@@ -103,7 +108,7 @@ func (s *Queue) Pop() (*Task, error) {
 	s.Lock()
 	defer s.Unlock()
 	if s.tq.Len() == 0 {
-		return nil, fmt.Errorf("attempted pop on empty queue, returning nil pointer!")
+		return nil, ErrQueueEmpty
 	}
 	tsk := heap.Pop(s.tq).(*Task)
 	tsk.State = TaskStateProcessing
