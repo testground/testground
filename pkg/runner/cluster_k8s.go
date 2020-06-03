@@ -932,8 +932,15 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	collectOutputsCPU := resource.MustParse(cfg.CollectOutputsPodCPU)
-	collectOutputsMemory := resource.MustParse(cfg.CollectOutputsPodMemory)
+	collectOutputsCPU, err := resource.ParseQuantity(cfg.CollectOutputsPodCPU)
+	if err != nil {
+		return fmt.Errorf("couldn't parse default `collect` pod CPU request; make sure you have specified `collect_outputs_pod_cpu` in .env.toml; err: %w", err)
+	}
+
+	collectOutputsMemory, err := resource.ParseQuantity(cfg.CollectOutputsPodMemory)
+	if err != nil {
+		return fmt.Errorf("couldn't parse default `collect` pod Memory request; make sure you have specified `collect_outputs_pod_memory` in .env.toml; err: %w", err)
+	}
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
@@ -988,6 +995,6 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 		},
 	}
 
-	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
+	_, err = client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
 }
