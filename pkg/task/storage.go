@@ -14,14 +14,19 @@ import (
 // storage is persisted before the in-memory queue to prevent inconsistency between restarts; what
 // you see in the queue is the same as what is written the database
 type TaskStorage struct {
-	Max       int
-	Path      string
+	// required configuration
+	Max  int
+	Path string
+
+	// optional configuration
 	DBOpts    *opt.Options
 	WriteOpts *opt.WriteOptions
 	ReadOpts  *opt.ReadOptions
-	tq        *TaskQueue
-	db        *leveldb.DB
-	mux       sync.Mutex
+
+	// mux protects the tq. Although db is already goroutine-safe, it it is kept in sync with tq.
+	mux sync.Mutex
+	tq  *TaskQueue
+	db  *leveldb.DB
 }
 
 // Open database and load its contents into memory.
@@ -40,7 +45,8 @@ func (s *TaskStorage) Close() error {
 	return s.db.Close()
 }
 
-// Read everything from the database into memory. Typically, you will not need to run this.
+// Read everything from the database into memory. Typically, you will not need to run this; it is
+// executed automatically when the database is opened.
 func (s *TaskStorage) Reload() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
