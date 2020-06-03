@@ -10,75 +10,58 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-// TaskStorage is a leveldb-backed priority queue.
-// storage is persisted before the in-memory queue to prevent inconsistency between restarts; what
-// you see in the queue is the same as what is written the database
-type TaskStorage struct {
-	// required configuration
-	Max  int
-	Path string
+const (
+	SCHEMAVERSION int = 1
+)
 
-	// optional configuration
-	DBOpts    *opt.Options
-	WriteOpts *opt.WriteOptions
-	ReadOpts  *opt.ReadOptions
-
-	// mux protects the tq. Although db is already goroutine-safe, it it is kept in sync with tq.
-	mux sync.Mutex
-	tq  *TaskQueue
-	db  *leveldb.DB
-}
-
-// Open database and load its contents into memory.
-func (s *TaskStorage) Open() error {
-	db, err := leveldb.OpenFile(s.Path, s.DBOpts)
+func NewQueue(max int, path string) (*Queue, error) {
+	// open the database
+	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	s.db = db
-	return s.Reload()
-}
-
-// Method for closing the database. Always run Close when finished.
-func (s *TaskStorage) Close() error {
-	s.tq = nil
-	return s.db.Close()
-}
-
-// Read everything from the database into memory. Typically, you will not need to run this; it is
-// executed automatically when the database is opened.
-func (s *TaskStorage) Reload() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.tq = new(TaskQueue)
-	iter := s.db.NewIterator(nil, s.ReadOpts)
+	tq := new(taskQueue)
+	// read the active tasks into the queue
+	iter := db.NewIterator(nil, nil)
 	for iter.Next() {
 		tsk := new(Task)
 		err := json.Unmarshal(iter.Value(), tsk)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		// In the future, perform schema migration if necessary
 		if tsk.State != TaskStateComplete {
-			heap.Push(s.tq, tsk)
+			heap.Push(tq, tsk)
 		}
 	}
 	iter.Release()
-	return iter.Error()
+	return &Queue{
+		tq:  tq,
+		db:  db,
+		max: max,
+	}, nil
+}
+
+// Queue is a priority queue for tasks which uses a key-value databse for persistence.
+// It consists of a heap of Tasks and a leveldb backend.
+type Queue struct {
+	sync.Mutex
+	tq *taskQueue
+	db *leveldb.DB
+
+	max int
 }
 
 // Add an item to the priority queue
-func (s *TaskStorage) Push(tsk *Task) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	if s.Len() >= s.Max {
+// 1. Persist the task to the database
+// 2. Push the task onto the heap
+func (s *Queue) Push(tsk *Task) error {
+	s.Lock()
+	defer s.Unlock()
+	if s.Len() >= s.max {
 		return fmt.Errorf("push rejected. too many items.")
 	}
-	key := []byte(tsk.ID)
-	val, err := json.Marshal(tsk)
-	if err != nil {
-		return err
-	}
-	err = s.db.Put(key, val, nil)
+	err := s.put(tsk)
 	if err != nil {
 		return err
 	}
@@ -86,104 +69,106 @@ func (s *TaskStorage) Push(tsk *Task) error {
 	return nil
 }
 
-// get the next item from the priority queue
-func (s *TaskStorage) Pop() (*Task, error) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	if s.Len() == 0 {
-		return nil, fmt.Errorf("attempted pop on empty queue, returning nil pointer!")
+// Get an Task from the K-V store. The returned Task may or may not be in the heap
+func (s *Queue) Get(id string) (*Task, error) {
+	key := []byte(id)
+	val, err := s.db.Get(key, nil)
+	if err != nil {
+		return nil, err
 	}
-	tsk := heap.Pop(s.tq).(*Task)
-	key := []byte(tsk.ID)
-	err := s.db.Delete(key, nil)
+	tsk := new(Task)
+	err = json.Unmarshal(val, tsk)
 	if err != nil {
 		return nil, err
 	}
 	return tsk, nil
 }
 
+// unexported; put value into the K-V store.
+func (s *Queue) put(tsk *Task) error {
+	key := []byte(tsk.ID)
+	val, err := json.Marshal(tsk)
+	if err != nil {
+		return err
+	}
+	return s.db.Put(key, val, &opt.WriteOptions{
+		Sync: true,
+	})
+}
+
+// get the next item from the priority queue
+// 1. Mark the task in progress in the database
+// 2. Pop the task off of the queue
+func (s *Queue) Pop() (*Task, error) {
+	s.Lock()
+	defer s.Unlock()
+	if s.tq.Len() == 0 {
+		return nil, fmt.Errorf("attempted pop on empty queue, returning nil pointer!")
+	}
+	tsk := heap.Pop(s.tq).(*Task)
+	tsk.State = TaskStateProcessing
+	return tsk, nil
+}
+
 // delete a task from the queue
-func (s *TaskStorage) Delete(tsk *Task) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	err := s.db.Delete([]byte(tsk.ID), s.WriteOpts)
+// 1. Delete the key from the database
+// 2. Remove the element from the queue, if it exists.
+func (s *Queue) Delete(id string) error {
+	s.Lock()
+	defer s.Unlock()
+	err := s.db.Delete([]byte(id), nil)
 	if err != nil {
 		return err
 	}
 	for i, t := range *s.tq {
-		if t.ID == tsk.ID {
-			heap.Remove(s.tq, i)
+		if t.ID == id {
+			_ = heap.Remove(s.tq, i).(*Task)
 			break
 		}
 	}
 	return nil
 }
 
-// Change the state of a task
-func (s *TaskStorage) SetState(tsk *Task, state TaskState) error {
-	key := []byte(tsk.ID)
-	t, err := s.Get(tsk.ID)
-	if err != nil {
-		return err
-	}
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	t.State = state
-	newbuf, err := json.Marshal(t)
-	if err != nil {
-		return err
-	}
-	err = s.db.Put(key, newbuf, s.WriteOpts)
+// Change the state of a task in the K-V store
+func (s *Queue) SetTaskState(id string, state TaskState) error {
+	s.Lock()
+	defer s.Unlock()
+	tsk, err := s.Get(id)
 	if err != nil {
 		return err
 	}
 	tsk.State = state
+	if err := s.put(tsk); err != nil {
+		return err
+	}
 	return nil
-}
-
-// Get a task by key
-func (s *TaskStorage) Get(key string) (*Task, error) {
-	buf, err := s.db.Get([]byte(key), s.ReadOpts)
-	if err != nil {
-		return nil, err
-	}
-	tsk := new(Task)
-	err = json.Unmarshal(buf, tsk)
-	if err != nil {
-		return nil, err
-	}
-	return tsk, nil
-}
-
-func (s *TaskStorage) Len() int {
-	return len(*(s.tq))
 }
 
 // This is a priority queue which implements container/heap.Interface
 // Tasks are sorted by priority and then timestamp.
-type TaskQueue []*Task
+type taskQueue []*Task
 
-func (q TaskQueue) Len() int {
+func (q taskQueue) Len() int {
 	return len(q)
 }
 
-func (q TaskQueue) Less(i, j int) bool {
+func (q taskQueue) Less(i, j int) bool {
 	if q[i].Priority != q[j].Priority {
 		return q[i].Priority > q[j].Priority
 	}
 	return q[i].Created.Before(q[j].Created)
 }
 
-func (q TaskQueue) Swap(i, j int) {
+func (q taskQueue) Swap(i, j int) {
 	q[j], q[i] = q[i], q[j]
 }
 
-func (q *TaskQueue) Push(x interface{}) {
+func (q *taskQueue) Push(x interface{}) {
 	t := x.(*Task)
 	*q = append(*q, t)
 }
 
-func (q *TaskQueue) Pop() interface{} {
+func (q *taskQueue) Pop() interface{} {
 	t := (*q)[len(*q)-1]
 	*q = (*q)[:len(*q)-1]
 	return t
