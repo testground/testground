@@ -67,7 +67,6 @@ func (s *TaskStorage) Push(tsk *Task) error {
 	if s.Len() >= s.Max {
 		return fmt.Errorf("push rejected. too many items.")
 	}
-	tsk.State = TaskStateScheduled
 	key := []byte(tsk.ID)
 	val, err := json.Marshal(tsk)
 	if err != nil {
