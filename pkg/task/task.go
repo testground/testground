@@ -66,33 +66,3 @@ type Task struct {
 	State    TaskState  `json:"state"`    // State of the task
 	Result   TaskResult `json:"result"`   // result of the task, when terminal.
 }
-
-// This is a priority queue which implements container/heap.Interface
-// Tasks are sorted by priority and then timestamp.
-type TaskQueue []*Task
-
-func (q TaskQueue) Len() int {
-	return len(q)
-}
-
-func (q TaskQueue) Less(i, j int) bool {
-	if q[i].Priority != q[j].Priority {
-		return q[i].Priority > q[j].Priority
-	}
-	return q[i].Created.Before(q[j].Created)
-}
-
-func (q TaskQueue) Swap(i, j int) {
-	q[j], q[i] = q[i], q[j]
-}
-
-func (q *TaskQueue) Push(x interface{}) {
-	t := x.(*Task)
-	*q = append(*q, t)
-}
-
-func (q *TaskQueue) Pop() interface{} {
-	t := (*q)[len(*q)-1]
-	*q = (*q)[:len(*q)-1]
-	return t
-}
