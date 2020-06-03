@@ -15,6 +15,8 @@ function finish {
 trap finish EXIT
 
 TEMPDIR=`mktemp -d`
-testground daemon > daemon.out 2>&1 &
+mkdir -p /home/circleci/testground
+cp env-kind.toml /home/circleci/testground/.env.toml
+testground daemon > $TEMPDIR/daemon.out 2>&1 &
 DAEMONPID=$!
 sleep 2

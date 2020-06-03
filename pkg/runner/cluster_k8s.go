@@ -72,12 +72,6 @@ const (
 	NetworkInitialisationFailed     = "network initialisation failed"
 )
 
-var (
-	// resource requests and limits for the `collect-outputs` pod
-	collectOutputsResourceCPU    = resource.MustParse("500m")
-	collectOutputsResourceMemory = resource.MustParse("1024Mi")
-)
-
 var k8sSubnetIdx uint64 = 0
 
 func init() {
@@ -110,9 +104,16 @@ type ClusterK8sRunnerConfig struct {
 	// Provider is the infrastructure provider to use
 	Provider string `toml:"provider"`
 
-	// Resources requested for each pod from the Kubernetes cluster
-	PodResourceMemory string `toml:"pod_resource_memory"`
-	PodResourceCPU    string `toml:"pod_resource_cpu"`
+	// Whether Kubernetes cluster has an autoscaler running
+	AutoscalerEnabled bool `toml:"autoscaler_enabled"`
+
+	// Resources requested for each testplan pod from the Kubernetes cluster
+	TestplanPodMemory string `toml:"testplan_pod_memory"`
+	TestplanPodCPU    string `toml:"testplan_pod_cpu"`
+
+	// Resources requested for the `collect-outputs` pod from the Kubernetes cluster
+	CollectOutputsPodMemory string `toml:"collect_outputs_pod_memory"`
+	CollectOutputsPodCPU    string `toml:"collect_outputs_pod_cpu"`
 
 	Sysctls []string `toml:"sysctls"`
 }
@@ -160,14 +161,14 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 	}
 
-	var defaultCPU, defaultMemory resource.Quantity
-	defaultCPU, err := resource.ParseQuantity(cfg.PodResourceCPU)
+	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
 	if err != nil {
-		defaultCPU = resource.MustParse("100m")
+		return nil, fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
 	}
-	defaultMemory, err = resource.ParseQuantity(cfg.PodResourceMemory)
+
+	defaultMemory, err := resource.ParseQuantity(cfg.TestplanPodMemory)
 	if err != nil {
-		defaultMemory = resource.MustParse("100Mi")
+		return nil, fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
 	}
 
 	template := runtime.RunParams{
@@ -198,7 +199,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	}
 
 	if !enoughResources {
-		return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+		if cfg.AutoscalerEnabled {
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
+		} else {
+			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+		}
 	}
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
@@ -242,6 +247,13 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			ValueFrom: &v1.EnvVarSource{
 				FieldRef: &v1.ObjectFieldSelector{
 					FieldPath: "status.podIP",
+				}},
+		})
+		env = append(env, v1.EnvVar{
+			Name: "HOST_IP",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					FieldPath: "status.hostIP",
 				}},
 		})
 
@@ -418,7 +430,7 @@ func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.Collec
 	c.initPool()
 
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
-	err := c.ensureCollectOutputsPod(ctx)
+	err := c.ensureCollectOutputsPod(ctx, input)
 	if err != nil {
 		return err
 	}
@@ -519,7 +531,7 @@ func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase
 }
 
 // ensureCollectOutputsPod ensures that we have a collect-outputs pod running
-func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context) error {
+func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context, input *api.CollectionInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -530,7 +542,7 @@ func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context) error {
 		return err
 	}
 	if len(res.Items) == 0 {
-		err = c.createCollectOutputsPod(ctx)
+		err = c.createCollectOutputsPod(ctx, input)
 		if err != nil {
 			return err
 		}
@@ -692,6 +704,20 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
+				{
+					Name:            "wait-for-sidecar",
+					Image:           "busybox",
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Args:            []string{"-c", "until nc -vz $HOST_IP 6060; do echo \"Waiting for local sidecar to listen to $HOST_IP:6060\"; sleep 2; done;"},
+					Command:         []string{"sh"},
+					Env:             env,
+					Resources: v1.ResourceRequirements{
+						Limits: v1.ResourceList{
+							v1.ResourceMemory: resource.MustParse("10Mi"),
+							v1.ResourceCPU:    resource.MustParse("10m"),
+						},
+					},
+				},
 				{
 					Name:            "mkdir-outputs",
 					Image:           "busybox",
@@ -900,9 +926,14 @@ func (c *ClusterK8sRunner) pushImagesToDockerRegistry(ctx context.Context, ow *r
 	return c.pushToDockerRegistry(ctx, ow, cli, in, ipo, uri)
 }
 
-func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
+func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *api.CollectionInput) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
+
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+
+	collectOutputsCPU := resource.MustParse(cfg.CollectOutputsPodCPU)
+	collectOutputsMemory := resource.MustParse(cfg.CollectOutputsPodMemory)
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
@@ -945,11 +976,11 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context) error {
 					},
 					Resources: v1.ResourceRequirements{
 						Requests: v1.ResourceList{
-							v1.ResourceCPU:    collectOutputsResourceCPU,
-							v1.ResourceMemory: collectOutputsResourceMemory,
+							v1.ResourceCPU:    collectOutputsCPU,
+							v1.ResourceMemory: collectOutputsMemory,
 						},
 						Limits: v1.ResourceList{
-							v1.ResourceMemory: collectOutputsResourceMemory,
+							v1.ResourceMemory: collectOutputsMemory,
 						},
 					},
 				},
