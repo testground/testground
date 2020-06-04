@@ -69,26 +69,26 @@ type Queue struct {
 // Add an item to the priority queue
 // 1. Persist the task to the database
 // 2. Push the task onto the heap
-func (s *Queue) Push(tsk *Task) error {
-	s.Lock()
-	defer s.Unlock()
-	if s.tq.Len() >= s.max {
+func (q *Queue) Push(tsk *Task) error {
+	q.Lock()
+	defer q.Unlock()
+	if q.tq.Len() >= q.max {
 		return ErrQueueFull
 	}
-	err := s.put(tsk)
+	err := q.put(tsk)
 	if err != nil {
 		return err
 	}
-	heap.Push(s.tq, tsk)
+	heap.Push(q.tq, tsk)
 	return nil
 }
 
 // Get an Task from the K-V store
 // 1. Lookup the key in the database.
 // 2. Unmarshal the task into the provided task pointer.
-func (s *Queue) Get(id string, tsk *Task) error {
+func (q *Queue) Get(id string, tsk *Task) error {
 	key := []byte(id)
-	val, err := s.db.Get(key, nil)
+	val, err := q.db.Get(key, nil)
 	if err != nil {
 		return err
 	}
@@ -100,13 +100,13 @@ func (s *Queue) Get(id string, tsk *Task) error {
 }
 
 // unexported; put value into the K-V store.
-func (s *Queue) put(tsk *Task) error {
+func (q *Queue) put(tsk *Task) error {
 	key := []byte(tsk.ID)
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
 	}
-	return s.db.Put(key, val, &opt.WriteOptions{
+	return q.db.Put(key, val, &opt.WriteOptions{
 		Sync: true,
 	})
 }
@@ -114,13 +114,13 @@ func (s *Queue) put(tsk *Task) error {
 // get the next item from the priority queue
 // 1. Mark the task in progress in the database
 // 2. Pop the task off of the queue
-func (s *Queue) Pop() (*Task, error) {
-	s.Lock()
-	defer s.Unlock()
-	if s.tq.Len() == 0 {
+func (q *Queue) Pop() (*Task, error) {
+	q.Lock()
+	defer q.Unlock()
+	if q.tq.Len() == 0 {
 		return nil, ErrQueueEmpty
 	}
-	tsk := heap.Pop(s.tq).(*Task)
+	tsk := heap.Pop(q.tq).(*Task)
 	tsk.State = StateProcessing
 	return tsk, nil
 }
@@ -130,16 +130,16 @@ func (s *Queue) Pop() (*Task, error) {
 // a completed task.
 // 1. Delete the key from the database
 // 2. Remove the element from the queue, if it exists.
-func (s *Queue) Delete(id string) error {
-	s.Lock()
-	defer s.Unlock()
-	err := s.db.Delete([]byte(id), nil)
+func (q *Queue) Delete(id string) error {
+	q.Lock()
+	defer q.Unlock()
+	err := q.db.Delete([]byte(id), nil)
 	if err != nil {
 		return err
 	}
-	for i, t := range *s.tq {
+	for i, t := range *q.tq {
 		if t.ID == id {
-			_ = heap.Remove(s.tq, i).(*Task)
+			_ = heap.Remove(q.tq, i).(*Task)
 			break
 		}
 	}
@@ -147,16 +147,16 @@ func (s *Queue) Delete(id string) error {
 }
 
 // Change the state of a task in the K-V store
-func (s *Queue) SetTaskState(id string, state TaskState) error {
-	s.Lock()
-	defer s.Unlock()
+func (q *Queue) SetTaskState(id string, state TaskState) error {
+	q.Lock()
+	defer q.Unlock()
 	tsk := new(Task)
-	err := s.Get(id, tsk)
+	err := q.Get(id, tsk)
 	if err != nil {
 		return err
 	}
 	tsk.State = state
-	if err := s.put(tsk); err != nil {
+	if err := q.put(tsk); err != nil {
 		return err
 	}
 	return nil
