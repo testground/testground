@@ -108,7 +108,7 @@ func (s *Queue) Pop() (*Task, error) {
 		return nil, ErrQueueEmpty
 	}
 	tsk := heap.Pop(s.tq).(*Task)
-	tsk.State = TaskStateProcessing
+	tsk.State = StateProcessing
 	return tsk, nil
 }
 
