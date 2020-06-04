@@ -3,38 +3,28 @@ package task
 import (
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 // Make sure items pushed into the into the TaskStorage are persisted
 // Make sure they are removed from persistent storage.
 func TestStorageIsPersistent(t *testing.T) {
-	inmem := storage.NewMemStorage()
-	db, err := leveldb.Open(inmem, nil)
+	q, err := NewInmemQueue(1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stor := TaskStorage{
-		Max: 1,
-		db:  db,
-		tq:  &TaskQueue{},
-	}
 	tsk := &Task{
-		Priority: 1,
-		ID:       "abc123",
-		Created:  time.Now(),
+		ID: "abc123",
 	}
 	// store a task using the TaskStorage
-	err = stor.Push(tsk)
+	err = q.Push(tsk)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// read the object from the backend
-	buf, err := db.Get([]byte("abc123"), nil)
+	buf, err := q.db.Get([]byte("abc123"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,38 +37,39 @@ func TestStorageIsPersistent(t *testing.T) {
 	assert.Equal(t, (*tsk).ID, (*tsk2).ID)
 }
 
-// Make sure data persisted to the storage can be read into the queue
+// Simulate persistance between restarts.
+// Push to a q1, make sure it persists when q2 has the same storage.
 func TestStorageReloads(t *testing.T) {
-	inmem := storage.NewMemStorage()
-	db, err := leveldb.Open(inmem, nil)
+	id := "abc123"
+	/// Both queues qill use the same storage
+	stor := storage.NewMemStorage()
+
+	// open q1 and push an item into the queue
+	q1, err := initQueue(stor, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	stor1 := TaskStorage{
-		Max: 1,
-		db:  db,
-		tq:  &TaskQueue{},
-	}
-	tsk1 := &Task{
-		Priority: 1,
-		ID:       "abc123",
-		Created:  time.Now(),
-	}
-	// store a task using the TaskStorage
-	err = stor1.Push(tsk1)
+	err = q1.Push(&Task{
+		ID: id,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// like a restart, create a new TaskStorage with the same db
-	stor2 := TaskStorage{
-		Max: 1,
-		db:  db,
-		tq:  &TaskQueue{},
+	q1.db.Close() // sync and release lock
+
+	// open q2 with the same storage
+	q2, err := initQueue(stor, 1)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Should have the items saved previously
-	err = stor2.Reload()
+
+	// Make sure the q2 has an item in it.
+	assert.Equal(t, 1, q2.tq.Len())
+
+	// Make sure it's the same item
+	tsk, err := q2.Pop()
 	if err != nil {
 		t.Fail()
 	}
-	assert.Equal(t, 1, stor2.Len())
+	assert.Equal(t, id, tsk.ID)
 }

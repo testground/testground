@@ -1,4 +1,4 @@
-package task_test
+package task
 
 import (
 	"container/heap"
@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/testground/testground/pkg/task"
 )
 
 func TestQueueSortsPriorityAndTime(t *testing.T) {
@@ -14,9 +13,9 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 	later := earlier.Add(time.Minute)
 
 	// Add tasks to the queue with different priorities
-	tq := make(task.TaskQueue, 0)
+	tq := make(taskQueue, 0)
 	for i := 0; i <= 10; i++ {
-		tsk := task.Task{
+		tsk := Task{
 			Priority: i,
 			Created:  earlier,
 		}
@@ -24,7 +23,7 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 	}
 	// Add a few more with a later timestamp
 	for i := 0; i <= 10; i++ {
-		tsk := task.Task{
+		tsk := Task{
 			Priority: i,
 			Created:  later,
 		}
@@ -32,9 +31,9 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 	}
 
 	// verify the sort is by piority (high->low) and time (oldest->newest)
-	head := heap.Pop(&tq).(*task.Task)
+	head := heap.Pop(&tq).(*Task)
 	for len(tq) > 0 {
-		next := heap.Pop(&tq).(*task.Task)
+		next := heap.Pop(&tq).(*Task)
 		t.Logf("priority %d > %d?", head.Priority, next.Priority)
 		if head.Priority != next.Priority {
 			assert.Greater(t, head.Priority, next.Priority, "should prefer higher priority tasks")

@@ -8,6 +8,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
 var (
@@ -15,9 +16,8 @@ var (
 	ErrQueueFull  = errors.New("queue full")
 )
 
-func NewQueue(max int, path string) (*Queue, error) {
-	// open the database
-	db, err := leveldb.OpenFile(path, nil)
+func initQueue(s storage.Storage, max int) (*Queue, error) {
+	db, err := leveldb.Open(s, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +37,23 @@ func NewQueue(max int, path string) (*Queue, error) {
 	}
 	iter.Release()
 	return &Queue{
-		tq:  tq,
 		db:  db,
+		tq:  tq,
 		max: max,
 	}, nil
+}
+
+func NewPersistentQueue(max int, path string) (*Queue, error) {
+	s, err := storage.OpenFile(path, false)
+	if err != nil {
+		return nil, err
+	}
+	return initQueue(s, max)
+}
+
+func NewInmemQueue(max int) (*Queue, error) {
+	s := storage.NewMemStorage()
+	return initQueue(s, max)
 }
 
 // Queue is a priority queue for tasks which uses a key-value databse for persistence.
