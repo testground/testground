@@ -31,7 +31,7 @@ func NewQueue(max int, path string) (*Queue, error) {
 			return nil, err
 		}
 		// In the future, perform schema migration if necessary
-		if tsk.State != TaskStateComplete {
+		if tsk.State != StateComplete {
 			heap.Push(tq, tsk)
 		}
 	}

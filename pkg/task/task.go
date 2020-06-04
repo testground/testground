@@ -10,16 +10,16 @@ import "time"
 type TaskState int
 
 const (
-	TaskStateScheduled TaskState = iota
-	TaskStateProcessing
-	TaskStateComplete
+	StateScheduled TaskState = iota
+	StateProcessing
+	StateComplete
 )
 
 func (t TaskState) String() string {
 	return [...]string{
-		"TaskStateRequested",
-		"TaskStateProcessing",
-		"TaskStateComplete",
+		"StateRequested",
+		"StateProcessing",
+		"StateComplete",
 	}[t]
 }
 
@@ -33,18 +33,18 @@ func (t TaskState) String() string {
 type TaskResultStatus int
 
 const (
-	TaskResultNone TaskResultStatus = iota
-	TaskResultSuccess
-	TaskResultFail
-	TaskResultAbort
+	ResultNone TaskResultStatus = iota
+	ResultSuccess
+	ResultFail
+	ResultAbort
 )
 
 func (t TaskResultStatus) String() string {
 	return [...]string{
-		"TaskResultNone",
-		"TaskResultSuccess",
-		"TaskResultFail",
-		"TaskResultAbort",
+		"ResultNone",
+		"ResultSuccess",
+		"ResultFail",
+		"ResultAbort",
 	}[t]
 }
 
