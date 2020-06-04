@@ -112,8 +112,7 @@ func (q *Queue) put(tsk *Task) error {
 }
 
 // get the next item from the priority queue
-// 1. Pop the task off of the queue
-// 2. Mark the task in progress in the database
+// Pop the task off of the queue
 // The task remains in the database, but is no longer in the heap.
 // As the state of the task changes (i.e. to mark the task completed, use SetState)
 func (q *Queue) Pop() (*Task, error) {
@@ -123,11 +122,6 @@ func (q *Queue) Pop() (*Task, error) {
 		return nil, ErrQueueEmpty
 	}
 	tsk := heap.Pop(q.tq).(*Task)
-	tsk.State = StateProcessing
-	err := q.SetTaskState(tsk.ID, StateProcessing)
-	if err != nil {
-		return nil, err
-	}
 	return tsk, nil
 }
 
