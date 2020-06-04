@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrQueueEmpty = errors.New("empty queue")
+	ErrQueueEmpty = errors.New("queue empty")
 	ErrQueueFull  = errors.New("queue full")
 )
 
