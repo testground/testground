@@ -10,10 +10,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-const (
-	SCHEMAVERSION int = 1
-)
-
 var (
 	ErrQueueEmpty = errors.New("empty queue")
 	ErrQueueFull  = errors.New("queue full")
@@ -74,19 +70,20 @@ func (s *Queue) Push(tsk *Task) error {
 	return nil
 }
 
-// Get an Task from the K-V store. The returned Task may or may not be in the heap
-func (s *Queue) Get(id string) (*Task, error) {
+// Get an Task from the K-V store
+// 1. Lookup the key in the database.
+// 2. Unmarshal the task into the provided task pointer.
+func (s *Queue) Get(id string, tsk *Task) error {
 	key := []byte(id)
 	val, err := s.db.Get(key, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	tsk := new(Task)
 	err = json.Unmarshal(val, tsk)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return tsk, nil
+	return nil
 }
 
 // unexported; put value into the K-V store.
@@ -115,7 +112,9 @@ func (s *Queue) Pop() (*Task, error) {
 	return tsk, nil
 }
 
-// delete a task from the queue
+// delete a task from the queue.
+// This method can be used to cancel an enqueued task before it is executed or remove a reference to
+// a completed task.
 // 1. Delete the key from the database
 // 2. Remove the element from the queue, if it exists.
 func (s *Queue) Delete(id string) error {
@@ -138,7 +137,8 @@ func (s *Queue) Delete(id string) error {
 func (s *Queue) SetTaskState(id string, state TaskState) error {
 	s.Lock()
 	defer s.Unlock()
-	tsk, err := s.Get(id)
+	tsk := new(Task)
+	err := s.Get(id, tsk)
 	if err != nil {
 		return err
 	}
