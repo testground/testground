@@ -220,3 +220,6 @@ type evict struct {
 // Cleanup function, which is executed whenever an element is evicted from the database
 // Use this function to delete files that exist outside of the database
 type EvictionFunction func(key string)
+
+// An eviction function which does nothing.
+var EvictDoNothing EvictionFunction = func(string) {}
