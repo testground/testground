@@ -4,7 +4,9 @@ import (
 	"container/heap"
 	"encoding/json"
 	"errors"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -22,6 +24,7 @@ func initQueue(s storage.Storage, max int) (*Queue, error) {
 		return nil, err
 	}
 	tq := new(taskQueue)
+	eo := make([]*evict, 0)
 	// read the active tasks into the queue
 	iter := db.NewIterator(nil, nil)
 	for iter.Next() {
@@ -30,15 +33,24 @@ func initQueue(s storage.Storage, max int) (*Queue, error) {
 		if err != nil {
 			return nil, err
 		}
-		// In the future, perform schema migration if necessary
-		if tsk.State != StateComplete {
+		// If the current state is Scheduled, we need to place it into the queue.
+		ln := len(tsk.States)
+		if ln == 0 || tsk.States[ln-1].TaskState == StateScheduled {
 			heap.Push(tq, tsk)
 		}
+		eo = append(eo, &evict{
+			Key:  tsk.ID,
+			Time: tsk.Created,
+		})
 	}
 	iter.Release()
+	sort.Slice(eo, func(i, j int) bool {
+		return eo[i].Time.Before(eo[j].Time)
+	})
 	return &Queue{
-		db:  db,
 		tq:  tq,
+		db:  db,
+		eo:  eo,
 		max: max,
 	}, nil
 }
@@ -56,29 +68,48 @@ func NewInmemQueue(max int) (*Queue, error) {
 	return initQueue(s, max)
 }
 
-// Queue is a priority queue for tasks which uses a key-value databse for persistence.
-// It consists of a heap of Tasks and a leveldb backend.
 type Queue struct {
 	sync.Mutex
-	tq *taskQueue
-	db *leveldb.DB
+	tq *taskQueue  // priority task queue
+	db *leveldb.DB // on-disk key-value databse
+	eo []*evict    // eviction order when there are too many keys.
 
 	max int
 }
 
 // Add an item to the priority queue
-// 1. Persist the task to the database
-// 2. Push the task onto the heap
+// 1. Check if there are more than the maximum allowed keys in the database
+//    a. if there are, evict old keys
+// 2. Persist the new task to the database
+// 3. Push the new task onto the queue
 func (q *Queue) Push(tsk *Task) error {
 	q.Lock()
 	defer q.Unlock()
+
+	// special case: there are too many items enqueued already. can't push; try again later.
 	if q.tq.Len() >= q.max {
 		return ErrQueueFull
 	}
+	// evict keys from the database until we have less than the max.
+	for keys := len(q.eo); keys >= q.max; keys-- {
+		key := []byte(q.eo[0].Key)
+		err := q.db.Delete(key, &opt.WriteOptions{
+			Sync: true,
+		})
+		if err != nil {
+			return err
+		}
+		q.eo = q.eo[1:]
+	}
+
+	// Persist this task to the database
 	err := q.put(tsk)
 	if err != nil {
 		return err
 	}
+	// Add this task to the eviction order
+	q.eo = append(q.eo, &evict{tsk.ID, tsk.Created})
+	// Push this task to the queue
 	heap.Push(q.tq, tsk)
 	return nil
 }
@@ -114,7 +145,7 @@ func (q *Queue) put(tsk *Task) error {
 // get the next item from the priority queue
 // Pop the task off of the queue
 // The task remains in the database, but is no longer in the heap.
-// As the state of the task changes (i.e. to mark the task completed, use SetState)
+// As the state of the task changes (i.e. to mark the task completed, use SetTaskState)
 func (q *Queue) Pop() (*Task, error) {
 	q.Lock()
 	defer q.Unlock()
@@ -125,29 +156,9 @@ func (q *Queue) Pop() (*Task, error) {
 	return tsk, nil
 }
 
-// delete a task from the queue.
-// This method can be used to cancel an enqueued task before it is executed or remove a reference to
-// a completed task.
-// 1. Delete the key from the database
-// 2. Remove the element from the queue, if it exists.
-func (q *Queue) Delete(id string) error {
-	q.Lock()
-	defer q.Unlock()
-	err := q.db.Delete([]byte(id), nil)
-	if err != nil {
-		return err
-	}
-	for i, t := range *q.tq {
-		if t.ID == id {
-			_ = heap.Remove(q.tq, i).(*Task)
-			break
-		}
-	}
-	return nil
-}
-
 // Change the state of a task in the K-V store
-func (q *Queue) SetTaskState(id string, state TaskState) error {
+// This method
+func (q *Queue) AppendTaskState(id string, state TaskState) error {
 	q.Lock()
 	defer q.Unlock()
 	tsk := new(Task)
@@ -155,7 +166,11 @@ func (q *Queue) SetTaskState(id string, state TaskState) error {
 	if err != nil {
 		return err
 	}
-	tsk.State = state
+	dated := DatedTaskState{
+		TaskState: state,
+		Entered:   time.Now(),
+	}
+	tsk.States = append(tsk.States, dated)
 	if err := q.put(tsk); err != nil {
 		return err
 	}
@@ -190,4 +205,10 @@ func (q *taskQueue) Pop() interface{} {
 	t := (*q)[len(*q)-1]
 	*q = (*q)[:len(*q)-1]
 	return t
+}
+
+// This is used to keep track of which element to evict when the database is full.
+type evict struct {
+	Key  string
+	Time time.Time
 }
