@@ -18,7 +18,7 @@ var (
 	ErrQueueFull  = errors.New("queue full")
 )
 
-func initQueue(s storage.Storage, max int) (*Queue, error) {
+func initQueue(s storage.Storage, max int, onEvict EvictionFunction) (*Queue, error) {
 	db, err := leveldb.Open(s, nil)
 	if err != nil {
 		return nil, err
@@ -48,24 +48,25 @@ func initQueue(s storage.Storage, max int) (*Queue, error) {
 		return eo[i].Time.Before(eo[j].Time)
 	})
 	return &Queue{
-		tq:  tq,
-		db:  db,
-		eo:  eo,
-		max: max,
+		tq:      tq,
+		db:      db,
+		eo:      eo,
+		max:     max,
+		onEvict: onEvict,
 	}, nil
 }
 
-func NewPersistentQueue(max int, path string) (*Queue, error) {
+func NewPersistentQueue(max int, onEvict EvictionFunction, path string) (*Queue, error) {
 	s, err := storage.OpenFile(path, false)
 	if err != nil {
 		return nil, err
 	}
-	return initQueue(s, max)
+	return initQueue(s, max, onEvict)
 }
 
-func NewInmemQueue(max int) (*Queue, error) {
+func NewInmemQueue(max int, onEvict EvictionFunction) (*Queue, error) {
 	s := storage.NewMemStorage()
-	return initQueue(s, max)
+	return initQueue(s, max, onEvict)
 }
 
 type Queue struct {
@@ -74,12 +75,14 @@ type Queue struct {
 	db *leveldb.DB // on-disk key-value databse
 	eo []*evict    // eviction order when there are too many keys.
 
-	max int
+	max     int
+	onEvict EvictionFunction // Additional cleanup function when eviction occurs.
 }
 
 // Add an item to the priority queue
 // 1. Check if there are more than the maximum allowed keys in the database
 //    a. if there are, evict old keys
+//    b. call eviction function
 // 2. Persist the new task to the database
 // 3. Push the new task onto the queue
 func (q *Queue) Push(tsk *Task) error {
@@ -92,13 +95,14 @@ func (q *Queue) Push(tsk *Task) error {
 	}
 	// evict keys from the database until we have less than the max.
 	for keys := len(q.eo); keys >= q.max; keys-- {
-		key := []byte(q.eo[0].Key)
-		err := q.db.Delete(key, &opt.WriteOptions{
+		key := q.eo[0].Key
+		err := q.db.Delete([]byte(key), &opt.WriteOptions{
 			Sync: true,
 		})
 		if err != nil {
 			return err
 		}
+		q.onEvict(key)
 		q.eo = q.eo[1:]
 	}
 
@@ -212,3 +216,7 @@ type evict struct {
 	Key  string
 	Time time.Time
 }
+
+// Cleanup function, which is executed whenever an element is evicted from the database
+// Use this function to delete files that exist outside of the database
+type EvictionFunction func(key string)
