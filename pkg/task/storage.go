@@ -75,7 +75,7 @@ func NewInmemQueue(max int, onEvict EvictionFunction) (*Queue, error) {
 // When an item is `Pop()`'d off of the queue, they are removed from the heap, but will remain
 // in the database until they are evicted.
 //
-// There are two methods which interact with leveldb only, without queue symantics.
+// There are two methods which interact with leveldb only, without queue semantics.
 // Get() is a method which returns the task regardless of its position in the heap. This
 // allows the daemon to respond to clients about the status of a task at any time, even
 // once the task is completed.
@@ -88,12 +88,12 @@ func NewInmemQueue(max int, onEvict EvictionFunction) (*Queue, error) {
 // A normal workflow will work like this:
 // 1. Tasks are pushed onto the queue by a client
 // 2. Tasks are persisted to the database and sit in the heap while in "StateRequested"
-// 3. workers Pop tasks off of the heap, at which time the reference remains in he the databse,
+// 3. workers Pop tasks off of the heap, at which time the reference remains in he the database,
 //    but the task is claimed by that worker.
 // 4. The worker begins the work, and then marks the state of the task appropriately.
 // 5. the worker completes the work, and then marks the state of the task completed.
 //
-// when the workker encounters an error, it may do the following:
+// when the worker encounters an error, it may do the following:
 // 3. the worker pops a task off of the heap
 // 4. The worker encounters a problem and cannot start work
 // 5. the worker pushes the task back onto the heap
