@@ -44,9 +44,8 @@ func initQueue(s storage.Storage, max int, onEvict EvictionFunction) (*Queue, er
 		})
 	}
 	iter.Release()
-	sort.Slice(eo, func(i, j int) bool {
-		return eo[i].Time.Before(eo[j].Time)
-	})
+	// correct the eviction order so we will evict oldest items first
+	sort.Slice(eo, func(i, j int) bool { return eo[i].Time.Before(eo[j].Time) })
 	return &Queue{
 		tq:      tq,
 		db:      db,
@@ -69,13 +68,49 @@ func NewInmemQueue(max int, onEvict EvictionFunction) (*Queue, error) {
 	return initQueue(s, max, onEvict)
 }
 
+// Queue is a persistent work queue for tasks.
+// The storage layer for Queue is a leveldb database, which is used as a basic key-value
+// Elements pushed into the queue are persisted to leveldb, keyed by the task ID. Tasks for
+// which work has not yet begun (those with StateScheduled) state, will be in a heap.
+// When an item is `Pop()`'d off of the queue, they are removed from the heap, but will remain
+// in the database until they are evicted.
+//
+// There are two methods which interact with leveldb only, without queue symantics.
+// Get() is a method which returns the task regardless of its position in the heap. This
+// allows the daemon to respond to clients about the status of a task at any time, even
+// once the task is completed.
+// AppendTaskState() is a method which permits the user to change the state of a task while
+// it is being worked -- that is, after it has been removed from the heap.
+//
+// The on-disk database may store the tasks for several hundred scheduled, in-progress,
+// and completed testground tasks. The heap contains all requested tasks, a subset of the total tasks.
+//
+// A normal workflow will work like this:
+// 1. Tasks are pushed onto the queue by a client
+// 2. Tasks are persisted to the database and sit in the heap while in "StateRequested"
+// 3. workers Pop tasks off of the heap, at which time the reference remains in he the databse,
+//    but the task is claimed by that worker.
+// 4. The worker begins the work, and then marks the state of the task appropriately.
+// 5. the worker completes the work, and then marks the state of the task completed.
+//
+// when the workker encounters an error, it may do the following:
+// 3. the worker pops a task off of the heap
+// 4. The worker encounters a problem and cannot start work
+// 5. the worker pushes the task back onto the heap
+//
+// Or in a crash condition:
+// 3. the worker pops a task of the heap
+// 4. testground is restarted or crashes in the middle of the work.
+// 5. testground (restarted) will add this task to the heap again regardless of the max length constraint
+//
+// In order to keep the storage requirements relatively small, older keys are evicted.
 type Queue struct {
 	sync.Mutex
 	tq *taskQueue  // priority task queue
 	db *leveldb.DB // on-disk key-value databse
 	eo []*evict    // eviction order when there are too many keys.
 
-	max     int
+	max     int              // the maximum number of tasks to keep in the databse
 	onEvict EvictionFunction // Additional cleanup function when eviction occurs.
 }
 
@@ -94,6 +129,7 @@ func (q *Queue) Push(tsk *Task) error {
 		return ErrQueueFull
 	}
 	// evict keys from the database until we have less than the max.
+	// we have one evict per key in q.db, so the len(q.eo) is the number of keys in leveldb.
 	for keys := len(q.eo); keys >= q.max; keys-- {
 		key := q.eo[0].Key
 		err := q.db.Delete([]byte(key), &opt.WriteOptions{
@@ -102,6 +138,7 @@ func (q *Queue) Push(tsk *Task) error {
 		if err != nil {
 			return err
 		}
+		// Cleanup
 		q.onEvict(key)
 		q.eo = q.eo[1:]
 	}
@@ -211,7 +248,7 @@ func (q *taskQueue) Pop() interface{} {
 	return t
 }
 
-// This is used to keep track of which element to evict when the database is full.
+// an element in Queue.eo (eviction order)
 type evict struct {
 	Key  string
 	Time time.Time
