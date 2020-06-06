@@ -4,29 +4,39 @@ import (
 	"container/heap"
 	"encoding/json"
 	"errors"
-	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 var (
 	ErrQueueEmpty = errors.New("queue empty")
 	ErrQueueFull  = errors.New("queue full")
+
+	// database key prefixes
+	QUEUEPREFIX   = "queued"
+	ARCHIVEPREFIX = "archive"
 )
 
-func initQueue(s storage.Storage, max int, onEvict EvictionFunction) (*Queue, error) {
+// taskPrefix creates a ranged key prefix. The keys will look like this for a task
+func taskPrefix(prefix string, tsk *Task) *util.Range {
+	s := strings.Join([]string{prefix, tsk.ID}, ":")
+	return util.BytesPrefix([]byte(s))
+}
+
+func initQueue(s storage.Storage, max int) (*Queue, error) {
 	db, err := leveldb.Open(s, nil)
 	if err != nil {
 		return nil, err
 	}
 	tq := new(taskQueue)
-	eo := make([]*evict, 0)
 	// read the active tasks into the queue
-	iter := db.NewIterator(nil, nil)
+	iter := db.NewIterator(util.BytesPrefix([]byte(QUEUEPREFIX)), nil)
 	for iter.Next() {
 		tsk := new(Task)
 		err := json.Unmarshal(iter.Value(), tsk)
@@ -38,80 +48,35 @@ func initQueue(s storage.Storage, max int, onEvict EvictionFunction) (*Queue, er
 		if ln == 0 || tsk.States[ln-1].TaskState == StateScheduled {
 			heap.Push(tq, tsk)
 		}
-		eo = append(eo, &evict{
-			Key:  tsk.ID,
-			Time: tsk.Created,
-		})
 	}
 	iter.Release()
 	// correct the eviction order so we will evict oldest items first
-	sort.Slice(eo, func(i, j int) bool { return eo[i].Time.Before(eo[j].Time) })
 	return &Queue{
-		tq:      tq,
-		db:      db,
-		eo:      eo,
-		max:     max,
-		onEvict: onEvict,
+		tq:  tq,
+		db:  db,
+		max: max,
 	}, nil
 }
 
-func NewPersistentQueue(max int, onEvict EvictionFunction, path string) (*Queue, error) {
+func NewPersistentQueue(max int, path string) (*Queue, error) {
 	s, err := storage.OpenFile(path, false)
 	if err != nil {
 		return nil, err
 	}
-	return initQueue(s, max, onEvict)
+	return initQueue(s, max)
 }
 
-func NewInmemQueue(max int, onEvict EvictionFunction) (*Queue, error) {
+func NewInmemQueue(max int) (*Queue, error) {
 	s := storage.NewMemStorage()
-	return initQueue(s, max, onEvict)
+	return initQueue(s, max)
 }
 
-// Queue is a persistent work queue for tasks.
-// The storage layer for Queue is a leveldb database, which is used as a basic key-value
-// Elements pushed into the queue are persisted to leveldb, keyed by the task ID. Tasks for
-// which work has not yet begun (those with StateScheduled) state, will be in a heap.
-// When an item is `Pop()`'d off of the queue, they are removed from the heap, but will remain
-// in the database until they are evicted.
-//
-// There are two methods which interact with leveldb only, without queue semantics.
-// Get() is a method which returns the task regardless of its position in the heap. This
-// allows the daemon to respond to clients about the status of a task at any time, even
-// once the task is completed.
-// AppendTaskState() is a method which permits the user to change the state of a task while
-// it is being worked -- that is, after it has been removed from the heap.
-//
-// The on-disk database may store the tasks for several hundred scheduled, in-progress,
-// and completed testground tasks. The heap contains all requested tasks, a subset of the total tasks.
-//
-// A normal workflow will work like this:
-// 1. Tasks are pushed onto the queue by a client
-// 2. Tasks are persisted to the database and sit in the heap while in "StateRequested"
-// 3. workers Pop tasks off of the heap, at which time the reference remains in he the database,
-//    but the task is claimed by that worker.
-// 4. The worker begins the work, and then marks the state of the task appropriately.
-// 5. the worker completes the work, and then marks the state of the task completed.
-//
-// when the worker encounters an error, it may do the following:
-// 3. the worker pops a task off of the heap
-// 4. The worker encounters a problem and cannot start work
-// 5. the worker pushes the task back onto the heap
-//
-// Or in a crash condition:
-// 3. the worker pops a task of the heap
-// 4. testground is restarted or crashes in the middle of the work.
-// 5. testground (restarted) will add this task to the heap again regardless of the max length constraint
-//
-// In order to keep the storage requirements relatively small, older keys are evicted.
 type Queue struct {
 	sync.Mutex
 	tq *taskQueue  // priority task queue
 	db *leveldb.DB // on-disk key-value databse
-	eo []*evict    // eviction order when there are too many keys.
 
-	max     int              // the maximum number of tasks to keep in the databse
-	onEvict EvictionFunction // Additional cleanup function when eviction occurs.
+	max int // the maximum number of tasks to keep in the databse
 }
 
 // Add an item to the priority queue
@@ -128,28 +93,12 @@ func (q *Queue) Push(tsk *Task) error {
 	if q.tq.Len() >= q.max {
 		return ErrQueueFull
 	}
-	// evict keys from the database until we have less than the max.
-	// we have one evict per key in q.db, so the len(q.eo) is the number of keys in leveldb.
-	for keys := len(q.eo); keys >= q.max; keys-- {
-		key := q.eo[0].Key
-		err := q.db.Delete([]byte(key), &opt.WriteOptions{
-			Sync: true,
-		})
-		if err != nil {
-			return err
-		}
-		// Cleanup
-		q.onEvict(key)
-		q.eo = q.eo[1:]
-	}
 
 	// Persist this task to the database
 	err := q.put(tsk)
 	if err != nil {
 		return err
 	}
-	// Add this task to the eviction order
-	q.eo = append(q.eo, &evict{tsk.ID, tsk.Created})
 	// Push this task to the queue
 	heap.Push(q.tq, tsk)
 	return nil
@@ -173,7 +122,8 @@ func (q *Queue) Get(id string, tsk *Task) error {
 
 // unexported; put value into the K-V store.
 func (q *Queue) put(tsk *Task) error {
-	key := []byte(tsk.ID)
+	strkey := strings.Join([]string{QUEUEPREFIX, tsk.ID}, ":")
+	key := []byte(strkey)
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
@@ -247,16 +197,3 @@ func (q *taskQueue) Pop() interface{} {
 	*q = (*q)[:len(*q)-1]
 	return t
 }
-
-// an element in Queue.eo (eviction order)
-type evict struct {
-	Key  string
-	Time time.Time
-}
-
-// Cleanup function, which is executed whenever an element is evicted from the database
-// Use this function to delete files that exist outside of the database
-type EvictionFunction func(key string)
-
-// An eviction function which does nothing.
-var EvictDoNothing EvictionFunction = func(string) {}
