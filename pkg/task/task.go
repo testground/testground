@@ -49,7 +49,7 @@ func (t TaskResultStatus) String() string {
 // DatedTaskState (kind: struct) is a TaskState with a timestamp.
 type DatedTaskState struct {
 	TaskState TaskState `json:"state"`
-	Entered   time.Time `json:"entered"`
+	Created   time.Time `json:"created"`
 }
 
 // TaskResult (kind: struct)  contains a status code. If the status is not TaskResultNone or
