@@ -15,48 +15,42 @@ const (
 	StateComplete
 )
 
-func (t TaskState) String() string {
-	return [...]string{
-		"StateRequested",
-		"StateProcessing",
-		"StateComplete",
-	}[t]
-}
-
-// ResultStatus (kind: int) is a status code for completed tasks.
-// ResultNone: initial status, No status, probably becasue the task is incomplete.
-// ResultSuccess: the task has completed without an error.
-// ResultPlanFail: the task has completed with a failure.
-// ResultTestgroundFail: testground encountered an error and the task has not been scheduled.
-type TaskResultStatus int
+// TaskType(kind int) represents the kind of activity the daemon asked to perform. In alignment
+// with the testground command-line we have two kinds of tasks
+// TaskBuild -- which functions similarly to `testground build`. The result of this task will contain
+// a build ID which can be used in a subsiquent run.
+// TaskRun -- which functions similarly to `testground run`
+type TaskType int
 
 const (
-	ResultNone TaskResultStatus = iota
-	ResultSuccess
-	ResultPlanFail
-	ResultTestgroundFail
+	TaskBuild TaskType = iota
+	TaskRun
 )
-
-func (t TaskResultStatus) String() string {
-	return [...]string{
-		"ResultNone",
-		"ResultSuccess",
-		"ResultPlanFail",
-		"ResultTestgroundFail",
-	}[t]
-}
 
 // DatedTaskState (kind: struct) is a TaskState with a timestamp.
 type DatedTaskState struct {
-	TaskState TaskState `json:"state"`
 	Created   time.Time `json:"created"`
+	TaskState TaskState `json:"state"`
+}
+
+type BuildResult struct {
+	ID string `json:"id"`
+}
+
+type RunResult struct {
+	Succeeded int `json:"succeeded"`
+	Running   int `json:"running"`
+	Pending   int `json:"pending"`
+	Failed    int `json:"failed"`
+	Unknown   int `json:"unknown"`
 }
 
 // TaskResult (kind: struct)  contains a status code. If the status is not TaskResultNone or
 // TaskResultSuccess, relevant errors will be included in this struct.
 type TaskResult struct {
-	Status TaskResultStatus `json:"status"`
-	Errors []error          `json:"errors"`
+	BuildResult BuildResult `json:"build"`
+	RunResult   RunResult   `json:"run"`
+	Errors      []error     `json:"errors"`
 }
 
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store

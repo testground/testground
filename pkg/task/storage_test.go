@@ -1,46 +1,18 @@
 package task
 
 import (
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-// Make sure items pushed into the into the TaskStorage are persisted
-// Make sure they are removed from persistent storage.
-func TestStorageIsPersistent(t *testing.T) {
-	inmem := storage.NewMemStorage()
-	db, err := leveldb.Open(inmem, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	q, err := NewQueue(&TaskStorage{db}, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tsk := &Task{
-		ID: "abc123",
-	}
-	// store a task using the TaskStorage
-	err = q.Push(tsk)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// read the object from the backend
-	tsk2, err := q.ts.Get(QUEUEPREFIX, tsk.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	assert.Equal(t, (*tsk).ID, (*tsk2).ID)
-}
-
-// Simulate persistance between restarts.
-// Push to a q1, make sure it persists when q2 has the same storage.
-func TestStorageReloads(t *testing.T) {
-	id := "abc123"
-	/// Both queues will use the same storage
+func TestChangePrefix(t *testing.T) {
+	id := "testing123"
+	exp := "current:testing123"
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
 	if err != nil {
@@ -48,31 +20,74 @@ func TestStorageReloads(t *testing.T) {
 	}
 	ts := &TaskStorage{db}
 
-	// open q1 and push an item into the queue
-	q1, err := NewQueue(ts, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = q1.Push(&Task{
+	// Add a task to one prefix, then change it to another.
+	ts.Put(QUEUEPREFIX, &Task{
 		ID: id,
 	})
+	ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, id)
+	// In the database, I expect to see the task stored with the prefix
+	exists, err := ts.db.Has([]byte(exp), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.True(t, exists)
+}
+
+// While in the CURRENT task state, make sure task state entry is recorded
+func AppendTaskState(t *testing.T) {
+	id := "testtesttest"
+	inmem := storage.NewMemStorage()
+	db, err := leveldb.Open(inmem, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := &TaskStorage{db}
+
+	// Create a task in the current prefix so we can append states to its log.
+	ts.Put(CURRENTPREFIX, &Task{
+		ID: id,
+	})
+
+	// Through the lifetime of the task running, append state events to it.
+	ts.AppendTaskState(id, StateProcessing)
+	ts.AppendTaskState(id, StateComplete)
+
+	// How many states are there?
+	tsk, err := ts.Get(CURRENTPREFIX, id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// open q2 with the same storage
-	q2, err := NewQueue(ts, 1)
+	assert.Equal(t, 2, len(tsk.States))
+}
+
+func TestArchive(t *testing.T) {
+	inmem := storage.NewMemStorage()
+	db, err := leveldb.Open(inmem, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := &TaskStorage{db}
+
+	// Add tasks created in different times to the archive.
+	for i, year := range []int{2000, 2005, 2010, 2015, 2020} {
+		id := strconv.Itoa(i)
+		created := time.Date(year, 1, 1, 1, 1, 1, 1, time.FixedZone("UTC", 0))
+		tsk := Task{
+			ID:      id,
+			Created: created,
+		}
+		ts.Put(ARCHIVEPREFIX, &tsk)
+	}
+	// Add a few tests that have occurred at different times.
+
+	before := time.Date(2009, 1, 1, 1, 1, 1, 1, time.FixedZone("UTC", 0))
+	after := time.Date(2019, 1, 1, 1, 1, 1, 1, time.FixedZone("UTC", 0))
+
+	between, err := ts.ArchiveRange(before, after)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Make sure the q2 has an item in it.
-	assert.Equal(t, 1, q2.tq.Len())
-
-	// Make sure it's the same item
-	tsk, err := q2.Pop()
-	if err != nil {
-		t.Fail()
-	}
-	assert.Equal(t, id, tsk.ID)
+	assert.Equal(t, 2, len(between))
 }
