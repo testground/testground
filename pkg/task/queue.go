@@ -16,21 +16,23 @@ var (
 
 func NewQueue(ts *TaskStorage, max int) (*Queue, error) {
 	tq := new(taskQueue)
-	// read the active tasks into the queue
-	iter := ts.db.NewIterator(util.BytesPrefix([]byte(QUEUEPREFIX)), nil)
-	for iter.Next() {
-		tsk := new(Task)
-		err := json.Unmarshal(iter.Value(), tsk)
-		if err != nil {
-			return nil, err
+	for _, prefix := range []string{QUEUEPREFIX, CURRENTPREFIX} {
+		// read the active tasks into the queue
+		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+		for iter.Next() {
+			tsk := new(Task)
+			err := json.Unmarshal(iter.Value(), tsk)
+			if err != nil {
+				return nil, err
+			}
+			// If the current state is Scheduled, we need to place it into the queue.
+			ln := len(tsk.States)
+			if ln == 0 || tsk.States[ln-1].TaskState == StateScheduled {
+				heap.Push(tq, tsk)
+			}
 		}
-		// If the current state is Scheduled, we need to place it into the queue.
-		ln := len(tsk.States)
-		if ln == 0 || tsk.States[ln-1].TaskState == StateScheduled {
-			heap.Push(tq, tsk)
-		}
+		iter.Release()
 	}
-	iter.Release()
 	// correct the eviction order so we will evict oldest items first
 	return &Queue{
 		tq:  tq,

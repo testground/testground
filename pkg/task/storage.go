@@ -22,6 +22,7 @@ type TaskStorage struct {
 }
 
 func (s *TaskStorage) Get(prefix string, id string) (tsk *Task, err error) {
+	tsk = new(Task)
 	key := []byte(strings.Join([]string{prefix, id}, ":"))
 	val, err := s.db.Get(key, nil)
 	if err != nil {
