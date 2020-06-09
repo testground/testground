@@ -81,7 +81,10 @@ func (q *Queue) Pop() (*Task, error) {
 	}
 	tsk := heap.Pop(q.tq).(*Task)
 
-	q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+	err := q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+	if err != nil {
+		return nil, err
+	}
 	return tsk, nil
 }
 
