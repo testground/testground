@@ -2,6 +2,8 @@ package task
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,7 +26,7 @@ type TaskStorage struct {
 
 func (s *TaskStorage) Get(prefix string, id string) (tsk *Task, err error) {
 	tsk = new(Task)
-	key := []byte(strings.Join([]string{prefix, id}, ":"))
+	key := []byte(strings.Join([]string{prefix, strconv.Itoa(int(tsk.Created().Unix()))}, ":"))
 	val, err := s.db.Get(key, nil)
 	if err != nil {
 		return nil, err
@@ -40,15 +42,8 @@ func (s *TaskStorage) Put(prefix string, tsk *Task) error {
 	var key []byte
 	// "archived" tasks have their date associated.
 	// "queued" and "current" tasks are hot. They are not indexed by time.
-	if prefix == ARCHIVEPREFIX {
-		key = []byte(strings.Join([]string{
-			prefix,
-			tsk.Created.Format(time.RFC3339),
-			tsk.ID,
-		}, ":"))
-	} else {
-		key = []byte(strings.Join([]string{prefix, tsk.ID}, ":"))
-	}
+	key = []byte(strings.Join([]string{prefix, strconv.Itoa(int(tsk.Created().Unix()))}, ":"))
+	fmt.Println(string(key))
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
@@ -90,13 +85,14 @@ func (s *TaskStorage) ChangePrefix(dst string, src string, id string) error {
 
 // ArchiveRange returns []*Task with all tasks between the given time ranges.
 func (s *TaskStorage) ArchiveRange(start time.Time, end time.Time) (tasks []*Task, err error) {
+
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			ARCHIVEPREFIX,
-			start.Format(time.RFC3339)}, ":")),
+			strconv.Itoa(int(start.Unix()))}, ":")),
 		Limit: []byte(strings.Join([]string{
 			ARCHIVEPREFIX,
-			end.Format(time.RFC3339)}, ":")),
+			strconv.Itoa(int(end.Unix()))}, ":")),
 	}
 
 	tasks = make([]*Task, 0)

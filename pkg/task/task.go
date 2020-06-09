@@ -1,5 +1,6 @@
 package task
 
+import "github.com/google/uuid"
 import "time"
 
 // TaskState (kind: int) represents the last known state of a task.
@@ -59,8 +60,15 @@ type TaskResult struct {
 type Task struct {
 	Version  int              `json:"version"`  // Schema version
 	Priority int              `json:"priority"` // scheduling priority
-	Created  time.Time        `json:"created"`  // datetime created
-	ID       string           `json:"id"`       // unique identifier for this task
+	ID       string           `json:"id"`       // unique identifier for this task, specifically, a UUID
 	States   []DatedTaskState `json:"states"`   // State of the task
 	Result   TaskResult       `json:"result"`   // result of the task, when terminal.
+}
+
+func (t *Task) Created() time.Time {
+	u, err := uuid.Parse(t.ID)
+	if err != nil {
+		return time.Time{}
+	}
+	return time.Unix(u.Time().UnixTime())
 }

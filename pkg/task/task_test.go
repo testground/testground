@@ -3,29 +3,28 @@ package task
 import (
 	"container/heap"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQueueSortsPriorityAndTime(t *testing.T) {
-	earlier := time.Now()
-	later := earlier.Add(time.Minute)
+	earlier := "f9b884ad-a9e8-11ea-82b2-ccb0daba35bf"
+	later := "09c8372d-a9e9-11ea-b70d-ccb0daba35bf"
 
 	// Add tasks to the queue with different priorities
 	tq := make(taskQueue, 0)
 	for i := 0; i <= 10; i++ {
 		tsk := Task{
+			ID:       earlier,
 			Priority: i,
-			Created:  earlier,
 		}
 		heap.Push(&tq, &tsk)
 	}
 	// Add a few more with a later timestamp
 	for i := 0; i <= 10; i++ {
 		tsk := Task{
+			ID:       later,
 			Priority: i,
-			Created:  later,
 		}
 		heap.Push(&tq, &tsk)
 	}
@@ -38,8 +37,8 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		if head.Priority != next.Priority {
 			assert.Greater(t, head.Priority, next.Priority, "should prefer higher priority tasks")
 		} else {
-			t.Logf("timestamp %s before %s?", head.Created, next.Created)
-			assert.True(t, head.Created.Before(next.Created), "should prefer older tasks")
+			t.Logf("timestamp %s before %s?", head.Created(), next.Created())
+			assert.True(t, head.Created().Before(next.Created()), "should prefer older tasks")
 		}
 		head = next
 	}

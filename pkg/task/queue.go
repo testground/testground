@@ -101,7 +101,11 @@ func (q taskQueue) Less(i, j int) bool {
 	if q[i].Priority != q[j].Priority {
 		return q[i].Priority > q[j].Priority
 	}
-	return q[i].Created.Before(q[j].Created)
+
+	// This will silently work incorrectly! using default time.Time{} will cause the queue to be
+	// mis-sorted among tasks of the same priority.
+
+	return q[i].Created().Before(q[j].Created())
 }
 
 func (q taskQueue) Swap(i, j int) {
