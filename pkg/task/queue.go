@@ -76,7 +76,7 @@ func (q *Queue) Push(tsk *Task) error {
 // get the next item from the priority queue
 // Pop the task off of the queue
 // The task remains in the database, but is no longer in the heap.
-// As the state of the task changes (i.e. to mark the task completed, use SetTaskState)
+// As the state of the task changes
 func (q *Queue) Pop() (*Task, error) {
 	q.Lock()
 	defer q.Unlock()
@@ -85,7 +85,7 @@ func (q *Queue) Pop() (*Task, error) {
 	}
 	tsk := heap.Pop(q.tq).(*Task)
 
-	q.ts.Put(CURRENTPREFIX, tsk)
+	q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
 	return tsk, nil
 }
 

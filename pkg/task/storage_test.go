@@ -20,10 +20,16 @@ func TestChangePrefix(t *testing.T) {
 	ts := &TaskStorage{db}
 
 	// Add a task to one prefix, then change it to another.
-	ts.Put(QUEUEPREFIX, &Task{
+	err = ts.Put(QUEUEPREFIX, &Task{
 		ID: id,
 	})
-	ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// In the database, I expect to see the task stored with the prefix
 	exists, err := ts.db.Has([]byte(exp), nil)
 	if err != nil {
@@ -89,7 +95,10 @@ func TestArchive(t *testing.T) {
 		tsk := Task{
 			ID: id,
 		}
-		ts.Put(ARCHIVEPREFIX, &tsk)
+		err := ts.Put(ARCHIVEPREFIX, &tsk)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	// find all tasks between a certain date and time
 	// I expect to find three of the tasks between this range.
