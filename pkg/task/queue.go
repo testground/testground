@@ -25,11 +25,7 @@ func NewQueue(ts *TaskStorage, max int) (*Queue, error) {
 			if err != nil {
 				return nil, err
 			}
-			// If the current state is Scheduled, we need to place it into the queue.
-			ln := len(tsk.States)
-			if ln == 0 || tsk.States[ln-1].TaskState == StateScheduled {
-				heap.Push(tq, tsk)
-			}
+			heap.Push(tq, tsk)
 		}
 		iter.Release()
 	}
