@@ -59,3 +59,14 @@ instances = { min = 1, max = 20000, default = 2 }
   [testcases.params]
   subtree_iterations = { type = "int", desc = "number of iterations of the subtree test", unit = "iteration", default = 2000 }
   subtree_test_timeout_secs  = { type = "int", desc = "subtree testcase timeout", unit = "seconds", default = 300 }
+
+[[testcases]]
+name = "storm"
+instances = { min = 1, max = 100000, default = 5 }
+
+  [testcases.params]
+  conn_count       = { type = "int", desc = "number of TCP sockets to open", default = 5 }
+  conn_outgoing    = { type = "int", desc = "number of outgoing TCP dials", default = 5 }
+  conn_delay       = { type = "int", desc = "random milliseconds jitter before TCP dial", default = 30000 }
+  concurrent_dials = { type = "int", desc = "max number of concurrent net.Dial calls", default = 10 }
+  data_size_kb     = { type = "int", desc = "size of data to write to each TCP connection", default = 128 }
