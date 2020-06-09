@@ -51,8 +51,7 @@ func taskKey(prefix string, id string) []byte {
 
 func (s *TaskStorage) Get(prefix string, id string) (tsk *Task, err error) {
 	tsk = new(Task)
-	key := []byte(strings.Join([]string{prefix, strconv.FormatInt(tsk.Created().Unix(), 10)}, ":"))
-	val, err := s.db.Get(key, nil)
+	val, err := s.db.Get(taskKey(prefix, id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -64,14 +63,11 @@ func (s *TaskStorage) Get(prefix string, id string) (tsk *Task, err error) {
 }
 
 func (s *TaskStorage) Put(prefix string, tsk *Task) error {
-	var key []byte
-	key = []byte(strings.Join([]string{prefix, strconv.Itoa(int(tsk.Created().Unix()))}, ":"))
-	fmt.Println(string(key))
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
 	}
-	return s.db.Put(key, val, &opt.WriteOptions{
+	return s.db.Put(taskKey(prefix, tsk.ID), val, &opt.WriteOptions{
 		Sync: true,
 	})
 }
