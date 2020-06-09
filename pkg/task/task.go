@@ -34,25 +34,9 @@ type DatedTaskState struct {
 	TaskState TaskState `json:"state"`
 }
 
-type BuildResult struct {
-	ID string `json:"id"`
-}
-
-type RunResult struct {
-	Succeeded int `json:"succeeded"`
-	Running   int `json:"running"`
-	Pending   int `json:"pending"`
-	Failed    int `json:"failed"`
-	Unknown   int `json:"unknown"`
-}
-
-// TaskResult (kind: struct)  contains a status code. If the status is not TaskResultNone or
-// TaskResultSuccess, relevant errors will be included in this struct.
-type TaskResult struct {
-	BuildResult BuildResult `json:"build"`
-	RunResult   RunResult   `json:"run"`
-	Errors      []error     `json:"errors"`
-}
+// TaskResult (kind: struct)
+// This will be redefined at a later time.
+type TaskResult struct{}
 
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store
 // metadata in our task storage database as well as the wire format returned when clients get the
