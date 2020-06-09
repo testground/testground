@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/testground/testground/pkg/api"
@@ -224,8 +225,13 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 
 			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
 
+			id, err := uuid.NewUUID()
+			if err != nil {
+				return err
+			}
+
 			in := &api.BuildInput{
-				BuildID:         uuid.New().String()[24:],
+				BuildID:         id.String(),
 				EnvConfig:       *e.envcfg,
 				TestPlan:        plan,
 				Selectors:       grp.Build.Selectors,
@@ -301,11 +307,11 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	// TODO generate the run id with a mononotically increasing counter; persist
-	//  the run ID in the state db.
-	//
-	// This Run ID is shared by all groups in the composition.
-	runid := uuid.New().String()[24:]
+	id, err := uuid.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	runid := id.String()
 
 	// This var compiles all configurations to coalesce.
 	//
