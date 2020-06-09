@@ -124,10 +124,10 @@ func (s *TaskStorage) ArchiveRange(start time.Time, end time.Time) (tasks []*Tas
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			ARCHIVEPREFIX,
-			strconv.Itoa(int(start.Unix()))}, ":")),
+			strconv.FormatInt(start.Unix(), 10)}, ":")),
 		Limit: []byte(strings.Join([]string{
 			ARCHIVEPREFIX,
-			strconv.Itoa(int(end.Unix()))}, ":")),
+			strconv.FormatInt(end.Unix(), 10)}, ":")),
 	}
 
 	tasks = make([]*Task, 0)
