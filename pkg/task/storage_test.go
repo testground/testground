@@ -43,13 +43,20 @@ func TestAppendTaskState(t *testing.T) {
 	ts := &TaskStorage{db}
 
 	// Create a task in the current prefix so we can append states to its log.
-	ts.Put(CURRENTPREFIX, &Task{
+	err = ts.Put(CURRENTPREFIX, &Task{
 		ID: id,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Through the lifetime of the task running, append state events to it.
-	ts.AppendTaskState(id, StateProcessing)
-	ts.AppendTaskState(id, StateComplete)
+	if err := ts.AppendTaskState(id, StateProcessing); err != nil {
+		t.Fatal(err)
+	}
+	if err := ts.AppendTaskState(id, StateComplete); err != nil {
+		t.Fatal(err)
+	}
 
 	// How many states are there?
 	tsk, err := ts.Get(CURRENTPREFIX, id)
