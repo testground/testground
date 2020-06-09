@@ -9,31 +9,31 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/storage"
 )
 
-// func TestChangePrefix(t *testing.T) {
-// 	id := "testing123"
-// 	exp := "current:testing123"
-// 	inmem := storage.NewMemStorage()
-// 	db, err := leveldb.Open(inmem, nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	ts := &TaskStorage{db}
+func TestChangePrefix(t *testing.T) {
+	id := "testing123"
+	exp := "current:testing123"
+	inmem := storage.NewMemStorage()
+	db, err := leveldb.Open(inmem, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := &TaskStorage{db}
 
-// 	// Add a task to one prefix, then change it to another.
-// 	ts.Put(QUEUEPREFIX, &Task{
-// 		ID: id,
-// 	})
-// 	ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, id)
-// 	// In the database, I expect to see the task stored with the prefix
-// 	exists, err := ts.db.Has([]byte(exp), nil)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	assert.True(t, exists)
-// }
+	// Add a task to one prefix, then change it to another.
+	ts.Put(QUEUEPREFIX, &Task{
+		ID: id,
+	})
+	ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, id)
+	// In the database, I expect to see the task stored with the prefix
+	exists, err := ts.db.Has([]byte(exp), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.True(t, exists)
+}
 
 // While in the CURRENT task state, make sure task state entry is recorded
-func AppendTaskState(t *testing.T) {
+func TestAppendTaskState(t *testing.T) {
 	id := "testtesttest"
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
