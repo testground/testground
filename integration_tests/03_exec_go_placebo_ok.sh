@@ -9,7 +9,7 @@ testground run single --runner local:exec --builder exec:go --instances 2 --plan
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 file $RUNID.tgz
-unzip $RUNID.tgz
+tar -xzvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
 SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)

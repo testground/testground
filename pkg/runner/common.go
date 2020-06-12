@@ -1,7 +1,8 @@
 package runner
 
 import (
-	"archive/zip"
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/rpc"
@@ -37,7 +37,7 @@ func nextDataNetwork(lenNetworks int) (*net.IPNet, string, error) {
 	return subnet, gw, err
 }
 
-func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, ow *rpc.OutputWriter) error {
+func gzipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInput, ow *rpc.OutputWriter) error {
 	pattern := filepath.Join(basedir, "*", input.RunID)
 
 	matches, err := filepath.Glob(pattern)
@@ -57,49 +57,60 @@ func zipRunOutputs(ctx context.Context, basedir string, input *api.CollectionInp
 		return fmt.Errorf("internal error: not a directory when accessing run outputs")
 	}
 
-	wz := zip.NewWriter(ow.BinaryWriter())
-	defer wz.Close()
-	defer wz.Flush()
+	gz := gzip.NewWriter(ow.BinaryWriter())
+	defer gz.Close()
 
-	base := filepath.Base(dir)
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	tw := tar.NewWriter(gz)
+	defer tw.Close()
+
+	// validate path
+	dir = filepath.Clean(dir)
+
+	walker := func(file string, finfo os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		header, err := zip.FileInfoHeader(info)
+		hdr, err := tar.FileInfoHeader(finfo, finfo.Name())
 		if err != nil {
 			return err
 		}
 
-		header.Name = filepath.Join(base, strings.TrimPrefix(path, dir))
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			header.Method = zip.Deflate
+		relFilePath := file
+		if filepath.IsAbs(dir) {
+			relFilePath, err = filepath.Rel(dir, file)
+			if err != nil {
+				return err
+			}
 		}
 
-		writer, err := wz.CreateHeader(header)
-		if err != nil {
+		hdr.Name = relFilePath
+
+		if err := tw.WriteHeader(hdr); err != nil {
 			return err
 		}
 
-		if info.IsDir() {
+		if finfo.Mode().IsDir() {
 			return nil
 		}
 
-		file, err := os.Open(path)
+		// add file to tar
+		srcFile, err := os.Open(file)
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-		_, err = io.Copy(writer, file)
+		defer srcFile.Close()
+		_, err = io.Copy(tw, srcFile)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err := filepath.Walk(dir, walker); err != nil {
 		return err
-	})
+	}
+	return nil
 }
 
 func reviewResources(group *api.RunGroup, ow *rpc.OutputWriter) {

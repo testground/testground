@@ -149,7 +149,7 @@ func (r *LocalExecutableRunner) CollectOutputs(ctx context.Context, input *api.C
 	dir := r.outputsDir
 	r.lk.RUnlock()
 
-	return zipRunOutputs(ctx, dir, input, ow)
+	return gzipRunOutputs(ctx, dir, input, ow)
 }
 
 func (*LocalExecutableRunner) ID() string {

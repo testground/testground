@@ -509,7 +509,7 @@ func (r *LocalDockerRunner) CollectOutputs(ctx context.Context, input *api.Colle
 	dir := r.outputsDir
 	r.lk.RUnlock()
 
-	return zipRunOutputs(ctx, dir, input, ow)
+	return gzipRunOutputs(ctx, dir, input, ow)
 }
 
 // attachContainerToNetwork attaches the provided container to the specified
