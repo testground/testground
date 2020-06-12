@@ -229,8 +229,10 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 				return err
 			}
 
+			buildID := id.String()[24:]
+
 			in := &api.BuildInput{
-				BuildID:         id.String(),
+				BuildID:         buildID,
 				EnvConfig:       *e.envcfg,
 				TestPlan:        plan,
 				Selectors:       grp.Build.Selectors,
@@ -310,7 +312,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 	if err != nil {
 		return nil, err
 	}
-	runid := id.String()
+	runid := id.String()[24:]
 
 	// This var compiles all configurations to coalesce.
 	//

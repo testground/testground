@@ -14,6 +14,8 @@ testground run single --runner local:docker --builder docker:go --use-build test
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 file $RUNID.tgz
+LENGTH=${#RUNID}
+test $LENGTH -eq 12
 tar -xzvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
