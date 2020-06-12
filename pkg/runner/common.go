@@ -76,15 +76,15 @@ func gzipRunOutputs(ctx context.Context, basedir string, input *api.CollectionIn
 			return err
 		}
 
-		relFilePath := file
-		if filepath.IsAbs(dir) {
-			relFilePath, err = filepath.Rel(dir, file)
-			if err != nil {
-				return err
-			}
-		}
+		//relFilePath := file
+		//if filepath.IsAbs(dir) {
+		//relFilePath, err = filepath.Rel(dir, file)
+		//if err != nil {
+		//return err
+		//}
+		//}
 
-		hdr.Name = relFilePath
+		hdr.Name = file
 
 		if err := tw.WriteHeader(hdr); err != nil {
 			return err

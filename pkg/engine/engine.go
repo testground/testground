@@ -224,15 +224,8 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 
 			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
 
-			id, err := uuid.NewUUID()
-			if err != nil {
-				return err
-			}
-
-			buildID := id.String()[24:]
-
 			in := &api.BuildInput{
-				BuildID:         buildID,
+				BuildID:         uuid.New().String()[24:],
 				EnvConfig:       *e.envcfg,
 				TestPlan:        plan,
 				Selectors:       grp.Build.Selectors,
@@ -308,11 +301,7 @@ func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.Outpu
 		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	id, err := uuid.NewUUID()
-	if err != nil {
-		return nil, err
-	}
-	runid := id.String()[24:]
+	runid := uuid.New().String()[24:]
 
 	// This var compiles all configurations to coalesce.
 	//
