@@ -17,10 +17,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-const (
-	defaultDataNetwork = "default"
-)
-
 type k8sLink struct {
 	*NetlinkLink
 	IPv4, IPv6 *net.IPNet
