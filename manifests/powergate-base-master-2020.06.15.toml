@@ -1,0 +1,26 @@
+name = "powergate-base-master-2020.06.15"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/powergate-base-master-2020.06.15"
+
+[defaults]
+builder = "docker:powergate"
+runner = "local:docker"
+
+[build_strategies."docker:powergate"]
+enabled = true
+go_version = "1.14"
+module_path = "github.com/ipfs/testground/plans/powergate-base"
+exec_pkg = "."
+copy_powergate = true
+powergate_path = "../powergate-master-2020.06.15"
+
+[run_strategies."local:docker"]
+enabled = true
+
+[run_strategies."cluster:k8s"]
+enabled = true
+
+# seq 0
+[[testcases]]
+name = "placeholder"
+instances = { min = 1, max = 1, default = 1 }
+

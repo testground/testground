@@ -11,6 +11,7 @@ import (
 	"github.com/ipfs/testground/pkg/build/golang"
 	"github.com/ipfs/testground/pkg/build/lotus"
 	"github.com/ipfs/testground/pkg/build/ipfs"
+	"github.com/ipfs/testground/pkg/build/powergate"
 	"github.com/ipfs/testground/pkg/config"
 	"github.com/ipfs/testground/pkg/logging"
 	"github.com/ipfs/testground/pkg/runner"
@@ -27,6 +28,7 @@ var AllBuilders = []api.Builder{
 	&golang.ExecGoBuilder{},
 	&lotus.DockerLotusBuilder{},
 	&ipfs.DockerIPFSBuilder{},
+	&powergate.DockerPowergateBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.
