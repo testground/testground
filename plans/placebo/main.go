@@ -6,14 +6,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
-	runtime.Invoke(run)
+	run.Invoke(doRun)
 }
 
-func run(runenv *runtime.RunEnv) error {
+func doRun(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
 	case "ok":
 		return nil
@@ -23,7 +24,7 @@ func run(runenv *runtime.RunEnv) error {
 		defer cancel()
 
 		// snapshot metrics every second and save them into "metrics" directory
-		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+runtime.HTTPListenAddr+"/metrics", time.Second, "metrics")
+		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+run.HTTPListenAddr+"/metrics", time.Second, "metrics")
 		if err != nil {
 			return err
 		}

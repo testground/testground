@@ -6,12 +6,12 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	gosync "sync"
 	"time"
 
-	syncc "sync"
-
 	"github.com/pkg/errors"
-	"github.com/testground/sdk-go/network"
+
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -26,17 +26,21 @@ type ListenAddrs struct {
 
 var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
 
-func Storm(runenv *runtime.RunEnv) error {
+func Storm(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	var (
+		connCount   = runenv.IntParam("conn_count")
+		connDelayMs = runenv.IntParam("conn_delay_ms")
+		connDial    = runenv.IntParam("concurrent_dials")
+		outgoing    = runenv.IntParam("conn_outgoing")
+		size        = runenv.IntParam("data_size_kb")
+
+		client = initCtx.SyncClient
+	)
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
 	defer cancel()
 
 	runenv.RecordStart()
-
-	connCount := runenv.IntParam("conn_count")
-	connDelayMs := runenv.IntParam("conn_delay_ms")
-	connDial := runenv.IntParam("concurrent_dials")
-	outgoing := runenv.IntParam("conn_outgoing")
-	size = runenv.IntParam("data_size_kb")
 
 	runenv.RecordMessage("running with data_size_kb: %d", size)
 	runenv.RecordMessage("running with conn_outgoing: %d", outgoing)
@@ -45,16 +49,6 @@ func Storm(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("running with conncurrent_dials: %d", connDial)
 
 	size = size * 1024 // convert kb to bytes
-
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	if !runenv.TestSidecar {
-		return nil
-	}
-
-	netclient := network.NewClient(client, runenv)
-	netclient.MustWaitNetworkInitialized(ctx)
 
 	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
 	if err != nil {
@@ -93,14 +87,14 @@ func Storm(runenv *runtime.RunEnv) error {
 
 	runenv.RecordMessage("my node info: %s", mynode.Addrs)
 
-	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
+	initCtx.MustWaitAllInstancesInitialized(ctx)
 
 	allAddrs, err := shareAddresses(ctx, client, runenv, mynode)
 	if err != nil {
 		return err
 	}
 
-	otherAddrs := []string{}
+	var otherAddrs []string
 	for _, addr := range allAddrs {
 		if _, ok := mine[addr]; ok {
 			continue
@@ -108,14 +102,14 @@ func Storm(runenv *runtime.RunEnv) error {
 		otherAddrs = append(otherAddrs, addr)
 	}
 
-	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
+	_ = client.MustSignalAndWait(ctx, "got-other-addrs", runenv.TestInstanceCount)
 
 	runenv.D().Counter("other.addrs").Inc(int64(len(otherAddrs)))
 
 	sem := make(chan struct{}, connDial)      // limit the number of concurrent net.Dials
 	writesem := make(chan struct{}, connDial) // limit the number of concurrent conn.write
 
-	var wg syncc.WaitGroup
+	var wg gosync.WaitGroup
 	wg.Add(outgoing)
 
 	alloutgoing := outgoing
@@ -228,7 +222,7 @@ func getSubnetAddr(subnet *runtime.IPNet) (*net.TCPAddr, error) {
 	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
-func shareAddresses(ctx context.Context, client *sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
+func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -237,8 +231,7 @@ func shareAddresses(ctx context.Context, client *sync.Client, runenv *runtime.Ru
 		return nil, errors.Wrap(err, "publish/subscribe failure")
 	}
 
-	res := []string{}
-
+	var res []string
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
 		case info := <-ch:

@@ -1,9 +1,12 @@
 package main
 
-import "github.com/testground/sdk-go/runtime"
+import (
+	"github.com/testground/sdk-go/run"
+	"github.com/testground/sdk-go/runtime"
+)
 
 func main() {
-	runtime.Invoke(func(runenv *runtime.RunEnv) error {
+	run.Invoke(func(runenv *runtime.RunEnv) error {
 		runenv.RecordMessage("hi there!")
 		return nil
 	})

@@ -7,33 +7,27 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
 
-var testcases = map[string]runtime.TestCaseFn{
+var testcases = map[string]interface{}{
 	"ping-pong": pingpong,
 }
 
 func main() {
-	runtime.InvokeMap(testcases)
+	run.InvokeMap(testcases)
 }
 
-func pingpong(runenv *runtime.RunEnv) error {
+func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	runenv.RecordMessage("before sync.MustBoundClient")
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	if !runenv.TestSidecar {
-		return nil
-	}
-
-	netclient := network.NewClient(client, runenv)
-	runenv.RecordMessage("before netclient.MustWaitNetworkInitialized")
-	netclient.MustWaitNetworkInitialized(ctx)
+	var (
+		client    = initCtx.SyncClient
+		netclient = initCtx.NetClient
+	)
 
 	oldAddrs, err := net.InterfaceAddrs()
 	if err != nil {

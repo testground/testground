@@ -8,20 +8,16 @@ import (
 	"time"
 
 	"github.com/sparrc/go-ping"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
 
 func main() {
-	testcases := map[string]runtime.TestCaseFn{
+	testcases := map[string]interface{}{
 		"uses-data-network": UsesDataNetwork,
 	}
-	runtime.InvokeMap(testcases)
-}
-
-func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (*sync.Client, error) {
-	client := sync.MustBoundClient(ctx, runenv)
-	return client, client.WaitNetworkInitialized(ctx, runenv)
+	run.InvokeMap(testcases)
 }
 
 func isControlNet(nw string) bool {
@@ -34,16 +30,11 @@ func isControlNet(nw string) bool {
 // target on each of its ip addresses.
 // An error is reported if the target is reachable over the control network or if there is packet
 // loss over the data network.
-func UsesDataNetwork(runenv *runtime.RunEnv) error {
+func UsesDataNetwork(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	client := initCtx.SyncClient
+
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-
-	client, err := setupNetwork(ctx, runenv)
-	if err != nil {
-		runenv.RecordFailure(err)
-		return err
-	}
-	defer client.Close()
 
 	const (
 		_ int64 = iota
@@ -55,7 +46,9 @@ func UsesDataNetwork(runenv *runtime.RunEnv) error {
 
 	netTopic := sync.NewTopic("addrs", "")
 
-	switch client.MustSignalAndWait(ctx, "ready", runenv.TestInstanceCount) {
+	initCtx.MustWaitAllInstancesInitialized(ctx)
+
+	switch initCtx.GlobalSeq {
 	case targetmode:
 		runenv.RecordMessage("target mode. publishing target networks.")
 		for _, iname := range []string{"eth0", "eth1"} {

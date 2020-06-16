@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -35,6 +36,9 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
+	// NOTE: if using an InitContext, creating the sync client and initializing
+	// the network will be taken care for you. But we do it here explicitly for
+	// the sake of the test.
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
@@ -47,7 +51,7 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 }
 
 // NetworkLinkShapeBench benchmarks the time required to change the link shape
-func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
+func NetworkLinkShapeBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	// FIX(cory/raulk) this test will not work with local:exec, because it
 	// doesn't support the sidecar yet. We should probably skip it
 	// conditionally, based on the runner. We might want to inject the runner
@@ -56,12 +60,6 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
-
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	netclient := network.NewClient(client, runenv)
-	netclient.MustWaitNetworkInitialized(ctx)
 
 	// A new network configuration
 	cfg := &network.Config{
@@ -76,7 +74,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 	before := time.Now()
 
 	// Send configuration to the sidecar.
-	netclient.MustConfigureNetwork(ctx, cfg)
+	initCtx.NetClient.MustConfigureNetwork(ctx, cfg)
 
 	elapsed := time.Since(before)
 	runenv.R().RecordPoint("time_to_shape_network_secs", elapsed.Seconds())
@@ -86,17 +84,15 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 
 // BarrierBench tests the time it takes to wait on Barriers, waiting on a
 // different number of instances in each loop.
-func BarrierBench(runenv *runtime.RunEnv) error {
-	iterations := runenv.IntParam("barrier_iterations")
+func BarrierBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	var (
+		iterations = runenv.IntParam("barrier_iterations")
+		timeout    = time.Duration(runenv.IntParam("barrier_test_timeout_secs")) * time.Second
+		client     = initCtx.SyncClient
+	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	netclient := network.NewClient(client, runenv)
-	netclient.MustWaitNetworkInitialized(ctx)
 
 	type cfg struct {
 		Name    string
@@ -144,19 +140,17 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 }
 
 // SubtreeBench benchmarks publish and subsciptions to a subtree
-func SubtreeBench(runenv *runtime.RunEnv) error {
+func SubtreeBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	rand.Seed(time.Now().UnixNano())
 
-	iterations := runenv.IntParam("subtree_iterations")
+	var (
+		iterations = runenv.IntParam("subtree_iterations")
+		timeout    = time.Duration(runenv.IntParam("subtree_test_timeout_secs")) * time.Second
+		client     = initCtx.SyncClient
+	)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("subtree_test_timeout_secs"))*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	netclient := network.NewClient(client, runenv)
-	netclient.MustWaitNetworkInitialized(ctx)
 
 	topic := sync.NewTopic("instances", "")
 

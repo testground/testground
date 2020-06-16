@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -37,12 +38,12 @@ type node struct {
 }
 
 func main() {
-	testcases := map[string]runtime.TestCaseFn{
+	testcases := map[string]interface{}{
 		"drop":   routeFilter(network.Drop),
 		"reject": routeFilter(network.Reject),
 		"accept": routeFilter(network.Accept),
 	}
-	runtime.InvokeMap(testcases)
+	run.InvokeMap(testcases)
 }
 
 func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
@@ -55,27 +56,25 @@ func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
 	return false
 }
 
-func routeFilter(action network.FilterAction) runtime.TestCaseFn {
-
-	return func(runenv *runtime.RunEnv) error {
-
-		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
-		defer cancel()
-
-		client := sync.MustBoundClient(ctx, runenv)
-
+func routeFilter(action network.FilterAction) run.InitializedTestCaseFn {
+	return func(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		if !runenv.TestSidecar {
 			return fmt.Errorf("this plan must be run with sidecar enabled")
 		}
 
-		netclient := network.NewClient(client, runenv)
-		netclient.MustWaitNetworkInitialized(ctx)
+		var (
+			client    = initCtx.SyncClient
+			netclient = initCtx.NetClient
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+		defer cancel()
 
 		// Each node starts an HTTP server to test for connectivity
 		runenv.RecordMessage("Starting http server")
 		http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
 			runenv.RecordMessage("received http request from %s", req.RemoteAddr)
-			fmt.Fprintln(w, "hello.")
+			_, _ = fmt.Fprintln(w, "hello.")
 		})
 		go func() { _ = http.ListenAndServe(":8765", nil) }()
 

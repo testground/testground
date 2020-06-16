@@ -34,11 +34,13 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
-	client sync.Interface
-	gosync.Mutex
+	client sync.Client
+
+	lk             gosync.Mutex
 	servicesRoutes []net.IP
-	manager        *docker.Manager
-	runidsCache    *lru.Cache
+
+	manager     *docker.Manager
+	runidsCache *lru.Cache
 }
 
 func NewDockerReactor() (Reactor, error) {
@@ -69,8 +71,8 @@ func NewDockerReactor() (Reactor, error) {
 }
 
 func (d *DockerReactor) ResolveServices(runid string) {
-	d.Lock()
-	defer d.Unlock()
+	d.lk.Lock()
+	defer d.lk.Unlock()
 
 	if _, ok := d.runidsCache.Get(runid); ok {
 		return

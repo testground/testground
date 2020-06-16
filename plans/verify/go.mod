@@ -6,3 +6,5 @@ require (
 	github.com/sparrc/go-ping v0.0.0-20190613174326-4e5b6552494c
 	github.com/testground/sdk-go v0.1.1
 )
+
+replace github.com/testground/sdk-go => ../../../sdk-go
