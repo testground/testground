@@ -59,10 +59,11 @@ var RunCommand = cli.Command{
 					Usage:   "destination for the assets if --collect is set",
 				},
 				&cli.UintFlag{
-					Name:     "instances",
-					Aliases:  []string{"i"},
-					Usage:    "number of instances of the test case to run",
-					Required: true,
+					Name:        "instances",
+					Aliases:     []string{"i"},
+					Usage:       "number of instances of the test case to run",
+					Required:    true,
+					DefaultText: "none",
 				},
 				&cli.StringFlag{
 					Name:     "runner",
