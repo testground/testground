@@ -11,6 +11,9 @@ FROM node:13.8.0-buster
 # ipfs master
 FROM 0df4b47cdcab
 
+# powergate master
+FROM f4d8f64763a8
+
 # lotus-base master
 FROM cc70c07f2b23
 
@@ -26,6 +29,11 @@ RUN ln -s /opt/yarn-v1.21.1/bin/yarn yarn
 # Copy IPFS
 COPY --from=1 /ipfs /ipfs
 COPY --from=1 /go/bin/ipfs /go/bin
+
+# Copy Powergate
+COPY --from=2 /powergate /powergate
+COPY --from=2 /go/bin/pow /go/bin
+COPY --from=2 /go/bin/powd /go/bin
 
 WORKDIR /root
 
