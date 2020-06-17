@@ -377,16 +377,16 @@ ARG BUILD_TAGS
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 
 # PLAN_DIR is the location containing the plan source inside the container.
-ENV PLAN_DIR /plan/
+ENV PLAN_DIR /plan
+
+{{.DockerfileExtensions.PreModDownload}}
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
-COPY /plan/go.mod ${PLAN_DIR}
+COPY /plan/go.mod ${PLAN_DIR}/go.mod
 
 {{if .WithSDK}}
 COPY /sdk/go.mod /sdk/go.mod
 {{end}}
-
-{{.DockerfileExtensions.PreModDownload}}
 
 # Download deps.
 RUN echo "Using go proxy: ${GO_PROXY}" \
