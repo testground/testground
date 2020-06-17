@@ -7,6 +7,7 @@ runner = "local:docker"
 [builders."docker:go"]
 enabled = true
 runtime_image = "debian"
+# skip_runtime_image = true
 
 [builders."docker:go".dockerfile_extensions]
 pre_mod_download    = "RUN echo 'at pre_mod_download'"
