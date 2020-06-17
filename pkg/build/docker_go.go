@@ -407,7 +407,7 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && GOOS=linux GOARCH=amd64 go build -o testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && GOOS=linux GOARCH=amd64 go build -o /testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
@@ -425,12 +425,12 @@ FROM ${RUNTIME_IMAGE} AS binary
 {{.DockerfileExtensions.PreRuntimeCopy}}
 
 COPY --from=builder /testground_dep_list /
-COPY --from=builder /plan/testplan /
+COPY --from=builder /testplan /
 
 {{.DockerfileExtensions.PostRuntimeCopy}}
 
+{{ end }}
+
 EXPOSE 6060
 ENTRYPOINT [ "/testplan"]
-
-{{ end }}
 `
