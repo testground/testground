@@ -72,6 +72,10 @@ type DockerGoBuilderConfig struct {
 	// copied into. Defaults to busybox:1.31.1-glibc.
 	RuntimeImage string `toml:"runtime_image"`
 
+	// SkipRuntimeImage allows you to skip putting the build output in a
+	// slimmed-down runtime image. The build image will be emitted instead.
+	SkipRuntimeImage bool `toml:"skip_runtime_image"`
+
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
 }
@@ -80,6 +84,7 @@ type DockerfileTemplateVars struct {
 	WithSDK              bool
 	RuntimeImage         string
 	DockerfileExtensions DockerfileExtensions
+	SkipRuntimeImage     bool
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -124,6 +129,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		WithSDK:              sdksrc != "",
 		RuntimeImage:         cfg.RuntimeImage,
 		DockerfileExtensions: cfg.DockerfileExtensions,
+		SkipRuntimeImage:     cfg.SkipRuntimeImage,
 	}
 
 	if err = dockerfileTmpl.Execute(f, &vars); err != nil {
@@ -409,6 +415,7 @@ RUN cd ${PLAN_DIR} \
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
 
+{{ if not .SkipRuntimeImage }}
 #:::
 #::: RUNTIME CONTAINER
 #:::
@@ -424,4 +431,6 @@ COPY --from=builder /plan/testplan /
 
 EXPOSE 6060
 ENTRYPOINT [ "/testplan"]
+
+{{ end }}
 `
