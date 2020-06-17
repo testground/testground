@@ -357,9 +357,10 @@ func (*ClusterK8sRunner) ID() string {
 }
 
 func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
-
 	c.initPool()
+
 	client := c.pool.Acquire()
+	defer c.pool.Release(client)
 
 	// How many plan worker nodes are there?
 	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
