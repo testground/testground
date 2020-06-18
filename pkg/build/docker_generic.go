@@ -60,7 +60,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 
 	buildStart := time.Now()
 
-	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
+	_, err = docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}

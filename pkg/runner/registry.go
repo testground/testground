@@ -32,7 +32,7 @@ func (c *ClusterK8sRunner) pushToDockerRegistry(ctx context.Context, ow *rpc.Out
 			return err
 		}
 
-		if err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
+		if _, err := docker.PipeOutput(rc, ow.StdoutWriter()); err != nil {
 			return err
 		}
 

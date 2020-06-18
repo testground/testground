@@ -77,7 +77,7 @@ func TestBuildImageBuildsImages(t *testing.T) {
 		Name:     rndname,
 		BuildCtx: dir,
 	}
-	err := docker.BuildImage(ctx, ow, cli, &opts)
+	_, err := docker.BuildImage(ctx, ow, cli, &opts)
 	require.NoError(t, err)
 
 	// Check that it exists.

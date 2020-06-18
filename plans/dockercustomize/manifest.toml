@@ -1,4 +1,4 @@
-name = "verify"
+name = "dockercustomize"
 
 [defaults]
 builder = "docker:go"
@@ -8,6 +8,7 @@ runner = "local:docker"
 enabled = true
 runtime_image = "debian"
 # skip_runtime_image = true
+# disable_go_build_cache = true
 
 [builders."docker:go".dockerfile_extensions]
 pre_mod_download    = "RUN echo 'at pre_mod_download'"

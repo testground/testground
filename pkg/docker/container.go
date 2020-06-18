@@ -119,7 +119,7 @@ func EnsureContainerStarted(ctx context.Context, ow *rpc.OutputWriter, cli *clie
 		if err != nil {
 			return nil, false, err
 		}
-		if err := PipeOutput(out, ow.StdoutWriter()); err != nil {
+		if _, err := PipeOutput(out, ow.StdoutWriter()); err != nil {
 			return nil, false, err
 		}
 
