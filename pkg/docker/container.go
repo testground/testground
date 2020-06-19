@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-multierror"
 )
 
 type ImageStrategy int
@@ -158,4 +159,34 @@ func EnsureContainerStarted(ctx context.Context, ow *rpc.OutputWriter, cli *clie
 	}
 
 	return &c, true, err
+}
+
+// DeleteContainers deletes a set of containers in parallel, using a ratelimit
+// of 16 concurrent delete requests. If a deletion fails, it does not
+// short-circuit. Instead, it accumulates errors and returns an multierror.
+func DeleteContainers(cli *client.Client, ow *rpc.OutputWriter, ids []string) (err error) {
+	ow.Infow("deleting containers", "ids", ids)
+
+	ratelimit := make(chan struct{}, 16)
+
+	errs := make(chan error)
+	for _, id := range ids {
+		go func(id string) {
+			ratelimit <- struct{}{}
+			defer func() { <-ratelimit }()
+
+			ow.Infow("deleting container", "id", id)
+			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
+		}(id)
+	}
+
+	var merr *multierror.Error
+	for i := 0; i < len(ids); i++ {
+		if err := <-errs; err != nil {
+			ow.Errorw("failed while deleting container", "error", err)
+			merr = multierror.Append(merr, <-errs)
+		}
+	}
+	close(errs)
+	return merr.ErrorOrNil()
 }

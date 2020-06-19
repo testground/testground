@@ -19,8 +19,10 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
@@ -30,7 +32,8 @@ const (
 )
 
 var (
-	_ api.Builder = &DockerGoBuilder{}
+	_ api.Builder      = &DockerGoBuilder{}
+	_ api.Terminatable = &DockerGoBuilder{}
 
 	dockerfileTmpl = template.Must(template.New("Dockerfile").Parse(DockerfileTemplate))
 )
@@ -298,7 +301,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	// Testplan image tag
-	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+	testplanImageTag := fmt.Sprintf("tg-plan-%s:%s", in.TestPlan, imageID)
 
 	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
 	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
@@ -306,6 +309,36 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	return out, nil
+}
+
+func (b *DockerGoBuilder) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	// TODO: delete go proxy container and build network.
+	opts := types.ImageListOptions{}
+	opts.Filters = filters.NewArgs()
+	opts.Filters.Add("reference", "tg-plan*")
+	opts.Filters.Add("reference", "tg-gobuild*")
+
+	images, err := cli.ImageList(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	var merr *multierror.Error
+	for _, image := range images {
+		ow.Infow("removing image", "id", image.ID, "tags", image.RepoTags)
+		_, err := cli.ImageRemove(ctx, image.ID, types.ImageRemoveOptions{Force: true, PruneChildren: true})
+		if err != nil {
+			ow.Warnw("failed to remove image", "id", image.ID, "tags", image.RepoTags, "error", err)
+		}
+		merr = multierror.Append(merr, err)
+	}
+
+	return merr.ErrorOrNil()
 }
 
 func (*DockerGoBuilder) ID() string {

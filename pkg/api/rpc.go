@@ -29,7 +29,8 @@ type OutputsRequest struct {
 }
 
 type TerminateRequest struct {
-	Runner string `json:"runner"`
+	Runner  string `json:"runner"`
+	Builder string `json:"builder"`
 }
 
 type HealthcheckRequest struct {
