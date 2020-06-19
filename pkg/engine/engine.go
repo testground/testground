@@ -389,25 +389,33 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	return run.CollectOutputs(ctx, input, ow)
 }
 
-func (e *Engine) DoTerminate(ctx context.Context, runner string, ow *rpc.OutputWriter) error {
-	run, ok := e.runners[runner]
-	if !ok {
-		return fmt.Errorf("unknown runner: %s", runner)
+func (e *Engine) DoTerminate(ctx context.Context, ctype api.ComponentType, ref string, ow *rpc.OutputWriter) error {
+	var component interface{}
+	var ok bool
+	switch ctype {
+	case api.RunnerType:
+		component, ok = e.runners[ref]
+	case api.BuilderType:
+		component, ok = e.builders[ref]
 	}
 
-	terminatable, ok := run.(api.Terminatable)
 	if !ok {
-		return fmt.Errorf("runner %s is not terminatable", runner)
+		return fmt.Errorf("unknown component: %s (type: %s)", ref, ctype)
 	}
 
-	ow.Infof("terminating all jobs on runner: %s", runner)
+	terminatable, ok := component.(api.Terminatable)
+	if !ok {
+		return fmt.Errorf("component %s is not terminatable", ref)
+	}
+
+	ow.Infof("terminating all jobs on component: %s", ref)
 
 	err := terminatable.TerminateAll(ctx, ow)
 	if err != nil {
 		return err
 	}
 
-	ow.Infof("all jobs terminated on runner: %s", runner)
+	ow.Infof("all jobs terminated on component: %s", ref)
 	return nil
 }
 

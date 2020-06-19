@@ -32,7 +32,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/imdario/mergo"
 	"golang.org/x/sync/errgroup"
 )
@@ -286,7 +285,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	if !cfg.KeepContainers {
 		defer func() {
-			_ = deleteContainers(cli, log, containers)
+			_ = docker.DeleteContainers(cli, log, containers)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -439,33 +438,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	return &api.RunOutput{RunID: input.RunID}, err
 }
 
-func deleteContainers(cli *client.Client, ow *rpc.OutputWriter, ids []string) (err error) {
-	ow.Infow("deleting containers", "ids", ids)
-
-	ratelimit := make(chan struct{}, 16)
-
-	errs := make(chan error)
-	for _, id := range ids {
-		go func(id string) {
-			ratelimit <- struct{}{}
-			defer func() { <-ratelimit }()
-
-			ow.Infow("deleting container", "id", id)
-			errs <- cli.ContainerRemove(context.Background(), id, types.ContainerRemoveOptions{Force: true})
-		}(id)
-	}
-
-	var merr *multierror.Error
-	for i := 0; i < len(ids); i++ {
-		if err := <-errs; err != nil {
-			ow.Errorw("failed while deleting container", "error", err)
-			merr = multierror.Append(merr, <-errs)
-		}
-	}
-	close(errs)
-	return merr.ErrorOrNil()
-}
-
 func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
@@ -586,7 +558,7 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 		containers = append(containers, container.ID)
 	}
 
-	err = deleteContainers(cli, ow, containers)
+	err = docker.DeleteContainers(cli, ow, containers)
 	if err != nil {
 		return fmt.Errorf("failed to list testground containers: %w", err)
 	}

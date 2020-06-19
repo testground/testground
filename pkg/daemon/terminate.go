@@ -26,7 +26,24 @@ func (d *Daemon) terminateHandler(engine api.Engine) func(w http.ResponseWriter,
 			return
 		}
 
-		err = engine.DoTerminate(r.Context(), req.Runner, tgw)
+		var (
+			ctype api.ComponentType
+			ref   string
+		)
+
+		switch {
+		case req.Builder != "" && req.Runner != "":
+			tgw.WriteError("cannot terminate a runner and a builder at the same time")
+			return
+		case req.Builder != "":
+			ctype = api.BuilderType
+			ref = req.Builder
+		case req.Runner != "":
+			ctype = api.RunnerType
+			ref = req.Runner
+		}
+
+		err = engine.DoTerminate(r.Context(), ctype, ref, tgw)
 		if err != nil {
 			tgw.WriteError("terminate error", "err", err.Error())
 			return

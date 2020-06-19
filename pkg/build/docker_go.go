@@ -1,6 +1,7 @@
 package build
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -18,16 +19,21 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/mount"
 	"github.com/docker/docker/client"
+	"github.com/hashicorp/go-multierror"
 )
 
 const (
+	DefaultGoVersion = "1.14.4"
+
 	buildNetworkName = "testground-build"
 )
 
 var (
-	_ api.Builder = &DockerGoBuilder{}
+	_ api.Builder      = &DockerGoBuilder{}
+	_ api.Terminatable = &DockerGoBuilder{}
 
 	dockerfileTmpl = template.Must(template.New("Dockerfile").Parse(DockerfileTemplate))
 )
@@ -75,6 +81,32 @@ type DockerGoBuilderConfig struct {
 	// SkipRuntimeImage allows you to skip putting the build output in a
 	// slimmed-down runtime image. The build image will be emitted instead.
 	SkipRuntimeImage bool `toml:"skip_runtime_image"`
+
+	// EnableGoBuildCache enables the rolling build image reuse (disable by
+	// default), which effectively enables the carry over of GOCACHE (build
+	// artifact cache) and the pkg cache to future builds.
+	//
+	// If this flag is unset or false, every build of a test plan will start
+	// with a blank go container. If this flag is true, the builder will use the
+	// rolling cache.
+	//
+	// The tradeoffs are as follows of using the rolling cache are as follows:
+	//
+	//  * good: the rolling cache leads to super-fast go builds, as dependency
+	//    sources and their respective build objects are cached across builds of
+	//    the test plan. For example, if you import the same version of IPFS/
+	//    Lotus/libp2p every time, you will no longer compile from their
+	//    sources, but the go build will use the cached intermediate object
+	//    files. This is akin to running a go build locally.
+	//
+	//  * bad: the go toolchain updates last access timestamps on every build
+	//    (https://github.com/golang/go/blob/master/src/cmd/go/internal/cache/cache.go)
+	//    which effectively invalidates Docker layer caching across builds. So
+	//    even if you built exactly the same plan source, no Docker layer
+	//    caches would be hit, because of the timestamps sliding. However, in
+	//    practice, you will be iterating on the test plan source, and under
+	//    that assumption, we have found that the end-to-end build is faster.
+	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
@@ -155,6 +187,11 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		}
 	}
 
+	// fall back to default go version, if one is not configured explicitly.
+	if cfg.GoVersion == "" {
+		cfg.GoVersion = DefaultGoVersion
+	}
+
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
@@ -181,15 +218,24 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		"GO_PROXY": &proxyURL,
 	}
 
-	if cfg.GoVersion != "" {
-		args["GO_VERSION"] = &cfg.GoVersion
-	}
 	if cfg.ExecPkg != "" {
 		args["TESTPLAN_EXEC_PKG"] = &cfg.ExecPkg
 	}
 	if cfg.RuntimeImage != "" {
 		args["RUNTIME_IMAGE"] = &cfg.RuntimeImage
 	}
+
+	var baseimage string
+	if cfg.EnableGoBuildCache {
+		baseimage, err = b.resolveBuildCacheImage(ctx, cli, in, cfg, ow)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		baseimage = fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
+	}
+
+	args["BUILD_BASE_IMAGE"] = &baseimage
 
 	// set BUILD_TAGS arg if the user has provided selectors.
 	if len(in.Selectors) > 0 {
@@ -217,12 +263,25 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	buildStart := time.Now()
 
-	err = docker.BuildImage(ctx, ow, cli, &imageOpts)
+	buildOutput, err := docker.BuildImage(ctx, ow, cli, &imageOpts)
 	if err != nil {
 		return nil, fmt.Errorf("docker build failed: %w", err)
 	}
 
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
+
+	if cfg.EnableGoBuildCache {
+		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
+		if newCacheImageID == "" {
+			ow.Warnf("failed to locate go build cache output container")
+		} else {
+			if err := b.updateBuildCacheImage(ctx, cli, baseimage, newCacheImageID, ow); err != nil {
+				ow.Warnw("could not update build cache image tag", "error", err)
+			} else {
+				ow.Infow("successfully updated build cache image tag", "tag", baseimage, "points_to", newCacheImageID)
+			}
+		}
+	}
 
 	imageID, err := docker.GetImageID(ctx, cli, in.BuildID)
 	if err != nil {
@@ -242,7 +301,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	// Testplan image tag
-	testplanImageTag := fmt.Sprintf("%s:%s", in.TestPlan, imageID)
+	testplanImageTag := fmt.Sprintf("tg-plan-%s:%s", in.TestPlan, imageID)
 
 	ow.Infow("tagging image", "image_id", imageID, "tag", testplanImageTag)
 	if err = cli.ImageTag(ctx, out.ArtifactPath, testplanImageTag); err != nil {
@@ -250,6 +309,36 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	return out, nil
+}
+
+func (b *DockerGoBuilder) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	// TODO: delete go proxy container and build network.
+	opts := types.ImageListOptions{}
+	opts.Filters = filters.NewArgs()
+	opts.Filters.Add("reference", "tg-plan*")
+	opts.Filters.Add("reference", "tg-gobuild*")
+
+	images, err := cli.ImageList(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	var merr *multierror.Error
+	for _, image := range images {
+		ow.Infow("removing image", "id", image.ID, "tags", image.RepoTags)
+		_, err := cli.ImageRemove(ctx, image.ID, types.ImageRemoveOptions{Force: true, PruneChildren: true})
+		if err != nil {
+			ow.Warnw("failed to remove image", "id", image.ID, "tags", image.RepoTags, "error", err)
+		}
+		merr = multierror.Append(merr, err)
+	}
+
+	return merr.ErrorOrNil()
 }
 
 func (*DockerGoBuilder) ID() string {
@@ -344,16 +433,90 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 	return proxyURL, buildNetworkID, warn
 }
 
-const DockerfileTemplate = `
-#:::
-#::: BUILD CONTAINER
-#:::
+func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, in *api.BuildInput, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter) (string, error) {
+	cacheimage := fmt.Sprintf("tg-gobuildcache-%s-%s", in.TestPlan, cfg.GoVersion)
+	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
+	switch {
+	case err != nil:
+		return "", err
+	case ok:
+		return cacheimage, nil
+	}
 
-# GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.14.2
+	// We need to initialize the gobuild image for this test plan + go version.
+	//  1. Check to see if the go image exists locally; if not, pull it.
+	//  2. Tag the go image with `cacheimage` name.
+	goimage := fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
+
+	switch _, ok, err := docker.FindImage(ctx, ow, cli, goimage); {
+	case err != nil:
+		return "", err
+	case !ok:
+		output, err := cli.ImagePull(ctx, goimage, types.ImagePullOptions{})
+		if err != nil {
+			return "", fmt.Errorf("failed to pull go build image: %w", err)
+		}
+		if _, err := docker.PipeOutput(output, ow.StdoutWriter()); err != nil {
+			return "", fmt.Errorf("failed to pull go build image: %w", err)
+		}
+	}
+
+	if err := cli.ImageTag(ctx, goimage, cacheimage); err != nil {
+		return "", fmt.Errorf("failed to tag %s as %s", goimage, cacheimage)
+	}
+	return cacheimage, nil
+}
+
+func (b *DockerGoBuilder) updateBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string, newID string, _ *rpc.OutputWriter) error {
+	// release the old tag first.
+	_, err := cli.ImageRemove(ctx, cacheimage, types.ImageRemoveOptions{Force: true})
+	if err != nil && !strings.Contains(err.Error(), "No such image") {
+		return fmt.Errorf("failed to untag build cache image with name: %w", err)
+	}
+
+	return cli.ImageTag(ctx, newID, cacheimage)
+}
+
+func (b *DockerGoBuilder) parseBuildCacheOutputImage(output string) string {
+	scanner := bufio.NewScanner(strings.NewReader(output))
+	// We expect an output like:
+	//
+	// Step 3/28 : FROM ${BUILD_BASE_IMAGE} as builder
+	// ---> 5fbd6463d24b
+	// [...]
+	// Step 22/30 : RUN cd ${PLAN_DIR}   && go list -m all > /testground_dep_list
+	// ---> Running in eb347517d05b
+	// ---> b55ef9cbbd2b
+	// ---> b55ef9cbbd2b 	[[[ <==== we want to select this image ID. ]]]
+	// Step 23/30 : FROM ${RUNTIME_IMAGE} AS runtime
+	var foundMarker bool
+	var lastLine string
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !foundMarker {
+			if strings.Contains(line, "AS builder") {
+				foundMarker = true
+			}
+			continue
+		}
+
+		if strings.Contains(line, "AS runtime") {
+			// we found the end marker; select the container ID from the previous line.
+			return strings.TrimPrefix(strings.TrimSpace(lastLine), "---> ")
+		}
+		lastLine = line
+	}
+	return ""
+}
+
+const DockerfileTemplate = `
+# BUILD_BASE_IMAGE is the base image to use for the build. It contains a rolling
+# accumulation of Go build/package caches.
+ARG BUILD_BASE_IMAGE
 
 # This Dockerfile performs a multi-stage build and RUNTIME_IMAGE is the image
-# onto which to copy the resulting binary. 
+# onto which to copy the resulting binary.
+#
 # Picking a different runtime base image from the build image allows us to
 # slim down the deployable considerably.
 #
@@ -361,8 +524,19 @@ ARG GO_VERSION=1.14.2
 # configuration option.
 ARG RUNTIME_IMAGE=busybox:1.31.1-glibc
 
-# Dynamically select the golang version.
-FROM golang:${GO_VERSION}-buster AS builder
+#:::
+#::: BUILD CONTAINER
+#:::
+FROM ${BUILD_BASE_IMAGE} AS builder
+
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan
+
+# SDK_DIR is the location containing the (optional) sdk source inside the container.
+ENV SDK_DIR /sdk
+
+# Delete any prior artifacts, if this is a cached image.
+RUN rm -rf ${PLAN_DIR} ${SDK_DIR} /testground_dep_list
 
 # TESTPLAN_EXEC_PKG is the executable package of the testplan to build.
 # The image will build that package only.
@@ -374,10 +548,11 @@ ARG GO_PROXY=direct
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
 
+# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build. 
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 
-# PLAN_DIR is the location containing the plan source inside the container.
-ENV PLAN_DIR /plan
+# We explicitly set GOCACHE under the /go directory for more tidiness.
+ENV GOCACHE /go/cache
 
 {{.DockerfileExtensions.PreModDownload}}
 
@@ -407,7 +582,7 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && GOOS=linux GOARCH=amd64 go build -o /testplan ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
@@ -415,19 +590,34 @@ RUN cd ${PLAN_DIR} \
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
 
-{{ if not .SkipRuntimeImage }}
 #:::
-#::: RUNTIME CONTAINER
+#::: (OPTIONAL) RUNTIME CONTAINER
 #:::
 
-FROM ${RUNTIME_IMAGE} AS binary
+{{ if not .SkipRuntimeImage }}
+
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
+FROM ${RUNTIME_IMAGE} AS runtime
+
+# PLAN_DIR is the location containing the plan source inside the build container.
+ENV PLAN_DIR /plan
 
 {{.DockerfileExtensions.PreRuntimeCopy}}
 
 COPY --from=builder /testground_dep_list /
-COPY --from=builder /testplan /
+COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{.DockerfileExtensions.PostRuntimeCopy}}
+
+{{ else }}
+
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache. 
+FROM builder AS runtime
+
+# PLAN_DIR is the location containing the plan source inside the build container.
+ENV PLAN_DIR /plan
+
+RUN mv ${PLAN_DIR}/testplan.bin /testplan
 
 {{ end }}
 

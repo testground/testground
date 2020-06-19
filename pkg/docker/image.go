@@ -34,11 +34,11 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 // un-edited. In this case, BuildImageOpts.Name is unused when the image is created.
 // When BuildImageOpts.BuildOpts has nil value, a default set of options will be constructed using
 // the Name, and the constructed options are sent to the docker client.
-// The build output is directed to stdout via PipeOutput.
-func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) error {
+// The build output is directed to stdout via PipeOutput, and also returned from this function.
+func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) (string, error) {
 	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer buildCtx.Close()
 
@@ -51,7 +51,7 @@ func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client
 
 	buildResponse, err := client.ImageBuild(ctx, buildCtx, *buildOpts)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer buildResponse.Body.Close()
 
@@ -71,7 +71,7 @@ func EnsureImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Clien
 		return false, nil
 	}
 	ow.Infof("image %s not found; building", opts.Name)
-	err = BuildImage(ctx, ow, client, opts)
+	_, err = BuildImage(ctx, ow, client, opts)
 	if err != nil {
 		ow.Warn(err)
 		return false, err

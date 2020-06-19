@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 
@@ -9,22 +10,28 @@ import (
 
 // PipeOutput pipes a reader that spits out jsonmessage structs into a writer,
 // usually stdout. It returns normally when the reader is exhausted, or in error
-// if one occurs.
-func PipeOutput(r io.ReadCloser, w io.Writer) error {
-	var msg jsonmessage.JSONMessage
+// if one occurs. In both cases, it will return the accumulated string
+// representation of the output.
+func PipeOutput(r io.ReadCloser, w io.Writer) (output string, err error) {
+	var (
+		msg   jsonmessage.JSONMessage
+		buf   = new(bytes.Buffer)
+		multi = io.MultiWriter(buf, w)
+	)
+
 Loop:
 	for dec := json.NewDecoder(r); ; {
 		switch err := dec.Decode(&msg); err {
 		case nil:
-			_ = msg.Display(w, false)
+			_ = msg.Display(multi, false)
 			if msg.Error != nil {
-				return msg.Error
+				return buf.String(), msg.Error
 			}
 		case io.EOF:
 			break Loop
 		default:
-			return err
+			return buf.String(), err
 		}
 	}
-	return nil
+	return buf.String(), nil
 }

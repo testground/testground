@@ -16,6 +16,7 @@ import (
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/conv"
+	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/rpc"
 
@@ -200,7 +201,7 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 		containers = append(containers, container.ID)
 	}
 
-	err = deleteContainers(cli, ow, containers)
+	err = docker.DeleteContainers(cli, ow, containers)
 	if err != nil {
 		return fmt.Errorf("failed to list testground containers: %w", err)
 	}
