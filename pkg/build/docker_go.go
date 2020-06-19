@@ -579,6 +579,11 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 FROM builder AS runtime
 
+# PLAN_DIR is the location containing the plan source inside the build container.
+ENV PLAN_DIR /plan
+
+RUN mv ${PLAN_DIR}/testplan.bin /testplan
+
 {{ end }}
 
 EXPOSE 6060
