@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DefaultGoVersion = "1.14.4"
+	DefaultBuildBaseImage = "golang:1.14.4-buster"
 
 	buildNetworkName = "testground-build"
 )
@@ -56,7 +56,6 @@ type DockerfileExtensions struct {
 
 type DockerGoBuilderConfig struct {
 	Enabled    bool
-	GoVersion  string `toml:"go_version"`
 	ModulePath string `toml:"module_path"`
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
@@ -77,6 +76,10 @@ type DockerGoBuilderConfig struct {
 	// RuntimeImage is the runtime image that the test plan binary will be
 	// copied into. Defaults to busybox:1.31.1-glibc.
 	RuntimeImage string `toml:"runtime_image"`
+
+	// BuildBaseImage is the base build image that the test plan binary will be
+	// built from. Defaults to golang:1.14.4-buster
+	BuildBaseImage string `toml:"build_base_image"`
 
 	// SkipRuntimeImage allows you to skip putting the build output in a
 	// slimmed-down runtime image. The build image will be emitted instead.
@@ -187,9 +190,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		}
 	}
 
-	// fall back to default go version, if one is not configured explicitly.
-	if cfg.GoVersion == "" {
-		cfg.GoVersion = DefaultGoVersion
+	// fall back to default build base image, if one is not configured explicitly.
+	if cfg.BuildBaseImage == "" {
+		cfg.BuildBaseImage = DefaultBuildBaseImage
 	}
 
 	// If we have version overrides, apply them.
@@ -232,7 +235,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 			return nil, err
 		}
 	} else {
-		baseimage = fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
+		baseimage = cfg.BuildBaseImage
 	}
 
 	args["BUILD_BASE_IMAGE"] = &baseimage
@@ -434,7 +437,7 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 }
 
 func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, in *api.BuildInput, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter) (string, error) {
-	cacheimage := fmt.Sprintf("tg-gobuildcache-%s-%s", in.TestPlan, cfg.GoVersion)
+	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
 	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
 	switch {
 	case err != nil:
@@ -446,7 +449,7 @@ func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *clien
 	// We need to initialize the gobuild image for this test plan + go version.
 	//  1. Check to see if the go image exists locally; if not, pull it.
 	//  2. Tag the go image with `cacheimage` name.
-	goimage := fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
+	goimage := cfg.BuildBaseImage
 
 	switch _, ok, err := docker.FindImage(ctx, ow, cli, goimage); {
 	case err != nil:
