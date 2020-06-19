@@ -79,12 +79,12 @@ type DockerGoBuilderConfig struct {
 	// slimmed-down runtime image. The build image will be emitted instead.
 	SkipRuntimeImage bool `toml:"skip_runtime_image"`
 
-	// DisableGoBuildCache disables the rolling build image reuse (enabled by
-	// default), which effectively disables the carry over of GOCACHE (build
+	// EnableGoBuildCache enables the rolling build image reuse (disable by
+	// default), which effectively enables the carry over of GOCACHE (build
 	// artifact cache) and the pkg cache to future builds.
 	//
-	// If this flag is true, every build of a test plan will start with a blank
-	// go container. If this flag is unset or false, the builder will use the
+	// If this flag is unset or false, every build of a test plan will start
+	// with a blank go container. If this flag is true, the builder will use the
 	// rolling cache.
 	//
 	// The tradeoffs are as follows of using the rolling cache are as follows:
@@ -103,7 +103,7 @@ type DockerGoBuilderConfig struct {
 	//    caches would be hit, because of the timestamps sliding. However, in
 	//    practice, you will be iterating on the test plan source, and under
 	//    that assumption, we have found that the end-to-end build is faster.
-	DisableGoBuildCache bool `toml:"disable_go_build_cache"`
+	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
@@ -223,13 +223,13 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	var baseimage string
-	if cfg.DisableGoBuildCache {
-		baseimage = fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
-	} else {
+	if cfg.EnableGoBuildCache {
 		baseimage, err = b.resolveBuildCacheImage(ctx, cli, in, cfg, ow)
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		baseimage = fmt.Sprintf("golang:%s-buster", cfg.GoVersion)
 	}
 
 	args["BUILD_BASE_IMAGE"] = &baseimage
@@ -267,7 +267,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
-	if !cfg.DisableGoBuildCache {
+	if cfg.EnableGoBuildCache {
 		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
 		if newCacheImageID == "" {
 			ow.Warnf("failed to locate go build cache output container")
