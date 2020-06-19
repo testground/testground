@@ -563,6 +563,7 @@ RUN cd ${PLAN_DIR} \
 
 {{ if not .SkipRuntimeImage }}
 
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM ${RUNTIME_IMAGE} AS runtime
 
 # PLAN_DIR is the location containing the plan source inside the build container.
@@ -577,6 +578,7 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{ else }}
 
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache. 
 FROM builder AS runtime
 
 # PLAN_DIR is the location containing the plan source inside the build container.
