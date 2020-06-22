@@ -279,10 +279,10 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		// We've found a control network (or some other network).
 
 		// Get the current routes.
-		linkRoutes, err := netlinkHandle.RouteList(link, netlink.FAMILY_ALL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
-		}
+		//linkRoutes, err := netlinkHandle.RouteList(link, netlink.FAMILY_ALL)
+		//if err != nil {
+		//return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
+		//}
 
 		// Add learned routes plan containers so they can reach  the testground infra on the control network.
 		for _, route := range controlRoutes {
@@ -295,11 +295,11 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		}
 
 		// Remove the original routes
-		for _, route := range linkRoutes {
-			if err := netlinkHandle.RouteDel(&route); err != nil {
-				return nil, fmt.Errorf("failed to remove existing route: %w", err)
-			}
-		}
+		//for _, route := range linkRoutes {
+		//if err := netlinkHandle.RouteDel(&route); err != nil {
+		//return nil, fmt.Errorf("failed to remove existing route: %w", err)
+		//}
+		//}
 	}
 	return NewInstance(d.client, runenv, info.Config.Hostname, network)
 }
