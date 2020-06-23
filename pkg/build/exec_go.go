@@ -37,8 +37,8 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 
 	var (
 		id      = in.BuildID
-		plansrc = in.TestPlanSrcPath
-		sdksrc  = in.SDKSrcPath
+		plansrc = in.UnpackedSources.PlanDir
+		sdksrc  = in.UnpackedSources.SDKDir
 
 		bin  = fmt.Sprintf("exec-go--%s-%s", in.TestPlan, id)
 		path = filepath.Join(in.EnvConfig.Dirs().Work(), bin)

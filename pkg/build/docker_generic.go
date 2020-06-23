@@ -36,7 +36,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		basesrc  = in.BaseSrcPath
+		basesrc  = in.UnpackedSources.BaseDir
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 	if err != nil {

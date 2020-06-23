@@ -68,7 +68,12 @@ func TestBuildSelector(t *testing.T) {
 				},
 			}
 
-			_, err = engine.DoBuild(context.TODO(), comp, basedir, plandir, "", rpc.Discard())
+			unpacked := &api.UnpackedSources{
+				BaseDir: basedir,
+				PlanDir: plandir,
+			}
+
+			_, err = engine.DoBuild(context.TODO(), comp, unpacked, rpc.Discard())
 			assertion(err)
 		}
 	}
