@@ -235,9 +235,9 @@
 - name: hint/needs-help
   color: 0623cc
   description: "Hint: Needs Help"  
-- name: hint/desc-outdated
+- name: hint/needs-docs
   color: 0623cc
-  description: "Hint: Description outdated"  
+  description: "Hint: Needs Docs"
 
 ###
 ### Statuses
