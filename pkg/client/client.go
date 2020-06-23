@@ -81,7 +81,7 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 	// writeZippedDirs a list of directories, zips them into a single zip file, and writes it on w.
 	// if toplevel=true, it will retain the toplevel directories, so if /abc, /def are passed, the resulting
 	// zip archive will contain /abc and /def.
-	// if toplevel=false, it will omit tihe toplevel directories and will place the contents of each
+	// if toplevel=false, it will omit the toplevel directories and will place the contents of each
 	// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
 	writeZippedDirs := func(w io.Writer, toplevel bool, dirs ...string) error {
 		// A temporary .zip file to deflate the directory into.
