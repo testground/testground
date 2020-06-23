@@ -166,17 +166,15 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
 	builder := comp.Global.Builder
-	extra, ok := manifest.ExtraSources[builder]
-	if ok && len(extra) != 0 {
-		for i, dir := range extra {
-			if !filepath.IsAbs(dir) {
-				// follow any symlinks in the plan dir.
-				evalPlanDir, err := filepath.EvalSymlinks(planDir)
-				if err != nil {
-					return nil, fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
-				}
-				extra[i] = filepath.Clean(filepath.Join(evalPlanDir, dir))
+	extra := manifest.ExtraSources[builder]
+	for i, dir := range extra {
+		if !filepath.IsAbs(dir) {
+			// follow any symlinks in the plan dir.
+			evalPlanDir, err := filepath.EvalSymlinks(planDir)
+			if err != nil {
+				return nil, fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
 			}
+			extra[i] = filepath.Clean(filepath.Join(evalPlanDir, dir))
 		}
 	}
 
