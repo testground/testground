@@ -16,6 +16,13 @@ type TestPlanManifest struct {
 	Builders  map[string]config.ConfigMap `toml:"builders"`
 	Runners   map[string]config.ConfigMap `toml:"runners"`
 	TestCases []*TestCase                 `toml:"testcases"`
+
+	// ExtraSources allows the user to ship extra source directories to the
+	// daemon so they can be considered in the build (e.g. assets, package
+	// overrides, etc.), when certain builders are used.
+	//
+	// It's a mapping of builder => directories.
+	ExtraSources map[string][]string `toml:"extra_sources"`
 }
 
 // TestCase represents a configuration for a test case known by the system.

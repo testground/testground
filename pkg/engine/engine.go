@@ -131,7 +131,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc string, plansrc string, sdksrc string, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
+func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, sources *api.UnpackedSources, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
@@ -231,9 +231,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 				Selectors:       grp.Build.Selectors,
 				Dependencies:    grp.Build.Dependencies.AsMap(),
 				BuildConfig:     obj,
-				BaseSrcPath:     basesrc,
-				TestPlanSrcPath: plansrc,
-				SDKSrcPath:      sdksrc,
+				UnpackedSources: sources,
 			}
 
 			res, err := bm.Build(ctx, in, ow)

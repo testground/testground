@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -161,7 +162,25 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	}
 
 	req := &api.BuildRequest{Composition: *comp}
-	resp, err := cl.Build(ctx, req, planDir, sdkDir)
+
+	// if there are extra sources to include for this builder, contextualize
+	// them to the plan's dir.
+	builder := comp.Global.Builder
+	extra, ok := manifest.ExtraSources[builder]
+	if ok && len(extra) != 0 {
+		for i, dir := range extra {
+			if !filepath.IsAbs(dir) {
+				// follow any symlinks in the plan dir.
+				evalPlanDir, err := filepath.EvalSymlinks(planDir)
+				if err != nil {
+					return nil, fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
+				}
+				extra[i] = filepath.Clean(filepath.Join(evalPlanDir, dir))
+			}
+		}
+	}
+
+	resp, err := cl.Build(ctx, req, planDir, sdkDir, extra)
 	if err != nil {
 		return nil, err
 	}

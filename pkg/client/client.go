@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
@@ -70,32 +71,19 @@ func (c *Client) Close() error {
 //
 // The response is a stream of `Msg` protocol messages. See
 // `ParseBuildResponse()` for specifics.
-func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string) (io.ReadCloser, error) {
+func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
 	if err != nil {
 		return nil, err
 	}
 
-	// writeZippedDir takes a directory and writes a zip file on w.
-	writeZippedDir := func(dir string, w io.Writer) error {
-		if fi, err := os.Stat(dir); err != nil {
-			return err
-		} else if !fi.IsDir() {
-			return fmt.Errorf("file %s is not a directory", dir)
-		}
-
-		// Fetch all files in the dir to pass them to archiver; otherwise we'll
-		// end up with a top-level directory inside the zip.
-		fis, err := ioutil.ReadDir(dir)
-		if err != nil {
-			return err
-		}
-		files := make([]string, 0, len(fis))
-		for _, fi := range fis {
-			files = append(files, filepath.Join(dir, fi.Name()))
-		}
-
+	// writeZippedDirs a list of directories, zips them into a single zip file, and writes it on w.
+	// if toplevel=true, it will retain the toplevel directories, so if /abc, /def are passed, the resulting
+	// zip archive will contain /abc and /def.
+	// if toplevel=false, it will omit tihe toplevel directories and will place the contents of each
+	// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
+	writeZippedDirs := func(w io.Writer, toplevel bool, dirs ...string) error {
 		// A temporary .zip file to deflate the directory into.
 		// archiver doesn't support archiving direcly into an io.Writer, so we
 		// need a file as a buffer.
@@ -107,6 +95,31 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 		// Make sure to clean up the tmp zip file after we're done.
 		defer os.Remove(tmp.Name())
 		defer tmp.Close()
+
+		for _, dir := range dirs {
+			if fi, err := os.Stat(dir); err != nil {
+				return err
+			} else if !fi.IsDir() {
+				return fmt.Errorf("file %s is not a directory", dir)
+			}
+		}
+
+		var files []string
+		if toplevel {
+			files = dirs
+		} else {
+			for _, dir := range dirs {
+				// Fetch all files in the dir to pass them to archiver; otherwise we'll
+				// end up with a top-level directory inside the zip.
+				fis, err := ioutil.ReadDir(dir)
+				if err != nil {
+					return err
+				}
+				for _, fi := range fis {
+					files = append(files, filepath.Join(dir, fi.Name()))
+				}
+			}
+		}
 
 		// Deflate the directory into a zip archive, allowing it to overwrite
 		// the tmp file that we created above.
@@ -128,15 +141,26 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 
 	go func() error {
 		var (
-			hjson = make(textproto.MIMEHeader)
-			hzip  = make(textproto.MIMEHeader)
+			hcomp  = make(textproto.MIMEHeader) // composition
+			hplan  = make(textproto.MIMEHeader) // plan source
+			hsdk   = make(textproto.MIMEHeader) // optional sdk
+			hextra = make(textproto.MIMEHeader) // optional extra dirs
 		)
 
-		hjson.Set("Content-Type", "application/json")
-		hzip.Set("Content-Type", "application/zip")
+		hcomp.Set("Content-Type", "application/json")
+		hcomp.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "composition.json"}))
+
+		hplan.Set("Content-Type", "application/zip")
+		hplan.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "plan.zip"}))
+
+		hsdk.Set("Content-Type", "application/zip")
+		hsdk.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "sdk.zip"}))
+
+		hextra.Set("Content-Type", "application/zip")
+		hextra.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "extra.zip"}))
 
 		// Part 1: composition json.
-		w, err := mp.CreatePart(hjson)
+		w, err := mp.CreatePart(hcomp)
 		if err != nil {
 			return wr.CloseWithError(err)
 		}
@@ -146,21 +170,31 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 		}
 
 		// Part 2: plan source directory.
-		w, err = mp.CreatePart(hzip)
+		w, err = mp.CreatePart(hplan)
 		if err != nil {
 			return wr.CloseWithError(err)
 		}
-		if err = writeZippedDir(plandir, w); err != nil {
+		if err = writeZippedDirs(w, false, plandir); err != nil {
 			return wr.CloseWithError(err)
 		}
 
 		// Optional part 3: sdk source directory.
 		if sdkdir != "" {
-			w, err = mp.CreatePart(hzip)
+			w, err = mp.CreatePart(hsdk)
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDir(sdkdir, w); err != nil {
+			if err = writeZippedDirs(w, false, sdkdir); err != nil {
+				return wr.CloseWithError(err)
+			}
+		}
+
+		if len(extraSrcs) != 0 {
+			w, err = mp.CreatePart(hextra)
+			if err != nil {
+				return wr.CloseWithError(err)
+			}
+			if err = writeZippedDirs(w, true, extraSrcs...); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
