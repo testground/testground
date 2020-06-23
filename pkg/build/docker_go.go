@@ -441,24 +441,30 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 
 func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, in *api.BuildInput, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter) (string, error) {
 	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
+
+	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheimage)
 	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
 	switch {
 	case err != nil:
+		ow.Infow("build cache image found", "cache_image", cacheimage)
 		return "", err
 	case ok:
 		return cacheimage, nil
 	}
 
 	// We need to initialize the gobuild image for this test plan + go version.
-	//  1. Check to see if the go image exists locally; if not, pull it.
-	//  2. Tag the go image with `cacheimage` name.
-	goimage := cfg.BuildBaseImage
+	//  1. Check to see if the base image exists locally; if not, pull it.
+	//  2. Tag the base image with `cacheimage` name.
+	baseimage := cfg.BuildBaseImage
 
-	switch _, ok, err := docker.FindImage(ctx, ow, cli, goimage); {
+	ow.Infow("found no pre-existing build cache image; creating", "cache_image", cacheimage, "base_image", baseimage)
+
+	switch _, ok, err := docker.FindImage(ctx, ow, cli, baseimage); {
 	case err != nil:
 		return "", err
 	case !ok:
-		output, err := cli.ImagePull(ctx, goimage, types.ImagePullOptions{})
+		ow.Infow("base image doesn't exist locally; pulling", "base_image", baseimage)
+		output, err := cli.ImagePull(ctx, baseimage, types.ImagePullOptions{})
 		if err != nil {
 			return "", fmt.Errorf("failed to pull go build image: %w", err)
 		}
@@ -467,8 +473,10 @@ func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *clien
 		}
 	}
 
-	if err := cli.ImageTag(ctx, goimage, cacheimage); err != nil {
-		return "", fmt.Errorf("failed to tag %s as %s", goimage, cacheimage)
+	ow.Infow("tagging initial go build cache image", "cache_image", cacheimage, "base_image", baseimage)
+
+	if err := cli.ImageTag(ctx, baseimage, cacheimage); err != nil {
+		return "", fmt.Errorf("failed to tag %s as %s", baseimage, cacheimage)
 	}
 	return cacheimage, nil
 }
