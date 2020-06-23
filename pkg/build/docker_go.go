@@ -132,9 +132,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		basesrc = in.BaseSrcPath
-		plansrc = in.TestPlanSrcPath
-		sdksrc  = in.SDKSrcPath
+		basesrc = in.UnpackedSources.BaseDir
+		plansrc = in.UnpackedSources.PlanDir
+		sdksrc  = in.UnpackedSources.SDKDir
 
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)

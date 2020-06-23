@@ -34,18 +34,9 @@ type BuildInput struct {
 	// TestPlan is the name of the test plan being built.
 	TestPlan string
 
-	// BaseSrcPath is the directory containing the plan under ./plan, and an
-	// optional sdk under ./sdk.
-	BaseSrcPath string
-
-	// TestPlanSrcPath is the directory where the test plan's source has been
-	// placed (i.e. BaseSrcPath/plan).
-	TestPlanSrcPath string
-
-	// SDKSrcPath is the directory where the SDK's source has been placed. It
-	// will be a zero-value if no SDK replacement has been requested, or
-	// BaseSrcPath/sdk otherwise.
-	SDKSrcPath string
+	// UnpackedSources encapsulates the directories where sources for this
+	// build job have been unpacked.
+	UnpackedSources *UnpackedSources
 
 	// Selectors specifies any source selection strings to be sent to the
 	// builder. In the case of go builders, this field maps to build tags.

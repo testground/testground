@@ -14,6 +14,26 @@ const (
 	BuilderType = ComponentType("builder")
 )
 
+// UnpackedSources represents the set of directories where a build job unpacks
+// its sources.
+type UnpackedSources struct {
+	// BaseDir is the directory containing the plan under ./plan, and an
+	// optional sdk under ./sdk.
+	BaseDir string
+
+	// PlanDir is the directory where the test plan's source has been
+	// placed (i.e. BaseSrcPath/plan).
+	PlanDir string
+
+	// SDKDir is the directory where the SDK's source has been placed. It
+	// will be a zero-value if no SDK replacement has been requested, or
+	// BaseSrcPath/sdk otherwise.
+	SDKDir string
+
+	// ExtraDir is the directory where any extra sources have been unpacked.
+	ExtraDir string
+}
+
 type Engine interface {
 	BuilderByName(name string) (Builder, bool)
 	RunnerByName(name string) (Runner, bool)
@@ -21,7 +41,7 @@ type Engine interface {
 	ListBuilders() map[string]Builder
 	ListRunners() map[string]Runner
 
-	DoBuild(context.Context, *Composition, string, string, string, *rpc.OutputWriter) ([]*BuildOutput, error)
+	DoBuild(context.Context, *Composition, *UnpackedSources, *rpc.OutputWriter) ([]*BuildOutput, error)
 	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, ctype ComponentType, ref string, ow *rpc.OutputWriter) error
