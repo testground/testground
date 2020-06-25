@@ -252,6 +252,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		Tags:        []string{in.BuildID},
 		BuildArgs:   args,
 		NetworkMode: "host",
+		Squash:      true,
 	}
 
 	// If a docker network was created for the proxy, link it to the build container
