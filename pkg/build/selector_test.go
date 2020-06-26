@@ -59,7 +59,7 @@ func TestBuildSelector(t *testing.T) {
 						"go_proxy_mode": "direct",
 					},
 				},
-				Groups: []api.Group{
+				Groups: []*api.Group{
 					{
 						ID:        "test",
 						Build:     api.Build{Selectors: selectors},

@@ -25,7 +25,7 @@ type Composition struct {
 
 	// Groups enumerates the instances groups that participate in this
 	// composition.
-	Groups []Group `toml:"groups" json:"groups" validate:"unique=ID"`
+	Groups []*Group `toml:"groups" json:"groups" validate:"unique=ID"`
 }
 
 type Global struct {
@@ -45,11 +45,21 @@ type Global struct {
 	// BuildConfig specifies the build configuration for this run.
 	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
 
+	// Build applies global build defaults that trickle down to all groups, such
+	// as selectors or dependencies. Groups can override these in their local
+	// build definition.
+	Build *Build `toml:"build" json:"build"`
+
 	// Runner is the runner we're using.
 	Runner string `toml:"runner" json:"runner" validate:"required"`
 
 	// RunConfig specifies the run configuration for this run.
 	RunConfig map[string]interface{} `toml:"run_config" json:"run_config"`
+
+	// Run applies global run defaults that trickle down to all groups, such as
+	// test parameters or build artifacts. Groups can override these in their
+	// local run definition.
+	Run *Run `toml:"run" json:"run"`
 }
 
 type Metadata struct {
@@ -89,7 +99,7 @@ type Group struct {
 // CalculatedInstanceCount returns the actual number of instances in this group.
 //
 // Validate MUST be called for this field to be available.
-func (g Group) CalculatedInstanceCount() uint {
+func (g *Group) CalculatedInstanceCount() uint {
 	return g.calculatedInstanceCnt
 }
 
@@ -149,6 +159,28 @@ func (d Dependencies) AsMap() map[string]string {
 	return m
 }
 
+// ApplyDefaults applies defaults from the provided set, only for those keys
+// that are not explicitly set in the receiver.
+func (d Dependencies) ApplyDefaults(defaults Dependencies) Dependencies {
+	if len(d) == 0 {
+		return defaults
+	}
+
+	ret := make(Dependencies, len(d), len(d)+len(defaults))
+	copy(ret[:], d)
+
+	into := d.AsMap()
+	for mod, ver := range defaults.AsMap() {
+		if _, present := into[mod]; !present {
+			ret = append(ret, Dependency{
+				Module:  mod,
+				Version: ver,
+			})
+		}
+	}
+	return ret
+}
+
 type Run struct {
 	// Artifact specifies the build artifact to use for this run.
 	Artifact string `toml:"artifact" json:"artifact"`
@@ -186,7 +218,7 @@ func (c *Composition) ValidateForRun() error {
 	// expected value.
 	total, cum := c.Global.TotalInstances, uint(0)
 	for i := range c.Groups {
-		g := &(c.Groups[i])
+		g := c.Groups[i]
 		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
 			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(total)))
 		}
@@ -237,6 +269,17 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 			}
 		}
 	}
+
+	// Trickle global build defaults to groups, if any.
+	if def := c.Global.Build; def != nil {
+		for _, grp := range c.Groups {
+			grp.Build.Dependencies = grp.Build.Dependencies.ApplyDefaults(def.Dependencies)
+			if len(grp.Build.Selectors) == 0 {
+				grp.Build.Selectors = def.Selectors
+			}
+		}
+	}
+
 	return &c, nil
 }
 
@@ -292,20 +335,62 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 		return nil, err
 	}
 
+	// Trickle global run defaults to groups, if any.
+	if def := c.Global.Run; def != nil {
+		for _, grp := range c.Groups {
+			// Artifact. If a global artifact is provided, it will be applied
+			// to all groups that do not set an artifact explicitly.
+			// TODO(rk): this rather extreme; we might want a way to force
+			//  builds for groups that do not have an artifact, even in the
+			//  presence of a default one.
+			if grp.Run.Artifact == "" {
+				grp.Run.Artifact = def.Artifact
+			}
+
+			// If we have default parameters to set, handle the case where
+			// the group map is uninitialized by copying over all defaults,
+			// as well as the case where we have to merge.
+			if len(def.TestParams) > 0 {
+				if grp.Run.TestParams == nil {
+					grp.Run.TestParams = make(map[string]string, len(def.TestParams))
+					for k, v := range def.TestParams {
+						grp.Run.TestParams[k] = v
+					}
+				} else {
+					// Test params.
+					for k, v := range def.TestParams {
+						if _, present := grp.Run.TestParams[k]; !present {
+							grp.Run.TestParams[k] = v
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Apply test case param defaults. First parse all defaults as JSON data
 	// types; then iterate through all the groups in the composition, and apply
 	// the parameters that are absent.
 	defaults := make(map[string]string, len(tcase.Parameters))
 	for n, v := range tcase.Parameters {
-		data, err := json.Marshal(v.Default)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
+		switch dv := v.Default.(type) {
+		case string:
+			defaults[n] = dv
+		default:
+			data, err := json.Marshal(v.Default)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
+			}
+			defaults[n] = string(data)
 		}
-		defaults[n] = string(data)
 	}
 
 	for _, g := range c.Groups {
 		m := g.Run.TestParams
+		if m == nil {
+			m = make(map[string]string, len(defaults))
+			g.Run.TestParams = m
+		}
 		for k, v := range defaults {
 			if _, ok := m[k]; !ok {
 				m[k] = v
@@ -324,7 +409,7 @@ func (c Composition) PickGroups(indices ...int) (Composition, error) {
 		}
 	}
 
-	grps := make([]Group, 0, len(indices))
+	grps := make([]*Group, 0, len(indices))
 	for _, i := range indices {
 		grps = append(grps, c.Groups[i])
 	}
