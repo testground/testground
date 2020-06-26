@@ -166,7 +166,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 		// Populate the returned build IDs.
 		for i, groupIdx := range buildIdx {
-			g := &comp.Groups[groupIdx]
+			g := comp.Groups[groupIdx]
 			g.Run.Artifact = bout[i].ArtifactPath
 		}
 

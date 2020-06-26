@@ -177,7 +177,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	}
 
 	for i, out := range res {
-		g := &comp.Groups[i]
+		g := comp.Groups[i]
 		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
 		g.Run.Artifact = out.ArtifactPath
 	}

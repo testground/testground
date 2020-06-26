@@ -60,7 +60,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 			Runner:         runner,
 			TotalInstances: instances,
 		},
-		Groups: []api.Group{
+		Groups: []*api.Group{
 			{
 				ID: "single",
 				Instances: api.Instances{
