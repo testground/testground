@@ -17,7 +17,7 @@ require (
 	github.com/dsnet/compress v0.0.1 // indirect
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.0.0
-	github.com/go-playground/validator/v10 v10.1.0
+	github.com/go-playground/validator/v10 v10.3.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
