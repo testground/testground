@@ -16,6 +16,20 @@ var compositionValidator = func() *validator.Validate {
 	return v
 }()
 
+type Groups []*Group
+
+func (gs Groups) Validate() error {
+	// validate group IDs are unique
+	m := make(map[string]struct{}, len(gs))
+	for _, g := range gs {
+		if _, ok := m[g.ID]; ok {
+			return fmt.Errorf("group ids not unique; found duplicate: %s", g.ID)
+		}
+		m[g.ID] = struct{}{}
+	}
+	return nil
+}
+
 type Composition struct {
 	// Metadata expresses optional metadata about this composition.
 	Metadata Metadata `toml:"metadata" json:"metadata"`
@@ -25,7 +39,7 @@ type Composition struct {
 
 	// Groups enumerates the instances groups that participate in this
 	// composition.
-	Groups []*Group `toml:"groups" json:"groups" validate:"unique=ID"`
+	Groups Groups `toml:"groups" json:"groups" validate:"required,gt=0"`
 }
 
 type Global struct {
@@ -200,11 +214,16 @@ type Dependency struct {
 
 // ValidateForBuild validates that this Composition is correct for a build.
 func (c *Composition) ValidateForBuild() error {
-	return compositionValidator.StructExcept(c,
+	err := compositionValidator.StructExcept(c,
 		"Global.Case",
 		"Global.TotalInstances",
 		"Global.Runner",
 	)
+	if err != nil {
+		return err
+	}
+
+	return c.Groups.Validate()
 }
 
 // ValidateForRun validates that this Composition is correct for a run.
@@ -229,7 +248,7 @@ func (c *Composition) ValidateForRun() error {
 		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", total, cum)
 	}
 
-	return nil
+	return c.Groups.Validate()
 }
 
 // PrepareForBuild verifies that this composition is compatible with
