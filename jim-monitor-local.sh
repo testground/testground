@@ -3,7 +3,7 @@
 CHECK=$(docker ps --format "{{.Names}}" | grep ^tg- | perl -pe 's/^tg-(.*)-([^-]+)-single-\d+$/\1 \2/' | sort | uniq | wc -l)
 
 if [ "$CHECK" -ne "1" ]; then
-	echo "Too many or two few tg deploys: $CHECK"
+	echo "Too many or too few tg deploys: $CHECK"
 	exit 1
 fi
 BASE=$(docker ps --format "{{.Names}}" | grep ^tg- | perl -pe 's/^tg-(.*)-([^-]+)-single-\d+$/\1/' | sort | uniq)
