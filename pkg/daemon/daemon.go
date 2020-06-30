@@ -55,8 +55,8 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{
 		Handler:      r,
-		WriteTimeout: 1200 * time.Second,
-		ReadTimeout:  1200 * time.Second,
+		WriteTimeout: 7200 * time.Second,
+		ReadTimeout:  7200 * time.Second,
 	}
 
 	srv.l, err = net.Listen("tcp", cfg.Daemon.Listen)
