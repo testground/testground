@@ -62,6 +62,8 @@ type LocalDockerRunnerConfig struct {
 	// https://docs.docker.com/engine/reference/commandline/run/#set-ulimits-in-container---ulimit
 	// (default: ["nofile=1048576:1048576"]).
 	Ulimits []string `toml:"ulimits"`
+
+	ExposedPorts []string `toml:"exposed_ports"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -71,6 +73,7 @@ var defaultConfig = LocalDockerRunnerConfig{
 	Unstarted:      false,
 	Background:     false,
 	Ulimits:        []string{"nofile=1048576:1048576"},
+	ExposedPorts:   []string{"6060"},
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -203,6 +206,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return nil, fmt.Errorf("error while merging configurations: %w", err)
 	}
 
+	ports := make(nat.PortSet)
+	for _, p := range cfg.ExposedPorts {
+		ports[nat.Port(p)] = struct{}{}
+	}
+
 	var containers []string
 	for _, g := range input.Groups {
 		runenv := template
@@ -236,8 +244,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			log.Infow("creating container", "name", name)
 
 			ccfg := &container.Config{
-				Image: g.ArtifactPath,
-				Env:   env,
+				Image:        g.ArtifactPath,
+				ExposedPorts: ports,
+				Env:          env,
 				Labels: map[string]string{
 					"testground.purpose":  "plan",
 					"testground.plan":     input.TestPlan,
