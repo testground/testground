@@ -753,6 +753,10 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 							Name:          "pprof",
 							ContainerPort: 6060,
 						},
+						{
+							Name:          "lotus-rpc",
+							ContainerPort: 1234,
+						},
 					},
 					VolumeMounts: []v1.VolumeMount{
 						{
