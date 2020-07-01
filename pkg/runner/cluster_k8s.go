@@ -754,11 +754,11 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 							ContainerPort: 6060,
 						},
 						{
-							Name:          "lotus-fullnode-api-rpc",
+							Name:          "lotusfullrpc",
 							ContainerPort: 1234,
 						},
 						{
-							Name:          "lotus-miner-api-rpc",
+							Name:          "lotusminerrpc",
 							ContainerPort: 2345,
 						},
 					},
