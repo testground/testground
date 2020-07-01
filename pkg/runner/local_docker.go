@@ -126,8 +126,10 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
 			// Port binding for pprof.
-			PortBindings: nat.PortMap{"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
-			NetworkMode:  container.NetworkMode(r.controlNetworkID),
+			PortBindings: nat.PortMap{
+				"6060": []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}},
+			},
+			NetworkMode: container.NetworkMode(r.controlNetworkID),
 			// To lookup namespaces. Can't use SandboxKey for some reason.
 			PidMode: "host",
 			// We need _both_ to actually get a network namespace handle.
@@ -248,8 +250,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			}
 
 			hcfg := &container.HostConfig{
-				NetworkMode:     container.NetworkMode("testground-control"),
 				PublishAllPorts: true,
+				NetworkMode:     container.NetworkMode("testground-control"),
 				Mounts: []mount.Mount{{
 					Type:   mount.TypeBind,
 					Source: odir,

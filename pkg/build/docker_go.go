@@ -44,14 +44,15 @@ type DockerGoBuilder struct {
 }
 
 type DockerfileExtensions struct {
-	PreModDownload  string `toml:"pre_mod_download"`
-	PostModDownload string `toml:"post_mod_download"`
-	PreSourceCopy   string `toml:"pre_source_copy"`
-	PostSourceCopy  string `toml:"post_source_copy"`
-	PreBuild        string `toml:"pre_build"`
-	PostBuild       string `toml:"post_build"`
-	PreRuntimeCopy  string `toml:"pre_runtime_copy"`
-	PostRuntimeCopy string `toml:"post_runtime_copy"`
+	PreModDownload  string   `toml:"pre_mod_download"`
+	PostModDownload string   `toml:"post_mod_download"`
+	PreSourceCopy   string   `toml:"pre_source_copy"`
+	PostSourceCopy  string   `toml:"post_source_copy"`
+	PreBuild        string   `toml:"pre_build"`
+	PostBuild       string   `toml:"post_build"`
+	PreRuntimeCopy  string   `toml:"pre_runtime_copy"`
+	PostRuntimeCopy string   `toml:"post_runtime_copy"`
+	ExposedPorts    []string `toml:"exposed_ports"`
 }
 
 type DockerGoBuilderConfig struct {
@@ -632,6 +633,9 @@ RUN mv ${PLAN_DIR}/testplan.bin /testplan
 
 {{ end }}
 
-EXPOSE 6060
+{{ range $port := .DockerfileExtensions.ExposedPorts }}
+EXPOSE {{$port}}
+{{ end }}
+
 ENTRYPOINT [ "/testplan"]
 `
