@@ -115,6 +115,8 @@ type ClusterK8sRunnerConfig struct {
 	CollectOutputsPodMemory string `toml:"collect_outputs_pod_memory"`
 	CollectOutputsPodCPU    string `toml:"collect_outputs_pod_cpu"`
 
+	ExposedPorts []string `toml:"exposed_ports"`
+
 	Sysctls []string `toml:"sysctls"`
 }
 
@@ -674,6 +676,16 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
 	}
 
+	var ports []v1.ContainerPort
+	for i, p := range cfg.ExposedPorts {
+		port, err := strconv.ParseInt(p, 10, 32)
+		if err != nil {
+			return err
+		}
+
+		ports = append(ports, v1.ContainerPort{Name: fmt.Sprintf("port%d", i), ContainerPort: int32(port)})
+	}
+
 	mountPropagationMode := v1.MountPropagationHostToContainer
 	sharedVolumeName := "efs-shared"
 
@@ -748,20 +760,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					ImagePullPolicy: v1.PullIfNotPresent,
 					Args:            []string{},
 					Env:             env,
-					Ports: []v1.ContainerPort{
-						{
-							Name:          "pprof",
-							ContainerPort: 6060,
-						},
-						{
-							Name:          "lotusfullrpc",
-							ContainerPort: 1234,
-						},
-						{
-							Name:          "lotusminerrpc",
-							ContainerPort: 2345,
-						},
-					},
+					Ports:           ports,
 					VolumeMounts: []v1.VolumeMount{
 						{
 							Name:             sharedVolumeName,
