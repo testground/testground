@@ -48,6 +48,8 @@ type DockerPowergateBuilderConfig struct {
 	ModulePath string `toml:"module_path" overridable:"yes"`
 	ExecPkg    string `toml:"exec_pkg" overridable:"yes"`
 	FreshGomod bool   `toml:"fresh_gomod" overridable:"yes"`
+	CopyLotus  bool   `toml:"copy_lotus" overridable:"no"`
+	LotusPath  string `toml:"lotus_path" overridable:"yes"`
 	CopyPowergate   bool   `toml:"copy_powergate" overridable:"no"`
 	PowergatePath   string `toml:"powergate_path" overridable:"yes"`
 
@@ -125,11 +127,13 @@ func (b *DockerPowergateBuilder) Build(ctx context.Context, in *api.BuildInput, 
 
 	var (
 		plansrc       = in.TestPlan.SourcePath
+		lotussrc      = filepath.Join(in.Directories.SourceDir(), cfg.LotusPath)
 		powergatesrc  = filepath.Join(in.Directories.SourceDir(), cfg.PowergatePath)
 		sdksrc        = filepath.Join(in.Directories.SourceDir(), "/sdk")
 		dockerfilesrc = filepath.Join(plansrc, "Dockerfile.template")
 
 		plandst       = filepath.Join(tmp, "plan")
+		lotusdst      = filepath.Join(tmp, "lotus")
 		powergatedst  = filepath.Join(tmp, "powergate")
 		sdkdst        = filepath.Join(tmp, "sdk")
 		dockerfiledst = filepath.Join(tmp, "Dockerfile")
@@ -141,6 +145,17 @@ func (b *DockerPowergateBuilder) Build(ctx context.Context, in *api.BuildInput, 
 	}
 	if err := materializeSymlink(plandst); err != nil {
 		return nil, err
+	}
+
+	if cfg.CopyLotus {
+	  log.Infow("copying lotus src", "lotus_path", cfg.LotusPath)
+		// Copy the lotus source; go-getter will create the dir.
+		if err := getter.Get(lotusdst, lotussrc, getter.WithContext(ctx)); err != nil {
+			return nil, err
+		}
+		if err := materializeSymlink(lotusdst); err != nil {
+			return nil, err
+		}
 	}
 
 	if cfg.CopyPowergate {

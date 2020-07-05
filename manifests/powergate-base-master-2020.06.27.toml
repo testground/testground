@@ -10,6 +10,8 @@ enabled = true
 go_version = "1.14"
 module_path = "github.com/ipfs/testground/plans/powergate-base"
 exec_pkg = "."
+copy_lotus = true
+lotus_path = "../lotus-next-2020.06.27-8m"
 copy_powergate = true
 powergate_path = "../powergate-master-2020.06.27"
 
