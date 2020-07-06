@@ -63,7 +63,7 @@ type LocalDockerRunnerConfig struct {
 	// (default: ["nofile=1048576:1048576"]).
 	Ulimits []string `toml:"ulimits"`
 
-	ExposedPorts []string `toml:"exposed_ports"`
+	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -73,7 +73,7 @@ var defaultConfig = LocalDockerRunnerConfig{
 	Unstarted:      false,
 	Background:     false,
 	Ulimits:        []string{"nofile=1048576:1048576"},
-	ExposedPorts:   []string{"6060"},
+	ExposedPorts:   map[string]string{"pprof": "6060"},
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -224,6 +224,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
 		env = append(env, "REDIS_HOST=testground-redis")
+
+		// Inject exposed ports.
+		env = append(env, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
