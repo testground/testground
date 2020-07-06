@@ -682,13 +682,15 @@ func (c *ClusterK8sRunner) createTestplanPod(_ context.Context, podName string, 
 	}
 
 	var ports []v1.ContainerPort
-	for label, p := range cfg.ExposedPorts {
+	cnt := 0
+	for _, p := range cfg.ExposedPorts {
 		port, err := strconv.ParseInt(p, 10, 32)
 		if err != nil {
 			return err
 		}
 
-		ports = append(ports, v1.ContainerPort{Name: fmt.Sprintf("%s_PORT", label), ContainerPort: int32(port)})
+		ports = append(ports, v1.ContainerPort{Name: fmt.Sprintf("port%d", cnt), ContainerPort: int32(port)})
+		cnt++
 	}
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
