@@ -115,7 +115,7 @@ type ClusterK8sRunnerConfig struct {
 	CollectOutputsPodMemory string `toml:"collect_outputs_pod_memory"`
 	CollectOutputsPodCPU    string `toml:"collect_outputs_pod_cpu"`
 
-	ExposedPorts []string `toml:"exposed_ports"`
+	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 
 	Sysctls []string `toml:"sysctls"`
 }
@@ -258,6 +258,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					FieldPath: "status.hostIP",
 				}},
 		})
+
+		// Inject exposed ports.
+		for name, value := range cfg.ExposedPorts.ToEnvVars() {
+			env = append(env, v1.EnvVar{Name: name, Value: value})
+		}
 
 		podCPU := defaultCPU
 		if g.Resources.CPU != "" {
@@ -663,7 +668,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	}
 }
 
-func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
+func (c *ClusterK8sRunner) createTestplanPod(_ context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -677,13 +682,13 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 	}
 
 	var ports []v1.ContainerPort
-	for i, p := range cfg.ExposedPorts {
+	for label, p := range cfg.ExposedPorts {
 		port, err := strconv.ParseInt(p, 10, 32)
 		if err != nil {
 			return err
 		}
 
-		ports = append(ports, v1.ContainerPort{Name: fmt.Sprintf("port%d", i), ContainerPort: int32(port)})
+		ports = append(ports, v1.ContainerPort{Name: fmt.Sprintf("%s_PORT", label), ContainerPort: int32(port)})
 	}
 
 	mountPropagationMode := v1.MountPropagationHostToContainer
