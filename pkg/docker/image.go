@@ -36,7 +36,9 @@ func defaultBuildOptsFor(name string) *types.ImageBuildOptions {
 // the Name, and the constructed options are sent to the docker client.
 // The build output is directed to stdout via PipeOutput, and also returned from this function.
 func BuildImage(ctx context.Context, ow *rpc.OutputWriter, client *client.Client, opts *BuildImageOpts) (string, error) {
-	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{})
+	buildCtx, err := archive.TarWithOptions(opts.BuildCtx, &archive.TarOptions{
+		ExcludePatterns: []string{"plan/_*", "plan.zip"},
+	})
 	if err != nil {
 		return "", err
 	}
