@@ -15,7 +15,7 @@ FROM 6157d0c2218c
 FROM 7e951383339a
 
 # lotus-base next
-FROM 066c6a1a1951
+FROM a09ac8977112
 
 # Copy Node.js
 WORKDIR /usr/local/bin
@@ -92,7 +92,7 @@ RUN apt-get install -y nginx \
 RUN apt-get update && apt-get install -y && apt-get install -y ca-certificates llvm clang mesa-opencl-icd ocl-icd-opencl-dev \
   vim less htop jq file lsof
 
-RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
+#RUN curl -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Testplan Go dependencies
 
