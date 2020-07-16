@@ -208,6 +208,9 @@ type Dependency struct {
 	// Module is the module name/path for the import to be overridden.
 	Module string `toml:"module" json:"module" validate:"required"`
 
+	// Target is the override module.
+	Target string `toml:"target" json:"target" validate:"target"`
+
 	// Version is the override version.
 	Version string `toml:"version" json:"version" validate:"required"`
 }
