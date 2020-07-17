@@ -257,6 +257,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				}},
 			}
 
+			// Updates the ulimit option to allow go 1.14 to build on all kernels.
+			// Ref: https://github.com/docker-library/golang/issues/320
 			if !strings.Contains(strings.Join(cfg.Ulimits, " "), "memlock=-1") {
 				cfg.Ulimits = append(cfg.Ulimits, "memlock=-1")
 			}
