@@ -211,7 +211,13 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		ports[nat.Port(p)] = struct{}{}
 	}
 
-	var containers []string
+	type testContainer struct {
+		containerID string
+		groupID     string
+		groupIdx    int
+	}
+
+	var containers []testContainer
 	for _, g := range input.Groups {
 		runenv := template
 		runenv.TestGroupInstanceCount = g.Instances
@@ -285,7 +291,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				break
 			}
 
-			containers = append(containers, res.ID)
+			containers = append(containers, testContainer{res.ID, g.ID, i})
 
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
@@ -297,7 +303,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	if !cfg.KeepContainers {
 		defer func() {
-			_ = docker.DeleteContainers(cli, log, containers)
+			ids := make([]string, 0, len(containers))
+			for _, c := range containers {
+				ids = append(ids, c.containerID)
+			}
+			_ = docker.DeleteContainers(cli, log, ids)
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -318,7 +328,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	var (
 		doneCh    = make(chan error, 2)
-		started   = make(chan string, len(containers))
+		started   = make(chan testContainer, len(containers))
 		ratelimit = make(chan struct{}, 16)
 	)
 
@@ -328,21 +338,21 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	log.Infow("starting containers", "count", len(containers))
 
 	g, gctx := errgroup.WithContext(ctx)
-	for _, id := range containers {
-		id := id
+	for _, c := range containers {
+		c := c
 		f := func() error {
 			ratelimit <- struct{}{}
 			defer func() { <-ratelimit }()
 
-			log.Infow("starting container", "id", id)
+			log.Infow("starting container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
 
-			err := cli.ContainerStart(ctx, id, types.ContainerStartOptions{})
+			err := cli.ContainerStart(ctx, c.containerID, types.ContainerStartOptions{})
 			if err == nil {
-				log.Debugw("started container", "id", id)
+				log.Debugw("started container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
 				select {
 				case <-gctx.Done():
 				default:
-					started <- id
+					started <- c
 				}
 			}
 			return err
@@ -397,12 +407,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		Outer:
 			for {
 				select {
-				case id, more := <-started:
+				case tc, more := <-started:
 					if !more {
 						break Outer
 					}
 
-					stream, err := cli.ContainerLogs(ctx, id, types.ContainerLogsOptions{
+					stream, err := cli.ContainerLogs(ctx, tc.containerID, types.ContainerLogsOptions{
 						ShowStdout: true,
 						ShowStderr: true,
 						Since:      "2019-01-01T00:00:00",
@@ -422,7 +432,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 						_ = wstderr.CloseWithError(err)
 					}()
 
-					pretty.Manage(id[0:12], rstdout, rstderr)
+					// instance tag in output: << group[zero_padded_i] >> (container_id[0:6]), e.g. << miner[003] (a1b2c3) >>
+					tag := fmt.Sprintf("%s[%03d] (%s)", tc.groupID, tc.groupIdx, tc.containerID[0:6])
+					pretty.Manage(tag, rstdout, rstderr)
 
 				case <-ctx.Done():
 					// yield if we're been cancelled.
