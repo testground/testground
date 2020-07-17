@@ -257,13 +257,15 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				}},
 			}
 
-			if len(cfg.Ulimits) > 0 {
-				ulimits, err := conv.ToUlimits(cfg.Ulimits)
-				if err == nil {
-					hcfg.Resources = container.Resources{Ulimits: ulimits}
-				} else {
-					ow.Warnf("invalid ulimit will be ignored %v", err)
-				}
+			if !strings.Contains(strings.Join(cfg.Ulimits, " "), "memlock=-1") {
+				cfg.Ulimits = append(cfg.Ulimits, "memlock=-1")
+			}
+
+			ulimits, err := conv.ToUlimits(cfg.Ulimits)
+			if err == nil {
+				hcfg.Resources = container.Resources{Ulimits: ulimits}
+			} else {
+				ow.Warnf("invalid ulimit will be ignored %v", err)
 			}
 
 			// Create the container.
