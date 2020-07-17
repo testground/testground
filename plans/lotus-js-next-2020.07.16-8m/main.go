@@ -191,9 +191,9 @@ func run(runenv *runtime.RunEnv) error {
 		http.ServeFile(w, r, "/root/.lotus/token")
 	})
 
-	mux.HandleFunc("/.lotusstorage/token", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/.lotusminer/token", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", "no-cache")
-		http.ServeFile(w, r, "/root/.lotusstorage/token")
+		http.ServeFile(w, r, "/root/.lotusminer/token")
 	})
 
 	fs := http.FileServer(http.Dir("/root/downloads"))
@@ -424,7 +424,7 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("Set up the genesis miner")
 		cmdSetupMiner := exec.Command(
-			"/lotus/lotus-storage-miner",
+			"/lotus/lotus-miner",
 			"init",
 			"--genesis-miner",
 			"--actor=t01000",
@@ -446,14 +446,14 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-    err = modifyLotusStorageConfig(runenv)
+    err = modifyLotusMinerConfig(runenv)
 		if err != nil {
 			return err
 		}
 
 		runenv.RecordMessage("Start up the miner")
 		cmdMiner := exec.Command(
-			"/lotus/lotus-storage-miner",
+			"/lotus/lotus-miner",
 			"run",
 			"--nosync",
 		)
@@ -578,7 +578,7 @@ func run(runenv *runtime.RunEnv) error {
 					From:     *localWalletAddr,
 					To:       toAddr,
 					Value:    types.BigInt(val),
-					GasLimit: 1000,
+					GasLimit: 100_000_000,
 					GasPrice: types.NewInt(0),
 				}
 
@@ -778,7 +778,7 @@ func run(runenv *runtime.RunEnv) error {
 
 		runenv.RecordMessage("Set up the miner")
 		cmdSetupMiner := exec.Command(
-			"/lotus/lotus-storage-miner",
+			"/lotus/lotus-miner",
 			"init",
 			"--owner="+walletAddress,
 		)
@@ -795,14 +795,14 @@ func run(runenv *runtime.RunEnv) error {
 			return err
 		}
 
-    err = modifyLotusStorageConfig(runenv)
+    err = modifyLotusMinerConfig(runenv)
 		if err != nil {
 			return err
 		}
 
 		runenv.RecordMessage("Start up the miner")
 		cmdMiner := exec.Command(
-			"/lotus/lotus-storage-miner",
+			"/lotus/lotus-miner",
 			"run",
 		)
 		// cmdMiner.Env = append(os.Environ(), "GOLOG_LOG_LEVEL="+runenv.StringParam("log-level"))
@@ -1021,23 +1021,23 @@ func setupIPFS(runenv *runtime.RunEnv, cmdNodeInitial *exec.Cmd) error {
 	return nil
 }
 
-func modifyLotusStorageConfig(runenv *runtime.RunEnv) error {
-  runenv.RecordMessage("Modify Lotus storage config")
-  cmdModifyLotusStorageConfig := exec.Command(
+func modifyLotusMinerConfig(runenv *runtime.RunEnv) error {
+  runenv.RecordMessage("Modify Lotus miner config")
+  cmdModifyLotusMinerConfig := exec.Command(
     "/usr/bin/perl",
     "-pi",
     "-e",
     "s/^#SealingDelay = \"1h0m0s\"$/SealingDelay = \"00h1m0s\"/",
-    "/root/.lotusstorage/config.toml",
+    "/root/.lotusminer/config.toml",
   )
-  outfile, err := os.Create("/outputs/modify-lotus-storage-config.out")
+  outfile, err := os.Create("/outputs/modify-lotus-miner-config.out")
   if err != nil {
     return err
   }
   defer outfile.Close()
-  cmdModifyLotusStorageConfig.Stdout = outfile
-  cmdModifyLotusStorageConfig.Stderr = outfile
-  err = cmdModifyLotusStorageConfig.Run()
+  cmdModifyLotusMinerConfig.Stdout = outfile
+  cmdModifyLotusMinerConfig.Stderr = outfile
+  err = cmdModifyLotusMinerConfig.Run()
   if err != nil {
     return err
   }

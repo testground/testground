@@ -15,7 +15,7 @@ FROM 005228711309
 FROM d85718e738c8
 
 # lotus-base next
-FROM 99dc17033b39
+FROM 51b91843731b
 
 # Copy Node.js
 WORKDIR /usr/local/bin

@@ -34,7 +34,7 @@ RUN cd $SRC_DIR \
   && . $HOME/.cargo/env \
   && make clean \
   && grep '\/\/ f\.lock_exclusive' extern/rust-fil-proofs/storage-proofs/core/src/parameter_cache.rs \
-  && FFI_BUILD_FROM_SOURCE=1 make debug bench
+  && FFI_BUILD_FROM_SOURCE=1 make debug lotus-bench
 
 # Store module dependencies
 RUN touch /testground_dep_list
