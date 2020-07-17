@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/rpc"
 
@@ -246,12 +247,17 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		args["BUILD_TAGS"] = &s
 	}
 
+	// Updates the ulimit option to allow go 1.14 to build on all kernels.
+	// Ref: https://github.com/docker-library/golang/issues/320
+	ulimits, _ := conv.ToUlimits([]string{"memlock=-1"})
+
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
 		Tags:        []string{in.BuildID},
 		BuildArgs:   args,
 		NetworkMode: "host",
+		Ulimits:     ulimits,
 	}
 
 	// If a docker network was created for the proxy, link it to the build container
