@@ -124,6 +124,7 @@ func runSingleCmd(c *cli.Context) (err error) {
 	if comp, err = createSingletonComposition(c); err != nil {
 		return err
 	}
+	logging.S().Infof("created a synthetic composition file for this job; all instances will run under singleton group %q", comp.Groups[0].ID)
 	return doRun(c, comp)
 }
 

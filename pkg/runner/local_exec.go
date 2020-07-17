@@ -100,12 +100,12 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 		for i := 0; i < g.Instances; i++ {
 			total++
-			id := fmt.Sprintf("instance %3d", total)
+			tag := fmt.Sprintf("%s[%03d]", g.ID, i)
 
 			odir := filepath.Join(r.outputsDir, input.TestPlan, input.RunID, g.ID, strconv.Itoa(i))
 			if err := os.MkdirAll(odir, 0777); err != nil {
 				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
-				pretty.FailStart(id, err)
+				pretty.FailStart(tag, err)
 				continue
 			}
 
@@ -128,13 +128,14 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			cmd.Env = env
 
 			if err := cmd.Start(); err != nil {
-				pretty.FailStart(id, err)
+				pretty.FailStart(tag, err)
 				continue
 			}
 
 			commands = append(commands, cmd)
 
-			pretty.Manage(id, stdout, stderr)
+			// instance tag in output: << group[zero_padded_i] >>, e.g. << miner[003] >>
+			pretty.Manage(tag, stdout, stderr)
 		}
 	}
 
