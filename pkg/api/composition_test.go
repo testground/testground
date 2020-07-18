@@ -129,8 +129,8 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 			Build: &Build{
 				Selectors: []string{"default_selector_1", "default_selector_2"},
 				Dependencies: []Dependency{
-					{"dependency:a", "1.0.0.default"},
-					{"dependency:b", "2.0.0.default"},
+					{"dependency:a", "", "1.0.0.default"},
+					{"dependency:b", "", "2.0.0.default"},
 				},
 			},
 		},
@@ -142,8 +142,9 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 				ID: "dep_override",
 				Build: Build{
 					Dependencies: []Dependency{
-						{"dependency:a", "1.0.0.overridden"},
-						{"dependency:c", "1.0.0.locally_set"},
+						{"dependency:a", "", "1.0.0.overridden"},
+						{"dependency:c", "", "1.0.0.locally_set"},
+						{"dependency:d", "remote/fork", "1.0.0.locally_set"},
 					},
 				},
 			},
@@ -152,8 +153,8 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 				Build: Build{
 					Selectors: []string{"overridden"},
 					Dependencies: []Dependency{
-						{"dependency:a", "1.0.0.overridden"},
-						{"dependency:c", "1.0.0.locally_set"},
+						{"dependency:a", "", "1.0.0.overridden"},
+						{"dependency:c", "", "1.0.0.locally_set"},
 					},
 				},
 			},
@@ -182,21 +183,22 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 
 	// group no_local_settings.
 	require.EqualValues(t, []string{"default_selector_1", "default_selector_2"}, ret.Groups[0].Build.Selectors)
-	require.ElementsMatch(t, Dependencies{{"dependency:a", "1.0.0.default"}, {"dependency:b", "2.0.0.default"}}, ret.Groups[0].Build.Dependencies)
+	require.ElementsMatch(t, Dependencies{{"dependency:a", "", "1.0.0.default"}, {"dependency:b", "", "2.0.0.default"}}, ret.Groups[0].Build.Dependencies)
 
 	// group dep_override.
 	require.EqualValues(t, []string{"default_selector_1", "default_selector_2"}, ret.Groups[1].Build.Selectors)
 	require.ElementsMatch(t, Dependencies{
-		{"dependency:a", "1.0.0.overridden"},
-		{"dependency:b", "2.0.0.default"},
-		{"dependency:c", "1.0.0.locally_set"},
+		{"dependency:a", "", "1.0.0.overridden"},
+		{"dependency:b", "", "2.0.0.default"},
+		{"dependency:c", "", "1.0.0.locally_set"},
+		{"dependency:d", "remote/fork", "1.0.0.locally_set"},
 	}, ret.Groups[1].Build.Dependencies)
 
 	// group selector_and_dep_override
 	require.EqualValues(t, []string{"overridden"}, ret.Groups[2].Build.Selectors)
 	require.ElementsMatch(t, Dependencies{
-		{"dependency:a", "1.0.0.overridden"},
-		{"dependency:b", "2.0.0.default"},
-		{"dependency:c", "1.0.0.locally_set"},
+		{"dependency:a", "", "1.0.0.overridden"},
+		{"dependency:b", "", "2.0.0.default"},
+		{"dependency:c", "", "1.0.0.locally_set"},
 	}, ret.Groups[2].Build.Dependencies)
 }

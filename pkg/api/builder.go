@@ -51,11 +51,11 @@ type BuildInput struct {
 	// builder. In the case of go builders, this field maps to build tags.
 	Selectors []string
 
-	// Dependencies are the versions of upstream dependencies we want to build
-	// against. For a go build, this could be e.g.:
+	// Dependencies are the versions and target of upstream dependencies we wants
+	// to build against. For a go build, this could be e.g.:
 	//  github.com/ipfs/go-ipfs=v0.4.22
-	//  github.com/libp2p/go-libp2p=v0.2.8
-	Dependencies map[string]string
+	//  github.com/libp2p/go-libp2p=github.com/user/fork@v0.2.8
+	Dependencies map[string]DependencyTarget
 
 	// BuildConfig is the configuration of the build job sourced from the test
 	// plan manifest, coalesced with any user-provided overrides.
@@ -75,4 +75,14 @@ type BuildOutput struct {
 	// containing the collapsed transitive upstream dependency set of this
 	// build.
 	Dependencies map[string]string
+}
+
+// DependencyTarget encapsulates the target and version of a dependency.
+type DependencyTarget struct {
+	// Target is the replacement dependency we want to use. It can be a different
+	// fork or some module if the builder supports it.
+	Target string
+
+	// Version is the version of the dependency we want to use.
+	Version string
 }

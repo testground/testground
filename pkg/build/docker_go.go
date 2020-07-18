@@ -198,7 +198,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
-		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, mod, ver))
+		if ver.Target == "" {
+			ver.Target = mod
+		}
+		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, ver.Target, ver.Version))
 	}
 
 	// Inject replace directives for the SDK modules.

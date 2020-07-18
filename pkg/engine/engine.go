@@ -224,12 +224,21 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, basesrc str
 
 			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
 
+			deps := make(map[string]api.DependencyTarget, len(grp.Build.Dependencies))
+
+			for _, dep := range grp.Build.Dependencies {
+				deps[dep.Module] = api.DependencyTarget{
+					Target:  dep.Target,
+					Version: dep.Version,
+				}
+			}
+
 			in := &api.BuildInput{
 				BuildID:         uuid.New().String()[24:],
 				EnvConfig:       *e.envcfg,
 				TestPlan:        plan,
 				Selectors:       grp.Build.Selectors,
-				Dependencies:    grp.Build.Dependencies.AsMap(),
+				Dependencies:    deps,
 				BuildConfig:     obj,
 				BaseSrcPath:     basesrc,
 				TestPlanSrcPath: plansrc,
