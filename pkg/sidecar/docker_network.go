@@ -20,10 +20,11 @@ type dockerLink struct {
 }
 
 type DockerNetwork struct {
-	container      *docker.ContainerRef
-	activeLinks    map[string]*dockerLink // name -> link handle
-	availableLinks map[string]string      // name -> id
-	nl             *netlink.Handle
+	container       *docker.ContainerRef
+	activeLinks     map[string]*dockerLink // name -> link handle
+	availableLinks  map[string]string      // name -> id
+	externalRouting *dockerRouting
+	nl              *netlink.Handle
 }
 
 func (dn *DockerNetwork) Close() error {
@@ -51,6 +52,11 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config
 	netId, available := dn.availableLinks[cfg.Network]
 	if !available {
 		return fmt.Errorf("unsupported network: %s", cfg.Network)
+	}
+
+	err := dn.handleNonControlRoutes(ctx, cfg.WhitelistAll)
+	if err != nil {
+		return err
 	}
 
 	link, online := dn.activeLinks[cfg.Network]
@@ -139,4 +145,26 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config
 	}
 
 	return nil
+}
+
+func (dn *DockerNetwork) handleNonControlRoutes(ctx context.Context, whitelist bool) error {
+	info, err := dn.container.Inspect(ctx)
+	if err != nil {
+		return err
+	}
+
+	nshandle, netlinkHandle, err := getNetworkHandlers(info.State.Pid)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		nshandle.Close()
+		netlinkHandle.Delete()
+	}()
+
+	if whitelist {
+		return dn.externalRouting.enable(netlinkHandle)
+	} else {
+		return dn.externalRouting.disable(netlinkHandle)
+	}
 }

@@ -179,18 +179,13 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	}
 
 	// Get a netlink handle.
-	nshandle, err := netns.GetFromPid(info.State.Pid)
+	nshandle, netlinkHandle, err := getNetworkHandlers(info.State.Pid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to lookup the net namespace: %s", err)
+		return nil, err
 	}
-	defer nshandle.Close()
-
-	netlinkHandle, err := netlink.NewHandleAt(nshandle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get handle to network namespace: %w", err)
-	}
-
 	defer func() {
+		nshandle.Close()
+
 		if err != nil {
 			netlinkHandle.Delete()
 		}
@@ -202,12 +197,25 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		return nil, fmt.Errorf("failed to enumerate links: %w", err)
 	}
 
+	// Get all current routes.
+	routes, err := dockerRoutes(links, netlinkHandle)
+	if err != nil {
+		return nil, fmt.Errorf("failed to enumerate routes: %w", err)
+	}
+
 	// Finally, construct the network manager.
 	network := &DockerNetwork{
-		container:      container,
-		activeLinks:    make(map[string]*dockerLink, len(info.NetworkSettings.Networks)),
-		availableLinks: make(map[string]string, len(networks)),
-		nl:             netlinkHandle,
+		container:       container,
+		activeLinks:     make(map[string]*dockerLink, len(info.NetworkSettings.Networks)),
+		availableLinks:  make(map[string]string, len(networks)),
+		externalRouting: routes,
+		nl:              netlinkHandle,
+	}
+
+	// Retrieve control routes.
+	controlRoutes, err := getControlRoutes(d.servicesRoutes, container.ID, netlinkHandle)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, n := range networks {
@@ -219,41 +227,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	reverseIndex := make(map[string]string, len(network.availableLinks))
 	for name, id := range network.availableLinks {
 		reverseIndex[id] = name
-	}
-
-	// TODO: Some of this code could be factored out into helpers.
-
-	var controlRoutes []netlink.Route
-	for _, route := range d.servicesRoutes {
-		nlroutes, err := netlinkHandle.RouteGet(route)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve route %s: %w", route, err)
-		}
-		controlRoutes = append(controlRoutes, nlroutes...)
-	}
-
-	// Get the route to a public address. We will NOT be whitelisting traffic to
-	// public IPs, but this helps us discover the IP address of the Docker host
-	// on the control network. See the godoc on the PublicAddr var for more
-	// info.
-	pub, err := netlinkHandle.RouteGet(PublicAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route for %s: %w", PublicAddr, err)
-	}
-
-	switch {
-	case len(pub) == 0:
-		logging.S().Warnw("failed to discover gateway/host address; no routes to public IPs", "container_id", container.ID)
-	case pub[0].Gw == nil:
-		logging.S().Warnw("failed to discover gateway/host address; gateway is nil", "route", pub[0], "container_id", container.ID)
-	default:
-		hostRoutes, err := netlinkHandle.RouteGet(pub[0].Gw)
-		if err != nil {
-			logging.S().Warnw("failed to add route for gateway/host address", "error", err, "route", pub[0], "container_id", container.ID)
-			break
-		}
-		logging.S().Infow("successfully resolved route to host", "container_id", container.ID)
-		controlRoutes = append(controlRoutes, hostRoutes...)
 	}
 
 	for id, link := range links {
@@ -277,13 +250,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		}
 
 		// We've found a control network (or some other network).
-
-		// Get the current routes.
-		//linkRoutes, err := netlinkHandle.RouteList(link, netlink.FAMILY_ALL)
-		//if err != nil {
-		//return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
-		//}
-
 		// Add learned routes plan containers so they can reach  the testground infra on the control network.
 		for _, route := range controlRoutes {
 			if route.LinkIndex != link.Attrs().Index {
@@ -293,13 +259,60 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 				return nil, fmt.Errorf("failed to add new route: %w", err)
 			}
 		}
-
-		// Remove the original routes
-		//for _, route := range linkRoutes {
-		//if err := netlinkHandle.RouteDel(&route); err != nil {
-		//return nil, fmt.Errorf("failed to remove existing route: %w", err)
-		//}
-		//}
 	}
+
 	return NewInstance(d.client, runenv, info.Config.Hostname, network)
+}
+
+func getNetworkHandlers(pid int) (netns.NsHandle, *netlink.Handle, error) {
+	// Get a netlink handle.
+	nshandle, err := netns.GetFromPid(pid)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to lookup the net namespace: %s", err)
+	}
+
+	netlinkHandle, err := netlink.NewHandleAt(nshandle)
+	if err != nil {
+		nshandle.Close()
+		return 0, nil, fmt.Errorf("failed to get handle to network namespace: %w", err)
+	}
+
+	return nshandle, netlinkHandle, nil
+}
+
+func getControlRoutes(servicesRoutes []net.IP, id string, netlinkHandle *netlink.Handle) ([]netlink.Route, error) {
+	var controlRoutes []netlink.Route
+	for _, route := range servicesRoutes {
+		nlroutes, err := netlinkHandle.RouteGet(route)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve route %s: %w", route, err)
+		}
+		controlRoutes = append(controlRoutes, nlroutes...)
+	}
+
+	// Get the route to a public address. We will NOT be whitelisting traffic to
+	// public IPs, but this helps us discover the IP address of the Docker host
+	// on the control network. See the godoc on the PublicAddr var for more
+	// info.
+	pub, err := netlinkHandle.RouteGet(PublicAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve route for %s: %w", PublicAddr, err)
+	}
+
+	switch {
+	case len(pub) == 0:
+		logging.S().Warnw("failed to discover gateway/host address; no routes to public IPs", "container_id", id)
+	case pub[0].Gw == nil:
+		logging.S().Warnw("failed to discover gateway/host address; gateway is nil", "route", pub[0], "container_id", id)
+	default:
+		hostRoutes, err := netlinkHandle.RouteGet(pub[0].Gw)
+		if err != nil {
+			logging.S().Warnw("failed to add route for gateway/host address", "error", err, "route", pub[0], "container_id", id)
+			break
+		}
+		logging.S().Infow("successfully resolved route to host", "container_id", id)
+		controlRoutes = append(controlRoutes, hostRoutes...)
+	}
+
+	return controlRoutes, nil
 }
