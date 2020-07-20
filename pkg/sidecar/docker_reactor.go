@@ -34,7 +34,7 @@ import (
 var PublicAddr = net.ParseIP("1.1.1.1")
 
 type DockerReactor struct {
-	client sync.Interface
+	client sync.Client
 	gosync.Mutex
 	servicesRoutes []net.IP
 	manager        *docker.Manager

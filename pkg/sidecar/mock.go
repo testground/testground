@@ -58,7 +58,7 @@ type MockReactor struct {
 	RunParams *runtime.RunParams
 	RunEnv    *runtime.RunEnv
 	Network   *MockNetwork
-	Client    sync.Interface
+	Client    sync.Client
 	Hostname  string
 }
 

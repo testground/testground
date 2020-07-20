@@ -41,7 +41,7 @@ var (
 type K8sReactor struct {
 	gosync.Mutex
 
-	client          *sync.Client
+	client          sync.Client
 	manager         *docker.Manager
 	allowedServices []AllowedService
 	runidsCache     *lru.Cache
