@@ -50,6 +50,8 @@ test-integ-local-docker:
 	./integration_tests/04_docker_placebo_ok.sh
 	./integration_tests/05_docker_placebo_stall.sh
 	./integration_tests/06_docker_network_ping-pong.sh
+	./integration_tests/07_docker_network_traffic-allowed.sh
+	./integration_tests/08_docker_network_traffic-blocked.sh
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
