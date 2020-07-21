@@ -7,7 +7,7 @@ import (
 func TestSidecar(t *testing.T) {
 	t.Skip("Skipping flaky test")
 
-	err := runSingle(t,
+	err := runSingle(t, nil,
 		"run",
 		"single",
 		"--builder",

@@ -6,6 +6,10 @@ import (
 
 func TestAbortedTestShouldFailLocal(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner:  "local:exec",
+			builder: "exec:go",
+		},
 		"run",
 		"single",
 		"--builder",
@@ -27,6 +31,10 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 
 func TestAbortedTestShouldFailDocker(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner:  "local:docker",
+			builder: "docker:go",
+		},
 		"run",
 		"single",
 		"--builder",
@@ -45,6 +53,10 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 
 func TestIncompatibleRun(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner:  "local:docker",
+			builder: "exec:go",
+		},
 		"run",
 		"single",
 		"--builder",
@@ -66,6 +78,10 @@ func TestIncompatibleRun(t *testing.T) {
 
 func TestCompatibleRunLocal(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner:  "local:exec",
+			builder: "exec:go",
+		},
 		"run",
 		"single",
 		"--builder",
@@ -87,6 +103,10 @@ func TestCompatibleRunLocal(t *testing.T) {
 
 func TestCompatibleRunDocker(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner:  "local:docker",
+			builder: "docker:go",
+		},
 		"run",
 		"single",
 		"--builder",
@@ -109,6 +129,9 @@ func TestCompatibleRunDocker(t *testing.T) {
 // example:artifact *only* works with docker:generic
 func TestDockerGenericCustomizesImage(t *testing.T) {
 	err := runSingle(t,
+		&terminateOpts{
+			runner: "local:docker",
+		},
 		"run",
 		"single",
 		"--builder",
