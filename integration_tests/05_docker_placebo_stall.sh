@@ -16,3 +16,7 @@ testground terminate --runner=local:docker
 sleep 10 
 AFTER=$(docker ps | grep placebo | wc -l)
 test $BEFORE -gt $AFTER
+
+echo "terminating remaining containers"
+testground terminate --runner local:docker
+testground terminate --builder docker:go
