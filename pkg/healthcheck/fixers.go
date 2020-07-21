@@ -84,7 +84,14 @@ func CreateDirectory(path string) Fixer {
 // NotImplemented is a placeholder Fixer which always returns successfully.
 func NotImplemented() Fixer {
 	return func() (string, error) {
-		return "fix is not implemented", nil
+		return "fix is not implemented.", nil
+	}
+}
+
+// RequiresManualFixing is a placeholder Fixer which always returns unsuccessfully.
+func RequiresManualFixing() Fixer {
+	return func() (string, error) {
+		return "requires manual fixing.", fmt.Errorf("requires manual fixing")
 	}
 }
 

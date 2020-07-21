@@ -118,6 +118,19 @@ func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label strin
 	}
 }
 
+// CheckRedisPort returns a checker which verifies if the default port of redis (6379) is already binded
+// on localhost. If it is, it fails. If not, it succeeds.
+func CheckRedisPort() Checker {
+	return func() (bool, string, error) {
+		ln, err := net.Listen("tcp", "localhost:6379")
+		if err != nil {
+			return false, "local port 6379 is already occupied; please stop any local Redis instances first.", nil
+		}
+		ln.Close()
+		return true, "local port 6379 is free.", nil
+	}
+}
+
 // All returns a Checker that succeeds when all provided Checkers succeed.
 // If a Checker fails, it short-circuits and returns the first failure.
 func All(checkers ...Checker) Checker {
