@@ -52,6 +52,9 @@ test-integ-local-docker:
 	./integration_tests/06_docker_network_ping-pong.sh
 	./integration_tests/07_docker_network_traffic-allowed.sh
 	./integration_tests/08_docker_network_traffic-blocked.sh
+	./integration_tests/09_docker_splitbrain_accept.sh
+	./integration_tests/10_docker_splitbrain_reject.sh
+	./integration_tests/11_docker_splitbrain_drop.sh
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
