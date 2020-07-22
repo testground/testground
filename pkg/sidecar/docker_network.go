@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/hashicorp/go-multierror"
 	sdknw "github.com/testground/sdk-go/network"
 	"github.com/testground/testground/pkg/docker"
 
@@ -21,9 +22,9 @@ type dockerLink struct {
 
 type DockerNetwork struct {
 	container       *docker.ContainerRef
-	activeLinks     map[string]*dockerLink // name -> link handle
-	availableLinks  map[string]string      // name -> id
-	externalRouting *dockerRouting
+	activeLinks     map[string]*dockerLink    // name -> link handle
+	availableLinks  map[string]string         // name -> id
+	externalRouting map[string]*dockerRouting // id -> routes
 	nl              *netlink.Handle
 }
 
@@ -54,7 +55,7 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config
 		return fmt.Errorf("unsupported network: %s", cfg.Network)
 	}
 
-	err := dn.handleNonControlRoutes(ctx, cfg.WhitelistAll)
+	err := dn.handleRoutingPolicy(ctx, cfg.RoutingPolicy)
 	if err != nil {
 		return err
 	}
@@ -147,24 +148,17 @@ func (dn *DockerNetwork) ConfigureNetwork(ctx context.Context, cfg *sdknw.Config
 	return nil
 }
 
-func (dn *DockerNetwork) handleNonControlRoutes(ctx context.Context, whitelist bool) error {
-	info, err := dn.container.Inspect(ctx)
-	if err != nil {
-		return err
+func (dn *DockerNetwork) handleRoutingPolicy(ctx context.Context, policy sdknw.RoutingPolicyType) error {
+	var err *multierror.Error
+
+	for _, routing := range dn.externalRouting {
+		switch policy {
+		case sdknw.AllowAll:
+			err = multierror.Append(err, routing.enable(dn.nl))
+		default:
+			err = multierror.Append(err, routing.disable(dn.nl))
+		}
 	}
 
-	nshandle, netlinkHandle, err := getNetworkHandlers(info.State.Pid)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		nshandle.Close()
-		netlinkHandle.Delete()
-	}()
-
-	if whitelist {
-		return dn.externalRouting.enable(netlinkHandle)
-	} else {
-		return dn.externalRouting.disable(netlinkHandle)
-	}
+	return err.ErrorOrNil()
 }

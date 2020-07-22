@@ -14,7 +14,7 @@ type dockerRouting struct {
 	routes  []netlink.Route
 }
 
-func dockerRoutes(links map[string]link, netlinkHandle *netlink.Handle) (*dockerRouting, error) {
+func dockerRoutes(lnk link, netlinkHandle *netlink.Handle) (*dockerRouting, error) {
 	routing := &dockerRouting{
 		enabled: true,
 		routes:  []netlink.Route{},
@@ -22,19 +22,17 @@ func dockerRoutes(links map[string]link, netlinkHandle *netlink.Handle) (*docker
 
 	var defaultRoute netlink.Route
 
-	for _, link := range links {
-		// Get the current routes.
-		linkRoutes, err := netlinkHandle.RouteList(link, netlink.FAMILY_ALL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to list routes for link %s", link.Attrs().Name)
-		}
+	// Get the current routes.
+	linkRoutes, err := netlinkHandle.RouteList(lnk, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes for link %s", lnk.Attrs().Name)
+	}
 
-		for _, route := range linkRoutes {
-			if route.Dst == nil && route.Src == nil {
-				defaultRoute = route
-			} else {
-				routing.routes = append(routing.routes, route)
-			}
+	for _, route := range linkRoutes {
+		if route.Dst == nil && route.Src == nil {
+			defaultRoute = route
+		} else {
+			routing.routes = append(routing.routes, route)
 		}
 	}
 

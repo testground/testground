@@ -33,9 +33,12 @@ func makeTest(whitelistTraffic bool) run.TestCaseFn {
 
 		config := &network.Config{
 			Network:       "default",
-			WhitelistAll:  whitelistTraffic,
 			Enable:        true,
 			CallbackState: "network-configured",
+		}
+
+		if whitelistTraffic {
+			config.RoutingPolicy = network.AllowAll
 		}
 
 		env.RecordMessage("before netclient.MustConfigureNetwork")

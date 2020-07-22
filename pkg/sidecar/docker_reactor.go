@@ -197,18 +197,12 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		return nil, fmt.Errorf("failed to enumerate links: %w", err)
 	}
 
-	// Get all current routes.
-	routes, err := dockerRoutes(links, netlinkHandle)
-	if err != nil {
-		return nil, fmt.Errorf("failed to enumerate routes: %w", err)
-	}
-
 	// Finally, construct the network manager.
 	network := &DockerNetwork{
 		container:       container,
 		activeLinks:     make(map[string]*dockerLink, len(info.NetworkSettings.Networks)),
 		availableLinks:  make(map[string]string, len(networks)),
-		externalRouting: routes,
+		externalRouting: map[string]*dockerRouting{},
 		nl:              netlinkHandle,
 	}
 
@@ -250,6 +244,14 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		}
 
 		// We've found a control network (or some other network).
+
+		// Get all current routes and store them.
+		routes, err := dockerRoutes(link, netlinkHandle)
+		if err != nil {
+			return nil, fmt.Errorf("failed to enumerate routes: %w", err)
+		}
+		network.externalRouting[id] = routes
+
 		// Add learned routes plan containers so they can reach  the testground infra on the control network.
 		for _, route := range controlRoutes {
 			if route.LinkIndex != link.Attrs().Index {
