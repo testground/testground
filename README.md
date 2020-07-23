@@ -214,8 +214,8 @@ Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a con
 
 ### Core team 💪
 
-* [@raulk](https://github.com/raulk) 🎈 _(founder and tech lead)_
-* [@nonsense](https://github.com/nonsense) ⛷ _(core engineer)_
+* [@raulk](https://github.com/raulk) 🎈 _(founder, project lead, technical product owner, architect)_
+* [@nonsense](https://github.com/nonsense) ⛷ _(tech lead + core engineer)_
 * [@coryschwartz](https://github.com/coryschwartz) 🦉 _(core engineer)_
 * [@hacdias](https://github.com/hacdias) 😂 _(core engineer)_
 
