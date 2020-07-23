@@ -120,13 +120,31 @@ func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label strin
 
 // CheckRedisPort returns a checker which verifies if the default port of redis (6379) is already binded
 // on localhost. If it is, it fails. If not, it succeeds.
-func CheckRedisPort() Checker {
+func CheckRedisPort(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client) Checker {
 	return func() (bool, string, error) {
-		ln, err := net.Listen("tcp", "localhost:6379")
+		// First, we check if we can bind locally to 127.0.0.1:6379
+		ln, err := net.Listen("tcp", "127.0.0.1:6379")
 		if err != nil {
 			return false, "local port 6379 is already occupied; please stop any local Redis instances first.", nil
 		}
-		ln.Close()
+		_ = ln.Close()
+
+		// Then, we check if our testground-redis container already exists and is running.
+		// If so, then we don't need to proceed with the checks as everything is okay.
+		ok, _, _ := CheckContainerStarted(ctx, ow, cli, "testground-redis")()
+		if ok {
+			return true, "testground-redis container is already running", nil
+		}
+
+		// Finally, we still need to check if we can bind on all interfaces (0.0.0.0) as that is
+		// the default Docker behaviour when running a container. Why not do this first? Because
+		// if we did this initially, we would be excluding the possibility of already having our
+		// own redis instance running!
+		ln, err = net.Listen("tcp", "0.0.0.0:6379")
+		if err != nil {
+			return false, "local port 6379 is already occupied; please stop any local Redis instances first.", nil
+		}
+		_ = ln.Close()
 		return true, "local port 6379 is free.", nil
 	}
 }
