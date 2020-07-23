@@ -217,11 +217,11 @@ Please read our [CONTRIBUTING Guidelines](./CONTRIBUTING.md) before making a con
 * [@raulk](https://github.com/raulk) 🎈 _(founder and tech lead)_
 * [@nonsense](https://github.com/nonsense) ⛷ _(core engineer)_
 * [@coryschwartz](https://github.com/coryschwartz) 🦉 _(core engineer)_
-* [@robmat05](https://github.com/robmat05) 🍝 _(technical project manager)_
+* [@hacdias](https://github.com/hacdias) 😂 _(core engineer)_
 
 ### Collaborators ❤
 
-[@daviddias](https://github.com/daviddias), [@stebalien](https://github.com/stebalien), [@hacdias](https://github.com/hacdias), [@jimpick](https://github.com/jimpick), [@aschmahmann](https://github.com/aschmahmann), [@dirkmc](https://github.com/dirkmc), [@yusefnapora](https://github.com/yusefnapora).
+[@daviddias](https://github.com/daviddias), [@stebalien](https://github.com/stebalien), [@jimpick](https://github.com/jimpick), [@aschmahmann](https://github.com/aschmahmann), [@dirkmc](https://github.com/dirkmc), [@yusefnapora](https://github.com/yusefnapora).
 
 ### Meeting notes
 
