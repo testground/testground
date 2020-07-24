@@ -38,6 +38,18 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 
 	r := mux.NewRouter()
 
+	// Authentication
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			token := r.Header.Get("X-Token")
+			if !contains(cfg.Daemon.Tokens, token) {
+				w.WriteHeader(403)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+
 	// Set a unique request ID.
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,4 +104,13 @@ func (d *Daemon) Port() int {
 func (d *Daemon) Shutdown(ctx context.Context) error {
 	defer close(d.doneCh)
 	return d.server.Shutdown(ctx)
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }

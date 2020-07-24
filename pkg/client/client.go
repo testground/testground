@@ -396,6 +396,9 @@ func (c *Client) request(ctx context.Context, method string, path string, body i
 	req, err := http.NewRequest(method, "http://"+c.endpoint+path, body)
 	req = req.WithContext(ctx)
 
+	// add auth token
+	req.Header.Add("X-Token", c.cfg.Client.Token)
+
 	for i := 0; i < len(headers); i = i + 2 {
 		req.Header.Add(headers[i], headers[i+1])
 	}
