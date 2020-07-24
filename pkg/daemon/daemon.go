@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/testground/testground/pkg/config"
@@ -38,17 +39,28 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 
 	r := mux.NewRouter()
 
-	// Authentication
-	r.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			token := r.Header.Get("X-Token")
-			if len(cfg.Daemon.Tokens) > 0 && !contains(cfg.Daemon.Tokens, token) {
+	if len(cfg.Daemon.Tokens) > 0 {
+		tokens := map[string]struct{}{}
+		for _, t := range cfg.Daemon.Tokens {
+			tokens[strings.TrimSpace(t)] = struct{}{}
+		}
+
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				splitToken := strings.Split(r.Header.Get("Authorization"), "Bearer ")
+				if len(splitToken) == 2 {
+					requestToken := strings.TrimSpace(splitToken[1])
+
+					if _, ok := tokens[requestToken]; ok {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
+
 				w.WriteHeader(403)
-				return
-			}
-			next.ServeHTTP(w, r)
+			})
 		})
-	})
+	}
 
 	// Set a unique request ID.
 	r.Use(func(next http.Handler) http.Handler {
@@ -104,13 +116,4 @@ func (d *Daemon) Port() int {
 func (d *Daemon) Shutdown(ctx context.Context) error {
 	defer close(d.doneCh)
 	return d.server.Shutdown(ctx)
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
