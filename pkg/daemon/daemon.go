@@ -42,7 +42,7 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	r.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			token := r.Header.Get("X-Token")
-			if !contains(cfg.Daemon.Tokens, token) {
+			if len(cfg.Daemon.Tokens) > 0 && !contains(cfg.Daemon.Tokens, token) {
 				w.WriteHeader(403)
 				return
 			}
