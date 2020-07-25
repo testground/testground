@@ -5,7 +5,7 @@ import (
 )
 
 func TestDescribeExistingPlan(t *testing.T) {
-	err := runSingle(t,
+	err := runSingle(t, nil,
 		"describe",
 		"--plan",
 		"placebo",
@@ -17,7 +17,7 @@ func TestDescribeExistingPlan(t *testing.T) {
 }
 
 func TestDescribeInexistentPlan(t *testing.T) {
-	err := runSingle(t,
+	err := runSingle(t, nil,
 		"describe",
 		"--plan",
 		"i-do-not-exist",

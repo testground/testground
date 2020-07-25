@@ -5,7 +5,7 @@ import (
 )
 
 func TestList(t *testing.T) {
-	err := runSingle(t,
+	err := runSingle(t, nil,
 		"plan",
 		"list",
 	)

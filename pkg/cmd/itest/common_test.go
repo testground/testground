@@ -11,7 +11,12 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-func runSingle(t *testing.T, args ...string) error {
+type terminateOpts struct {
+	runner  string
+	builder string
+}
+
+func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 	t.Helper()
 
 	cfg := &config.EnvConfig{}
@@ -34,5 +39,19 @@ func runSingle(t *testing.T, args ...string) error {
 	app.HideVersion = true
 
 	args = append([]string{"testground", "--endpoint", srv.Addr()}, args...)
-	return app.Run(args)
+	err = app.Run(args)
+
+	if opts != nil {
+		if opts.builder != "" {
+			args = []string{"testground", "--endpoint", srv.Addr(), "terminate", "--builder", opts.builder}
+			_ = app.Run(args)
+		}
+
+		if opts.runner != "" {
+			args = []string{"testground", "--endpoint", srv.Addr(), "terminate", "--runner", opts.runner}
+			_ = app.Run(args)
+		}
+	}
+
+	return err
 }

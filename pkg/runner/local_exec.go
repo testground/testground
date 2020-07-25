@@ -56,6 +56,11 @@ func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engi
 	r.outputsDir = filepath.Join(engine.EnvConfig().Dirs().Outputs(), "local_exec")
 	hh := &healthcheck.Helper{}
 
+	hh.Enlist("redis-port",
+		healthcheck.CheckRedisPort(ctx, ow, cli),
+		healthcheck.RequiresManualFixing(),
+	)
+
 	// setup infra which is common between local:docker and local:exec
 	localCommonHealthcheck(ctx, hh, cli, ow, "testground-control", r.outputsDir)
 

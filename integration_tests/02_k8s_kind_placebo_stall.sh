@@ -20,3 +20,6 @@ testground terminate --runner=cluster:k8s
 sleep 10
 AFTER=$(kubectl get pods | grep placebo | grep Running | wc -l)
 test $BEFORE -gt $AFTER
+
+echo "terminating remaining containers"
+testground terminate --builder docker:go
