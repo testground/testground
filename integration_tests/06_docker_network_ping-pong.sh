@@ -24,3 +24,7 @@ OUTCOMEOK=$(find . | grep run.out | xargs awk '{print $0, FILENAME}' | grep "out
 test $OUTCOMEOK -eq 2
 popd
 popd
+
+echo "terminating remaining containers"
+testground terminate --runner local:docker
+testground terminate --builder docker:go

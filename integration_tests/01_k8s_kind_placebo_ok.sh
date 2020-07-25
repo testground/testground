@@ -26,3 +26,6 @@ echo "run.out is $SIZEOUT bytes."
 SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
 test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 popd
+
+echo "terminating remaining containers"
+testground terminate --builder docker:go

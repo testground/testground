@@ -5,7 +5,7 @@ import (
 )
 
 func TestBuildExecGo(t *testing.T) {
-	err := runSingle(t,
+	err := runSingle(t, nil,
 		"build",
 		"single",
 		"--builder",
@@ -24,6 +24,9 @@ func TestBuildDockerGo(t *testing.T) {
 	// pick the .env.toml file this way, in case the user has defined a custom
 	// docker endpoint. I don't think those assumptions stand.
 	err := runSingle(t,
+		&terminateOpts{
+			builder: "docker:go",
+		},
 		"build",
 		"single",
 		"--builder",
