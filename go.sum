@@ -351,6 +351,8 @@ github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e40
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401/go.mod h1:MT3F6oeXhaO0bwhclY7dbOxKVfuDuWuO9YHy+TZvgNc=
 github.com/testground/sdk-go v0.2.3-0.20200722103509-d4b9d61a7c55 h1:VCXPKgXwNvOwr0dr441+2LdiyVYVl6Gx8q6NPYxxOpM=
 github.com/testground/sdk-go v0.2.3-0.20200722103509-d4b9d61a7c55/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
+github.com/testground/sdk-go v0.2.4-0.20200726071731-45aa4dbdd796 h1:yLlZDQeHgsENmnrUkrYdlFRQ/38GttM8wmH9XwI5TLQ=
+github.com/testground/sdk-go v0.2.4-0.20200726071731-45aa4dbdd796/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
 github.com/ulikunitz/xz v0.5.6 h1:jGHAfXawEGZQ3blwU5wnWKQJvAraT7Ftq9EXjnXYgt8=
 github.com/ulikunitz/xz v0.5.6/go.mod h1:2bypXElzHzzJZwzH67Y6wb67pO62Rzfn7BSiF4ABRW8=
 github.com/ulikunitz/xz v0.5.7 h1:YvTNdFzX6+W5m9msiYg/zpkSURPPtOlzbqYjrFn7Yt4=

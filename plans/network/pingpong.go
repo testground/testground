@@ -44,6 +44,7 @@ func pingpong(runenv *runtime.RunEnv) error {
 			Bandwidth: 1 << 20, // 1Mib
 		},
 		CallbackState: "network-configured",
+		RoutingPolicy: network.DenyAll,
 	}
 
 	runenv.RecordMessage("before netclient.MustConfigureNetwork")

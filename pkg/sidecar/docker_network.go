@@ -155,6 +155,8 @@ func (dn *DockerNetwork) handleRoutingPolicy(ctx context.Context, policy sdknw.R
 		switch policy {
 		case sdknw.AllowAll:
 			err = multierror.Append(err, routing.enable(dn.nl))
+		case sdknw.DenyAll:
+			fallthrough
 		default:
 			err = multierror.Append(err, routing.disable(dn.nl))
 		}

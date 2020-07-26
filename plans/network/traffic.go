@@ -14,7 +14,7 @@ import (
 	"github.com/testground/sdk-go/sync"
 )
 
-func makeTest(whitelistTraffic bool) run.TestCaseFn {
+func makeTest(policy network.RoutingPolicyType) run.TestCaseFn {
 	return func(env *runtime.RunEnv) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
@@ -35,10 +35,7 @@ func makeTest(whitelistTraffic bool) run.TestCaseFn {
 			Network:       "default",
 			Enable:        true,
 			CallbackState: "network-configured",
-		}
-
-		if whitelistTraffic {
-			config.RoutingPolicy = network.AllowAll
+			RoutingPolicy: policy,
 		}
 
 		env.RecordMessage("before netclient.MustConfigureNetwork")
@@ -57,7 +54,7 @@ func makeTest(whitelistTraffic bool) run.TestCaseFn {
 		httpClient := &http.Client{Transport: tr}
 		resp, err := httpClient.Get(url)
 
-		if !whitelistTraffic {
+		if policy == network.DenyAll {
 			if err == nil {
 				return fmt.Errorf("http request must not work with traffic blocked")
 			}
