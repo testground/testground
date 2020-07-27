@@ -36,9 +36,11 @@ type DockerHubConfig struct {
 }
 
 type DaemonConfig struct {
-	Listen string `toml:"listen"`
+	Listen string   `toml:"listen"`
+	Tokens []string `toml:"tokens"`
 }
 
 type ClientConfig struct {
 	Endpoint string `toml:"endpoint"`
+	Token    string `toml:"token"`
 }
