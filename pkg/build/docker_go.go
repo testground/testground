@@ -111,6 +111,8 @@ type DockerGoBuilderConfig struct {
 	//    that assumption, we have found that the end-to-end build is faster.
 	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
+	ResetGoBuildCache bool `toml:"reset_go_build_cache"`
+
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
 }
@@ -230,7 +232,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	var baseimage string
 	var alreadyCached bool
-	if cfg.EnableGoBuildCache {
+	if cfg.EnableGoBuildCache && !cfg.ResetGoBuildCache {
 		baseimage, err = b.resolveBuildCacheImage(ctx, cli, in, cfg, ow)
 		if err != nil {
 			return nil, err
@@ -276,14 +278,15 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
 	if cfg.EnableGoBuildCache && !alreadyCached {
+		cachedImage := b.getCachedImageTag(in)
 		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
 		if newCacheImageID == "" {
 			ow.Warnf("failed to locate go build cache output container")
 		} else {
-			if err := b.updateBuildCacheImage(ctx, cli, baseimage, newCacheImageID, ow); err != nil {
+			if err := b.updateBuildCacheImage(ctx, cli, cachedImage, newCacheImageID, ow); err != nil {
 				ow.Warnw("could not update build cache image tag", "error", err)
 			} else {
-				ow.Infow("successfully updated build cache image tag", "tag", baseimage, "points_to", newCacheImageID)
+				ow.Infow("successfully updated build cache image tag", "tag", cachedImage, "points_to", newCacheImageID)
 			}
 		}
 	}
@@ -438,8 +441,12 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 	return proxyURL, buildNetworkID, warn
 }
 
+func (b *DockerGoBuilder) getCachedImageTag(in *api.BuildInput) string {
+	return fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
+}
+
 func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, in *api.BuildInput, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter) (string, error) {
-	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
+	cacheimage := b.getCachedImageTag(in)
 
 	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheimage)
 	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
