@@ -7,8 +7,8 @@ import (
 
 var testcases = map[string]interface{}{
 	"ping-pong":       pingpong,
-	"traffic-allowed": makeTest(network.AllowAll),
-	"traffic-blocked": makeTest(network.DenyAll),
+	"traffic-allowed": routingPolicyTest(network.AllowAll),
+	"traffic-blocked": routingPolicyTest(network.DenyAll),
 }
 
 func main() {

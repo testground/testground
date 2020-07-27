@@ -14,7 +14,7 @@ import (
 	"github.com/testground/sdk-go/sync"
 )
 
-func makeTest(policy network.RoutingPolicyType) run.TestCaseFn {
+func routingPolicyTest(policy network.RoutingPolicyType) run.TestCaseFn {
 	return func(env *runtime.RunEnv) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
