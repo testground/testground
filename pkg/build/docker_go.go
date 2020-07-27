@@ -229,11 +229,13 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	var baseimage string
+	var alreadyCached bool
 	if cfg.EnableGoBuildCache {
 		baseimage, err = b.resolveBuildCacheImage(ctx, cli, in, cfg, ow)
 		if err != nil {
 			return nil, err
 		}
+		alreadyCached = true
 	} else {
 		baseimage = cfg.BuildBaseImage
 	}
@@ -273,7 +275,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
-	if cfg.EnableGoBuildCache {
+	if cfg.EnableGoBuildCache && !alreadyCached {
 		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
 		if newCacheImageID == "" {
 			ow.Warnf("failed to locate go build cache output container")
