@@ -394,7 +394,7 @@ func (c *Client) request(ctx context.Context, method string, path string, body i
 	if len(headers)%2 != 0 {
 		return nil, fmt.Errorf("headers must be tuples: key1, value1, key2, value2")
 	}
-	req, err := http.NewRequest(method, "http://"+c.endpoint+path, body)
+	req, err := http.NewRequest(method, c.endpoint+path, body)
 	req = req.WithContext(ctx)
 
 	token := strings.TrimSpace(c.cfg.Client.Token)
