@@ -122,3 +122,7 @@ func (*ExecGoBuilder) ID() string {
 func (*ExecGoBuilder) ConfigType() reflect.Type {
 	return reflect.TypeOf(ExecGoBuilderConfig{})
 }
+
+func (*ExecGoBuilder) Purge(ctx context.Context, testplan string) error {
+	return fmt.Errorf("purge not implemented for exec:go")
+}

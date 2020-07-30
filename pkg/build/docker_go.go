@@ -94,11 +94,6 @@ type DockerGoBuilderConfig struct {
 	// cached image.
 	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
-	// ResetGoBuildCache clears up the cache for this test plan before running the plan.
-	// If used in conjunction with EnableGoBuildCache, it is assured that the plan will
-	// be running on a new image.
-	ResetGoBuildCache bool `toml:"reset_go_build_cache"`
-
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
 }
@@ -217,17 +212,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
-	if cfg.ResetGoBuildCache {
-		err := b.removeBuildCacheImage(ctx, cli, cacheimage)
-		if err != nil {
-			return nil, err
-		}
-		ow.Infow("untagged go build cache image", "cache_image", cacheimage)
-	}
-
 	var baseimage string
 	var alreadyCached bool
-	if cfg.EnableGoBuildCache && !cfg.ResetGoBuildCache {
+	if cfg.EnableGoBuildCache {
 		baseimage, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheimage)
 		if err != nil {
 			return nil, err
@@ -524,6 +511,21 @@ func (b *DockerGoBuilder) parseBuildCacheOutputImage(output string) string {
 		lastLine = line
 	}
 	return ""
+}
+
+func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string) error {
+	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
+	cli, err := client.NewClientWithOpts(cliopts...)
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+
+	if err != nil {
+		return err
+	}
+
+	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", testplan)
+	return b.removeBuildCacheImage(ctx, cli, cacheimage)
 }
 
 const DockerfileTemplate = `
