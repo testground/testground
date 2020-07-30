@@ -211,20 +211,21 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		args["RUNTIME_IMAGE"] = &cfg.RuntimeImage
 	}
 
-	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
-	var baseimage string
-	var alreadyCached bool
+	cacheImage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
+	baseImage := cfg.BuildBaseImage
+	alreadyCached := false
+
 	if cfg.EnableGoBuildCache {
-		baseimage, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheimage)
+		alreadyCached, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheImage)
 		if err != nil {
 			return nil, err
 		}
-		alreadyCached = true
-	} else {
-		baseimage = cfg.BuildBaseImage
+		if alreadyCached {
+			baseImage = cacheImage
+		}
 	}
 
-	args["BUILD_BASE_IMAGE"] = &baseimage
+	args["BUILD_BASE_IMAGE"] = &baseImage
 
 	// set BUILD_TAGS arg if the user has provided selectors.
 	if len(in.Selectors) > 0 {
@@ -260,14 +261,15 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
 	if cfg.EnableGoBuildCache && !alreadyCached {
+		ow.Infow("build cache enabled and image not found; caching")
 		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
 		if newCacheImageID == "" {
 			ow.Warnf("failed to locate go build cache output container")
 		} else {
-			if err := b.updateBuildCacheImage(ctx, cli, cacheimage, newCacheImageID, ow); err != nil {
+			if err := b.updateBuildCacheImage(ctx, cli, cacheImage, newCacheImageID, ow); err != nil {
 				ow.Warnw("could not update build cache image tag", "error", err)
 			} else {
-				ow.Infow("successfully updated build cache image tag", "tag", cacheimage, "points_to", newCacheImageID)
+				ow.Infow("successfully updated build cache image tag", "tag", cacheImage, "points_to", newCacheImageID)
 			}
 		}
 	}
@@ -422,44 +424,23 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 	return proxyURL, buildNetworkID, warn
 }
 
-func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter, cacheimage string) (string, error) {
-	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheimage)
-	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
+// resolveBuildCacheImage resolves the image `cacheImage`.
+//	1. If the image exists, returns true and a nil-error.
+//	2. If the image does not exist, returns false and a nil-error.
+func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter, cacheImage string) (bool, error) {
+	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheImage)
+	info, ok, err := docker.FindImage(ctx, ow, cli, cacheImage)
 	switch {
 	case err != nil:
-		ow.Infow("build cache image found", "cache_image", cacheimage)
-		return "", err
+		ow.Infow("failed to find build cache image", "cache_image", cacheImage)
+		return false, err
 	case ok:
-		return cacheimage, nil
+		ow.Infow("build cache image found", "cache_image", cacheImage, "image_id", info.ID)
+		return true, nil
 	}
 
-	// We need to initialize the gobuild image for this test plan + go version.
-	//  1. Check to see if the base image exists locally; if not, pull it.
-	//  2. Tag the base image with `cacheimage` name.
-	baseimage := cfg.BuildBaseImage
-
-	ow.Infow("found no pre-existing build cache image; creating", "cache_image", cacheimage, "base_image", baseimage)
-
-	switch _, ok, err := docker.FindImage(ctx, ow, cli, baseimage); {
-	case err != nil:
-		return "", err
-	case !ok:
-		ow.Infow("base image doesn't exist locally; pulling", "base_image", baseimage)
-		output, err := cli.ImagePull(ctx, baseimage, types.ImagePullOptions{})
-		if err != nil {
-			return "", fmt.Errorf("failed to pull go build image: %w", err)
-		}
-		if _, err := docker.PipeOutput(output, ow.StdoutWriter()); err != nil {
-			return "", fmt.Errorf("failed to pull go build image: %w", err)
-		}
-	}
-
-	ow.Infow("tagging initial go build cache image", "cache_image", cacheimage, "base_image", baseimage)
-
-	if err := cli.ImageTag(ctx, baseimage, cacheimage); err != nil {
-		return "", fmt.Errorf("failed to tag %s as %s", baseimage, cacheimage)
-	}
-	return cacheimage, nil
+	ow.Info("build cache image not found", "cache_image", cacheImage)
+	return false, nil
 }
 
 func (b *DockerGoBuilder) removeBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string) error {
