@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/testground/testground/pkg/api"
@@ -14,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/logrusorgru/aurora"
+	"github.com/otiai10/copy"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -205,12 +208,41 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, sources *ap
 		uniq[k] = append(uniq[k], idx)
 	}
 
+	var finalSources []*api.UnpackedSources
+	if uniqcnt := len(uniq); uniqcnt == 1 {
+		finalSources = []*api.UnpackedSources{sources}
+	} else {
+		finalSources = make([]*api.UnpackedSources, uniqcnt)
+
+		for i := 0; i < uniqcnt; i++ {
+			dst := fmt.Sprintf("%s-%d", strings.TrimSuffix(sources.BaseDir, "/"), i)
+			if err := copy.Copy(sources.BaseDir, dst); err != nil {
+				return nil, fmt.Errorf("failed to create unique source directories for multiple build jobs: %w", err)
+			}
+			src := &api.UnpackedSources{
+				BaseDir: dst,
+				PlanDir: filepath.Join(dst, filepath.Base(sources.PlanDir)),
+			}
+			if sources.SDKDir != "" {
+				src.SDKDir = filepath.Join(dst, filepath.Base(sources.SDKDir))
+			}
+			if sources.ExtraDir != "" {
+				src.ExtraDir = filepath.Join(dst, filepath.Base(sources.ExtraDir))
+			}
+			finalSources[i] = src
+		}
+	}
+
 	// Trigger a build job for each unique build, and wait until all of them are
 	// done, mapping the build artifacts back to the original group positions in
 	// the response.
+	var cnt int
 	for key, idxs := range uniq {
 		idxs := idxs
 		key := key // capture
+
+		src := finalSources[cnt]
+		cnt++
 
 		errgrp.Go(func() (err error) {
 			// All groups are identical for the sake of building, so pick the first one.
@@ -231,7 +263,7 @@ func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, sources *ap
 				Selectors:       grp.Build.Selectors,
 				Dependencies:    grp.Build.Dependencies.AsMap(),
 				BuildConfig:     obj,
-				UnpackedSources: sources,
+				UnpackedSources: src,
 			}
 
 			res, err := bm.Build(ctx, in, ow)
