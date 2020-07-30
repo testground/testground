@@ -513,7 +513,7 @@ func (b *DockerGoBuilder) parseBuildCacheOutputImage(output string) string {
 	return ""
 }
 
-func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string) error {
+func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string, ow *rpc.OutputWriter) error {
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 	cli, err := client.NewClientWithOpts(cliopts...)
 
@@ -525,7 +525,12 @@ func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string) error {
 	}
 
 	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", testplan)
-	return b.removeBuildCacheImage(ctx, cli, cacheimage)
+	err = b.removeBuildCacheImage(ctx, cli, cacheimage)
+	if err != nil {
+		return err
+	}
+	ow.Infow("removed cached imaged", "image", cacheimage)
+	return nil
 }
 
 const DockerfileTemplate = `

@@ -42,6 +42,7 @@ type Engine interface {
 	ListRunners() map[string]Runner
 
 	DoBuild(context.Context, *Composition, *UnpackedSources, *rpc.OutputWriter) ([]*BuildOutput, error)
+	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, ctype ComponentType, ref string, ow *rpc.OutputWriter) error

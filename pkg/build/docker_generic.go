@@ -97,6 +97,6 @@ func (*DockerGenericBuilder) ConfigType() reflect.Type {
 	return reflect.TypeOf(DockerGenericBuilderConfig{})
 }
 
-func (*DockerGenericBuilder) Purge(ctx context.Context, testplan string) error {
+func (*DockerGenericBuilder) Purge(ctx context.Context, testplan string, ow *rpc.OutputWriter) error {
 	return fmt.Errorf("purge not implemented for docker:generic")
 }

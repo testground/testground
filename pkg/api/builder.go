@@ -19,7 +19,7 @@ type Builder interface {
 	Build(ctx context.Context, input *BuildInput, ow *rpc.OutputWriter) (*BuildOutput, error)
 
 	// Purge frees resources, such as caches.
-	Purge(ctx context.Context, testplan string) error
+	Purge(ctx context.Context, testplan string, ow *rpc.OutputWriter) error
 
 	// ConfigType returns the configuration type of this builder.
 	ConfigType() reflect.Type

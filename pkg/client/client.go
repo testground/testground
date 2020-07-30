@@ -260,6 +260,17 @@ func (c *Client) Healthcheck(ctx context.Context, r *api.HealthcheckRequest) (io
 	return c.request(ctx, "POST", "/healthcheck", bytes.NewReader(body.Bytes()))
 }
 
+// BuildPurge sends a `build/purge` request to the daemon.
+func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
+}
+
 func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
 	var chunk rpc.Chunk
 	var once sync.Once
@@ -360,6 +371,18 @@ func ParseBuildResponse(r io.ReadCloser) (api.BuildResponse, error) {
 		},
 	)
 	return resp, err
+}
+
+// ParseBuildPurgeResponse parses a response from 'build/purge' call.
+func ParseBuildPurgeResponse(r io.ReadCloser) error {
+	return parseGeneric(
+		r,
+		printProgress,
+		nil,
+		func(result interface{}) error {
+			return nil
+		},
+	)
 }
 
 // ParseTerminateRequest parses a response from a 'terminate' call
