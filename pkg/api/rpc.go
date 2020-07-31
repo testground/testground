@@ -38,6 +38,11 @@ type HealthcheckRequest struct {
 	Fix    bool   `json:"fix"`
 }
 
+type BuildPurgeRequest struct {
+	Builder  string `json:"builder"`
+	Testplan string `json:"testplan"`
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~ Response payloads ~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

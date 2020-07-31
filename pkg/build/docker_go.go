@@ -85,30 +85,13 @@ type DockerGoBuilderConfig struct {
 	// slimmed-down runtime image. The build image will be emitted instead.
 	SkipRuntimeImage bool `toml:"skip_runtime_image"`
 
-	// EnableGoBuildCache enables the rolling build image reuse (disable by
-	// default), which effectively enables the carry over of GOCACHE (build
-	// artifact cache) and the pkg cache to future builds.
+	// EnableGoBuildCache enables the creation of a go build cache and its usage.
+	// When enabling for the first time, a cache image will be created with the
+	// dependencies of the current plan state.
 	//
 	// If this flag is unset or false, every build of a test plan will start
-	// with a blank go container. If this flag is true, the builder will use the
-	// rolling cache.
-	//
-	// The tradeoffs are as follows of using the rolling cache are as follows:
-	//
-	//  * good: the rolling cache leads to super-fast go builds, as dependency
-	//    sources and their respective build objects are cached across builds of
-	//    the test plan. For example, if you import the same version of IPFS/
-	//    Lotus/libp2p every time, you will no longer compile from their
-	//    sources, but the go build will use the cached intermediate object
-	//    files. This is akin to running a go build locally.
-	//
-	//  * bad: the go toolchain updates last access timestamps on every build
-	//    (https://github.com/golang/go/blob/master/src/cmd/go/internal/cache/cache.go)
-	//    which effectively invalidates Docker layer caching across builds. So
-	//    even if you built exactly the same plan source, no Docker layer
-	//    caches would be hit, because of the timestamps sliding. However, in
-	//    practice, you will be iterating on the test plan source, and under
-	//    that assumption, we have found that the end-to-end build is faster.
+	// with a blank go container. If this flag is true, the builder will the last
+	// cached image.
 	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
@@ -228,17 +211,21 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		args["RUNTIME_IMAGE"] = &cfg.RuntimeImage
 	}
 
-	var baseimage string
+	cacheImage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
+	baseImage := cfg.BuildBaseImage
+	alreadyCached := false
+
 	if cfg.EnableGoBuildCache {
-		baseimage, err = b.resolveBuildCacheImage(ctx, cli, in, cfg, ow)
+		alreadyCached, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheImage)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		baseimage = cfg.BuildBaseImage
+		if alreadyCached {
+			baseImage = cacheImage
+		}
 	}
 
-	args["BUILD_BASE_IMAGE"] = &baseimage
+	args["BUILD_BASE_IMAGE"] = &baseImage
 
 	// set BUILD_TAGS arg if the user has provided selectors.
 	if len(in.Selectors) > 0 {
@@ -273,15 +260,16 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	ow.Infow("build completed", "default_tag", fmt.Sprintf("%s:latest", in.BuildID), "took", time.Since(buildStart).Truncate(time.Second))
 
-	if cfg.EnableGoBuildCache {
+	if cfg.EnableGoBuildCache && !alreadyCached {
+		ow.Infow("build cache enabled and image not found; caching")
 		newCacheImageID := b.parseBuildCacheOutputImage(buildOutput)
 		if newCacheImageID == "" {
 			ow.Warnf("failed to locate go build cache output container")
 		} else {
-			if err := b.updateBuildCacheImage(ctx, cli, baseimage, newCacheImageID, ow); err != nil {
+			if err := b.updateBuildCacheImage(ctx, cli, cacheImage, newCacheImageID, ow); err != nil {
 				ow.Warnw("could not update build cache image tag", "error", err)
 			} else {
-				ow.Infow("successfully updated build cache image tag", "tag", baseimage, "points_to", newCacheImageID)
+				ow.Infow("successfully updated build cache image tag", "tag", cacheImage, "points_to", newCacheImageID)
 			}
 		}
 	}
@@ -436,53 +424,39 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 	return proxyURL, buildNetworkID, warn
 }
 
-func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, in *api.BuildInput, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter) (string, error) {
-	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
-
-	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheimage)
-	_, ok, err := docker.FindImage(ctx, ow, cli, cacheimage)
+// resolveBuildCacheImage resolves the image `cacheImage`.
+//	1. If the image exists, returns true and a nil-error.
+//	2. If the image does not exist, returns false and a nil-error.
+func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter, cacheImage string) (bool, error) {
+	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheImage)
+	info, ok, err := docker.FindImage(ctx, ow, cli, cacheImage)
 	switch {
 	case err != nil:
-		ow.Infow("build cache image found", "cache_image", cacheimage)
-		return "", err
+		ow.Infow("failed to find build cache image", "cache_image", cacheImage)
+		return false, err
 	case ok:
-		return cacheimage, nil
+		ow.Infow("build cache image found", "cache_image", cacheImage, "image_id", info.ID)
+		return true, nil
 	}
 
-	// We need to initialize the gobuild image for this test plan + go version.
-	//  1. Check to see if the base image exists locally; if not, pull it.
-	//  2. Tag the base image with `cacheimage` name.
-	baseimage := cfg.BuildBaseImage
-
-	ow.Infow("found no pre-existing build cache image; creating", "cache_image", cacheimage, "base_image", baseimage)
-
-	switch _, ok, err := docker.FindImage(ctx, ow, cli, baseimage); {
-	case err != nil:
-		return "", err
-	case !ok:
-		ow.Infow("base image doesn't exist locally; pulling", "base_image", baseimage)
-		output, err := cli.ImagePull(ctx, baseimage, types.ImagePullOptions{})
-		if err != nil {
-			return "", fmt.Errorf("failed to pull go build image: %w", err)
-		}
-		if _, err := docker.PipeOutput(output, ow.StdoutWriter()); err != nil {
-			return "", fmt.Errorf("failed to pull go build image: %w", err)
-		}
-	}
-
-	ow.Infow("tagging initial go build cache image", "cache_image", cacheimage, "base_image", baseimage)
-
-	if err := cli.ImageTag(ctx, baseimage, cacheimage); err != nil {
-		return "", fmt.Errorf("failed to tag %s as %s", baseimage, cacheimage)
-	}
-	return cacheimage, nil
+	ow.Infow("build cache image not found", "cache_image", cacheImage)
+	return false, nil
 }
 
-func (b *DockerGoBuilder) updateBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string, newID string, _ *rpc.OutputWriter) error {
+func (b *DockerGoBuilder) removeBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string) error {
 	// release the old tag first.
 	_, err := cli.ImageRemove(ctx, cacheimage, types.ImageRemoveOptions{Force: true})
 	if err != nil && !strings.Contains(err.Error(), "No such image") {
 		return fmt.Errorf("failed to untag build cache image with name: %w", err)
+	}
+	return nil
+}
+
+func (b *DockerGoBuilder) updateBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string, newID string, _ *rpc.OutputWriter) error {
+	// release the old tag first.
+	err := b.removeBuildCacheImage(ctx, cli, cacheimage)
+	if err != nil {
+		return err
 	}
 
 	return cli.ImageTag(ctx, newID, cacheimage)
@@ -518,6 +492,26 @@ func (b *DockerGoBuilder) parseBuildCacheOutputImage(output string) string {
 		lastLine = line
 	}
 	return ""
+}
+
+func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string, ow *rpc.OutputWriter) error {
+	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
+	cli, err := client.NewClientWithOpts(cliopts...)
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
+	defer cancel()
+
+	if err != nil {
+		return err
+	}
+
+	cacheimage := fmt.Sprintf("tg-gobuildcache-%s", testplan)
+	err = b.removeBuildCacheImage(ctx, cli, cacheimage)
+	if err != nil {
+		return err
+	}
+	ow.Infow("removed cached imaged", "image", cacheimage)
+	return nil
 }
 
 const DockerfileTemplate = `

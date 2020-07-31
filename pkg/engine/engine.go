@@ -433,6 +433,14 @@ func (e *Engine) DoHealthcheck(ctx context.Context, runner string, fix bool, ow 
 	return hc.Healthcheck(ctx, e, ow, fix)
 }
 
+func (e *Engine) DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error {
+	bm, ok := e.builders[builder]
+	if !ok {
+		return fmt.Errorf("unrecognized builder: %s", builder)
+	}
+	return bm.Purge(ctx, plan, ow)
+}
+
 // EnvConfig returns the EnvConfig for this Engine.
 func (e *Engine) EnvConfig() config.EnvConfig {
 	return *e.envcfg

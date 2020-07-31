@@ -51,6 +51,33 @@ func (d *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r *
 	}
 }
 
+func (d *Daemon) buildPurgeHandler(engine api.Engine) func (w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
+
+		log.Debugw("handle request", "command", "build/purge")
+		defer log.Debugw("request handled", "command", "build/purge")
+
+		tgw := rpc.NewOutputWriter(w, r)
+
+		var req api.BuildPurgeRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			tgw.WriteError("build parge json decode", "err", err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		err = engine.DoBuildPurge(r.Context(), req.Builder, req.Testplan, tgw)
+		if err != nil {
+			tgw.WriteError("build purge error", "err", err.Error())
+			return
+		}
+
+		tgw.WriteResult("build purge succeeded")
+	}
+}
+
 func consumeBuildRequest(r *http.Request, dir string) (*api.BuildRequest, *api.UnpackedSources, error) {
 	var (
 		req *api.BuildRequest

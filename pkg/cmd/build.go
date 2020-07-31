@@ -77,6 +77,26 @@ var BuildCommand = cli.Command{
 				},
 			},
 		},
+		&cli.Command{
+			Name:    "purge",
+			Aliases: []string{"p"},
+			Usage:   "purge the cache for a builder and testplan",
+			Action:  runBuildPurgeCmd,
+			Flags: cli.FlagsByName{
+				&cli.StringFlag{
+					Name:     "builder",
+					Aliases:  []string{"b"},
+					Usage:    "specifies the builder to use; values include: 'docker:go', 'exec:go'",
+					Required: true,
+				},
+				&cli.StringFlag{
+					Name:     "plan",
+					Aliases:  []string{"p"},
+					Usage:    "specifies the plan to run",
+					Required: true,
+				},
+			},
+		},
 	},
 }
 
@@ -199,4 +219,36 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 		g.Run.Artifact = out.ArtifactPath
 	}
 	return res, nil
+}
+
+func runBuildPurgeCmd(c *cli.Context) (err error) {
+	var (
+		builder = c.String("builder")
+		plan    = c.String("plan")
+	)
+
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
+
+	cl, _, err := setupClient(c)
+	if err != nil {
+		return err
+	}
+
+	resp, err := cl.BuildPurge(ctx, &api.BuildPurgeRequest{
+		Builder:  builder,
+		Testplan: plan,
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Close()
+
+	err = client.ParseBuildPurgeResponse(resp)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("finished purging testplan %s for builder %s\n", plan, builder)
+	return nil
 }
