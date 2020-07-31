@@ -439,7 +439,7 @@ func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *clien
 		return true, nil
 	}
 
-	ow.Info("build cache image not found", "cache_image", cacheImage)
+	ow.Infow("build cache image not found", "cache_image", cacheImage)
 	return false, nil
 }
 
