@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/testground/testground/pkg/cmd"
@@ -38,17 +39,19 @@ func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 	app.Flags = cmd.RootFlags
 	app.HideVersion = true
 
-	args = append([]string{"testground", "--endpoint", srv.Addr()}, args...)
+	endpoint := fmt.Sprintf("http://%s", srv.Addr())
+
+	args = append([]string{"testground", "--endpoint", endpoint}, args...)
 	err = app.Run(args)
 
 	if opts != nil {
 		if opts.builder != "" {
-			args = []string{"testground", "--endpoint", srv.Addr(), "terminate", "--builder", opts.builder}
+			args = []string{"testground", "--endpoint", endpoint, "terminate", "--builder", opts.builder}
 			_ = app.Run(args)
 		}
 
 		if opts.runner != "" {
-			args = []string{"testground", "--endpoint", srv.Addr(), "terminate", "--runner", opts.runner}
+			args = []string{"testground", "--endpoint", endpoint, "terminate", "--runner", opts.runner}
 			_ = app.Run(args)
 		}
 	}
