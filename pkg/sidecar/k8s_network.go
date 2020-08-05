@@ -26,12 +26,13 @@ type k8sLink struct {
 }
 
 type K8sNetwork struct {
-	container   *docker.ContainerRef
-	activeLinks map[string]*k8sLink
-	nl          *netlink.Handle
-	cninet      *libcni.CNIConfig
-	subnet      string
-	netnsPath   string
+	container       *docker.ContainerRef
+	activeLinks     map[string]*k8sLink
+	externalRouting map[string]*route
+	nl              *netlink.Handle
+	cninet          *libcni.CNIConfig
+	subnet          string
+	netnsPath       string
 }
 
 func (n *K8sNetwork) Close() error {
@@ -131,6 +132,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("failed to get link by name: %w", err)
 		}
 
+		n.externalRouting[dataNetworkIfname], err = getK8sRoutes(netlinkByName, n.nl)
+		if err != nil {
+			return err
+		}
+
 		// Register an active link.
 		handle, err := NewNetlinkLink(n.nl, netlinkByName)
 		if err != nil {
@@ -161,6 +167,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("failed to shape link: %w", err)
 	}
 	if err := link.AddRules(cfg.Rules); err != nil {
+		return err
+	}
+	if err := handleRoutingPolicy(n.externalRouting, cfg.RoutingPolicy, n.nl); err != nil {
 		return err
 	}
 	return nil

@@ -4,18 +4,20 @@ package sidecar
 
 import (
 	"fmt"
+	"github.com/hashicorp/go-multierror"
+	"github.com/testground/sdk-go/network"
 
 	"github.com/testground/testground/pkg/logging"
 	"github.com/vishvananda/netlink"
 )
 
-type dockerRouting struct {
+type route struct {
 	enabled bool
 	routes  []netlink.Route
 }
 
-func dockerRoutes(lnk link, netlinkHandle *netlink.Handle) (*dockerRouting, error) {
-	routing := &dockerRouting{
+func getDockerRoutes(lnk netlink.Link, netlinkHandle *netlink.Handle) (*route, error) {
+	routing := &route{
 		enabled: true,
 		routes:  []netlink.Route{},
 	}
@@ -42,7 +44,28 @@ func dockerRoutes(lnk link, netlinkHandle *netlink.Handle) (*dockerRouting, erro
 	return routing, nil
 }
 
-func (routing *dockerRouting) disable(handle *netlink.Handle) error {
+func getK8sRoutes(lnk netlink.Link, netlinkHandle *netlink.Handle) (*route, error) {
+	routing := &route{
+		enabled: true,
+		routes:  []netlink.Route{},
+	}
+
+	// Get the current routes.
+	linkRoutes, err := netlinkHandle.RouteList(lnk, netlink.FAMILY_ALL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list routes for link %s", lnk.Attrs().Name)
+	}
+
+	for _, route := range linkRoutes {
+		if route.Dst == nil && route.Src == nil {
+			routing.routes = append(routing.routes, route)
+		}
+	}
+
+	return routing, nil
+}
+
+func (routing *route) disable(handle *netlink.Handle) error {
 	if !routing.enabled {
 		logging.S().Infow("external routing already disabled")
 		return nil
@@ -59,7 +82,7 @@ func (routing *dockerRouting) disable(handle *netlink.Handle) error {
 	return nil
 }
 
-func (routing *dockerRouting) enable(handle *netlink.Handle) error {
+func (routing *route) enable(handle *netlink.Handle) error {
 	if routing.enabled {
 		logging.S().Infow("external routing already enabled")
 		return nil
@@ -74,4 +97,21 @@ func (routing *dockerRouting) enable(handle *netlink.Handle) error {
 	routing.enabled = true
 	logging.S().Infow("external routing enabled")
 	return nil
+}
+
+func handleRoutingPolicy(routes map[string]*route, policy network.RoutingPolicyType, handle *netlink.Handle) error {
+	var err *multierror.Error
+
+	for _, routing := range routes {
+		switch policy {
+		case network.AllowAll:
+			err = multierror.Append(err, routing.enable(handle))
+		case network.DenyAll:
+			fallthrough
+		default:
+			err = multierror.Append(err, routing.disable(handle))
+		}
+	}
+
+	return err.ErrorOrNil()
 }
