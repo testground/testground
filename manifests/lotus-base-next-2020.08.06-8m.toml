@@ -1,5 +1,5 @@
-name = "lotus-base-next-2020.08.04-8m"
-source_path = "file://${TESTGROUND_SRCDIR}/plans/lotus-base-next-2020.08.04-8m"
+name = "lotus-base-next-2020.08.06-8m"
+source_path = "file://${TESTGROUND_SRCDIR}/plans/lotus-base-next-2020.08.06-8m"
 
 [defaults]
 builder = "docker:lotus"
@@ -11,8 +11,7 @@ go_version = "1.14"
 module_path = "github.com/ipfs/testground/plans/lotus-base"
 exec_pkg = "."
 copy_lotus = true
-#lotus_path = "../lotus-next-2020.08.04-8m"
-lotus_path = "../lotus-next-2020.08.04-8m.ingar.feat-list-retrieval-deals"
+lotus_path = "../lotus-next-2020.08.06-8m"
 
 [run_strategies."local:docker"]
 enabled = true
