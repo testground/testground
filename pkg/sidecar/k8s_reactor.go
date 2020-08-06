@@ -205,12 +205,13 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 
 	// Finally, construct the network manager.
 	network := &K8sNetwork{
-		netnsPath:   fmt.Sprintf("/proc/%d/ns/net", info.State.Pid),
-		cninet:      cninet,
-		container:   container,
-		subnet:      runenv.TestSubnet.String(),
-		nl:          netlinkHandle,
-		activeLinks: make(map[string]*k8sLink),
+		netnsPath:       fmt.Sprintf("/proc/%d/ns/net", info.State.Pid),
+		cninet:          cninet,
+		container:       container,
+		subnet:          runenv.TestSubnet.String(),
+		nl:              netlinkHandle,
+		activeLinks:     make(map[string]*k8sLink),
+		externalRouting: map[string]*route{},
 	}
 
 	// Remove all routes but redis and the data subnet
@@ -317,7 +318,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 			logging.S().Warnw("failed to really delete route", "route.Src", r.Src, "gw", r.Gw, "route.Dst", routeDst, "container", container.ID, "err", err.Error())
 		}
 		if err := netlinkHandle.RouteAdd(&bh); err != nil {
-			logging.S().Warnw("failed to add blackhole route")
+			logging.S().Warnw("failed to add blackhole route", "err", err.Error())
 		}
 	}
 
