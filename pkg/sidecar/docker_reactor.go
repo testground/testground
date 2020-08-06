@@ -202,7 +202,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		container:       container,
 		activeLinks:     make(map[string]*dockerLink, len(info.NetworkSettings.Networks)),
 		availableLinks:  make(map[string]string, len(networks)),
-		externalRouting: map[string]*dockerRouting{},
+		externalRouting: map[string]*route{},
 		nl:              netlinkHandle,
 	}
 
@@ -246,7 +246,7 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		// We've found a control network (or some other network).
 
 		// Get all current routes and store them.
-		routes, err := dockerRoutes(link, netlinkHandle)
+		routes, err := getDockerRoutes(link, netlinkHandle)
 		if err != nil {
 			return nil, fmt.Errorf("failed to enumerate routes: %w", err)
 		}
