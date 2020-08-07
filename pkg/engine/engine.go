@@ -2,22 +2,17 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"path/filepath"
-	"strings"
-	"sync"
-
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
+	"github.com/testground/testground/pkg/task"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/logrusorgru/aurora"
-	"github.com/otiai10/copy"
-	"golang.org/x/sync/errgroup"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -52,6 +47,8 @@ type Engine struct {
 	runners map[string]api.Runner
 	envcfg  *config.EnvConfig
 	ctx     context.Context
+	store   *task.TaskStorage
+	queue   *task.Queue
 }
 
 var _ api.Engine = (*Engine)(nil)
@@ -63,11 +60,23 @@ type EngineConfig struct {
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
+	store, err := task.NewMemoryTaskStorage()
+	if err != nil {
+		return nil, err
+	}
+
+	queue, err := task.NewQueue(store, 100)
+	if err != nil {
+		return nil, err
+	}
+
 	e := &Engine{
 		builders: make(map[string]api.Builder, len(cfg.Builders)),
 		runners:  make(map[string]api.Runner, len(cfg.Runners)),
 		envcfg:   cfg.EnvConfig,
 		ctx:      context.Background(),
+		store:    store,
+		queue:    queue,
 	}
 
 	for _, b := range cfg.Builders {
@@ -78,6 +87,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
+	go e.startSupervisor(2)
 	return e, nil
 }
 
@@ -134,270 +144,64 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 	return m
 }
 
-func (e *Engine) DoBuild(ctx context.Context, comp *api.Composition, sources *api.UnpackedSources, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
-	if err := comp.ValidateForBuild(); err != nil {
-		return nil, fmt.Errorf("invalid composition: %w", err)
-	}
+func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSources) (string, error) {
+	id := uuid.New().String()
+	err := e.queue.Push(&task.Task{
+		Version:  0,
+		Priority: 0,
+		ID:       id,
+		Type:     task.TaskBuild,
+		Input: &BuildInput{
+			BuildRequest: request,
+			Sources:      sources,
+		},
+		States: []task.DatedTaskState{
+			{
+				TaskState: task.StateScheduled,
+				Created:   time.Now(),
+			},
+		},
+	})
 
-	var (
-		plan    = comp.Global.Plan
-		builder = comp.Global.Builder
-	)
-
-	// Find the builder.
-	bm, ok := e.builders[builder]
-	if !ok {
-		return nil, fmt.Errorf("unrecognized builder: %s", builder)
-	}
-
-	// Call the healthcheck routine if the runner supports it, with fix=true.
-	if hc, ok := bm.(api.Healthchecker); ok {
-		ow.Info("performing healthcheck on builder")
-
-		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
-			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
-		} else if !rep.FixesSucceeded() {
-			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
-		} else if !rep.ChecksSucceeded() {
-			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
-		} else {
-			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
-		}
-	}
-
-	// This var compiles all configurations to coalesce.
-	//
-	// Precedence (highest to lowest):
-	//
-	//  1. CLI --run-param, --build-param flags.
-	//  2. .env.toml.
-	//  3. Builder defaults (applied by the builder itself, nothing to do here).
-	//
-	var cfg config.CoalescedConfig
-
-	// 2. Get the env config for the builder.
-	cfg = cfg.Append(e.envcfg.Builders[builder])
-
-	// 1. Get overrides from the CLI.
-	cfg = cfg.Append(comp.Global.BuildConfig)
-
-	// Coalesce all configurations and deserialise into the config type
-	// mandated by the builder.
-	obj, err := cfg.CoalesceIntoType(bm.ConfigType())
-	if err != nil {
-		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-	}
-
-	var (
-		// no need to synchronise access, as each goroutine will write its
-		// response in its index.
-		ress   = make([]*api.BuildOutput, len(comp.Groups))
-		errgrp = errgroup.Group{}
-		cancel context.CancelFunc
-	)
-
-	// obtain an explicitly cancellable context so we can stop build jobs if
-	// something fails.
-	ctx, cancel = context.WithCancel(ctx)
-	defer cancel()
-
-	// traverse groups, indexing them by the unique build key and remembering their position.
-	uniq := make(map[string][]int, len(comp.Groups))
-	for idx, g := range comp.Groups {
-		k := g.Build.BuildKey()
-		uniq[k] = append(uniq[k], idx)
-	}
-
-	var finalSources []*api.UnpackedSources
-	if uniqcnt := len(uniq); uniqcnt == 1 {
-		finalSources = []*api.UnpackedSources{sources}
-	} else {
-		finalSources = make([]*api.UnpackedSources, uniqcnt)
-
-		for i := 0; i < uniqcnt; i++ {
-			dst := fmt.Sprintf("%s-%d", strings.TrimSuffix(sources.BaseDir, "/"), i)
-			if err := copy.Copy(sources.BaseDir, dst); err != nil {
-				return nil, fmt.Errorf("failed to create unique source directories for multiple build jobs: %w", err)
-			}
-			src := &api.UnpackedSources{
-				BaseDir: dst,
-				PlanDir: filepath.Join(dst, filepath.Base(sources.PlanDir)),
-			}
-			if sources.SDKDir != "" {
-				src.SDKDir = filepath.Join(dst, filepath.Base(sources.SDKDir))
-			}
-			if sources.ExtraDir != "" {
-				src.ExtraDir = filepath.Join(dst, filepath.Base(sources.ExtraDir))
-			}
-			finalSources[i] = src
-		}
-	}
-
-	// Trigger a build job for each unique build, and wait until all of them are
-	// done, mapping the build artifacts back to the original group positions in
-	// the response.
-	var cnt int
-	for key, idxs := range uniq {
-		idxs := idxs
-		key := key // capture
-
-		src := finalSources[cnt]
-		cnt++
-
-		errgrp.Go(func() (err error) {
-			// All groups are identical for the sake of building, so pick the first one.
-			grp := comp.Groups[idxs[0]]
-
-			// Pluck all IDs from the groups this build artifact is for.
-			grpids := make([]string, 0, len(idxs))
-			for _, idx := range idxs {
-				grpids = append(grpids, comp.Groups[idx].ID)
-			}
-
-			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
-
-			deps := make(map[string]api.DependencyTarget, len(grp.Build.Dependencies))
-
-			for _, dep := range grp.Build.Dependencies {
-				deps[dep.Module] = api.DependencyTarget{
-					Target:  dep.Target,
-					Version: dep.Version,
-				}
-			}
-
-			in := &api.BuildInput{
-				BuildID:         uuid.New().String()[24:],
-				EnvConfig:       *e.envcfg,
-				TestPlan:        plan,
-				Selectors:       grp.Build.Selectors,
-				Dependencies:    deps,
-				BuildConfig:     obj,
-				UnpackedSources: src,
-			}
-
-			res, err := bm.Build(ctx, in, ow)
-			if err != nil {
-				ow.Infow("build failed", "plan", plan, "groups", grpids, "builder", builder, "error", err)
-				return err
-			}
-
-			res.BuilderID = bm.ID()
-
-			// no need for a mutex as the indices we access do not intersect
-			// across goroutines.
-			for _, idx := range uniq[key] {
-				ress[idx] = res
-			}
-
-			ow.Infow("build succeeded", "plan", plan, "groups", grpids, "builder", builder, "artifact", res.ArtifactPath)
-			return nil
-		})
-	}
-
-	// Wait until all goroutines are done. If any failed, return the error.
-	if err := errgrp.Wait(); err != nil {
-		return nil, err
-	}
-
-	return ress, nil
+	return id, err
 }
 
-func (e *Engine) DoRun(ctx context.Context, comp *api.Composition, ow *rpc.OutputWriter) (*api.RunOutput, error) {
-	if err := comp.ValidateForRun(); err != nil {
-		return nil, fmt.Errorf("invalid composition: %w", err)
-	}
-
+func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources) (string, error) {
 	var (
-		plan    = comp.Global.Plan
-		tcase   = comp.Global.Case
-		builder = comp.Global.Builder
-		runner  = comp.Global.Runner
+		builder = request.Composition.Global.Builder
+		runner  = request.Composition.Global.Runner
 	)
 
 	// Get the runner.
 	run, ok := e.runners[runner]
 	if !ok {
-		return nil, fmt.Errorf("unknown runner: %s", runner)
-	}
-
-	// Call the healthcheck routine if the runner supports it, with fix=true.
-	if hc, ok := run.(api.Healthchecker); ok {
-		ow.Info("performing healthcheck on runner")
-
-		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
-			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
-		} else if !rep.FixesSucceeded() {
-			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
-		} else if !rep.ChecksSucceeded() {
-			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
-		} else {
-			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
-		}
+		return "", fmt.Errorf("unknown runner: %s", runner)
 	}
 
 	// Check if builder and runner are compatible
-	if !stringInSlice(comp.Global.Builder, run.CompatibleBuilders()) {
-		return nil, fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
+	if !stringInSlice(builder, run.CompatibleBuilders()) {
+		return "", fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	runid := uuid.New().String()[24:]
+	id := uuid.New().String()
+	err := e.queue.Push(&task.Task{
+		Version:  0,
+		Priority: 0,
+		ID:       id,
+		Type:     task.TaskRun,
+		Input: &RunInput{
+			RunRequest: request,
+			Sources:    sources,
+		},
+		States: []task.DatedTaskState{
+			{
+				TaskState: task.StateScheduled,
+				Created:   time.Now(),
+			},
+		},
+	})
 
-	// This var compiles all configurations to coalesce.
-	//
-	// Precedence (highest to lowest):
-	//
-	//  1. CLI --run-param, --build-param flags.
-	//  2. .env.toml.
-	//  3. Builder defaults (applied by the builder itself, nothing to do here).
-	//
-	var cfg config.CoalescedConfig
-
-	// 2. Get the env config for the runner.
-	cfg = cfg.Append(e.envcfg.Runners[runner])
-
-	// 1. Get overrides from the composition.
-	cfg = cfg.Append(comp.Global.RunConfig)
-
-	// Coalesce all configurations and deserialise into the config type
-	// mandated by the runner.
-	obj, err := cfg.CoalesceIntoType(run.ConfigType())
-	if err != nil {
-		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-	}
-
-	in := api.RunInput{
-		RunID:          runid,
-		EnvConfig:      *e.envcfg,
-		RunnerConfig:   obj,
-		TestPlan:       plan,
-		TestCase:       tcase,
-		TotalInstances: int(comp.Global.TotalInstances),
-		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
-	}
-
-	// Trigger a build for each group, and wait until all of them are done.
-	for _, grp := range comp.Groups {
-		g := &api.RunGroup{
-			ID:           grp.ID,
-			Instances:    int(grp.CalculatedInstanceCount()),
-			ArtifactPath: grp.Run.Artifact,
-			Parameters:   grp.Run.TestParams,
-			Resources:    grp.Resources,
-		}
-
-		in.Groups = append(in.Groups, g)
-	}
-
-	out, err := run.Run(ctx, &in, ow)
-	if err == nil {
-		ow.Infow("run finished successfully", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
-	} else if errors.Is(err, context.Canceled) {
-		ow.Infow("run canceled", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
-	} else {
-		ow.Warnw("run finished in error", "run_id", runid, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
-	}
-
-	return out, err
+	return id, err
 }
 
 func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error {
@@ -491,6 +295,14 @@ func (e *Engine) Context() context.Context {
 	return e.ctx
 }
 
+func (e *Engine) TaskQueue() *task.Queue {
+	return e.queue
+}
+
+func (e *Engine) TaskStorage() *task.TaskStorage {
+	return e.store
+}
+
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -498,4 +310,22 @@ func stringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
+}
+
+func (e *Engine) TaskStatus(id string) (*task.Task, error) {
+	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
+	if err == nil {
+		return tsk, nil
+	}
+	if err != task.ErrNotFound {
+		return nil, err
+	}
+	tsk, err = e.store.Get(task.CURRENTPREFIX, id)
+	if err == nil {
+		return tsk, nil
+	}
+	if err != task.ErrNotFound {
+		return nil, err
+	}
+	return e.store.Get(task.QUEUEPREFIX, id)
 }

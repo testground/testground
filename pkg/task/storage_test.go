@@ -1,16 +1,16 @@
 package task
 
 import (
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+	"testing"
+	"time"
 )
 
 func TestChangePrefix(t *testing.T) {
 	id := "testing123"
+	nexp := "queue:testing123"
 	exp := "current:testing123"
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
@@ -36,6 +36,12 @@ func TestChangePrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.True(t, exists)
+	// In the database, I expect to not see the task stored with the old prefix
+	exists, err = ts.db.Has([]byte(nexp), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.False(t, exists)
 }
 
 // While in the CURRENT task state, make sure task state entry is recorded

@@ -2,6 +2,8 @@ package task
 
 import (
 	"encoding/json"
+	"errors"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 	"strconv"
 	"strings"
 	"time"
@@ -17,6 +19,8 @@ var (
 	QUEUEPREFIX   = "queue"
 	CURRENTPREFIX = "current"
 	ARCHIVEPREFIX = "archive"
+
+	ErrNotFound = errors.New("task not found")
 )
 
 // Tasks stored in leveldb
@@ -51,6 +55,9 @@ func taskKey(prefix string, id string) []byte {
 func (s *TaskStorage) Get(prefix string, id string) (tsk *Task, err error) {
 	tsk = new(Task)
 	val, err := s.db.Get(taskKey(prefix, id), nil)
+	if err == leveldb.ErrNotFound {
+		return nil, ErrNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +99,23 @@ func (s *TaskStorage) AppendTaskState(id string, state TaskState) error {
 	return s.Put(CURRENTPREFIX, tsk)
 }
 
+func (s *TaskStorage) MarkCompleted(id string, error error, data interface{}) error {
+	tsk, err := s.Get(CURRENTPREFIX, id)
+	if err != nil {
+		return err
+	}
+	dated := DatedTaskState{
+		TaskState: StateComplete,
+		Created:   time.Now(),
+	}
+	tsk.States = append(tsk.States, dated)
+	tsk.Result = TaskResult{
+		Error: error,
+		Data:  data,
+	}
+	return s.Put(CURRENTPREFIX, tsk)
+}
+
 // Change the prefix of a task
 func (s *TaskStorage) ChangePrefix(dst string, src string, id string) error {
 	oldkey := taskKey(src, id)
@@ -106,6 +130,11 @@ func (s *TaskStorage) ChangePrefix(dst string, src string, id string) error {
 		return err
 	}
 	err = trans.Put(newkey, val, &opt.WriteOptions{Sync: true})
+	if err != nil {
+		trans.Discard()
+		return err
+	}
+	err = trans.Delete(oldkey, &opt.WriteOptions{Sync: true})
 	if err != nil {
 		trans.Discard()
 		return err
@@ -139,4 +168,13 @@ func (s *TaskStorage) ArchiveRange(start time.Time, end time.Time) (tasks []*Tas
 		tasks = append(tasks, tsk)
 	}
 	return tasks, nil
+}
+
+func NewMemoryTaskStorage() (*TaskStorage, error) {
+	inmem := storage.NewMemStorage()
+	db, err := leveldb.Open(inmem, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &TaskStorage{db}, nil
 }

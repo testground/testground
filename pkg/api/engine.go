@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
-
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/task"
 )
 
 type ComponentType string
@@ -19,19 +19,19 @@ const (
 type UnpackedSources struct {
 	// BaseDir is the directory containing the plan under ./plan, and an
 	// optional sdk under ./sdk.
-	BaseDir string
+	BaseDir string `json:"baseDir"`
 
 	// PlanDir is the directory where the test plan's source has been
 	// placed (i.e. BaseSrcPath/plan).
-	PlanDir string
+	PlanDir string `json:"planDir"`
 
 	// SDKDir is the directory where the SDK's source has been placed. It
 	// will be a zero-value if no SDK replacement has been requested, or
 	// BaseSrcPath/sdk otherwise.
-	SDKDir string
+	SDKDir string `json:"sdkDir"`
 
 	// ExtraDir is the directory where any extra sources have been unpacked.
-	ExtraDir string
+	ExtraDir string `json:"extraDir"`
 }
 
 type Engine interface {
@@ -41,9 +41,12 @@ type Engine interface {
 	ListBuilders() map[string]Builder
 	ListRunners() map[string]Runner
 
-	DoBuild(context.Context, *Composition, *UnpackedSources, *rpc.OutputWriter) ([]*BuildOutput, error)
+	QueueBuild(request *BuildRequest, sources *UnpackedSources) (string, error)
+	QueueRun(request *RunRequest, sources *UnpackedSources) (string, error)
+
+	TaskStatus(id string) (*task.Task, error)
+
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
-	DoRun(context.Context, *Composition, *rpc.OutputWriter) (*RunOutput, error)
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, ctype ComponentType, ref string, ow *rpc.OutputWriter) error
 	DoHealthcheck(ctx context.Context, runner string, fix bool, ow *rpc.OutputWriter) (*HealthcheckReport, error)

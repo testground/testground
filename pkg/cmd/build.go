@@ -42,6 +42,10 @@ var BuildCommand = cli.Command{
 					Name:  "link-sdk",
 					Usage: linkSdkUsage,
 				},
+				&cli.BoolFlag{
+					Name:  "wait",
+					Usage: "wait for the build to complete",
+				},
 			},
 		},
 		&cli.Command{
@@ -114,7 +118,7 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 
-	_, err = doBuild(c, comp)
+	err = doBuild(c, comp)
 	if err != nil {
 		return err
 	}
@@ -138,11 +142,11 @@ func buildSingleCmd(c *cli.Context) (err error) {
 	if comp, err = createSingletonComposition(c); err != nil {
 		return err
 	}
-	_, err = doBuild(c, comp)
+	err = doBuild(c, comp)
 	return err
 }
 
-func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
+func doBuild(c *cli.Context, comp *api.Composition) error {
 	var (
 		plan    = comp.Global.Plan
 		planDir string
@@ -154,7 +158,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 
 	cl, cfg, err := setupClient(c)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Resolve the linked SDK directory, if one has been supplied.
@@ -162,7 +166,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 		var err error
 		sdkDir, err = resolveSDK(cfg, sdk)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve linked SDK directory: %w", err)
+			return fmt.Errorf("failed to resolve linked SDK directory: %w", err)
 		}
 		logging.S().Infof("linking with sdk at: %s", sdkDir)
 	}
@@ -171,14 +175,14 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 	var manifest *api.TestPlanManifest
 	planDir, manifest, err = resolveTestPlan(cfg, plan)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve test plan: %w", err)
+		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
 	logging.S().Infof("test plan source at: %s", planDir)
 
 	comp, err = comp.PrepareForBuild(manifest)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req := &api.BuildRequest{Composition: *comp}
@@ -192,7 +196,7 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 			// follow any symlinks in the plan dir.
 			evalPlanDir, err := filepath.EvalSymlinks(planDir)
 			if err != nil {
-				return nil, fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
+				return fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
 			}
 			extra[i] = filepath.Clean(filepath.Join(evalPlanDir, dir))
 		}
@@ -200,25 +204,28 @@ func doBuild(c *cli.Context, comp *api.Composition) ([]api.BuildOutput, error) {
 
 	resp, err := cl.Build(ctx, req, planDir, sdkDir, extra)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Close()
 
-	res, err := client.ParseBuildResponse(resp)
+	id, err := client.ParseBuildResponse(resp)
 	switch err {
 	case nil:
 	case context.Canceled:
-		return nil, fmt.Errorf("interrupted")
+		return fmt.Errorf("interrupted")
 	default:
-		return nil, err
+		return err
 	}
 
-	for i, out := range res {
+	logging.S().Infof("build queued with ID: %s", id)
+
+	/* for i, out := range res {
 		g := comp.Groups[i]
 		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
 		g.Run.Artifact = out.ArtifactPath
-	}
-	return res, nil
+	} */
+	
+	return nil
 }
 
 func runBuildPurgeCmd(c *cli.Context) (err error) {

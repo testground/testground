@@ -36,17 +36,22 @@ type DatedTaskState struct {
 
 // TaskResult (kind: struct)
 // This will be redefined at a later time.
-type TaskResult struct{}
+type TaskResult struct {
+	Error error       `json:"error"`
+	Data  interface{} `json:"data"`
+}
 
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store
 // metadata in our task storage database as well as the wire format returned when clients get the
-// state of a running or secheduled task.
+// state of a running or scheduled task.
 type Task struct {
 	Version  int              `json:"version"`  // Schema version
 	Priority int              `json:"priority"` // scheduling priority
 	ID       string           `json:"id"`       // unique identifier for this task, specifically, a UUID
 	States   []DatedTaskState `json:"states"`   // State of the task
-	Result   TaskResult       `json:"result"`   // result of the task, when terminal.
+	Type     TaskType         `json:"type"`     // Type of the task
+	Input    interface{}      `json:"input"`    // The input data for this task
+	Result   TaskResult       `json:"result"`   // Result of the task, when terminal.
 }
 
 func (t *Task) Created() time.Time {

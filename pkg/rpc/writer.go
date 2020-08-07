@@ -26,6 +26,21 @@ type OutputWriter struct {
 	out io.Writer
 }
 
+func NewStdoutWriter() *OutputWriter {
+	pw := &progressWriter{out: ioutil.Discard}
+	bw := &binaryWriter{}
+	ow := &OutputWriter{
+		SugaredLogger: logging.S(),
+		out:           ioutil.Discard,
+		pw:            pw,
+		bw:            bw,
+	}
+	ow.pw = pw
+	pw.ow = ow
+	bw.ow = ow
+	return ow
+}
+
 func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	w.Header().Set("Content-Type", "application/json")
 
