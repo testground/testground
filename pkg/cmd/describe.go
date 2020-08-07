@@ -13,8 +13,7 @@ import (
 var DescribeCommand = cli.Command{
 	Name:        "describe",
 	Usage:       "describe a test plan",
-	ArgsUsage:   "<plan name>",
-	Description: "Loads the test plan manifest from $TESTGROUND_HOME/plans/<plan name>, and explains its contents",
+	Description: "Loads the test plan manifest from $TESTGROUND_HOME/plans/<plan>, and explains its contents",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:     "plan",
