@@ -62,12 +62,20 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// Build sends a multipart `build` request to the daemon.
+func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+	return c.runBuild(ctx, r, "/build", plandir, sdkdir, extraSrcs)
+}
+
+func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+	return c.runBuild(ctx, r, "/run", plandir, sdkdir, extraSrcs)
+}
+
+// runBuild sends a multipart request to the daemon on a certain path.
 //
-// A build request comprises the following parts:
+// A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): composition json.
-//  * Part 2 (Content-Type: application/zip): test plan source.
+//  * Part 1 (Content-Type: application/json): the request json, usually composition.
+//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
 //  * Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
@@ -75,93 +83,67 @@ func (c *Client) Close() error {
 //
 // The response is a stream of `Msg` protocol messages. See
 // `ParseBuildResponse()` for specifics.
-func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
 	if err != nil {
 		return nil, err
 	}
 
-	var (
-		rd, wr = io.Pipe()
-		mp     = multipart.NewWriter(wr)
-	)
-
-	go func() error {
-		var (
-			hcomp  = make(textproto.MIMEHeader) // composition
-			hplan  = make(textproto.MIMEHeader) // plan source
-			hsdk   = make(textproto.MIMEHeader) // optional sdk
-			hextra = make(textproto.MIMEHeader) // optional extra dirs
-		)
-
-		hcomp.Set("Content-Type", "application/json")
-		hcomp.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "composition.json"}))
-
-		hplan.Set("Content-Type", "application/zip")
-		hplan.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "plan.zip"}))
-
-		hsdk.Set("Content-Type", "application/zip")
-		hsdk.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "sdk.zip"}))
-
-		hextra.Set("Content-Type", "application/zip")
-		hextra.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": "extra.zip"}))
-
-		// Part 1: composition json.
-		w, err := mp.CreatePart(hcomp)
+	// writeZippedDirs a list of directories, zips them into a single zip file, and writes it on w.
+	// if toplevel=true, it will retain the toplevel directories, so if /abc, /def are passed, the resulting
+	// zip archive will contain /abc and /def.
+	// if toplevel=false, it will omit the toplevel directories and will place the contents of each
+	// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
+	writeZippedDirs := func(w io.Writer, toplevel bool, dirs ...string) error {
+		// A temporary .zip file to deflate the directory into.
+		// archiver doesn't support archiving direcly into an io.Writer, so we
+		// need a file as a buffer.
+		tmp, err := ioutil.TempFile("", "*.zip")
 		if err != nil {
-			return wr.CloseWithError(err)
+			return err
 		}
 
-		if err := json.NewEncoder(w).Encode(r); err != nil {
-			return wr.CloseWithError(err)
-		}
+		// Make sure to clean up the tmp zip file after we're done.
+		defer os.Remove(tmp.Name())
+		defer tmp.Close()
 
-		// Part 2: plan source directory.
-		w, err = mp.CreatePart(hplan)
-		if err != nil {
-			return wr.CloseWithError(err)
-		}
-		if err = writeZippedDirs(w, false, plandir); err != nil {
-			return wr.CloseWithError(err)
-		}
-
-		// Optional part 3: sdk source directory.
-		if sdkdir != "" {
-			w, err = mp.CreatePart(hsdk)
-			if err != nil {
-				return wr.CloseWithError(err)
-			}
-			if err = writeZippedDirs(w, false, sdkdir); err != nil {
-				return wr.CloseWithError(err)
+		for _, dir := range dirs {
+			if fi, err := os.Stat(dir); err != nil {
+				return err
+			} else if !fi.IsDir() {
+				return fmt.Errorf("file %s is not a directory", dir)
 			}
 		}
 
-		if len(extraSrcs) != 0 {
-			w, err = mp.CreatePart(hextra)
-			if err != nil {
-				return wr.CloseWithError(err)
-			}
-			if err = writeZippedDirs(w, true, extraSrcs...); err != nil {
-				return wr.CloseWithError(err)
+		var files []string
+		if toplevel {
+			files = dirs
+		} else {
+			for _, dir := range dirs {
+				// Fetch all files in the dir to pass them to archiver; otherwise we'll
+				// end up with a top-level directory inside the zip.
+				fis, err := ioutil.ReadDir(dir)
+				if err != nil {
+					return err
+				}
+				for _, fi := range fis {
+					files = append(files, filepath.Join(dir, fi.Name()))
+				}
 			}
 		}
 
-		if err := mp.Close(); err != nil {
-			return wr.CloseWithError(err)
+		// Deflate the directory into a zip archive, allowing it to overwrite
+		// the tmp file that we created above.
+		z := archiver.NewZip()
+		z.OverwriteExisting = true
+		if err = z.Archive(files, tmp.Name()); err != nil {
+			return err
 		}
-		return wr.Close()
-	}() //nolint:errcheck
 
-	contentType := "multipart/related; boundary=" + mp.Boundary()
-	return c.request(ctx, "POST", "/build", rd, "Content-Type", contentType)
-}
-
-func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
-	var body bytes.Buffer
-	err := json.NewEncoder(&body).Encode(r)
-	if err != nil {
-		return nil, err
+		// Write out the tmp file into the supplied io.Writer.
+		_, err = io.Copy(w, tmp)
+		return err
 	}
 
 	var (
@@ -238,7 +220,7 @@ func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdk
 	}() //nolint:errcheck
 
 	contentType := "multipart/related; boundary=" + mp.Boundary()
-	return c.request(ctx, "POST", "/run", rd, "Content-Type", contentType)
+	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
@@ -514,61 +496,5 @@ func Decode(input interface{}, result interface{}) error {
 	if err := decoder.Decode(input); err != nil {
 		return err
 	}
-	return err
-}
-
-// writeZippedDirs a list of directories, zips them into a single zip file, and writes it on w.
-// if toplevel=true, it will retain the toplevel directories, so if /abc, /def are passed, the resulting
-// zip archive will contain /abc and /def.
-// if toplevel=false, it will omit the toplevel directories and will place the contents of each
-// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
-func writeZippedDirs(w io.Writer, toplevel bool, dirs ...string) error {
-	// A temporary .zip file to deflate the directory into.
-	// archiver doesn't support archiving direcly into an io.Writer, so we
-	// need a file as a buffer.
-	tmp, err := ioutil.TempFile("", "*.zip")
-	if err != nil {
-		return err
-	}
-
-	// Make sure to clean up the tmp zip file after we're done.
-	defer os.Remove(tmp.Name())
-	defer tmp.Close()
-
-	for _, dir := range dirs {
-		if fi, err := os.Stat(dir); err != nil {
-			return err
-		} else if !fi.IsDir() {
-			return fmt.Errorf("file %s is not a directory", dir)
-		}
-	}
-
-	var files []string
-	if toplevel {
-		files = dirs
-	} else {
-		for _, dir := range dirs {
-			// Fetch all files in the dir to pass them to archiver; otherwise we'll
-			// end up with a top-level directory inside the zip.
-			fis, err := ioutil.ReadDir(dir)
-			if err != nil {
-				return err
-			}
-			for _, fi := range fis {
-				files = append(files, filepath.Join(dir, fi.Name()))
-			}
-		}
-	}
-
-	// Deflate the directory into a zip archive, allowing it to overwrite
-	// the tmp file that we created above.
-	z := archiver.NewZip()
-	z.OverwriteExisting = true
-	if err = z.Archive(files, tmp.Name()); err != nil {
-		return err
-	}
-
-	// Write out the tmp file into the supplied io.Writer.
-	_, err = io.Copy(w, tmp)
 	return err
 }
