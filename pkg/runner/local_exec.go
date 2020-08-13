@@ -124,6 +124,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 			env = append(env, "INFLUXDB_URL=http://localhost:8086")
 			env = append(env, "REDIS_HOST=localhost")
+			env = append(env, "PATH="+os.Getenv("PATH"))
 
 			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 
