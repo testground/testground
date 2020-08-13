@@ -113,7 +113,11 @@ func (s *TaskStorage) MarkCompleted(id string, error error, data interface{}) er
 		Error: error,
 		Data:  data,
 	}
-	return s.Put(CURRENTPREFIX, tsk)
+	err = s.Put(CURRENTPREFIX, tsk)
+	if err != nil {
+		return err
+	}
+	return s.ChangePrefix(ARCHIVEPREFIX, CURRENTPREFIX, id)
 }
 
 // Change the prefix of a task

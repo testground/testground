@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/testground/testground/pkg/task"
+	"github.com/logrusorgru/aurora"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -16,12 +16,8 @@ import (
 	"net/textproto"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"sync"
-	"time"
-
-	"github.com/logrusorgru/aurora"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/config"
@@ -270,7 +266,7 @@ func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.R
 	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
 }
 
-func (c *Client) TaskInfo(ctx context.Context, id string) (io.ReadCloser, error) {
+func (c *Client) TaskStatus(ctx context.Context, id string) (io.ReadCloser, error) {
 	return c.request(ctx, "GET", "/task/"+id, nil)
 }
 
@@ -403,7 +399,6 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 // ParseHealthcheckResponse parses a response from a 'healthcheck' call
 func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) {
 	var resp api.HealthcheckResponse
-
 	err := parseGeneric(
 		r,
 		printProgress,
@@ -412,23 +407,20 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 			return mapstructure.Decode(result, &resp)
 		},
 	)
-
 	return resp, err
 }
 
-func ParseTaskInfoResponse(r io.ReadCloser) (task.Task, error) {
-	var resp task.Task
-
+// ParseTaskStatusResponse parses a response from a 'task+ call
+func ParseTaskStatusResponse(r io.ReadCloser) (api.TaskStatusResponse, error) {
+	var resp api.TaskStatusResponse
 	err := parseGeneric(
 		r,
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			fmt.Println(result)
-			return Decode(result, &resp)
+			return mapstructure.Decode(result, &resp)
 		},
 	)
-
 	return resp, err
 }
 
@@ -456,45 +448,4 @@ func (c *Client) request(ctx context.Context, method string, path string, body i
 		return nil, err
 	}
 	return resp.Body, nil
-}
-
-// see https://github.com/mitchellh/mapstructure/issues/159#issuecomment-482201507
-func ToTimeHookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data interface{}) (interface{}, error) {
-		if t != reflect.TypeOf(time.Time{}) {
-			return data, nil
-		}
-
-		switch f.Kind() {
-		case reflect.String:
-			return time.Parse(time.RFC3339, data.(string))
-		case reflect.Float64:
-			return time.Unix(0, int64(data.(float64))*int64(time.Millisecond)), nil
-		case reflect.Int64:
-			return time.Unix(0, data.(int64)*int64(time.Millisecond)), nil
-		default:
-			return data, nil
-		}
-		// Convert it by parsing
-	}
-}
-
-func Decode(input interface{}, result interface{}) error {
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		Metadata: nil,
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			ToTimeHookFunc()),
-		Result: result,
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := decoder.Decode(input); err != nil {
-		return err
-	}
-	return err
 }

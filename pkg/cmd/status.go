@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/testground/testground/pkg/client"
 	"github.com/urfave/cli/v2"
 )
@@ -32,15 +33,22 @@ func statusCommand(c *cli.Context) error {
 		return err
 	}
 
-	r, err := cl.TaskInfo(ctx, id)
+	r, err := cl.TaskStatus(ctx, id)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	_, err = client.ParseTaskInfoResponse(r)
+	res, err := client.ParseTaskStatusResponse(r)
+	if err != nil {
+		return err
+	}
 
-	// bytes, err := json.MarshalIndent(tsk, "", "\t")
-	// if err != nil {
-	return err
+	fmt.Printf("ID:\t\t%s\n", res.ID)
+	fmt.Printf("Created:\t%s\n", res.Created)
+	fmt.Printf("Type:\t\t%s\n", res.Type)
+	fmt.Printf("Status:\t\t%s\n", res.LastState)
+	fmt.Printf("Last update:\t%s\n", res.LastUpdate)
+
+	return nil
 }

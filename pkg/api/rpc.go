@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"github.com/testground/testground/pkg/task"
 )
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -63,3 +64,14 @@ type CollectResponse struct {
 }
 
 type HealthcheckResponse = HealthcheckReport
+
+type TaskStatusResponse struct {
+	Priority   int
+	ID         string
+	Type       string
+	Input      interface{}
+	Result     task.TaskResult
+	Created    string
+	LastUpdate string
+	LastState  string
+}

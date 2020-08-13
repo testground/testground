@@ -45,8 +45,7 @@ func (e *Engine) worker(n int) {
 	for {
 		tsk, err := queue.Pop()
 		if err == task.ErrQueueEmpty {
-			logging.S().Info("queue empty")
-			time.Sleep(10 * time.Second)
+			time.Sleep(time.Second)
 			continue
 		}
 
