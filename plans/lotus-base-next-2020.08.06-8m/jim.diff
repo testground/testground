@@ -1,0 +1,36 @@
+diff --git a/markets/storageadapter/provider.go b/markets/storageadapter/provider.go
+index 15c735c7..735ac9b6 100644
+--- a/markets/storageadapter/provider.go
++++ b/markets/storageadapter/provider.go
+@@ -70,6 +70,7 @@ func (n *ProviderNodeAdapter) PublishDeals(ctx context.Context, deal storagemark
+        }
+ 
+        // TODO: We may want this to happen after fetching data
++       /*
+        smsg, err := n.MpoolPushMessage(ctx, &types.Message{
+                To:       builtin.StorageMarketActorAddr,
+                From:     worker,
+@@ -79,9 +80,22 @@ func (n *ProviderNodeAdapter) PublishDeals(ctx context.Context, deal storagemark
+                Method:   builtin.MethodsMarket.PublishStorageDeals,
+                Params:   params,
+        })
++       */
++       message := &types.Message{
++               To:       builtin.StorageMarketActorAddr,
++               From:     worker,
++               Value:    types.NewInt(0),
++               GasPrice: types.NewInt(0),
++               GasLimit: 1000000,
++               Method:   builtin.MethodsMarket.PublishStorageDeals,
++               Params:   params,
++       }
++       log.Info("Jim message", message)
++       smsg, err := n.MpoolPushMessage(ctx, message)
+        if err != nil {
+                return 0, cid.Undef, err
+        }
++       log.Info("Jim message cid", smsg.Cid())
+        r, err := n.StateWaitMsg(ctx, smsg.Cid())
+        if err != nil {
+                return 0, cid.Undef, err
+

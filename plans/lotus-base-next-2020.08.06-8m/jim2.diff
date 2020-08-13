@@ -1,0 +1,19 @@
+--- a/chain/stmgr/stmgr.go
++++ b/chain/stmgr/stmgr.go
+@@ -508,6 +508,7 @@ func (sm *StateManager) WaitForMessage(ctx context.Context, mcid cid.Cid) (*type
+ 
+        r, err := sm.tipsetExecutedMessage(head[0].Val, mcid, msg.VMMessage())
+        if err != nil {
++               log.Infof("Jim tipsetExecutedMessage 1 err: %w", err)
+                return nil, nil, err
+        }
+ 
+@@ -543,6 +544,7 @@ func (sm *StateManager) WaitForMessage(ctx context.Context, mcid cid.Cid) (*type
+                                case store.HCApply:
+                                        r, err := sm.tipsetExecutedMessage(val.Val, mcid, msg.VMMessage())
+                                        if err != nil {
++                                               log.Infof("Jim tipsetExecutedMessage 2 err: %w", err)
+                                                return nil, nil, err
+                                        }
+                                        if r != nil {
+

@@ -50,7 +50,16 @@ fi
 git clone git@github.com:filecoin-project/rust-fil-proofs.git extern/rust-fil-proofs
 pushd extern/rust-fil-proofs
 #git checkout $PROOFS_HASH
-git checkout storage-proofs-core-v4.0.0
+git checkout storage-proofs-core-v4.0.4
 cat ../../jim-proofs-flock.patch | patch -p1
 popd
+
+git clone git@github.com:filecoin-project/specs-actors.git extern/specs-actors
+TOP_DIR=$(pwd)
+pushd extern/specs-actors
+git checkout 9d42fb163883
+cd actors/builtin/miner
+cat $TOP_DIR/jim-waitseed.diff | patch
+popd
+
 

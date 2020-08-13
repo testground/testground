@@ -1,0 +1,24 @@
+diff --git a/build/params_2k.go b/build/params_2k.go
+index f9ce1cca..de3c74d2 100644
+--- a/build/params_2k.go
++++ b/build/params_2k.go
+@@ -17,15 +17,15 @@ func init() {
+ }
+ 
+ // Seconds
+-const BlockDelay = 2
++const BlockDelay = 10
+ 
+-const PropagationDelay = 3
++const PropagationDelay = 5
+ 
+ // SlashablePowerDelay is the number of epochs after ElectionPeriodStart, after
+ // which the miner is slashed
+ //
+ // Epochs
+-const SlashablePowerDelay = 20
++const SlashablePowerDelay = 40
+ 
+ // Epochs
+-const InteractivePoRepConfidence = 6
++const InteractivePoRepConfidence = 20
