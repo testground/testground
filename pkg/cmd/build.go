@@ -185,7 +185,10 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		return err
 	}
 
-	req := &api.BuildRequest{Composition: *comp}
+	req := &api.BuildRequest{
+		Composition: *comp,
+		Manifest:    *manifest,
+	}
 
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
@@ -219,12 +222,16 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 
 	logging.S().Infof("build queued with ID: %s", id)
 
+	if c.Bool("wait") {
+		// TODO: Wait
+	}
+
 	/* for i, out := range res {
 		g := comp.Groups[i]
 		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
 		g.Run.Artifact = out.ArtifactPath
 	} */
-	
+
 	return nil
 }
 

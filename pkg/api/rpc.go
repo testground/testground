@@ -16,14 +16,12 @@ type DescribeRequest struct {
 
 // BuildRequest is the request struct for the `build` function.
 type BuildRequest struct {
-	Wait        bool             `json:"wait"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`
 }
 
 // RunRequest is the request struct for the `run` function.
 type RunRequest struct {
-	Wait        bool             `json:"wait"`
 	BuildGroups []int            `json:"buildGroups"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`

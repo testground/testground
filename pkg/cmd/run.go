@@ -186,7 +186,6 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	req := &api.RunRequest{
-		Wait:        c.Bool("wait"),
 		BuildGroups: buildIdx,
 		Composition: *comp,
 		Manifest:    *manifest,
@@ -210,6 +209,10 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	logging.S().Infof("run is queued with ID: %s", id)
+
+	if c.Bool("wait") {
+		// TODO: Wait
+	}
 
 	/* logging.S().Infof("finished run with ID: %s", rout.RunID)
 

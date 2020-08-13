@@ -77,10 +77,11 @@ func (e *Engine) worker(n int) {
 }
 
 func (e *Engine) doBuild(ctx context.Context, input *BuildInput) ([]*api.BuildOutput, error) {
-	var (
-		comp    = input.Composition
-		sources = input.Sources
-	)
+	sources := input.Sources
+	comp, err := input.Composition.PrepareForBuild(&input.Manifest)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
@@ -261,7 +262,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 
 		bout, err := e.doBuild(ctx, &BuildInput{
 			BuildRequest: &api.BuildRequest{
-				Wait:        input.Wait,
 				Composition: bcomp,
 				Manifest:    input.Manifest,
 			},
