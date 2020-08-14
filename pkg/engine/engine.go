@@ -312,20 +312,39 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func (e *Engine) TaskStatus(id string) (*task.Task, error) {
-	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
-	if err == nil {
-		return tsk, nil
+func (e *Engine) TaskStatus(id string, wait bool) (*task.Task, error) {
+	getTask := func() (*task.Task, error) {
+		tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
+		if err == nil {
+			return tsk, nil
+		}
+		if err != task.ErrNotFound {
+			return nil, err
+		}
+		tsk, err = e.store.Get(task.CURRENTPREFIX, id)
+		if err == nil {
+			return tsk, nil
+		}
+		if err != task.ErrNotFound {
+			return nil, err
+		}
+		return e.store.Get(task.QUEUEPREFIX, id)
 	}
-	if err != task.ErrNotFound {
-		return nil, err
+
+	for {
+		tsk, err := getTask()
+		if err != nil {
+			return tsk, err
+		}
+
+		if !wait {
+			return tsk, nil
+		}
+
+		if tsk.LastState().TaskState == task.StateComplete {
+			return tsk, nil
+		}
+
+		time.Sleep(time.Second)
 	}
-	tsk, err = e.store.Get(task.CURRENTPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	return e.store.Get(task.QUEUEPREFIX, id)
 }

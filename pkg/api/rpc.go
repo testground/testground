@@ -47,6 +47,11 @@ type BuildPurgeRequest struct {
 	Testplan string `json:"testplan"`
 }
 
+type TaskStatusRequest struct {
+	ID                string `json:"id"`
+	WaitForCompletion bool   `json:"wait-for-completion"`
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~ Response payloads ~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

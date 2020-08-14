@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/urfave/cli/v2"
 )
@@ -33,7 +34,7 @@ func statusCommand(c *cli.Context) error {
 		return err
 	}
 
-	r, err := cl.TaskStatus(ctx, id)
+	r, err := cl.TaskStatus(ctx, &api.TaskStatusRequest{ID: id})
 	if err != nil {
 		return err
 	}

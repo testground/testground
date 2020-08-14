@@ -3,8 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/logging"
+	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -89,6 +92,10 @@ var RunCommand = cli.Command{
 					Name:    "use-build",
 					Aliases: []string{"ub"},
 					Usage:   "build artifact to use (from a previous build)",
+				},
+				&cli.BoolFlag{
+					Name:  "wait",
+					Usage: "Wait for the run completion.",
 				},
 			),
 		},
@@ -210,11 +217,55 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	logging.S().Infof("run is queued with ID: %s", id)
 
-	if c.Bool("wait") {
-		// TODO: Wait
+	if !c.Bool("wait") {
+		return nil
 	}
 
-	/* logging.S().Infof("finished run with ID: %s", rout.RunID)
+	r, err := cl.TaskStatus(ctx, &api.TaskStatusRequest{
+		ID:                id,
+		WaitForCompletion: true,
+	})
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	res, err := client.ParseTaskStatusResponse(r)
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Second)
+
+	// TODO: cancel task on context cancel
+
+	/* select {
+	case <-ctx.Done():
+		fmt.Println("Should Cancel")
+	}    */
+
+	if res.Result.Error != nil {
+		return res.Result.Error
+	}
+
+	var rout api.RunOutput
+	err = mapstructure.Decode(res.Result.Data, &rout)
+	if err != nil {
+		return err
+	}
+
+	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
+		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write composition to file: %w", err)
+		}
+		enc := toml.NewEncoder(f)
+		if err := enc.Encode(rout.Composition); err != nil {
+			return fmt.Errorf("failed to encode composition into file: %w", err)
+		}
+	}
+
+	logging.S().Infof("finished run with ID: %s", id)
 
 	// if the `collect` flag is not set, we are done, just return
 	collectOpt := c.Bool("collect")
@@ -224,21 +275,8 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	collectFile := c.String("collect-file")
 	if collectFile == "" {
-		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
-	} */
+		collectFile = fmt.Sprintf("%s.tgz", id)
+	}
 
-	/* if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write composition to file: %w", err)
-		}
-		enc := toml.NewEncoder(f)
-		if err := enc.Encode(comp); err != nil {
-			return fmt.Errorf("failed to encode composition into file: %w", err)
-		}
-	} */
-
-	return nil
-
-	// return collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
+	return collect(ctx, cl, comp.Global.Runner, id, collectFile)
 }

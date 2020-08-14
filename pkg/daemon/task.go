@@ -1,7 +1,7 @@
 package daemon
 
 import (
-	"github.com/gorilla/mux"
+	"encoding/json"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/rpc"
 	"net/http"
@@ -9,12 +9,17 @@ import (
 
 func (d *Daemon) taskStatusHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id := vars["taskid"]
-
 		tgw := rpc.NewOutputWriter(w, r)
 
-		tsk, err := engine.TaskStatus(id)
+		var req api.TaskStatusRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			tgw.WriteError("task status json decode", "err", err.Error())
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		tsk, err := engine.TaskStatus(req.ID, req.WaitForCompletion)
 		if err != nil {
 			tgw.Warnw("could not find task in storage", "err", err)
 			return

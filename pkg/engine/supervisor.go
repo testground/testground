@@ -87,7 +87,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput) ([]*api.BuildOu
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
 
-	// TODO: ???
+	// TODO: how to pass this to the client with --wait? Should we?
 	ow := rpc.NewStdoutWriter()
 
 	var (
@@ -271,13 +271,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 			return nil, err
 		}
 
-		// Populate the returned build IDs.
+		// Populate the returned build IDs. This is returned so the
+		// client can store the composition with artifacts if they chose to.
 		for i, groupIdx := range input.BuildGroups {
 			g := input.Composition.Groups[groupIdx]
 			g.Run.Artifact = bout[i].ArtifactPath
 		}
-
-		// TODO: comp must be stored so can be used with --write-artifacts --wait
 	}
 
 	comp, err := input.Composition.PrepareForRun(&input.Manifest)
@@ -289,7 +288,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 		return nil, err
 	}
 
-	// TODO: store the data somewhere, right? The results already have the output, should we discard?
+	// TODO: how to pass this to the client with --wait? Should we?
 	ow := rpc.NewStdoutWriter()
 
 	var (

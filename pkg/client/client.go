@@ -266,8 +266,14 @@ func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.R
 	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
 }
 
-func (c *Client) TaskStatus(ctx context.Context, id string) (io.ReadCloser, error) {
-	return c.request(ctx, "GET", "/task/"+id, nil)
+func (c *Client) TaskStatus(ctx context.Context, r *api.TaskStatusRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/task", bytes.NewReader(body.Bytes()))
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
