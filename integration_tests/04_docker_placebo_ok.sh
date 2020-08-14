@@ -10,7 +10,7 @@ docker tag $ARTIFACT testplan:placebo
 
 pushd $TEMPDIR
 testground healthcheck --runner local:docker --fix
-testground run single --runner local:docker --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect | tee run.out
+testground run single --runner local:docker --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect --wait | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 file $RUNID.tgz

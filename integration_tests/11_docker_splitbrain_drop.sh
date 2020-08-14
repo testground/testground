@@ -10,7 +10,7 @@ docker tag $ARTIFACT testplan:splitbrain
 
 pushd $TEMPDIR
 testground healthcheck --runner local:docker --fix
-testground run single --runner local:docker --builder docker:go --use-build testplan:splitbrain --instances 3 --plan splitbrain --testcase drop --collect | tee stdout.out
+testground run single --runner local:docker --builder docker:go --use-build testplan:splitbrain --instances 3 --plan splitbrain --testcase drop --collect --wait | tee stdout.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' stdout.out)
 echo "checking run $RUNID"
 file $RUNID.tgz

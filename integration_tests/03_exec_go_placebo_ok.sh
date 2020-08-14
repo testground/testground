@@ -5,7 +5,7 @@ source "$my_dir/header.sh"
 
 pushd $TEMPDIR
 testground plan import --from plans/placebo
-testground run single --runner local:exec --builder exec:go --instances 2 --plan placebo --testcase ok --collect | tee run.out
+testground run single --runner local:exec --builder exec:go --instances 2 --plan placebo --testcase ok --collect --wait | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 file $RUNID.tgz
