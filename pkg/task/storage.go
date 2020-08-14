@@ -109,9 +109,11 @@ func (s *TaskStorage) MarkCompleted(id string, error error, data interface{}) er
 		Created:   time.Now(),
 	}
 	tsk.States = append(tsk.States, dated)
-	tsk.Result = &TaskResult{
-		Error: error.Error(),
-		Data:  data,
+	tsk.Result = TaskResult{
+		Data: data,
+	}
+	if error != nil {
+		tsk.Result.Error = error.Error()
 	}
 	err = s.Put(CURRENTPREFIX, tsk)
 	if err != nil {

@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/logging"
 	"os"
 	"path/filepath"
-	"time"
-
-	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/client"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
@@ -42,6 +40,10 @@ var RunCommand = cli.Command{
 					Name:    "collect-file",
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
+				},
+				&cli.BoolFlag{
+					Name:  "wait",
+					Usage: "Wait for the run completion.",
 				},
 			),
 		},
@@ -235,8 +237,6 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	if err != nil {
 		return err
 	}
-
-	time.Sleep(time.Second)
 
 	// TODO: cancel task on context cancel
 

@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"os"
 	"path/filepath"
 
@@ -46,6 +48,10 @@ var BuildCommand = cli.Command{
 					Name:  "wait",
 					Usage: "wait for the build to complete",
 				},
+				&cli.BoolFlag{
+					Name:  "wait",
+					Usage: "Wait for the build completion.",
+				},
 			},
 		},
 		&cli.Command{
@@ -78,6 +84,10 @@ var BuildCommand = cli.Command{
 					Aliases:  []string{"p"},
 					Usage:    "specifies the plan to run",
 					Required: true,
+				},
+				&cli.BoolFlag{
+					Name:  "wait",
+					Usage: "Wait for the build completion.",
 				},
 			},
 		},
@@ -222,15 +232,41 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 
 	logging.S().Infof("build queued with ID: %s", id)
 
-	if c.Bool("wait") {
-		// TODO: Wait
+	if !c.Bool("wait") {
+		return nil
 	}
 
-	/* for i, out := range res {
+	r, err := cl.TaskStatus(ctx, &api.TaskStatusRequest{
+		ID:                id,
+		WaitForCompletion: true,
+	})
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	res, err := client.ParseTaskStatusResponse(r)
+	if err != nil {
+		return err
+	}
+
+	// TODO: cancel on ctx cancel
+
+	if res.Result.Error != "" {
+		return errors.New(res.Result.Error)
+	}
+
+	var rout []api.BuildOutput
+	err = mapstructure.Decode(res.Result.Data, &rout)
+	if err != nil {
+		return err
+	}
+
+	for i, out := range rout {
 		g := comp.Groups[i]
 		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
 		g.Run.Artifact = out.ArtifactPath
-	} */
+	}
 
 	return nil
 }
