@@ -21,7 +21,7 @@ func (d *Daemon) taskStatusHandler(engine api.Engine) func(w http.ResponseWriter
 
 		tsk, err := engine.TaskStatus(req.ID, req.WaitForCompletion)
 		if err != nil {
-			tgw.Warnw("could not find task in storage", "err", err)
+			tgw.Warnw("could not fetch task status", "err", err)
 			return
 		}
 		tgw.WriteResult(api.TaskStatusResponse{
@@ -29,7 +29,7 @@ func (d *Daemon) taskStatusHandler(engine api.Engine) func(w http.ResponseWriter
 			ID:         tsk.ID,
 			Type:       string(tsk.Type),
 			Input:      tsk.Input,
-			Result:     tsk.Result,
+			Result:     *tsk.Result,
 			Created:    tsk.Created().String(),
 			LastUpdate: tsk.LastState().Created.String(),
 			LastState:  string(tsk.LastState().TaskState),

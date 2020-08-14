@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/logging"
@@ -244,8 +245,8 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		fmt.Println("Should Cancel")
 	}    */
 
-	if res.Result.Error != nil {
-		return res.Result.Error
+	if res.Result.Error != "" {
+		return errors.New(res.Result.Error)
 	}
 
 	var rout api.RunOutput

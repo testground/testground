@@ -370,8 +370,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	return &api.RunOutput{
 		RunID:       out.RunID,
 		Composition: input.Composition,
-	}, err
+	}, nil
 }

@@ -20,8 +20,9 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 		"1",
 		"--plan",
 		"placebo",
-		"--testcase",
+		"--testcase" ,
 		"abort",
+		"--wait",
 	)
 
 	if err == nil {

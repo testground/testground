@@ -37,7 +37,7 @@ type DatedTaskState struct {
 // TaskResult (kind: struct)
 // This will be redefined at a later time.
 type TaskResult struct {
-	Error error       `json:"error"`
+	Error string      `json:"error"`
 	Data  interface{} `json:"data"`
 }
 
@@ -51,7 +51,7 @@ type Task struct {
 	States   []DatedTaskState `json:"states"`   // State of the task
 	Type     TaskType         `json:"type"`     // Type of the task
 	Input    interface{}      `json:"input"`    // The input data for this task
-	Result   TaskResult       `json:"result"`   // Result of the task, when terminal.
+	Result   *TaskResult      `json:"result"`   // Result of the task, when terminal.
 }
 
 func (t *Task) Created() time.Time {
