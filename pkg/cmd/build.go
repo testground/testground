@@ -46,7 +46,7 @@ var BuildCommand = cli.Command{
 				},
 				&cli.BoolFlag{
 					Name:  "wait",
-					Usage: "wait for the build to complete",
+					Usage: "wait for the task to complete",
 				},
 			},
 		},
@@ -83,7 +83,7 @@ var BuildCommand = cli.Command{
 				},
 				&cli.BoolFlag{
 					Name:  "wait",
-					Usage: "Wait for the build completion.",
+					Usage: "Wait for the task to complete",
 				},
 			},
 		},

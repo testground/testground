@@ -41,10 +41,6 @@ var RunCommand = cli.Command{
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
-				&cli.BoolFlag{
-					Name:  "wait",
-					Usage: "Wait for the run completion.",
-				},
 			),
 		},
 		&cli.Command{
@@ -95,10 +91,6 @@ var RunCommand = cli.Command{
 					Name:    "use-build",
 					Aliases: []string{"ub"},
 					Usage:   "build artifact to use (from a previous build)",
-				},
-				&cli.BoolFlag{
-					Name:  "wait",
-					Usage: "Wait for the run completion.",
 				},
 			),
 		},
