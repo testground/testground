@@ -22,7 +22,7 @@ type BuildRequest struct {
 
 // RunRequest is the request struct for the `run` function.
 type RunRequest struct {
-	BuildGroups []int            `json:"buildGroups"`
+	BuildGroups []int            `json:"build_groups"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`
 }
@@ -49,7 +49,7 @@ type BuildPurgeRequest struct {
 
 type TaskStatusRequest struct {
 	ID                string `json:"id"`
-	WaitForCompletion bool   `json:"wait-for-completion"`
+	WaitForCompletion bool   `json:"wait_for_completion"`
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

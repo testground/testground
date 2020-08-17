@@ -19,19 +19,19 @@ const (
 type UnpackedSources struct {
 	// BaseDir is the directory containing the plan under ./plan, and an
 	// optional sdk under ./sdk.
-	BaseDir string `json:"baseDir"`
+	BaseDir string `json:"base_dir"`
 
 	// PlanDir is the directory where the test plan's source has been
 	// placed (i.e. BaseSrcPath/plan).
-	PlanDir string `json:"planDir"`
+	PlanDir string `json:"plan_dir"`
 
 	// SDKDir is the directory where the SDK's source has been placed. It
 	// will be a zero-value if no SDK replacement has been requested, or
 	// BaseSrcPath/sdk otherwise.
-	SDKDir string `json:"sdkDir"`
+	SDKDir string `json:"sdk_dir"`
 
 	// ExtraDir is the directory where any extra sources have been unpacked.
-	ExtraDir string `json:"extraDir"`
+	ExtraDir string `json:"extra_dir"`
 }
 
 type Engine interface {
