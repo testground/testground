@@ -341,7 +341,7 @@ func (e *Engine) TaskStatus(id string, wait bool) (*task.Task, error) {
 			return tsk, nil
 		}
 
-		if tsk.LastState().TaskState == task.StateComplete {
+		if tsk.State().TaskState == task.StateComplete {
 			return tsk, nil
 		}
 

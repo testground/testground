@@ -31,8 +31,8 @@ func (d *Daemon) taskStatusHandler(engine api.Engine) func(w http.ResponseWriter
 			Input:      tsk.Input,
 			Result:     tsk.Result,
 			Created:    tsk.Created().String(),
-			LastUpdate: tsk.LastState().Created.String(),
-			LastState:  string(tsk.LastState().TaskState),
+			LastUpdate: tsk.State().Created.String(),
+			LastState:  string(tsk.State().TaskState),
 		})
 	}
 }

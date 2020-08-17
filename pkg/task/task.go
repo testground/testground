@@ -1,6 +1,5 @@
 package task
 
-import "github.com/google/uuid"
 import "time"
 
 // State (kind: string) represents the last known state of a task.
@@ -47,7 +46,7 @@ type Result struct {
 type Task struct {
 	Version  int              `json:"version"`  // Schema version
 	Priority int              `json:"priority"` // scheduling priority
-	ID       string           `json:"id"`       // unique identifier for this task, specifically, a UUID
+	ID       string           `json:"id"`       // unique identifier for this task
 	States   []DatedTaskState `json:"states"`   // State of the task
 	Type     Type             `json:"type"`     // Type of the task
 	Input    interface{}      `json:"input"`    // The input data for this task
@@ -55,17 +54,16 @@ type Task struct {
 }
 
 func (t *Task) Created() time.Time {
-	u, err := uuid.Parse(t.ID)
-	if err != nil {
-		return time.Time{}
+	if len(t.States) == 0 {
+		panic("task must have a state")
 	}
-	return time.Unix(u.Time().UnixTime())
+
+	return t.States[0].Created
 }
 
-func (t *Task) LastState() DatedTaskState {
+func (t *Task) State() DatedTaskState {
 	if len(t.States) == 0 {
-		// Note: this must not happen.
-		return DatedTaskState{}
+		panic("task must have a state")
 	}
 	return t.States[len(t.States)-1]
 }
