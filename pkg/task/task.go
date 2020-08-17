@@ -46,7 +46,7 @@ type Result struct {
 type Task struct {
 	Version  int              `json:"version"`  // Schema version
 	Priority int              `json:"priority"` // scheduling priority
-	ID       string           `json:"id"`       // unique identifier for this task
+	ID       string           `json:"id"`       // Unique identifier for this task
 	States   []DatedTaskState `json:"states"`   // State of the task
 	Type     Type             `json:"type"`     // Type of the task
 	Input    interface{}      `json:"input"`    // The input data for this task

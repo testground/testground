@@ -145,7 +145,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 }
 
 func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSources) (string, error) {
-	id := uuid.New().String()
+	id := uuid.New().String()[:8]
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: 0,
@@ -183,7 +183,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		return "", fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	id := uuid.New().String()
+	id := uuid.New().String()[:8]
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: 0,
