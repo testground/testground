@@ -49,30 +49,33 @@ func (e *Engine) worker(n int) {
 			continue
 		}
 
-		ctx, _ := context.WithTimeout(context.Background(), time.Minute*30)
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
+			defer cancel()
 
-		err = store.AppendTaskState(tsk.ID, task.StateProcessing)
-		if err != nil {
-			logging.S().Errorw("could not update task status", "err", err)
-		}
-		logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
+			err = store.AppendTaskState(tsk.ID, task.StateProcessing)
+			if err != nil {
+				logging.S().Errorw("could not update task status", "err", err)
+			}
+			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
 
-		var data interface{}
+			var data interface{}
 
-		switch tsk.Type {
-		case task.TaskRun:
-			data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput))
-		case task.TaskBuild:
-			data, err = e.doBuild(ctx, tsk.Input.(*BuildInput))
-		default:
-			// wut
-		}
+			switch tsk.Type {
+			case task.TaskRun:
+				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput))
+			case task.TaskBuild:
+				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput))
+			default:
+				// wut
+			}
 
-		err = store.MarkCompleted(tsk.ID, err, data)
-		if err != nil {
-			logging.S().Errorw("could not update task status", "err", err)
-		}
-		logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
+			err = store.MarkCompleted(tsk.ID, err, data)
+			if err != nil {
+				logging.S().Errorw("could not update task status", "err", err)
+			}
+			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
+		}()
 	}
 }
 
