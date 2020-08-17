@@ -73,7 +73,7 @@ type TaskStatusResponse struct {
 	ID         string
 	Type       string
 	Input      interface{}
-	Result     task.TaskResult
+	Result     task.Result
 	Created    string
 	LastUpdate string
 	LastState  string

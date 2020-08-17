@@ -86,7 +86,7 @@ func (s *TaskStorage) Delete(prefix string, tsk *Task) error {
 }
 
 // A helper method for appending a state to a task's state slice
-func (s *TaskStorage) AppendTaskState(id string, state TaskState) error {
+func (s *TaskStorage) AppendTaskState(id string, state State) error {
 	tsk, err := s.Get(CURRENTPREFIX, id)
 	if err != nil {
 		return err
@@ -109,7 +109,7 @@ func (s *TaskStorage) MarkCompleted(id string, error error, data interface{}) er
 		Created:   time.Now(),
 	}
 	tsk.States = append(tsk.States, dated)
-	tsk.Result = TaskResult{
+	tsk.Result = Result{
 		Data: data,
 	}
 	if error != nil {
