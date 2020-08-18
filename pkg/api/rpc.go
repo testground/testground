@@ -47,9 +47,17 @@ type BuildPurgeRequest struct {
 	Testplan string `json:"testplan"`
 }
 
-type TaskStatusRequest struct {
-	ID                string `json:"id"`
-	WaitForCompletion bool   `json:"wait_for_completion"`
+type TasksRequest struct {
+	// TODO: filters?
+}
+
+type StatusRequest struct {
+	TaskID string `json:"task_id"`
+}
+
+type LogsRequest struct {
+	TaskID string `json:"task_id"`
+	Follow bool   `json:"follow"`
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -68,13 +76,4 @@ type CollectResponse struct {
 
 type HealthcheckResponse = HealthcheckReport
 
-type TaskStatusResponse struct {
-	Priority   int
-	ID         string
-	Type       string
-	Input      interface{}
-	Result     task.Result
-	Created    string
-	LastUpdate string
-	LastState  string
-}
+type StatusResponse = task.Task

@@ -266,14 +266,14 @@ func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.R
 	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
 }
 
-func (c *Client) TaskStatus(ctx context.Context, r *api.TaskStatusRequest) (io.ReadCloser, error) {
+func (c *Client) Status(ctx context.Context, r *api.StatusRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.request(ctx, "POST", "/task", bytes.NewReader(body.Bytes()))
+	return c.request(ctx, "POST", "/status", bytes.NewReader(body.Bytes()))
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
@@ -416,15 +416,21 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 	return resp, err
 }
 
-// ParseTaskStatusResponse parses a response from a 'task+ call
-func ParseTaskStatusResponse(r io.ReadCloser) (api.TaskStatusResponse, error) {
-	var resp api.TaskStatusResponse
+// ParseStatusResponse parses a response from a 'status' call
+func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
+	var resp api.StatusResponse
 	err := parseGeneric(
 		r,
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			return mapstructure.Decode(result, &resp)
+			// Workaround around mapstructure.Decode which cannot be easily
+			// used to decode time.Time, nor enumerations.
+			data, err := json.Marshal(result)
+			if err != nil {
+				return err
+			}
+			return json.Unmarshal(data, &resp)
 		},
 	)
 	return resp, err

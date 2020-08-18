@@ -44,7 +44,7 @@ type Engine interface {
 	QueueBuild(request *BuildRequest, sources *UnpackedSources) (string, error)
 	QueueRun(request *RunRequest, sources *UnpackedSources) (string, error)
 
-	TaskStatus(id string, waitForCompletion bool) (*task.Task, error)
+	TaskStatus(id string) (*task.Task, error)
 
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error

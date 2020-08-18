@@ -312,7 +312,8 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
-func (e *Engine) TaskStatus(id string, wait bool) (*task.Task, error) {
+func (e *Engine) TaskStatus(id string) (*task.Task, error) {
+	wait := false
 	getTask := func() (*task.Task, error) {
 		tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
 		if err == nil {

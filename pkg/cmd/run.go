@@ -2,13 +2,10 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/logging"
-	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -216,16 +213,17 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		return nil
 	}
 
-	r, err := cl.TaskStatus(ctx, &api.TaskStatusRequest{
-		ID:                id,
-		WaitForCompletion: true,
+	r, err := cl.Status(ctx, &api.StatusRequest{
+		TaskID: id,
 	})
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	res, err := client.ParseTaskStatusResponse(r)
+	// TODO: testground logs, testground status
+
+	/* res, err := client.ParseStatusResponse(r)
 	if err != nil {
 		return err
 	}
@@ -235,7 +233,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	/* select {
 	case <-ctx.Done():
 		fmt.Println("Should Cancel")
-	}    */
+	}
 
 	if res.Result.Error != "" {
 		return errors.New(res.Result.Error)
@@ -271,5 +269,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", id)
 	}
 
-	return collect(ctx, cl, comp.Global.Runner, id, collectFile)
+	return collect(ctx, cl, comp.Global.Runner, id, collectFile) */
+
+	return nil
 }
