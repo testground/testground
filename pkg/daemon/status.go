@@ -19,7 +19,7 @@ func (d *Daemon) statusHandler(engine api.Engine) func(w http.ResponseWriter, r 
 			return
 		}
 
-		tsk, err := engine.TaskStatus(req.TaskID)
+		tsk, err := engine.Status(req.TaskID)
 		if err != nil {
 			tgw.Warnw("could not fetch status", "task_id", req.TaskID, "err", err)
 			return

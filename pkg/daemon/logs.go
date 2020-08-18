@@ -19,8 +19,13 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		// TODO: implement
-		tgw.WriteError("not implemented yet")
-		w.WriteHeader(http.StatusNotImplemented)
+		tsk, err := engine.Logs(req.TaskID, req.Follow, tgw)
+		if err != nil {
+			tgw.WriteError("error while fetching logs", "err", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		tgw.WriteResult(tsk)
 	}
 }
