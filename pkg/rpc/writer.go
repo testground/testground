@@ -41,6 +41,35 @@ func NewStdoutWriter() *OutputWriter {
 	return ow
 }
 
+func NewFileOutputWriter(w io.Writer) *OutputWriter {
+	writer := ioutils.NewWriteFlusher(w)
+
+	// progressWriter will emit log output as progress messages.
+	progressWriter := &progressWriter{out: writer, newline: true}
+
+	// binaryWriter will emit binary chunks
+	binaryWriter := &binaryWriter{}
+
+	writeSyncer := zapcore.Lock(zapcore.AddSync(progressWriter))
+
+	// this logger has two sinks: stdout and the writeSyncer
+	logger := logging.NewLogger(writeSyncer)
+
+	ow := &OutputWriter{
+		SugaredLogger: logger.Sugar(),
+		out:           writer,
+		pw:            progressWriter,
+		bw:            binaryWriter,
+	}
+
+	// we need to wire this back for the lock.
+	progressWriter.ow = ow
+
+	// we need to wire this back for the lock.
+	binaryWriter.ow = ow
+	return ow
+}
+
 func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -89,8 +118,9 @@ func Discard() *OutputWriter {
 }
 
 type progressWriter struct {
-	ow  *OutputWriter
-	out io.Writer
+	ow      *OutputWriter
+	out     io.Writer
+	newline bool
 }
 
 var _ io.Writer = (*progressWriter)(nil)
@@ -105,6 +135,10 @@ func (w *progressWriter) Write(p []byte) (n int, err error) {
 	json, err := json.Marshal(msg)
 	if err != nil {
 		return 0, err
+	}
+
+	if w.newline {
+		json = append(json, '\n')
 	}
 
 	w.ow.Lock()

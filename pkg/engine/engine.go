@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
@@ -9,6 +12,8 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -331,6 +336,43 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 }
 
 func (e *Engine) Logs(id string, follow bool, ow *rpc.OutputWriter) (*task.Task, error) {
-	// TODO: fetch logs
+	// TODO: wait to start and follow
+
+	path := filepath.Join(e.EnvConfig().Dirs().Home(), "out_req", id, "out.log")
+
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		// TODO: maybe parse this in the client instead?
+		var data struct {
+			T int    `json:"t"`
+			P string `json:"p"`
+		}
+
+		err = json.Unmarshal(scanner.Bytes(), &data)
+		if err != nil {
+			return nil, err
+		}
+
+		m, err := base64.StdEncoding.DecodeString(data.P)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = ow.WriteProgress(m)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return e.Status(id)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
 	"golang.org/x/sync/errgroup"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -61,11 +62,27 @@ func (e *Engine) worker(n int) {
 
 			var data interface{}
 
+			// Create a packing directory under the workdir.
+			dir := filepath.Join(e.EnvConfig().Dirs().Home(), "out_req", tsk.ID)
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				logging.S().Errorw("could not create dir", "err", err)
+				return
+			}
+
+			f, err := os.OpenFile(filepath.Join(dir, "out.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				logging.S().Errorw("could not create out log", "err", err)
+				return
+			}
+			defer f.Close()
+
+			ow := rpc.NewFileOutputWriter(f)
+
 			switch tsk.Type {
 			case task.TaskRun:
-				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput))
+				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
 			case task.TaskBuild:
-				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput))
+				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
 			default:
 				// wut
 			}
@@ -79,7 +96,7 @@ func (e *Engine) worker(n int) {
 	}
 }
 
-func (e *Engine) doBuild(ctx context.Context, input *BuildInput) ([]*api.BuildOutput, error) {
+func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
 	sources := input.Sources
 	comp, err := input.Composition.PrepareForBuild(&input.Manifest)
 	if err != nil {
@@ -89,9 +106,6 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput) ([]*api.BuildOu
 	if err := comp.ValidateForBuild(); err != nil {
 		return nil, fmt.Errorf("invalid composition: %w", err)
 	}
-
-	// TODO: how to pass this to the client with --wait? Should we?
-	ow := rpc.NewStdoutWriter()
 
 	var (
 		plan    = comp.Global.Plan
@@ -256,7 +270,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput) ([]*api.BuildOu
 	return ress, nil
 }
 
-func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.RunOutput, error) {
+func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	if len(input.BuildGroups) > 0 {
 		bcomp, err := input.Composition.PickGroups(input.BuildGroups...)
 		if err != nil {
@@ -269,7 +283,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 				Manifest:    input.Manifest,
 			},
 			Sources: input.Sources,
-		})
+		}, ow)
 		if err != nil {
 			return nil, err
 		}
@@ -290,9 +304,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput) (*api.Ru
 	if err := comp.ValidateForRun(); err != nil {
 		return nil, err
 	}
-
-	// TODO: how to pass this to the client with --wait? Should we?
-	ow := rpc.NewStdoutWriter()
 
 	var (
 		plan   = comp.Global.Plan
