@@ -266,6 +266,16 @@ func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.R
 	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
 }
 
+func (c *Client) Tasks(ctx context.Context, r *api.TasksRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/tasks", bytes.NewReader(body.Bytes()))
+}
+
 func (c *Client) Status(ctx context.Context, r *api.StatusRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -274,6 +284,16 @@ func (c *Client) Status(ctx context.Context, r *api.StatusRequest) (io.ReadClose
 	}
 
 	return c.request(ctx, "POST", "/status", bytes.NewReader(body.Bytes()))
+}
+
+func (c *Client) Logs(ctx context.Context, r *api.LogsRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/logs", bytes.NewReader(body.Bytes()))
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
@@ -416,6 +436,19 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 	return resp, err
 }
 
+// ParseTasksRequest parses a response from a 'task' call
+func ParseTasksRequest(r io.ReadCloser) (interface{}, error) {
+	err := parseGeneric(
+		r,
+		printProgress,
+		nil,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+	return nil, err
+}
+
 // ParseStatusResponse parses a response from a 'status' call
 func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
 	var resp api.StatusResponse
@@ -434,6 +467,19 @@ func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
 		},
 	)
 	return resp, err
+}
+
+// ParseLogsRequest parses a response from a 'logs' call
+func ParseLogsRequest(r io.ReadCloser) (interface{}, error) {
+	err := parseGeneric(
+		r,
+		printProgress,
+		nil,
+		func(result interface{}) error {
+			return nil
+		},
+	)
+	return nil, err
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader, headers ...string) (io.ReadCloser, error) {
