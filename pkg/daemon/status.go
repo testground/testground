@@ -14,14 +14,14 @@ func (d *Daemon) statusHandler(engine api.Engine) func(w http.ResponseWriter, r 
 		var req api.StatusRequest
 		err := json.NewDecoder(r.Body).Decode(&req)
 		if err != nil {
-			tgw.WriteError("task status json decode", "err", err.Error())
+			tgw.WriteError("status json decode", "err", err.Error())
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
 		tsk, err := engine.TaskStatus(req.TaskID)
 		if err != nil {
-			tgw.Warnw("could not fetch task status", "err", err)
+			tgw.Warnw("could not fetch status", "task_id", req.TaskID, "err", err)
 			return
 		}
 
