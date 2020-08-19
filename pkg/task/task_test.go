@@ -3,6 +3,7 @@ package task
 import (
 	"container/heap"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -17,6 +18,12 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		tsk := Task{
 			ID:       earlier,
 			Priority: i,
+			States: []DatedState{
+				{
+					State:   StateScheduled,
+					Created: time.Now(),
+				},
+			},
 		}
 		heap.Push(&tq, &tsk)
 	}
@@ -25,6 +32,12 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		tsk := Task{
 			ID:       later,
 			Priority: i,
+			States: []DatedState{
+				{
+					State:   StateScheduled,
+					Created: time.Now(),
+				},
+			},
 		}
 		heap.Push(&tq, &tsk)
 	}

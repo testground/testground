@@ -150,7 +150,6 @@ func (s *Storage) ChangePrefix(dst string, src string, id string) error {
 
 // ArchiveRange returns []*Task with all tasks between the given time ranges.
 func (s *Storage) ArchiveRange(start time.Time, end time.Time) (tasks []*Task, err error) {
-
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			ARCHIVEPREFIX,
