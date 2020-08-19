@@ -95,6 +95,13 @@ type DockerGoBuilderConfig struct {
 	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
 	// Cgo enables the creation of Go packages that call C code. By default it is disabled.
+	// Enabling CGO also enables dynamic linking. Disabling CGO (default) produces statically
+	// linked binaries.
+	//
+	// If you ever see errors like the following, you are probably better off
+	// disabling CGO (and therefore enabling static linking).
+	//
+	//   /testplan: error while loading shared libraries: libdl.so.2: cannot open shared object file: No such file or directory
 	// If you pass `true` to this flag, your test plan will be built with CGO_ENABLED=1
 	EnableCGO bool `toml:"enable_cgo"`
 
