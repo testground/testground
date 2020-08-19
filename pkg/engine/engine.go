@@ -163,7 +163,7 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 	id := uuid.New().String()[:8]
 	err := e.queue.Push(&task.Task{
 		Version:  0,
-		Priority: 0,
+		Priority: request.Priority,
 		ID:       id,
 		Type:     task.TypeBuild,
 		Input: &BuildInput{
@@ -201,7 +201,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	id := uuid.New().String()[:8]
 	err := e.queue.Push(&task.Task{
 		Version:  0,
-		Priority: 0,
+		Priority: request.Priority,
 		ID:       id,
 		Type:     task.TypeRun,
 		Input: &RunInput{

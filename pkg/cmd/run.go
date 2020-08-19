@@ -156,6 +156,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	var (
 		sdkDir    string
 		extraSrcs []string
+		wait      = c.Bool("wait")
 	)
 
 	if len(buildIdx) > 0 {
@@ -193,6 +194,10 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		Manifest:    *manifest,
 	}
 
+	if wait {
+		req.Priority = 1
+	}
+
 	resp, err := cl.Run(ctx, req, planDir, sdkDir, extraSrcs)
 	switch err {
 	case nil:
@@ -212,7 +217,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	logging.S().Infof("run is queued with ID: %s", id)
 
-	if !c.Bool("wait") {
+	if !wait {
 		return nil
 	}
 

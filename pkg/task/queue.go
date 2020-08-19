@@ -43,7 +43,7 @@ type Queue struct {
 	tq *taskQueue
 	ts *Storage
 
-	max int // the maximum number of tasks to keep in the databse
+	max int // the maximum number of tasks to keep in the database
 }
 
 // Add an item to the priority queue

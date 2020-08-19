@@ -155,6 +155,7 @@ func buildSingleCmd(c *cli.Context) (err error) {
 func doBuild(c *cli.Context, comp *api.Composition) error {
 	var (
 		plan    = comp.Global.Plan
+		wait    = c.Bool("wait")
 		planDir string
 		sdkDir  string
 	)
@@ -196,6 +197,10 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		Manifest:    *manifest,
 	}
 
+	if wait {
+		req.Priority = 1
+	}
+
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
 	builder := comp.Global.Builder
@@ -228,7 +233,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 
 	logging.S().Infof("build queued with ID: %s", id)
 
-	if !c.Bool("wait") {
+	if !wait {
 		return nil
 	}
 
