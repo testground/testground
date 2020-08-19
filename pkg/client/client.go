@@ -286,6 +286,16 @@ func (c *Client) Status(ctx context.Context, r *api.StatusRequest) (io.ReadClose
 	return c.request(ctx, "POST", "/status", bytes.NewReader(body.Bytes()))
 }
 
+func (c *Client) Cancel(ctx context.Context, r *api.CancelRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/cancel", bytes.NewReader(body.Bytes()))
+}
+
 func (c *Client) Logs(ctx context.Context, r *api.LogsRequest) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
@@ -345,6 +355,18 @@ func printProgress(progress interface{}) error {
 
 	fmt.Print(string(m))
 	return nil
+}
+
+func parseMarshalAndUnmarshal(resp interface{}) func(result interface{}) error {
+	return func(result interface{}) error {
+		// Workaround around mapstructure.Decode which cannot be easily
+		// used to decode time.Time, nor enumerations.
+		data, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, &resp)
+	}
 }
 
 // ParseCollectResponse parses a response from a `collect` call
@@ -456,30 +478,44 @@ func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
 		r,
 		printProgress,
 		nil,
-		func(result interface{}) error {
-			// Workaround around mapstructure.Decode which cannot be easily
-			// used to decode time.Time, nor enumerations.
-			data, err := json.Marshal(result)
-			if err != nil {
-				return err
-			}
-			return json.Unmarshal(data, &resp)
-		},
+		parseMarshalAndUnmarshal(&resp),
 	)
 	return resp, err
 }
 
 // ParseLogsRequest parses a response from a 'logs' call
-func ParseLogsRequest(r io.ReadCloser) (interface{}, error) {
+func ParseLogsRequest(r io.ReadCloser) (api.LogsResponse, error) {
+	var resp api.LogsResponse
 	err := parseGeneric(
 		r,
-		printProgress,
-		nil,
-		func(result interface{}) error {
+		func(progress interface{}) error {
+			m, err := base64.StdEncoding.DecodeString(progress.(string))
+			if err != nil {
+				return err
+			}
+
+			var data struct {
+				T int    `json:"t"`
+				P string `json:"p"`
+			}
+
+			err = json.Unmarshal(m, &data)
+			if err != nil {
+				return err
+			}
+
+			m, err = base64.StdEncoding.DecodeString(data.P)
+			if err != nil {
+				return err
+			}
+
+			fmt.Print(string(m))
 			return nil
 		},
+		nil,
+		parseMarshalAndUnmarshal(&resp),
 	)
-	return nil, err
+	return resp, err
 }
 
 func (c *Client) request(ctx context.Context, method string, path string, body io.Reader, headers ...string) (io.ReadCloser, error) {

@@ -55,9 +55,16 @@ type StatusRequest struct {
 	TaskID string `json:"task_id"`
 }
 
+type CancelRequest struct {
+	TaskID string `json:"task_id"`
+}
+
 type LogsRequest struct {
 	TaskID string `json:"task_id"`
 	Follow bool   `json:"follow"`
+	// CancelWithContext indicates if the task should be cancelled
+	// on context cancellation.
+	CancelWithContext bool `json:"cancel_with_context"`
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -77,3 +84,5 @@ type CollectResponse struct {
 type HealthcheckResponse = HealthcheckReport
 
 type StatusResponse = task.Task
+
+type LogsResponse = task.Task

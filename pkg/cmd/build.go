@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"os"
 	"path/filepath"
 
@@ -230,30 +232,27 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		return nil
 	}
 
-	// TODO: testground logs, testground status
-
-	/* r, err := cl.Status(ctx, &api.TaskStatusRequest{
-		ID:                id,
-		WaitForCompletion: true,
+	r, err := cl.Logs(ctx, &api.LogsRequest{
+		TaskID:            id,
+		Follow:            true,
+		CancelWithContext: true,
 	})
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	res, err := client.ParseStatusResponse(r)
+	tsk, err := client.ParseLogsRequest(r)
 	if err != nil {
 		return err
 	}
 
-	// TODO: cancel on ctx cancel
-
-	if res.Result.Error != "" {
-		return errors.New(res.Result.Error)
+	if tsk.Result.Error != "" {
+		return errors.New(tsk.Result.Error)
 	}
 
 	var rout []api.BuildOutput
-	err = mapstructure.Decode(res.Result.Data, &rout)
+	err = mapstructure.Decode(tsk.Result.Data, &rout)
 	if err != nil {
 		return err
 	}
@@ -262,7 +261,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		g := comp.Groups[i]
 		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
 		g.Run.Artifact = out.ArtifactPath
-	} */
+	}
 
 	return nil
 }

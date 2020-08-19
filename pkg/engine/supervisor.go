@@ -53,6 +53,24 @@ func (e *Engine) worker(n int) {
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
 			defer cancel()
+			out := make(chan int)
+
+			e.closeChsLock.Lock()
+			e.closeChs[tsk.ID] = out
+			e.closeChsLock.Unlock()
+
+			go func() {
+				select {
+				case <-out:
+					logging.S().Infow("task manually canceled", "task_id", tsk.ID)
+					e.closeChsLock.Lock()
+					delete(e.closeChs, tsk.ID)
+					e.closeChsLock.Unlock()
+					cancel()
+				case <-ctx.Done():
+					return
+				}
+			}()
 
 			err = store.AppendTaskState(tsk.ID, task.StateProcessing)
 			if err != nil {
@@ -91,6 +109,9 @@ func (e *Engine) worker(n int) {
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
+			e.closeChsLock.Lock()
+			delete(e.closeChs, tsk.ID)
+			e.closeChsLock.Unlock()
 			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
 		}()
 	}

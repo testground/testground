@@ -3,8 +3,6 @@ package engine
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
@@ -12,6 +10,7 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -52,8 +51,11 @@ type Engine struct {
 	runners map[string]api.Runner
 	envcfg  *config.EnvConfig
 	ctx     context.Context
-	store   *task.TaskStorage
-	queue   *task.Queue
+
+	store        *task.TaskStorage
+	queue        *task.Queue
+	closeChs     map[string]chan int
+	closeChsLock sync.RWMutex
 }
 
 var _ api.Engine = (*Engine)(nil)
@@ -82,6 +84,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		ctx:      context.Background(),
 		store:    store,
 		queue:    queue,
+		closeChs: map[string]chan int{},
 	}
 
 	for _, b := range cfg.Builders {
@@ -335,43 +338,85 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 	return e.store.Get(task.QUEUEPREFIX, id)
 }
 
-func (e *Engine) Logs(id string, follow bool, ow *rpc.OutputWriter) (*task.Task, error) {
-	// TODO: wait to start and follow
-
+func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error) {
 	path := filepath.Join(e.EnvConfig().Dirs().Home(), "out_req", id, "out.log")
+
+	if !follow {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+
+		for scanner.Scan() {
+			_, err = ow.WriteProgress(scanner.Bytes())
+			if err != nil {
+				return nil, err
+			}
+
+			if err := scanner.Err(); err != nil {
+				return nil, err
+			}
+		}
+
+		return e.Status(id)
+	}
+
+	// Wait for the task to start
+	for true {
+		tsk, err := e.Status(id)
+		if err != nil {
+			return nil, err
+		}
+
+		if tsk.State().TaskState == task.StateScheduled {
+			time.Sleep(time.Millisecond * 500)
+		} else {
+			break
+		}
+	}
 
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
+	reader := bufio.NewReader(file)
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		// TODO: maybe parse this in the client instead?
-		var data struct {
-			T int    `json:"t"`
-			P string `json:"p"`
+Outer:
+	for {
+		select {
+		case <-ctx.Done():
+			if cancel {
+				e.closeChsLock.RLock()
+				if ch, ok := e.closeChs[id]; ok {
+					close(ch)
+				}
+				e.closeChsLock.RUnlock()
+			}
+			break Outer
+		default:
+			e.closeChsLock.RLock()
+			_, running := e.closeChs[id]
+			e.closeChsLock.RUnlock()
+
+			line, err := reader.ReadBytes('\n')
+
+			if err == io.EOF {
+				if running {
+					continue
+				} else {
+					break Outer
+				}
+			}
+
+			_, err = ow.WriteProgress(line)
+			if err != nil {
+				return nil, err
+			}
 		}
-
-		err = json.Unmarshal(scanner.Bytes(), &data)
-		if err != nil {
-			return nil, err
-		}
-
-		m, err := base64.StdEncoding.DecodeString(data.P)
-		if err != nil {
-			return nil, err
-		}
-
-		_, err = ow.WriteProgress(m)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 
 	return e.Status(id)

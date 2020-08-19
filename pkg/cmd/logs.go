@@ -44,7 +44,11 @@ func logsCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	_, err = client.ParseLogsRequest(r)
-	// TODO: parse response
-	return err
+	tsk, err := client.ParseLogsRequest(r)
+	if err != nil {
+		return err
+	}
+
+	printTask(tsk)
+	return nil
 }

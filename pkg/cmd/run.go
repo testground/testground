@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/logging"
+	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -213,34 +216,27 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		return nil
 	}
 
-	r, err := cl.Status(ctx, &api.StatusRequest{
-		TaskID: id,
+	r, err := cl.Logs(ctx, &api.LogsRequest{
+		TaskID:            id,
+		Follow:            true,
+		CancelWithContext: true,
 	})
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	// TODO: testground logs, testground status
-
-	/* res, err := client.ParseStatusResponse(r)
+	tsk, err := client.ParseLogsRequest(r)
 	if err != nil {
 		return err
 	}
 
-	// TODO: cancel task on context cancel
-
-	/* select {
-	case <-ctx.Done():
-		fmt.Println("Should Cancel")
-	}
-
-	if res.Result.Error != "" {
-		return errors.New(res.Result.Error)
+	if tsk.Result.Error != "" {
+		return errors.New(tsk.Result.Error)
 	}
 
 	var rout api.RunOutput
-	err = mapstructure.Decode(res.Result.Data, &rout)
+	err = mapstructure.Decode(tsk.Result.Data, &rout)
 	if err != nil {
 		return err
 	}
@@ -269,7 +265,5 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", id)
 	}
 
-	return collect(ctx, cl, comp.Global.Runner, id, collectFile) */
-
-	return nil
+	return collect(ctx, cl, comp.Global.Runner, id, collectFile)
 }

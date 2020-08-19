@@ -19,10 +19,9 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		tsk, err := engine.Logs(req.TaskID, req.Follow, tgw)
+		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
 		if err != nil {
 			tgw.WriteError("error while fetching logs", "err", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 

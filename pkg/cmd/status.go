@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/task"
 	"github.com/urfave/cli/v2"
 )
 
@@ -51,12 +52,7 @@ func statusCommand(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Printf("ID:\t\t%s\n", res.ID)
-	fmt.Printf("Priority:\t%d\n", res.Priority)
-	fmt.Printf("Created:\t%s\n", res.Created())
-	fmt.Printf("Type:\t\t%s\n", res.Type)
-	fmt.Printf("Status:\t\t%s\n", res.State().TaskState)
-	fmt.Printf("Last update:\t%s\n", res.State().Created)
+	printTask(res)
 
 	if c.Bool("extended") {
 		fmt.Printf("\nInput:\n")
@@ -75,4 +71,13 @@ func statusCommand(c *cli.Context) error {
 	}
 
 	return nil
+}
+
+func printTask(tsk task.Task) {
+	fmt.Printf("ID:\t\t%s\n", tsk.ID)
+	fmt.Printf("Priority:\t%d\n", tsk.Priority)
+	fmt.Printf("Created:\t%s\n", tsk.Created())
+	fmt.Printf("Type:\t\t%s\n", tsk.Type)
+	fmt.Printf("Status:\t\t%s\n", tsk.State().TaskState)
+	fmt.Printf("Last update:\t%s\n", tsk.State().Created)
 }
