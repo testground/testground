@@ -29,7 +29,7 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		heap.Push(&tq, &tsk)
 	}
 
-	// verify the sort is by piority (high->low) and time (oldest->newest)
+	// verify the sort is by priority (high->low) and time (oldest->newest)
 	head := heap.Pop(&tq).(*Task)
 	for len(tq) > 0 {
 		next := heap.Pop(&tq).(*Task)

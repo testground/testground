@@ -11,26 +11,26 @@ type State string
 
 const (
 	StateScheduled  State = "scheduled"
-	StateProcessing       = "processing"
-	StateComplete         = "complete"
+	StateProcessing State = "processing"
+	StateComplete   State = "complete"
 )
 
 // Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment
 // with the testground command-line we have two kinds of tasks
-// TaskBuild -- which functions similarly to `testground build`. The result of this task will contain
+// TypeBuild -- which functions similarly to `testground build`. The result of this task will contain
 // a build ID which can be used in a subsequent run.
-// TaskRun -- which functions similarly to `testground run`
+// TypeRun -- which functions similarly to `testground run`
 type Type string
 
 const (
-	TaskBuild Type = "build"
-	TaskRun        = "run"
+	TypeBuild Type = "build"
+	TypeRun   Type = "run"
 )
 
-// DatedTaskState (kind: struct) is a State with a timestamp.
-type DatedTaskState struct {
-	Created   time.Time `json:"created"`
-	TaskState State     `json:"state"`
+// DatedState (kind: struct) is a State with a timestamp.
+type DatedState struct {
+	Created time.Time `json:"created"`
+	State   State     `json:"state"`
 }
 
 // Result (kind: struct)
@@ -44,13 +44,13 @@ type Result struct {
 // metadata in our task storage database as well as the wire format returned when clients get the
 // state of a running or scheduled task.
 type Task struct {
-	Version  int              `json:"version"`  // Schema version
-	Priority int              `json:"priority"` // scheduling priority
-	ID       string           `json:"id"`       // Unique identifier for this task
-	States   []DatedTaskState `json:"states"`   // State of the task
-	Type     Type             `json:"type"`     // Type of the task
-	Input    interface{}      `json:"input"`    // The input data for this task
-	Result   Result           `json:"result"`   // Result of the task, when terminal.
+	Version  int          `json:"version"`  // Schema version
+	Priority int          `json:"priority"` // scheduling priority
+	ID       string       `json:"id"`       // Unique identifier for this task
+	States   []DatedState `json:"states"`   // State of the task
+	Type     Type         `json:"type"`     // Type of the task
+	Input    interface{}  `json:"input"`    // The input data for this task
+	Result   Result       `json:"result"`   // Result of the task, when terminal.
 }
 
 func (t *Task) Created() time.Time {
@@ -61,7 +61,7 @@ func (t *Task) Created() time.Time {
 	return t.States[0].Created
 }
 
-func (t *Task) State() DatedTaskState {
+func (t *Task) State() DatedState {
 	if len(t.States) == 0 {
 		panic("task must have a state")
 	}

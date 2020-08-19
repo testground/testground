@@ -29,22 +29,23 @@ type BuildInput struct {
 	Sources *api.UnpackedSources
 }
 
-func (e *Engine) startSupervisor(workers int) {
-	for i := 0; i < workers; i++ {
-		go e.worker(i)
-	}
+func (e *Engine) addSignal(id string, ch chan int) {
+	e.signalsLk.Lock()
+	e.signals[id] = ch
+	e.signalsLk.Unlock()
+}
+
+func (e *Engine) deleteSignal(id string) {
+	e.signalsLk.Lock()
+	delete(e.signals, id)
+	e.signalsLk.Unlock()
 }
 
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
 
-	var (
-		store = e.TaskStorage()
-		queue = e.TaskQueue()
-	)
-
 	for {
-		tsk, err := queue.Pop()
+		tsk, err := e.queue.Pop()
 		if err == task.ErrQueueEmpty {
 			time.Sleep(time.Second)
 			continue
@@ -53,26 +54,21 @@ func (e *Engine) worker(n int) {
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
 			defer cancel()
-			out := make(chan int)
 
-			e.closeChsLock.Lock()
-			e.closeChs[tsk.ID] = out
-			e.closeChsLock.Unlock()
+			ch := make(chan int)
+			e.addSignal(tsk.ID, ch)
 
 			go func() {
 				select {
-				case <-out:
-					logging.S().Infow("task manually canceled", "task_id", tsk.ID)
-					e.closeChsLock.Lock()
-					delete(e.closeChs, tsk.ID)
-					e.closeChsLock.Unlock()
+				case <-ch:
+					e.deleteSignal(tsk.ID)
 					cancel()
 				case <-ctx.Done():
 					return
 				}
 			}()
 
-			err = store.AppendTaskState(tsk.ID, task.StateProcessing)
+			err = e.store.AppendTaskState(tsk.ID, task.StateProcessing)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
@@ -80,16 +76,11 @@ func (e *Engine) worker(n int) {
 
 			var data interface{}
 
-			// Create a packing directory under the workdir.
-			dir := filepath.Join(e.EnvConfig().Dirs().Home(), "out_req", tsk.ID)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				logging.S().Errorw("could not create dir", "err", err)
-				return
-			}
-
-			f, err := os.OpenFile(filepath.Join(dir, "out.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			// Create a packing directory under the work dir.
+			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID + ".out")
+			f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				logging.S().Errorw("could not create out log", "err", err)
+				logging.S().Errorw("could not create stop log", "err", err)
 				return
 			}
 			defer f.Close()
@@ -97,21 +88,19 @@ func (e *Engine) worker(n int) {
 			ow := rpc.NewFileOutputWriter(f)
 
 			switch tsk.Type {
-			case task.TaskRun:
+			case task.TypeRun:
 				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
-			case task.TaskBuild:
+			case task.TypeBuild:
 				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
 			default:
 				// wut
 			}
 
-			err = store.MarkCompleted(tsk.ID, err, data)
+			err = e.store.MarkCompleted(tsk.ID, err, data)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
-			e.closeChsLock.Lock()
-			delete(e.closeChs, tsk.ID)
-			e.closeChsLock.Unlock()
+			e.deleteSignal(tsk.ID)
 			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
 		}()
 	}

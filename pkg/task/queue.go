@@ -14,7 +14,7 @@ var (
 	ErrQueueFull  = errors.New("queue full")
 )
 
-func NewQueue(ts *TaskStorage, max int) (*Queue, error) {
+func NewQueue(ts *Storage, max int) (*Queue, error) {
 	tq := new(taskQueue)
 	for _, prefix := range []string{QUEUEPREFIX, CURRENTPREFIX} {
 		// read the active tasks into the queue
@@ -41,7 +41,7 @@ func NewQueue(ts *TaskStorage, max int) (*Queue, error) {
 type Queue struct {
 	sync.Mutex
 	tq *taskQueue
-	ts *TaskStorage
+	ts *Storage
 
 	max int // the maximum number of tasks to keep in the databse
 }

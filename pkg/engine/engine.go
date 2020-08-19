@@ -41,7 +41,7 @@ var AllRunners = []api.Runner{
 // perform queries on the Engine.
 //
 // TODO: the Engine should also centralise all system state and make it
-// queriable, e.g. what tests are running, or have run, such that we can easily
+// queryable, e.g. what tests are running, or have run, such that we can easily
 // query test plans that ran for a particular commit of an upstream.
 type Engine struct {
 	lk sync.RWMutex
@@ -51,11 +51,12 @@ type Engine struct {
 	runners map[string]api.Runner
 	envcfg  *config.EnvConfig
 	ctx     context.Context
-
-	store        *task.TaskStorage
-	queue        *task.Queue
-	closeChs     map[string]chan int
-	closeChsLock sync.RWMutex
+	store   *task.Storage
+	queue   *task.Queue
+	// signals contains a channel for each running task
+	// by closing a channel, the task is canceled
+	signals   map[string]chan int
+	signalsLk sync.RWMutex
 }
 
 var _ api.Engine = (*Engine)(nil)
@@ -84,7 +85,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		ctx:      context.Background(),
 		store:    store,
 		queue:    queue,
-		closeChs: map[string]chan int{},
+		signals:  make(map[string]chan int),
 	}
 
 	for _, b := range cfg.Builders {
@@ -95,7 +96,13 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	go e.startSupervisor(2)
+	// TODO: make this configurable
+	workers := 2
+
+	for i := 0; i < workers; i++ {
+		go e.worker(i)
+	}
+
 	return e, nil
 }
 
@@ -158,15 +165,15 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 		Version:  0,
 		Priority: 0,
 		ID:       id,
-		Type:     task.TaskBuild,
+		Type:     task.TypeBuild,
 		Input: &BuildInput{
 			BuildRequest: request,
 			Sources:      sources,
 		},
-		States: []task.DatedTaskState{
+		States: []task.DatedState{
 			{
-				TaskState: task.StateScheduled,
-				Created:   time.Now(),
+				State:   task.StateScheduled,
+				Created: time.Now(),
 			},
 		},
 	})
@@ -196,15 +203,15 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		Version:  0,
 		Priority: 0,
 		ID:       id,
-		Type:     task.TaskRun,
+		Type:     task.TypeRun,
 		Input: &RunInput{
 			RunRequest: request,
 			Sources:    sources,
 		},
-		States: []task.DatedTaskState{
+		States: []task.DatedState{
 			{
-				TaskState: task.StateScheduled,
-				Created:   time.Now(),
+				State:   task.StateScheduled,
+				Created: time.Now(),
 			},
 		},
 	})
@@ -223,7 +230,7 @@ func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID stri
 	// Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.Runners[runner])
 
-	// Coalesce all configurations and deserialise into the config type
+	// Coalesce all configurations and deserialize into the config type
 	// mandated by the builder.
 	obj, err := cfg.CoalesceIntoType(run.ConfigType())
 	if err != nil {
@@ -303,14 +310,6 @@ func (e *Engine) Context() context.Context {
 	return e.ctx
 }
 
-func (e *Engine) TaskQueue() *task.Queue {
-	return e.queue
-}
-
-func (e *Engine) TaskStorage() *task.TaskStorage {
-	return e.store
-}
-
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -339,7 +338,7 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 }
 
 func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error) {
-	path := filepath.Join(e.EnvConfig().Dirs().Home(), "out_req", id, "out.log")
+	path := filepath.Join(e.EnvConfig().Dirs().Daemon(), id+".out")
 
 	if !follow {
 		file, err := os.Open(path)
@@ -365,13 +364,13 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	}
 
 	// Wait for the task to start
-	for true {
+	for {
 		tsk, err := e.Status(id)
 		if err != nil {
 			return nil, err
 		}
 
-		if tsk.State().TaskState == task.StateScheduled {
+		if tsk.State().State == task.StateScheduled {
 			time.Sleep(time.Millisecond * 500)
 		} else {
 			break
@@ -390,17 +389,17 @@ Outer:
 		select {
 		case <-ctx.Done():
 			if cancel {
-				e.closeChsLock.RLock()
-				if ch, ok := e.closeChs[id]; ok {
+				e.signalsLk.RLock()
+				if ch, ok := e.signals[id]; ok {
 					close(ch)
 				}
-				e.closeChsLock.RUnlock()
+				e.signalsLk.RUnlock()
 			}
 			break Outer
 		default:
-			e.closeChsLock.RLock()
-			_, running := e.closeChs[id]
-			e.closeChsLock.RUnlock()
+			e.signalsLk.RLock()
+			_, running := e.signals[id]
+			e.signalsLk.RUnlock()
 
 			line, err := reader.ReadBytes('\n')
 

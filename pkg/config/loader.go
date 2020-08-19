@@ -56,6 +56,7 @@ func (e *EnvConfig) Load() error {
 		e.dirs.Plans(),
 		e.dirs.SDKs(),
 		e.dirs.Work(),
+		e.dirs.Daemon(),
 	} {
 		if err := ensureDir(d); err != nil {
 			return fmt.Errorf("failed to check/create directory %s: %w", d, err)

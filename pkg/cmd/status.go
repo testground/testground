@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -12,14 +11,19 @@ import (
 )
 
 var StatusCommand = cli.Command{
-	Name:      "status",
-	Usage:     "get the current status for a certain task",
-	Action:    statusCommand,
-	ArgsUsage: "[task_id]",
+	Name:   "status",
+	Usage:  "get the current status for a certain task",
+	Action: statusCommand,
 	Flags: []cli.Flag{
 		&cli.BoolFlag{
 			Name:  "extended",
 			Usage: "print extended information such as input and results",
+		},
+		&cli.StringFlag{
+			Name:     "task",
+			Aliases:  []string{"t"},
+			Usage:    "the task id",
+			Required: true,
 		},
 	},
 }
@@ -28,13 +32,7 @@ func statusCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	if c.NArg() != 1 {
-		return errors.New("missing run id")
-	}
-
-	var (
-		id = c.Args().First()
-	)
+	id := c.String("task")
 
 	cl, _, err := setupClient(c)
 	if err != nil {
@@ -78,6 +76,6 @@ func printTask(tsk task.Task) {
 	fmt.Printf("Priority:\t%d\n", tsk.Priority)
 	fmt.Printf("Created:\t%s\n", tsk.Created())
 	fmt.Printf("Type:\t\t%s\n", tsk.Type)
-	fmt.Printf("Status:\t\t%s\n", tsk.State().TaskState)
+	fmt.Printf("Status:\t\t%s\n", tsk.State().State)
 	fmt.Printf("Last update:\t%s\n", tsk.State().Created)
 }

@@ -16,14 +16,14 @@ func TestQueueIsPersistent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := NewQueue(&TaskStorage{db}, 1)
+	q, err := NewQueue(&Storage{db}, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	tsk := &Task{
 		ID: "abc123",
 	}
-	// store a task using the TaskStorage
+	// store a task using the Storage
 	err = q.Push(tsk)
 	if err != nil {
 		t.Fatal(err)
@@ -46,7 +46,7 @@ func TestQueueReloads(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ts := &TaskStorage{db}
+	ts := &Storage{db}
 
 	// open q1 and push an item into the queue
 	q1, err := NewQueue(ts, 1)
