@@ -94,6 +94,10 @@ type DockerGoBuilderConfig struct {
 	// cached image.
 	EnableGoBuildCache bool `toml:"enable_go_build_cache"`
 
+	// Cgo enables the creation of Go packages that call C code. By default it is disabled.
+	// If you pass `true` to this flag, your test plan will be built with CGO_ENABLED=1
+	EnableCGO bool `toml:"enable_cgo"`
+
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
 }
@@ -103,6 +107,7 @@ type DockerfileTemplateVars struct {
 	RuntimeImage         string
 	DockerfileExtensions DockerfileExtensions
 	SkipRuntimeImage     bool
+	CgoEnabled           int
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -143,11 +148,17 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, fmt.Errorf("failed to create Dockerfile at %s: %w", dockerfileDst, err)
 	}
 
+	cgoEnabled := 0
+	if cfg.EnableCGO {
+		cgoEnabled = 1
+	}
+
 	vars := &DockerfileTemplateVars{
 		WithSDK:              sdksrc != "",
 		RuntimeImage:         cfg.RuntimeImage,
 		DockerfileExtensions: cfg.DockerfileExtensions,
 		SkipRuntimeImage:     cfg.SkipRuntimeImage,
+		CgoEnabled:           cgoEnabled,
 	}
 
 	if err = dockerfileTmpl.Execute(f, &vars); err != nil {
@@ -588,9 +599,10 @@ COPY . /
 
 {{.DockerfileExtensions.PreBuild}}
 
+
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && CGO_ENABLED=${CgoEnabled} GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
