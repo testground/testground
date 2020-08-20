@@ -14,12 +14,18 @@ const (
 	EnvTestgroundHomeDir = "TESTGROUND_HOME"
 
 	DefaultListenAddr = "localhost:8042"
+
+	DefaultWorkers = 2
+
+	DefaultQueueSize = 100
 )
 
 func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
 	e.Client.Endpoint = DefaultListenAddr
+	e.Daemon.Workers = DefaultWorkers
+	e.Daemon.QueueSize = DefaultQueueSize
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.

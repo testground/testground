@@ -73,7 +73,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		return nil, err
 	}
 
-	queue, err := task.NewQueue(store, 100)
+	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.QueueSize)
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +96,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	// TODO: make this configurable
-	workers := 2
-
-	for i := 0; i < workers; i++ {
+	for i := 0; i < cfg.EnvConfig.Daemon.Workers; i++ {
 		go e.worker(i)
 	}
 
