@@ -1,6 +1,21 @@
 package build_test
 
-/*
+import (
+	"context"
+	"github.com/docker/docker/client"
+	"github.com/otiai10/copy"
+	"github.com/stretchr/testify/require"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/build"
+	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/engine"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+)
+
 func TestBuildSelector(t *testing.T) {
 	require := require.New(t)
 
@@ -55,8 +70,11 @@ func TestBuildSelector(t *testing.T) {
 				PlanDir: plandir,
 			}
 
-
-			_, err = engine.QueueBuild(context.TODO(), comp, unpacked, rpc.Discard())
+			_, err = engine.QueueBuild(&api.BuildRequest{
+				Priority:    0,
+				Composition: *comp,
+				Manifest:    api.TestPlanManifest{},
+			}, unpacked)
 			assertion(err)
 		}
 	}
@@ -78,4 +96,4 @@ func TestBuildSelector(t *testing.T) {
 
 	t.Run("docker:go/selectors", buildFn("docker:go", []string{"foo", "bar"}, require.Error))
 	t.Run("docker:go/no_selectors", buildFn("docker:go", []string{}, require.NoError))
-} */
+}

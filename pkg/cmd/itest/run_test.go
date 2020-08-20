@@ -26,7 +26,7 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 	)
 
 	if err == nil {
-		t.Fail()
+		t.Fatalf("should exit with an error")
 	}
 }
 
@@ -49,7 +49,7 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 	)
 
 	if err == nil {
-		t.Fail()
+		t.Fatalf("should exit with an error")
 	}
 }
 
@@ -75,7 +75,7 @@ func TestIncompatibleRun(t *testing.T) {
 	)
 
 	if err == nil {
-		t.Fail()
+		t.Fatalf("should exit with an error")
 	}
 }
 
@@ -101,7 +101,7 @@ func TestCompatibleRunLocal(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 }
 
@@ -127,7 +127,7 @@ func TestCompatibleRunDocker(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 }
 
@@ -153,6 +153,6 @@ func TestDockerGenericCustomizesImage(t *testing.T) {
 	)
 
 	if err != nil {
-		t.Fail()
+		t.Fatal(err)
 	}
 }
