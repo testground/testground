@@ -451,6 +451,8 @@ Outer:
 				} else {
 					break Outer
 				}
+			} else if err != nil {
+				return nil, err
 			}
 
 			_, err = ow.WriteProgress(line)
