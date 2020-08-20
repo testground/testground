@@ -2,6 +2,8 @@ package build_test
 
 import (
 	"context"
+	"errors"
+	"github.com/BurntSushi/toml"
 	"github.com/docker/docker/client"
 	"github.com/otiai10/copy"
 	"github.com/stretchr/testify/require"
@@ -9,6 +11,7 @@ import (
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/engine"
+	"github.com/testground/testground/pkg/rpc"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,6 +33,11 @@ func TestBuildSelector(t *testing.T) {
 
 	err = copy.Copy("../../plans/placebo", plandir)
 	require.NoError(err)
+
+	manifest := new(api.TestPlanManifest)
+	if _, err := toml.DecodeFile(filepath.Join(plandir, "manifest.toml"), manifest); err != nil {
+		t.Fatalf("failed to parse manifest file: %s", err.Error())
+	}
 
 	env := &config.EnvConfig{}
 	err = env.Load()
@@ -70,11 +78,25 @@ func TestBuildSelector(t *testing.T) {
 				PlanDir: plandir,
 			}
 
-			_, err = engine.QueueBuild(&api.BuildRequest{
+			id, err := engine.QueueBuild(&api.BuildRequest{
 				Priority:    0,
 				Composition: *comp,
-				Manifest:    api.TestPlanManifest{},
+				Manifest:    *manifest,
 			}, unpacked)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			tsk, err := engine.Logs(context.Background(), id, true, false, rpc.Discard())
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = nil
+			if tsk.Result.Error != "" {
+				err = errors.New(tsk.Result.Error)
+			}
+
 			assertion(err)
 		}
 	}
