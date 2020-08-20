@@ -316,6 +316,51 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
+func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
+	var res []task.Task
+
+	before := time.Time{}
+	after := time.Now()
+
+	fmt.Println(before.String())
+	fmt.Println(after.String())
+
+	// TODO(hac): something is wrong here with the dates
+
+	e.signalsLk.RLock()
+
+	for _, state := range filters.States {
+		var prefix string
+
+		switch state {
+		case task.StateScheduled:
+			prefix = task.QUEUEPREFIX
+		case task.StateProcessing:
+			prefix = task.CURRENTPREFIX
+		case task.StateComplete:
+			prefix = task.ARCHIVEPREFIX
+		}
+
+		tsks, err := e.store.Range(prefix, before, after)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, tsk := range tsks {
+			for _, tp := range filters.Types {
+				if tsk.Type == tp {
+					res = append(res, *tsk)
+					break
+				}
+			}
+		}
+	}
+
+	e.signalsLk.RUnlock()
+
+	return res, nil
+}
+
 func (e *Engine) Status(id string) (*task.Task, error) {
 	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
 	if err == nil {

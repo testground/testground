@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/logrusorgru/aurora"
+	"github.com/testground/testground/pkg/task"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -459,16 +460,15 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 }
 
 // ParseTasksRequest parses a response from a 'task' call
-func ParseTasksRequest(r io.ReadCloser) (interface{}, error) {
+func ParseTasksRequest(r io.ReadCloser) ([]*task.Task, error) {
+	var resp []*task.Task
 	err := parseGeneric(
 		r,
 		printProgress,
 		nil,
-		func(result interface{}) error {
-			return nil
-		},
+		parseMarshalAndUnmarshal(&resp),
 	)
-	return nil, err
+	return resp, err
 }
 
 // ParseStatusResponse parses a response from a 'status' call

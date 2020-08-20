@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/task"
 	"github.com/urfave/cli/v2"
 )
 
@@ -12,7 +14,7 @@ var TasksCommand = cli.Command{
 	Usage:  "get a list of the existing tasks",
 	Action: tasksCommand,
 	Flags: []cli.Flag{
-		// TODO: filters
+		// TODO(hac): filters
 	},
 }
 
@@ -25,15 +27,26 @@ func tasksCommand(c *cli.Context) error {
 		return err
 	}
 
-	r, err := cl.Tasks(ctx, &api.TasksRequest{
+	req := &api.TasksRequest{
+		Types:  []task.Type{task.TypeBuild, task.TypeRun},
+		States: []task.State{task.StateScheduled, task.StateProcessing, task.StateComplete},
+	}
 
-	})
+	r, err := cl.Tasks(ctx, req)
 	if err != nil {
 		return err
 	}
 	defer r.Close()
 
-	_, err = client.ParseTasksRequest(r)
-	// TODO: parse response
+	tsks, err := client.ParseTasksRequest(r)
+	if err != nil {
+		return err
+	}
+
+	for _, tsk := range tsks {
+		// TODO(hac): parse response
+		fmt.Printf("%s\t%s\t%s\n", tsk.ID, tsk.State().State, tsk.Type)
+	}
+
 	return err
 }

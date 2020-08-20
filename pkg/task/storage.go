@@ -148,14 +148,14 @@ func (s *Storage) ChangePrefix(dst string, src string, id string) error {
 	return trans.Commit()
 }
 
-// ArchiveRange returns []*Task with all tasks between the given time ranges.
-func (s *Storage) ArchiveRange(start time.Time, end time.Time) (tasks []*Task, err error) {
+// Range returns []*Task with all tasks between the given time ranges.
+func (s *Storage) Range(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
-			ARCHIVEPREFIX,
+			prefix,
 			strconv.FormatInt(start.Unix(), 10)}, ":")),
 		Limit: []byte(strings.Join([]string{
-			ARCHIVEPREFIX,
+			prefix,
 			strconv.FormatInt(end.Unix(), 10)}, ":")),
 	}
 

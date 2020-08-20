@@ -19,8 +19,12 @@ func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *
 			return
 		}
 
-		// TODO: implement
-		tgw.WriteError("not implemented yet")
-		w.WriteHeader(http.StatusNotImplemented)
+		tasks, err := engine.Tasks(req)
+		if err != nil {
+			tgw.WriteError("tasks json decode", "err", err.Error())
+			return
+		}
+
+		tgw.WriteResult(tasks)
 	}
 }

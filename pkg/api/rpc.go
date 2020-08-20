@@ -49,9 +49,7 @@ type BuildPurgeRequest struct {
 	Testplan string `json:"testplan"`
 }
 
-type TasksRequest struct {
-	// TODO: filters?
-}
+type TasksRequest = TasksFilters
 
 type StatusRequest struct {
 	TaskID string `json:"task_id"`

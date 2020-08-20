@@ -34,6 +34,11 @@ type UnpackedSources struct {
 	ExtraDir string `json:"extra_dir"`
 }
 
+type TasksFilters struct {
+	Types  []task.Type
+	States []task.State
+}
+
 type Engine interface {
 	BuilderByName(name string) (Builder, bool)
 	RunnerByName(name string) (Runner, bool)
@@ -46,6 +51,7 @@ type Engine interface {
 
 	Status(id string) (*task.Task, error)
 	Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error)
+	Tasks(filters TasksFilters) ([]task.Task, error)
 
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error

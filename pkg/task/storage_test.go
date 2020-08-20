@@ -115,7 +115,7 @@ func TestArchive(t *testing.T) {
 	before := time.Date(2020, 6, 8, 17, 46, 20, 0, cali)
 	after := time.Date(2020, 6, 8, 17, 46, 50, 0, cali)
 
-	between, err := ts.ArchiveRange(before, after)
+	between, err := ts.Range(ARCHIVEPREFIX, before, after)
 	if err != nil {
 		t.Fatal(err)
 	}
