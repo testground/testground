@@ -4,7 +4,7 @@ my_dir="$(dirname "$0")"
 source "$my_dir/header.sh"
 
 testground plan import --from plans/placebo
-testground build single --builder docker:go --plan placebo | tee build.out
+testground build single --builder docker:go --plan placebo --wait | tee build.out
 export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
 docker tag $ARTIFACT testplan:placebo
 
