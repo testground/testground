@@ -51,7 +51,7 @@ func (d *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r *
 	}
 }
 
-func (d *Daemon) buildPurgeHandler(engine api.Engine) func (w http.ResponseWriter, r *http.Request) {
+func (d *Daemon) buildPurgeHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
 
