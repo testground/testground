@@ -13,13 +13,18 @@ import (
 const (
 	EnvTestgroundHomeDir = "TESTGROUND_HOME"
 
+	// DefaultListenAddr is a host:port value, where we set up an HTTP endpoint.
+	// In the future we will support an HTTPS mode.
 	DefaultListenAddr = "localhost:8042"
+
+	// DefaultClientURL is the HTTP(S) endpoint of the server.
+	DefaultClientURL = "http://" + DefaultListenAddr
 )
 
 func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
-	e.Client.Endpoint = DefaultListenAddr
+	e.Client.Endpoint = DefaultClientURL
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.
