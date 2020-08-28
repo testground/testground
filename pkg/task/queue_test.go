@@ -21,7 +21,7 @@ func TestQueueIsPersistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	tsk := &Task{
-		ID: "abc123",
+		ID: "bt4brhjpc98qra498sg0",
 	}
 	// store a task using the Storage
 	err = q.Push(tsk)
@@ -39,7 +39,7 @@ func TestQueueIsPersistent(t *testing.T) {
 // Simulate persistance between restarts.
 // Push to a q1, make sure it persists when q2 has the same storage.
 func TestQueueReloads(t *testing.T) {
-	id := "abc123"
+	id := "bt4brhjpc98qra498sg0"
 	/// Both queues will use the same storage
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)

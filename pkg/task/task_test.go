@@ -9,8 +9,8 @@ import (
 )
 
 func TestQueueSortsPriorityAndTime(t *testing.T) {
-	earlier := "f9b884ad-a9e8-11ea-82b2-ccb0daba35bf"
-	later := "09c8372d-a9e9-11ea-b70d-ccb0daba35bf"
+	earlier := "brfdnkrpc98qs6rq33b0"
+	later := "brfdo1rpc98r0s6e2dv0"
 
 	// Add tasks to the queue with different priorities
 	tq := make(taskQueue, 0)
