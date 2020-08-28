@@ -31,16 +31,13 @@ type Storage struct {
 // derive the key from the database prefix and the ID of the task we are searching for.
 // In order to do time-based range searches and searches for tasks in a particular phase of execution,
 // keys are stored under a prefix which represents the state of the task and a timestamp.
-// TODO(hac): rewrite this
-// Tasks are using a time-based UUID to identify each task. Get the time from the ID.
-// This works because leveldb stores keys in lexicographical order, and by doing this we make sure the time
-// order and lexicographical order of the database are the same.
 //
-// For example, two IDs generated a few minutes apart:
-// 8e1ae8c9-aa82-11ea-9feb-ccb0daba35bf  <- Timestamp: 1591728829482004100
-// a26e8628-aa82-11ea-8873-ccb0daba35bf  <- Timestamp: 1591728863584413600
-// By sorting the keys lexicographically by the converted timestamp, we can range query over a given period
-// So key `archive:1591728829482004100` will contain the task with ID 8e1ae8c9-aa82-11ea-9feb-ccb0daba35bf
+// Tasks are using a time-based identifier (using the library xid) to identify each task. These ids
+// are also lexicographically sortable. However, for the key inside LevelDB we're just using a key
+// composed by the prefix + the timestamp + the xid.
+//
+// This way we can easily range over periods of time and, at the same time, get specific tasks from
+// the storage.
 func taskKey(prefix string, id string) []byte {
 	u, err := xid.FromString(id)
 	if err != nil {
