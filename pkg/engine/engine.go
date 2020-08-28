@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/rs/xid"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
@@ -15,8 +16,6 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -157,7 +156,7 @@ func (e *Engine) ListRunners() map[string]api.Runner {
 }
 
 func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSources) (string, error) {
-	id := uuid.New().String()[:8]
+	id := xid.New().String()
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: request.Priority,
@@ -170,7 +169,7 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 		States: []task.DatedState{
 			{
 				State:   task.StateScheduled,
-				Created: time.Now(),
+				Created: time.Now().UTC(),
 			},
 		},
 	})
@@ -195,7 +194,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		return "", fmt.Errorf("runner %s is incompatible with builder %s", runner, builder)
 	}
 
-	id := uuid.New().String()[:8]
+	id := xid.New().String()
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: request.Priority,
@@ -208,7 +207,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		States: []task.DatedState{
 			{
 				State:   task.StateScheduled,
-				Created: time.Now(),
+				Created: time.Now().UTC(),
 			},
 		},
 	})
@@ -319,13 +318,8 @@ func stringInSlice(a string, list []string) bool {
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	var res []task.Task
 
-	before := time.Time{}
-	after := time.Now()
-
-	fmt.Println(before.String())
-	fmt.Println(after.String())
-
-	// TODO(hac): something is wrong here with the dates
+	before := time.Now().UTC().Add(-time.Hour)
+	after := time.Now().UTC()
 
 	e.signalsLk.RLock()
 
@@ -357,7 +351,6 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	}
 
 	e.signalsLk.RUnlock()
-
 	return res, nil
 }
 

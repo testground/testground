@@ -7,6 +7,8 @@ import (
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/task"
 	"github.com/urfave/cli/v2"
+	"os"
+	"text/tabwriter"
 )
 
 var TasksCommand = cli.Command{
@@ -43,10 +45,15 @@ func tasksCommand(c *cli.Context) error {
 		return err
 	}
 
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+
+	fmt.Fprintln(w, "ID\tState\tType")
+
 	for _, tsk := range tsks {
-		// TODO(hac): parse response
-		fmt.Printf("%s\t%s\t%s\n", tsk.ID, tsk.State().State, tsk.Type)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", tsk.ID, tsk.State().State, tsk.Type)
 	}
+
+	w.Flush()
 
 	return err
 }

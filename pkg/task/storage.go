@@ -3,12 +3,12 @@ package task
 import (
 	"encoding/json"
 	"errors"
+	"github.com/rs/xid"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -31,6 +31,7 @@ type Storage struct {
 // derive the key from the database prefix and the ID of the task we are searching for.
 // In order to do time-based range searches and searches for tasks in a particular phase of execution,
 // keys are stored under a prefix which represents the state of the task and a timestamp.
+// TODO(hac): rewrite this
 // Tasks are using a time-based UUID to identify each task. Get the time from the ID.
 // This works because leveldb stores keys in lexicographical order, and by doing this we make sure the time
 // order and lexicographical order of the database are the same.
@@ -41,14 +42,12 @@ type Storage struct {
 // By sorting the keys lexicographically by the converted timestamp, we can range query over a given period
 // So key `archive:1591728829482004100` will contain the task with ID 8e1ae8c9-aa82-11ea-9feb-ccb0daba35bf
 func taskKey(prefix string, id string) []byte {
-	var tskey string
-	u, err := uuid.Parse(id)
-	if err != nil { // can't parse the ID, use the ID directly
-		tskey = id
-	} else { // Convert the ID into a timestamp.
-		sec, usec := u.Time().UnixTime()
-		tskey = strconv.FormatInt(sec, 10) + strconv.FormatInt(usec, 10)
+	u, err := xid.FromString(id)
+	if err != nil {
+		panic("task key must be a xid id")
 	}
+
+	tskey := strconv.FormatInt(u.Time().Unix(), 10) + "_" + u.String()
 	return []byte(strings.Join([]string{prefix, tskey}, ":"))
 }
 
@@ -93,7 +92,7 @@ func (s *Storage) AppendTaskState(id string, state State) error {
 	}
 	dated := DatedState{
 		State:   state,
-		Created: time.Now(),
+		Created: time.Now().UTC(),
 	}
 	tsk.States = append(tsk.States, dated)
 	return s.Put(CURRENTPREFIX, tsk)
@@ -106,7 +105,7 @@ func (s *Storage) MarkCompleted(id string, error error, data interface{}) error 
 	}
 	dated := DatedState{
 		State:   StateComplete,
-		Created: time.Now(),
+		Created: time.Now().UTC(),
 	}
 	tsk.States = append(tsk.States, dated)
 	tsk.Result = Result{
@@ -153,10 +152,12 @@ func (s *Storage) Range(prefix string, start time.Time, end time.Time) (tasks []
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			prefix,
-			strconv.FormatInt(start.Unix(), 10)}, ":")),
+			strconv.FormatInt(start.Unix(), 10),
+		}, ":")),
 		Limit: []byte(strings.Join([]string{
 			prefix,
-			strconv.FormatInt(end.Unix(), 10)}, ":")),
+			strconv.FormatInt(end.Unix(), 10),
+		}, ":")),
 	}
 
 	tasks = make([]*Task, 0)
