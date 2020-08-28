@@ -19,7 +19,7 @@ RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"
 file $RUNID.tgz
 LENGTH=${#RUNID}
-test $LENGTH -eq 8
+test $LENGTH -eq 20
 tar -xzvvf $RUNID.tgz
 SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
 echo "run.out is $SIZEOUT bytes."
