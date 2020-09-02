@@ -318,7 +318,7 @@ func stringInSlice(a string, list []string) bool {
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	var res []task.Task
 
-	before := time.Now().UTC().Add(-time.Hour)
+	before := time.Now().UTC().Add(-24 * time.Hour)
 	after := time.Now().UTC()
 
 	e.signalsLk.RLock()
