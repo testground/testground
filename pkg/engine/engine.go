@@ -419,6 +419,8 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	defer file.Close()
 	reader := bufio.NewReader(file)
 
+	var prevBytes []byte
+
 Outer:
 	for {
 		select {
@@ -439,6 +441,13 @@ Outer:
 			line, err := reader.ReadBytes('\n')
 
 			if err == io.EOF {
+				if len(line) != 0 {
+					// It means we read part of a line so it's not actually
+					// the end of the file.
+					prevBytes = line
+					continue
+				}
+
 				if running {
 					continue
 				} else {
@@ -448,6 +457,11 @@ Outer:
 				return nil, err
 			}
 
+			if prevBytes != nil {
+				line = append(prevBytes, line...)
+			}
+
+			prevBytes = nil
 			_, err = ow.WriteProgress(line)
 			if err != nil {
 				return nil, err
