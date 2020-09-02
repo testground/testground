@@ -401,7 +401,12 @@ func ParseRunResponse(r io.ReadCloser) (string, error) {
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			return mapstructure.Decode(result, &resp)
+			var ok bool
+			resp, ok = result.(string)
+			if !ok {
+				return errors.New("result should be string")
+			}
+			return nil
 		},
 	)
 	return resp, err
@@ -415,7 +420,12 @@ func ParseBuildResponse(r io.ReadCloser) (string, error) {
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			return mapstructure.Decode(result, &resp)
+			var ok bool
+			resp, ok = result.(string)
+			if !ok {
+				return errors.New("result should be string")
+			}
+			return nil
 		},
 	)
 	return resp, err
