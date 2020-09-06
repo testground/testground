@@ -181,3 +181,11 @@ func NewMemoryTaskStorage() (*Storage, error) {
 	}
 	return &Storage{db}, nil
 }
+
+func NewTaskStorage(path string) (*Storage, error) {
+	db, err := leveldb.OpenFile(path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &Storage{db}, nil
+}

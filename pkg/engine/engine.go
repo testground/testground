@@ -67,7 +67,8 @@ type EngineConfig struct {
 }
 
 func NewEngine(cfg *EngineConfig) (*Engine, error) {
-	store, err := task.NewMemoryTaskStorage()
+	path := filepath.Join(cfg.EnvConfig.Dirs().Home(), "tasks.db")
+	store, err := task.NewTaskStorage(path)
 	if err != nil {
 		return nil, err
 	}
