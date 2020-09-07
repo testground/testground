@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/rs/xid"
 	"github.com/syndtr/goleveldb/leveldb/storage"
 	"strconv"
@@ -185,7 +186,7 @@ func NewMemoryTaskStorage() (*Storage, error) {
 func NewTaskStorage(path string) (*Storage, error) {
 	db, err := leveldb.OpenFile(path, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while opening storage: %v", err)
 	}
 	return &Storage{db}, nil
 }
