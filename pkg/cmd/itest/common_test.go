@@ -20,7 +20,11 @@ type terminateOpts struct {
 func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 	t.Helper()
 
-	cfg := &config.EnvConfig{}
+	cfg := &config.EnvConfig{
+		Daemon: config.DaemonConfig{
+			TasksInMemory: true,
+		},
+	}
 	if err := cfg.Load(); err != nil {
 		t.Fatal(err)
 	}
