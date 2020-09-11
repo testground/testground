@@ -19,4 +19,11 @@ mkdir -p /home/circleci/testground
 cp env-kind.toml /home/circleci/testground/.env.toml
 testground daemon > $TEMPDIR/daemon.out 2>&1 &
 DAEMONPID=$!
+
 sleep 2
+
+echo "Waiting for Testground to launch on 8080..."
+while ! nc -z localhost 8080; do
+  sleep 1
+done
+echo "Testground launched"
