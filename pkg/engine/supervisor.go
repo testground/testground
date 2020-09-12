@@ -51,6 +51,11 @@ func (e *Engine) worker(n int) {
 			continue
 		}
 
+		if err != nil {
+			logging.S().Errorw("error while popping task from the queue", "err", err)
+			continue
+		}
+
 		func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
 			defer cancel()
