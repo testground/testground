@@ -119,12 +119,12 @@ func (e *Engine) worker(n int) {
 }
 
 func (e *Engine) postStatusToSlack(taskId string, state task.State) error {
-	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed. Check status at: https://ci.testground.ipfs.team/tasks"}`)
-
-	cl := &http.Client{
-		Timeout: time.Second * 10,
+	if e.envcfg.Daemon.SlackWebhookURL == "" {
+		return nil
 	}
 
+	cl := &http.Client{Timeout: time.Second * 10}
+	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed. Check status at: https://ci.testground.ipfs.team/tasks"}`)
 	res, err := cl.Post(
 		e.envcfg.Daemon.SlackWebhookURL,
 		"application/json; charset=UTF-8",
