@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/logrusorgru/aurora"
+	"github.com/testground/testground/pkg/task"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -17,8 +19,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/logrusorgru/aurora"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/config"
@@ -59,12 +59,20 @@ func (c *Client) Close() error {
 	return nil
 }
 
-// Build sends a multipart `build` request to the daemon.
+func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+	return c.runBuild(ctx, r, "/build", plandir, sdkdir, extraSrcs)
+}
+
+func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+	return c.runBuild(ctx, r, "/run", plandir, sdkdir, extraSrcs)
+}
+
+// runBuild sends a multipart request to the daemon on a certain path.
 //
-// A build request comprises the following parts:
+// A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): composition json.
-//  * Part 2 (Content-Type: application/zip): test plan source.
+//  * Part 1 (Content-Type: application/json): the request json, usually composition.
+//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
 //  * Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
@@ -72,7 +80,7 @@ func (c *Client) Close() error {
 //
 // The response is a stream of `Msg` protocol messages. See
 // `ParseBuildResponse()` for specifics.
-func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
+func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdkdir string, extraSrcs []string) (io.ReadCloser, error) {
 	var body bytes.Buffer
 	err := json.NewEncoder(&body).Encode(r)
 	if err != nil {
@@ -170,13 +178,15 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 			return wr.CloseWithError(err)
 		}
 
-		// Part 2: plan source directory.
-		w, err = mp.CreatePart(hplan)
-		if err != nil {
-			return wr.CloseWithError(err)
-		}
-		if err = writeZippedDirs(w, false, plandir); err != nil {
-			return wr.CloseWithError(err)
+		// Optional part 2: plan source directory.
+		if plandir != "" {
+			w, err = mp.CreatePart(hplan)
+			if err != nil {
+				return wr.CloseWithError(err)
+			}
+			if err = writeZippedDirs(w, false, plandir); err != nil {
+				return wr.CloseWithError(err)
+			}
 		}
 
 		// Optional part 3: sdk source directory.
@@ -207,21 +217,7 @@ func (c *Client) Build(ctx context.Context, r *api.BuildRequest, plandir string,
 	}() //nolint:errcheck
 
 	contentType := "multipart/related; boundary=" + mp.Boundary()
-	return c.request(ctx, "POST", "/build", rd, "Content-Type", contentType)
-}
-
-// Run sends `run` request to the daemon.
-// The Body in the response implement an io.ReadCloser and it's up to the caller to
-// close it.
-// The response is a stream of `Msg` protocol messages.
-func (c *Client) Run(ctx context.Context, r *api.RunRequest) (io.ReadCloser, error) {
-	var body bytes.Buffer
-	err := json.NewEncoder(&body).Encode(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.request(ctx, "POST", "/run", bytes.NewReader(body.Bytes()))
+	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
@@ -269,6 +265,46 @@ func (c *Client) BuildPurge(ctx context.Context, r *api.BuildPurgeRequest) (io.R
 	}
 
 	return c.request(ctx, "POST", "/build/purge", bytes.NewReader(body.Bytes()))
+}
+
+func (c *Client) Tasks(ctx context.Context, r *api.TasksRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/tasks", bytes.NewReader(body.Bytes()))
+}
+
+func (c *Client) Status(ctx context.Context, r *api.StatusRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/status", bytes.NewReader(body.Bytes()))
+}
+
+func (c *Client) Cancel(ctx context.Context, r *api.CancelRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/cancel", bytes.NewReader(body.Bytes()))
+}
+
+func (c *Client) Logs(ctx context.Context, r *api.LogsRequest) (io.ReadCloser, error) {
+	var body bytes.Buffer
+	err := json.NewEncoder(&body).Encode(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return c.request(ctx, "POST", "/logs", bytes.NewReader(body.Bytes()))
 }
 
 func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
@@ -322,6 +358,18 @@ func printProgress(progress interface{}) error {
 	return nil
 }
 
+func parseMarshalAndUnmarshal(resp interface{}) func(result interface{}) error {
+	return func(result interface{}) error {
+		// Workaround around mapstructure.Decode which cannot be easily
+		// used to decode time.Time, nor enumerations.
+		data, err := json.Marshal(result)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, &resp)
+	}
+}
+
 // ParseCollectResponse parses a response from a `collect` call
 func ParseCollectResponse(r io.ReadCloser, file io.Writer) (api.CollectResponse, error) {
 	var resp api.CollectResponse
@@ -346,28 +394,38 @@ func ParseCollectResponse(r io.ReadCloser, file io.Writer) (api.CollectResponse,
 }
 
 // ParseRunResponse parses a response from a `run` call
-func ParseRunResponse(r io.ReadCloser) (api.RunResponse, error) {
-	var resp api.RunResponse
+func ParseRunResponse(r io.ReadCloser) (string, error) {
+	var resp string
 	err := parseGeneric(
 		r,
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			return mapstructure.Decode(result, &resp)
+			var ok bool
+			resp, ok = result.(string)
+			if !ok {
+				return errors.New("result should be string")
+			}
+			return nil
 		},
 	)
 	return resp, err
 }
 
 // ParseBuildResponse parses a response from a `build` call
-func ParseBuildResponse(r io.ReadCloser) (api.BuildResponse, error) {
-	var resp api.BuildResponse
+func ParseBuildResponse(r io.ReadCloser) (string, error) {
+	var resp string
 	err := parseGeneric(
 		r,
 		printProgress,
 		nil,
 		func(result interface{}) error {
-			return mapstructure.Decode(result, &resp)
+			var ok bool
+			resp, ok = result.(string)
+			if !ok {
+				return errors.New("result should be string")
+			}
+			return nil
 		},
 	)
 	return resp, err
@@ -400,7 +458,6 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 // ParseHealthcheckResponse parses a response from a 'healthcheck' call
 func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) {
 	var resp api.HealthcheckResponse
-
 	err := parseGeneric(
 		r,
 		printProgress,
@@ -409,7 +466,65 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 			return mapstructure.Decode(result, &resp)
 		},
 	)
+	return resp, err
+}
 
+// ParseTasksRequest parses a response from a 'task' call
+func ParseTasksRequest(r io.ReadCloser) ([]*task.Task, error) {
+	var resp []*task.Task
+	err := parseGeneric(
+		r,
+		printProgress,
+		nil,
+		parseMarshalAndUnmarshal(&resp),
+	)
+	return resp, err
+}
+
+// ParseStatusResponse parses a response from a 'status' call
+func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
+	var resp api.StatusResponse
+	err := parseGeneric(
+		r,
+		printProgress,
+		nil,
+		parseMarshalAndUnmarshal(&resp),
+	)
+	return resp, err
+}
+
+// ParseLogsRequest parses a response from a 'logs' call
+func ParseLogsRequest(r io.ReadCloser) (api.LogsResponse, error) {
+	var resp api.LogsResponse
+	err := parseGeneric(
+		r,
+		func(progress interface{}) error {
+			m, err := base64.StdEncoding.DecodeString(progress.(string))
+			if err != nil {
+				return err
+			}
+
+			var data struct {
+				T int    `json:"t"`
+				P string `json:"p"`
+			}
+
+			err = json.Unmarshal(m, &data)
+			if err != nil {
+				return err
+			}
+
+			m, err = base64.StdEncoding.DecodeString(data.P)
+			if err != nil {
+				return err
+			}
+
+			fmt.Print(string(m))
+			return nil
+		},
+		nil,
+		parseMarshalAndUnmarshal(&resp),
+	)
 	return resp, err
 }
 

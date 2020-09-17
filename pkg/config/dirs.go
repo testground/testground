@@ -25,3 +25,7 @@ func (d Directories) Work() string {
 func (d Directories) Outputs() string {
 	return filepath.Join(d.home, "data", "outputs")
 }
+
+func (d Directories) Daemon() string {
+	return filepath.Join(d.home, "data", "daemon")
+}

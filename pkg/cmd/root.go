@@ -17,6 +17,9 @@ var RootCommands = cli.CommandsByName{
 	&CollectCommand,
 	&TerminateCommand,
 	&HealthcheckCommand,
+	&TasksCommand,
+	&StatusCommand,
+	&LogsCommand,
 	&VersionCommand,
 }
 

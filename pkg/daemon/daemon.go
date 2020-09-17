@@ -76,6 +76,9 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	r.HandleFunc("/outputs", srv.outputsHandler(engine)).Methods("POST")
 	r.HandleFunc("/terminate", srv.terminateHandler(engine)).Methods("POST")
 	r.HandleFunc("/healthcheck", srv.healthcheckHandler(engine)).Methods("POST")
+	r.HandleFunc("/tasks", srv.tasksHandler(engine)).Methods("POST")
+	r.HandleFunc("/status", srv.statusHandler(engine)).Methods("POST")
+	r.HandleFunc("/logs", srv.logsHandler(engine)).Methods("POST")
 
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{

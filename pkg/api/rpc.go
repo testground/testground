@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"github.com/testground/testground/pkg/task"
 )
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -15,12 +16,17 @@ type DescribeRequest struct {
 
 // BuildRequest is the request struct for the `build` function.
 type BuildRequest struct {
-	Composition Composition `json:"composition"`
+	Priority    int              `json:"priority"`
+	Composition Composition      `json:"composition"`
+	Manifest    TestPlanManifest `json:"manifest"`
 }
 
 // RunRequest is the request struct for the `run` function.
 type RunRequest struct {
-	Composition Composition `json:"composition"`
+	Priority    int              `json:"priority"`
+	BuildGroups []int            `json:"build_groups"`
+	Composition Composition      `json:"composition"`
+	Manifest    TestPlanManifest `json:"manifest"`
 }
 
 type OutputsRequest struct {
@@ -43,6 +49,24 @@ type BuildPurgeRequest struct {
 	Testplan string `json:"testplan"`
 }
 
+type TasksRequest = TasksFilters
+
+type StatusRequest struct {
+	TaskID string `json:"task_id"`
+}
+
+type CancelRequest struct {
+	TaskID string `json:"task_id"`
+}
+
+type LogsRequest struct {
+	TaskID string `json:"task_id"`
+	Follow bool   `json:"follow"`
+	// CancelWithContext indicates if the task should be cancelled
+	// on context cancellation.
+	CancelWithContext bool `json:"cancel_with_context"`
+}
+
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 // ~~~~~~ Response payloads ~~~~~~
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,3 +82,7 @@ type CollectResponse struct {
 }
 
 type HealthcheckResponse = HealthcheckReport
+
+type StatusResponse = task.Task
+
+type LogsResponse = task.Task

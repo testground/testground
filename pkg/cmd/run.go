@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
-
-	"github.com/testground/testground/pkg/logging"
-
+	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/logging"
+	"os"
+	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
@@ -138,61 +139,66 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	defer cancel()
 
 	// Resolve the test plan and its manifest.
-	var manifest *api.TestPlanManifest
-	_, manifest, err = resolveTestPlan(cfg, comp.Global.Plan)
+	planDir, manifest, err := resolveTestPlan(cfg, comp.Global.Plan)
 	if err != nil {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
-	// Check if we have any groups without an build artifact; if so, trigger a
-	// build for those.
-	var buildIdx []int
+	// Check if the daemon needs to build the test plan.
 	ignore := c.Bool("ignore-artifacts")
+	var buildIdx []int
 	for i, grp := range comp.Groups {
 		if grp.Run.Artifact == "" || ignore {
 			buildIdx = append(buildIdx, i)
 		}
 	}
 
+	var (
+		sdkDir    string
+		extraSrcs []string
+		wait      = c.Bool("wait")
+	)
+
 	if len(buildIdx) > 0 {
-		bcomp, err := comp.PickGroups(buildIdx...)
-		if err != nil {
-			return err
-		}
-
-		bout, err := doBuild(c, &bcomp)
-		if err != nil {
-			return err
-		}
-
-		// Populate the returned build IDs.
-		for i, groupIdx := range buildIdx {
-			g := comp.Groups[groupIdx]
-			g.Run.Artifact = bout[i].ArtifactPath
-		}
-
-		if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-			f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		// Resolve the linked SDK directory, if one has been supplied.
+		if sdk := c.String("link-sdk"); sdk != "" {
+			var err error
+			sdkDir, err = resolveSDK(cfg, sdk)
 			if err != nil {
-				return fmt.Errorf("failed to write composition to file: %w", err)
+				return fmt.Errorf("failed to resolve linked SDK directory: %w", err)
 			}
-			enc := toml.NewEncoder(f)
-			if err := enc.Encode(comp); err != nil {
-				return fmt.Errorf("failed to encode composition into file: %w", err)
+			logging.S().Infof("linking with sdk at: %s", sdkDir)
+		}
+
+		// if there are extra sources to include for this builder, contextualize
+		// them to the plan's dir.
+		builder := comp.Global.Builder
+		extraSrcs = manifest.ExtraSources[builder]
+		for i, dir := range extraSrcs {
+			if !filepath.IsAbs(dir) {
+				// follow any symlinks in the plan dir.
+				evalPlanDir, err := filepath.EvalSymlinks(planDir)
+				if err != nil {
+					return fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
+				}
+				extraSrcs[i] = filepath.Clean(filepath.Join(evalPlanDir, dir))
 			}
 		}
-	}
-
-	comp, err = comp.PrepareForRun(manifest)
-	if err != nil {
-		return err
+	} else {
+		planDir = ""
 	}
 
 	req := &api.RunRequest{
+		BuildGroups: buildIdx,
 		Composition: *comp,
+		Manifest:    *manifest,
 	}
 
-	resp, err := cl.Run(ctx, req)
+	if wait {
+		req.Priority = 1
+	}
+
+	resp, err := cl.Run(ctx, req, planDir, sdkDir, extraSrcs)
 	switch err {
 	case nil:
 		// noop
@@ -204,12 +210,54 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	defer resp.Close()
 
-	rout, err := client.ParseRunResponse(resp)
+	id, err := client.ParseRunResponse(resp)
 	if err != nil {
 		return err
 	}
 
-	logging.S().Infof("finished run with ID: %s", rout.RunID)
+	logging.S().Infof("run is queued with ID: %s", id)
+
+	if !wait {
+		return nil
+	}
+
+	r, err := cl.Logs(ctx, &api.LogsRequest{
+		TaskID:            id,
+		Follow:            true,
+		CancelWithContext: true,
+	})
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	tsk, err := client.ParseLogsRequest(r)
+	if err != nil {
+		return err
+	}
+
+	if tsk.Result.Error != "" {
+		return errors.New(tsk.Result.Error)
+	}
+
+	var rout api.RunOutput
+	err = mapstructure.Decode(tsk.Result.Data, &rout)
+	if err != nil {
+		return err
+	}
+
+	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
+		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write composition to file: %w", err)
+		}
+		enc := toml.NewEncoder(f)
+		if err := enc.Encode(rout.Composition); err != nil {
+			return fmt.Errorf("failed to encode composition into file: %w", err)
+		}
+	}
+
+	logging.S().Infof("finished run with ID: %s", id)
 
 	// if the `collect` flag is not set, we are done, just return
 	collectOpt := c.Bool("collect")
@@ -219,8 +267,8 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 
 	collectFile := c.String("collect-file")
 	if collectFile == "" {
-		collectFile = fmt.Sprintf("%s.tgz", rout.RunID)
+		collectFile = fmt.Sprintf("%s.tgz", id)
 	}
 
-	return collect(ctx, cl, comp.Global.Runner, rout.RunID, collectFile)
+	return collect(ctx, cl, comp.Global.Runner, id, collectFile)
 }

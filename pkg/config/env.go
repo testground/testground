@@ -36,8 +36,11 @@ type DockerHubConfig struct {
 }
 
 type DaemonConfig struct {
-	Listen string   `toml:"listen"`
-	Tokens []string `toml:"tokens"`
+	Listen        string   `toml:"listen"`
+	Tokens        []string `toml:"tokens"`
+	Workers       int      `toml:"workers"`
+	QueueSize     int      `toml:"queue_size"`
+	TasksInMemory bool     `toml:"tasks_in_memory"`
 }
 
 type ClientConfig struct {

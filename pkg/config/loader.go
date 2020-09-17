@@ -19,12 +19,18 @@ const (
 
 	// DefaultClientURL is the HTTP(S) endpoint of the server.
 	DefaultClientURL = "http://" + DefaultListenAddr
+
+	DefaultWorkers = 2
+
+	DefaultQueueSize = 100
 )
 
 func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
 	e.Client.Endpoint = DefaultClientURL
+	e.Daemon.Workers = DefaultWorkers
+	e.Daemon.QueueSize = DefaultQueueSize
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.
@@ -61,6 +67,7 @@ func (e *EnvConfig) Load() error {
 		e.dirs.Plans(),
 		e.dirs.SDKs(),
 		e.dirs.Work(),
+		e.dirs.Daemon(),
 	} {
 		if err := ensureDir(d); err != nil {
 			return fmt.Errorf("failed to check/create directory %s: %w", d, err)

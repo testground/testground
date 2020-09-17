@@ -80,6 +80,9 @@ type RunGroup struct {
 type RunOutput struct {
 	// RunnerID is the ID of the runner used.
 	RunID string
+
+	// Composition that was used for this run.
+	Composition Composition
 }
 
 type CollectionInput struct {

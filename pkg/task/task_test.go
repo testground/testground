@@ -3,13 +3,14 @@ package task
 import (
 	"container/heap"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQueueSortsPriorityAndTime(t *testing.T) {
-	earlier := "f9b884ad-a9e8-11ea-82b2-ccb0daba35bf"
-	later := "09c8372d-a9e9-11ea-b70d-ccb0daba35bf"
+	earlier := "brfdnkrpc98qs6rq33b0"
+	later := "brfdo1rpc98r0s6e2dv0"
 
 	// Add tasks to the queue with different priorities
 	tq := make(taskQueue, 0)
@@ -17,6 +18,12 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		tsk := Task{
 			ID:       earlier,
 			Priority: i,
+			States: []DatedState{
+				{
+					State:   StateScheduled,
+					Created: time.Now(),
+				},
+			},
 		}
 		heap.Push(&tq, &tsk)
 	}
@@ -25,11 +32,17 @@ func TestQueueSortsPriorityAndTime(t *testing.T) {
 		tsk := Task{
 			ID:       later,
 			Priority: i,
+			States: []DatedState{
+				{
+					State:   StateScheduled,
+					Created: time.Now(),
+				},
+			},
 		}
 		heap.Push(&tq, &tsk)
 	}
 
-	// verify the sort is by piority (high->low) and time (oldest->newest)
+	// verify the sort is by priority (high->low) and time (oldest->newest)
 	head := heap.Pop(&tq).(*Task)
 	for len(tq) > 0 {
 		next := heap.Pop(&tq).(*Task)

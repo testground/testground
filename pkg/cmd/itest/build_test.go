@@ -12,6 +12,7 @@ func TestBuildExecGo(t *testing.T) {
 		"exec:go",
 		"--plan",
 		"placebo",
+		"--wait",
 	)
 
 	if err != nil {
@@ -33,6 +34,7 @@ func TestBuildDockerGo(t *testing.T) {
 		"docker:go",
 		"--plan",
 		"placebo",
+		"--wait",
 	)
 
 	if err != nil {

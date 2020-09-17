@@ -1,58 +1,69 @@
 package task
 
-import "github.com/google/uuid"
 import "time"
 
-// TaskState (kind: int) represents the last known state of a task.
+// State (kind: string) represents the last known state of a task.
 // A task can be in one of three states
 // StateScheduled: this is the initial state of the task when it enters the queue.
 // StateProcessing: once work begins on the task, it is put into this state.
 // StateComplete: work is no longer being done on this task. client should check task result.
-type TaskState int
+type State string
 
 const (
-	StateScheduled TaskState = iota
-	StateProcessing
-	StateComplete
+	StateScheduled  State = "scheduled"
+	StateProcessing State = "processing"
+	StateComplete   State = "complete"
 )
 
-// TaskType(kind int) represents the kind of activity the daemon asked to perform. In alignment
+// Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment
 // with the testground command-line we have two kinds of tasks
-// TaskBuild -- which functions similarly to `testground build`. The result of this task will contain
-// a build ID which can be used in a subsiquent run.
-// TaskRun -- which functions similarly to `testground run`
-type TaskType int
+// TypeBuild -- which functions similarly to `testground build`. The result of this task will contain
+// a build ID which can be used in a subsequent run.
+// TypeRun -- which functions similarly to `testground run`
+type Type string
 
 const (
-	TaskBuild TaskType = iota
-	TaskRun
+	TypeBuild Type = "build"
+	TypeRun   Type = "run"
 )
 
-// DatedTaskState (kind: struct) is a TaskState with a timestamp.
-type DatedTaskState struct {
-	Created   time.Time `json:"created"`
-	TaskState TaskState `json:"state"`
+// DatedState (kind: struct) is a State with a timestamp.
+type DatedState struct {
+	Created time.Time `json:"created"`
+	State   State     `json:"state"`
 }
 
-// TaskResult (kind: struct)
+// Result (kind: struct)
 // This will be redefined at a later time.
-type TaskResult struct{}
+type Result struct {
+	Error string      `json:"error"`
+	Data  interface{} `json:"data"`
+}
 
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store
 // metadata in our task storage database as well as the wire format returned when clients get the
-// state of a running or secheduled task.
+// state of a running or scheduled task.
 type Task struct {
-	Version  int              `json:"version"`  // Schema version
-	Priority int              `json:"priority"` // scheduling priority
-	ID       string           `json:"id"`       // unique identifier for this task, specifically, a UUID
-	States   []DatedTaskState `json:"states"`   // State of the task
-	Result   TaskResult       `json:"result"`   // result of the task, when terminal.
+	Version  int          `json:"version"`  // Schema version
+	Priority int          `json:"priority"` // scheduling priority
+	ID       string       `json:"id"`       // Unique identifier for this task
+	States   []DatedState `json:"states"`   // State of the task
+	Type     Type         `json:"type"`     // Type of the task
+	Input    interface{}  `json:"input"`    // The input data for this task
+	Result   Result       `json:"result"`   // Result of the task, when terminal.
 }
 
 func (t *Task) Created() time.Time {
-	u, err := uuid.Parse(t.ID)
-	if err != nil {
-		return time.Time{}
+	if len(t.States) == 0 {
+		panic("task must have a state")
 	}
-	return time.Unix(u.Time().UnixTime())
+
+	return t.States[0].Created
+}
+
+func (t *Task) State() DatedState {
+	if len(t.States) == 0 {
+		panic("task must have a state")
+	}
+	return t.States[len(t.States)-1]
 }
