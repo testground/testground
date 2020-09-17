@@ -36,11 +36,12 @@ type DockerHubConfig struct {
 }
 
 type DaemonConfig struct {
-	Listen        string   `toml:"listen"`
-	Tokens        []string `toml:"tokens"`
-	Workers       int      `toml:"workers"`
-	QueueSize     int      `toml:"queue_size"`
-	TasksInMemory bool     `toml:"tasks_in_memory"`
+	Listen          string   `toml:"listen"`
+	Tokens          []string `toml:"tokens"`
+	Workers         int      `toml:"workers"`
+	QueueSize       int      `toml:"queue_size"`
+	TasksInMemory   bool     `toml:"tasks_in_memory"`
+	SlackWebhookURL string   `toml:"slack_webhook_url"`
 }
 
 type ClientConfig struct {
