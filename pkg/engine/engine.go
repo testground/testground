@@ -4,6 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/rs/xid"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
@@ -11,11 +17,6 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
-	"io"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -209,6 +210,8 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: request.Priority,
+		Plan:     request.Composition.Global.Plan,
+		Case:     request.Composition.Global.Case,
 		ID:       id,
 		Type:     task.TypeRun,
 		Input: &RunInput{

@@ -70,18 +70,19 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		})
 	})
 
+	r.HandleFunc("/tasks", srv.listTasksHandler(engine)).Methods("GET")
+	r.HandleFunc("/logs", srv.getLogsHandler(engine)).Methods("GET")
+	r.HandleFunc("/outputs", srv.getOutputsHandler(engine)).Methods("GET")
+
 	r.HandleFunc("/build", srv.buildHandler(engine)).Methods("POST")
 	r.HandleFunc("/build/purge", srv.buildPurgeHandler(engine)).Methods("POST")
 	r.HandleFunc("/run", srv.runHandler(engine)).Methods("POST")
 	r.HandleFunc("/outputs", srv.outputsHandler(engine)).Methods("POST")
-	r.HandleFunc("/outputs", srv.getOutputsHandler(engine)).Methods("GET")
 	r.HandleFunc("/terminate", srv.terminateHandler(engine)).Methods("POST")
 	r.HandleFunc("/healthcheck", srv.healthcheckHandler(engine)).Methods("POST")
 	r.HandleFunc("/tasks", srv.tasksHandler(engine)).Methods("POST")
-	r.HandleFunc("/tasks", srv.listTasksHandler(engine)).Methods("GET")
 	r.HandleFunc("/status", srv.statusHandler(engine)).Methods("POST")
 	r.HandleFunc("/logs", srv.logsHandler(engine)).Methods("POST")
-	r.HandleFunc("/logs", srv.getLogsHandler(engine)).Methods("GET")
 
 	srv.doneCh = make(chan struct{})
 	srv.server = &http.Server{

@@ -3,12 +3,13 @@ package daemon
 import (
 	"errors"
 	"fmt"
-	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/logging"
-	"github.com/testground/testground/pkg/rpc"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 func (d *Daemon) runHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
