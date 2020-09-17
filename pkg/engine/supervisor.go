@@ -4,6 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/logrusorgru/aurora"
 	"github.com/otiai10/copy"
@@ -13,10 +19,6 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
 	"golang.org/x/sync/errgroup"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 type RunInput struct {
@@ -82,7 +84,7 @@ func (e *Engine) worker(n int) {
 			var data interface{}
 
 			// Create a packing directory under the work dir.
-			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID + ".out")
+			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID+".out")
 			f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				logging.S().Errorw("could not create stop log", "err", err)
@@ -105,10 +107,36 @@ func (e *Engine) worker(n int) {
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
+
+			err = e.postStatusToSlack(tsk.ID, task.StateComplete)
+			if err != nil {
+				logging.S().Errorw("could not send status to slack", "err", err)
+			}
 			e.deleteSignal(tsk.ID)
 			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
 		}()
 	}
+}
+
+func (e *Engine) postStatusToSlack(taskId string, state task.State) error {
+	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed: Check status at: https://protocol.ai/?id=` + taskId + ` !"}`)
+
+	cl := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	res, err := cl.Post(
+		e.envcfg.Daemon.SlackWebhookURL,
+		"application/json; charset=UTF-8",
+		body,
+	)
+	if err != nil {
+		return err
+	}
+
+	res.Body.Close()
+
+	return nil
 }
 
 func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
