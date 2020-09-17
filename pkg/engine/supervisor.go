@@ -119,7 +119,7 @@ func (e *Engine) worker(n int) {
 }
 
 func (e *Engine) postStatusToSlack(taskId string, state task.State) error {
-	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed: Check status at: https://protocol.ai/?id=` + taskId + ` !"}`)
+	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed. Check status at: https://ci.testground.ipfs.team/tasks"}`)
 
 	cl := &http.Client{
 		Timeout: time.Second * 10,

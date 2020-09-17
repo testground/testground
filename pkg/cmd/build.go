@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/mitchellh/mapstructure"
 	"os"
 	"path/filepath"
+
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -247,7 +248,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(r)
+	tsk, err := client.ParseLogsRequest(os.Stdout, r)
 	if err != nil {
 		return err
 	}
