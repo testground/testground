@@ -63,6 +63,10 @@ func (t *Task) Created() time.Time {
 	return t.States[0].Created
 }
 
+func (t *Task) Name() string {
+	return t.Plan + ":" + t.Case
+}
+
 func (t *Task) State() DatedState {
 	if len(t.States) == 0 {
 		panic("task must have a state")
