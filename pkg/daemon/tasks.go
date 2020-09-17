@@ -2,9 +2,13 @@ package daemon
 
 import (
 	"encoding/json"
-	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/rpc"
+	"fmt"
 	"net/http"
+
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/task"
 )
 
 func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -26,5 +30,33 @@ func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *
 		}
 
 		tgw.WriteResult(tasks)
+	}
+}
+
+func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
+
+		log.Debugw("handle request", "command", "list tasks")
+		defer log.Debugw("request handled", "command", "list tasks")
+
+		w.Header().Set("Content-Type", "text/html")
+
+		req := api.TasksRequest{
+			Types:  []task.Type{task.TypeBuild, task.TypeRun},
+			States: []task.State{task.StateScheduled, task.StateProcessing, task.StateComplete},
+		}
+
+		tasks, err := engine.Tasks(req)
+		if err != nil {
+			fmt.Fprintf(w, "tasks json decode error", err.Error())
+			return
+		}
+
+		fmt.Fprintf(w, "<table><th>task id</th><th>type</th><th>state</th><th>created</th><th>updated</td><th>outputs zip</th><th>stdout/stderr</th>")
+		for _, t := range tasks {
+			fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=#>outputs zip</a></td><td><a href=/logs?task_id=%s>stdout/stderr</a></td></tr>", t.ID, t.Type, t.State().State, t.Created(), t.State().Created, t.ID)
+		}
+		fmt.Fprintf(w, "</table>")
 	}
 }

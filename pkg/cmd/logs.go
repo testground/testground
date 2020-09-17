@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"context"
+	"os"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/urfave/cli/v2"
@@ -44,7 +46,7 @@ func logsCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(r)
+	tsk, err := client.ParseLogsRequest(os.Stdout, r)
 	if err != nil {
 		return err
 	}
