@@ -62,18 +62,19 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 		go func() {
 			_, err := client.ParseLogsRequest(brWriter{w}, rr)
 			if err != nil {
-				fmt.Fprintf(w, "error while parsing logs", "err", err.Error())
+				fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
 			}
 		}()
 
 		_, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
 		if err != nil {
-			fmt.Fprintf(w, "error while fetching logs", "err", err.Error())
+			fmt.Fprintf(w, "error while fetching logs: %s", err.Error())
 			return
 		}
 	}
 }
 
+// brWriter replaces new lines with <br/> html tag
 type brWriter struct {
 	writer io.Writer
 }
