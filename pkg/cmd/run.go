@@ -144,7 +144,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
-	// Check if this the daemon will need to build the project.
+	// Check if the daemon needs to build the test plan.
 	ignore := c.Bool("ignore-artifacts")
 	var buildIdx []int
 	for i, grp := range comp.Groups {
