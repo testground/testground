@@ -26,7 +26,7 @@ var (
 
 func init() {
 	encConfig = zap.NewDevelopmentEncoderConfig()
-	encConfig.EncodeLevel = zapcore.CapitalLevelEncoder
+	encConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	encConfig.EncodeCaller = nil
 	encConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.UTC().Format(time.StampMicro))
