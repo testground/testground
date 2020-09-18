@@ -49,7 +49,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		tasks, err := engine.Tasks(req)
 		if err != nil {
-			fmt.Fprintf(w, "tasks json decode error", err.Error())
+			fmt.Fprintf(w, "tasks json decode error: %s", err.Error())
 			return
 		}
 
