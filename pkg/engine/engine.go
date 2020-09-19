@@ -336,6 +336,7 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 
 	for _, state := range filters.States {
 		var prefix string
+		var ires []task.Task
 
 		switch state {
 		case task.StateScheduled:
@@ -354,11 +355,13 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 		for _, tsk := range tsks {
 			for _, tp := range filters.Types {
 				if tsk.Type == tp {
-					res = append(res, *tsk)
+					ires = append([]task.Task{*tsk}, ires...)
 					break
 				}
 			}
 		}
+
+		res = append(res, ires...)
 	}
 
 	e.signalsLk.RUnlock()
