@@ -369,6 +369,14 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 		}
 
 		for _, tsk := range tsks {
+			if filters.TestPlan != "" && tsk.Plan != filters.TestPlan {
+				continue
+			}
+			
+			if filters.TestCase != "" && tsk.Case != filters.TestCase {
+				continue
+			}
+
 			for _, tp := range filters.Types {
 				if tsk.Type == tp {
 					ires = append([]task.Task{*tsk}, ires...)

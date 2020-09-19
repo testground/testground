@@ -36,10 +36,12 @@ type UnpackedSources struct {
 }
 
 type TasksFilters struct {
-	Types  []task.Type
-	States []task.State
-	After  *time.Time
-	Before *time.Time
+	Types    []task.Type
+	States   []task.State
+	After    *time.Time
+	Before   *time.Time
+	TestPlan string
+	TestCase string
 }
 
 type Engine interface {
