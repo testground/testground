@@ -5,6 +5,7 @@ import (
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
+	"time"
 )
 
 type ComponentType string
@@ -37,6 +38,8 @@ type UnpackedSources struct {
 type TasksFilters struct {
 	Types  []task.Type
 	States []task.State
+	After  *time.Time
+	Before *time.Time
 }
 
 type Engine interface {

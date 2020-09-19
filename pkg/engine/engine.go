@@ -330,10 +330,23 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
-	var res []task.Task
+	var (
+		res    []task.Task
+		before time.Time
+		after  time.Time
+	)
 
-	before := time.Now().UTC().Add(-24 * time.Hour)
-	after := time.Now().UTC()
+	if filters.Before != nil {
+		before = filters.Before.UTC()
+	} else {
+		before = time.Now().UTC().Add(-24 * time.Hour) // Last day
+	}
+
+	if filters.After != nil {
+		after = filters.After.UTC()
+	} else {
+		after = time.Now().UTC()
+	}
 
 	e.signalsLk.RLock()
 
