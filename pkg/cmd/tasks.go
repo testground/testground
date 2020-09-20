@@ -45,12 +45,12 @@ func tasksCommand(c *cli.Context) error {
 		return err
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "ID\tState\tType")
+	fmt.Fprintln(w, "ID\tDATE\tTEST PLAN\tTEST CASE\tDURATION\tSTATE\tTYPE")
 
 	for _, tsk := range tsks {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", tsk.ID, tsk.State().State, tsk.Type)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", tsk.ID, tsk.Created().String(), tsk.Plan, tsk.Case, tsk.Took(), tsk.State().State, tsk.Type)
 	}
 
 	w.Flush()
