@@ -4,6 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/rs/xid"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
@@ -11,11 +17,6 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
-	"io"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -209,6 +210,8 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	err := e.queue.Push(&task.Task{
 		Version:  0,
 		Priority: request.Priority,
+		Plan:     request.Composition.Global.Plan,
+		Case:     request.Composition.Global.Case,
 		ID:       id,
 		Type:     task.TypeRun,
 		Input: &RunInput{
@@ -327,15 +330,29 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
-	var res []task.Task
+	var (
+		res    []task.Task
+		before time.Time
+		after  time.Time
+	)
 
-	before := time.Now().UTC().Add(-24 * time.Hour)
-	after := time.Now().UTC()
+	if filters.Before != nil {
+		before = filters.Before.UTC()
+	} else {
+		before = time.Now().UTC().Add(-24 * time.Hour) // Last day
+	}
+
+	if filters.After != nil {
+		after = filters.After.UTC()
+	} else {
+		after = time.Now().UTC()
+	}
 
 	e.signalsLk.RLock()
 
 	for _, state := range filters.States {
 		var prefix string
+		var ires []task.Task
 
 		switch state {
 		case task.StateScheduled:
@@ -352,13 +369,23 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 		}
 
 		for _, tsk := range tsks {
+			if filters.TestPlan != "" && tsk.Plan != filters.TestPlan {
+				continue
+			}
+			
+			if filters.TestCase != "" && tsk.Case != filters.TestCase {
+				continue
+			}
+
 			for _, tp := range filters.Types {
 				if tsk.Type == tp {
-					res = append(res, *tsk)
+					ires = append([]task.Task{*tsk}, ires...)
 					break
 				}
 			}
 		}
+
+		res = append(res, ires...)
 	}
 
 	e.signalsLk.RUnlock()

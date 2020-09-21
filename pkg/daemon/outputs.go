@@ -2,9 +2,12 @@ package daemon
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 )
@@ -38,5 +41,45 @@ func (d *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter, r
 		}
 
 		result = true
+	}
+}
+
+func (d *Daemon) getOutputsHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
+
+		log.Debugw("handle request", "command", "get outputs")
+		defer log.Debugw("request handled", "command", "get outputs")
+
+		runId := r.URL.Query().Get("run_id")
+		if runId == "" {
+			fmt.Fprintf(w, "url param `run_id` is missing")
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/tar+gzip")
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.tgz\"", runId))
+
+		req := api.OutputsRequest{
+			Runner: "cluster:k8s",
+			RunID:  runId,
+		}
+
+		rr, ww := io.Pipe()
+
+		tgw := rpc.NewFileOutputWriter(ww)
+
+		go func() {
+			_, err := client.ParseCollectResponse(rr, w)
+			if err != nil {
+				fmt.Fprintf(w, "error while parsing collect response: %s", err.Error())
+			}
+		}()
+
+		err := engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
+		if err != nil {
+			log.Warnw("collect outputs error", "err", err.Error())
+			return
+		}
 	}
 }

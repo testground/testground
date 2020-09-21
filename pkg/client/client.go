@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/logrusorgru/aurora"
-	"github.com/testground/testground/pkg/task"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -19,6 +17,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/logrusorgru/aurora"
+	"github.com/testground/testground/pkg/task"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/config"
@@ -494,7 +495,7 @@ func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
 }
 
 // ParseLogsRequest parses a response from a 'logs' call
-func ParseLogsRequest(r io.ReadCloser) (api.LogsResponse, error) {
+func ParseLogsRequest(w io.Writer, r io.ReadCloser) (api.LogsResponse, error) {
 	var resp api.LogsResponse
 	err := parseGeneric(
 		r,
@@ -519,7 +520,7 @@ func ParseLogsRequest(r io.ReadCloser) (api.LogsResponse, error) {
 				return err
 			}
 
-			fmt.Print(string(m))
+			fmt.Fprint(w, string(m))
 			return nil
 		},
 		nil,

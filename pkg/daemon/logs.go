@@ -2,9 +2,15 @@ package daemon
 
 import (
 	"encoding/json"
-	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/rpc"
+	"fmt"
+	"io"
 	"net/http"
+	"strings"
+
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -27,4 +33,53 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 
 		tgw.WriteResult(tsk)
 	}
+}
+
+func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
+
+		log.Debugw("handle request", "command", "get logs")
+		defer log.Debugw("request handled", "command", "get logs")
+
+		w.Header().Set("Content-Type", "text/html")
+
+		taskId := r.URL.Query().Get("task_id")
+		if taskId == "" {
+			fmt.Fprintf(w, "url param `task_id` is missing")
+			return
+		}
+
+		req := api.LogsRequest{
+			TaskID: taskId,
+			Follow: false,
+		}
+
+		rr, ww := io.Pipe()
+
+		tgw := rpc.NewFileOutputWriter(ww)
+
+		go func() {
+			_, err := client.ParseLogsRequest(brWriter{w}, rr)
+			if err != nil {
+				fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
+			}
+		}()
+
+		_, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
+		if err != nil {
+			fmt.Fprintf(w, "error while fetching logs: %s", err.Error())
+			return
+		}
+	}
+}
+
+// brWriter replaces new lines with <br/> html tag
+type brWriter struct {
+	writer io.Writer
+}
+
+func (b brWriter) Write(bb []byte) (n int, err error) {
+	replaced := strings.Replace(string(bb), "\n", "<br/>", -1)
+	return b.writer.Write([]byte(replaced))
 }

@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/logging"
-	"os"
-	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
@@ -231,7 +232,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(r)
+	tsk, err := client.ParseLogsRequest(os.Stdout, r)
 	if err != nil {
 		return err
 	}

@@ -45,8 +45,10 @@ type Result struct {
 // state of a running or scheduled task.
 type Task struct {
 	Version  int          `json:"version"`  // Schema version
-	Priority int          `json:"priority"` // scheduling priority
+	Priority int          `json:"priority"` // Scheduling priority
 	ID       string       `json:"id"`       // Unique identifier for this task
+	Plan     string       `json:"plan"`     // Test plan
+	Case     string       `json:"case"`     // Test case
 	States   []DatedState `json:"states"`   // State of the task
 	Type     Type         `json:"type"`     // Type of the task
 	Input    interface{}  `json:"input"`    // The input data for this task
@@ -59,6 +61,14 @@ func (t *Task) Created() time.Time {
 	}
 
 	return t.States[0].Created
+}
+
+func (t *Task) Name() string {
+	return t.Plan + ":" + t.Case
+}
+
+func (t *Task) Took() time.Duration {
+	return t.State().Created.Sub(t.Created()).Truncate(time.Second)
 }
 
 func (t *Task) State() DatedState {
