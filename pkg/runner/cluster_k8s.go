@@ -38,6 +38,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/kubernetes/client-go/tools/remotecommand"
+	"github.com/msoap/byline"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -341,7 +342,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 						return err
 					}
 
-					fmt.Print(logs)
+					ow.WriteProgress([]byte(logs))
 					return nil
 				})
 			}
@@ -569,8 +570,9 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
+	limitBytes := int64(10000000000) // 100mb
 	podLogOpts := v1.PodLogOptions{
-		TailLines: int64Ptr(2),
+		LimitBytes: &limitBytes,
 	}
 
 	var podLogs io.ReadCloser
@@ -588,8 +590,11 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	}
 	defer podLogs.Close()
 
+	lr := byline.NewReader(podLogs)
+	lr.MapString(func(line string) string { return podName + " | " + line })
+
 	buf := new(bytes.Buffer)
-	_, err = io.Copy(buf, podLogs)
+	_, err = io.Copy(buf, lr)
 	if err != nil {
 		return "", fmt.Errorf("error in copy information from podLogs to buf: %v", err)
 	}
