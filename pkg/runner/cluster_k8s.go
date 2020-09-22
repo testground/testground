@@ -342,8 +342,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 						return err
 					}
 
-					ow.WriteProgress([]byte(logs))
-					return nil
+					_, err = ow.WriteProgress([]byte(logs))
+					return err
 				})
 			}
 		}
@@ -570,9 +570,8 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	limitBytes := int64(10000000000) // 100mb
 	podLogOpts := v1.PodLogOptions{
-		LimitBytes: &limitBytes,
+		LimitBytes: int64Ptr(10000000000), // 100mb
 	}
 
 	var podLogs io.ReadCloser
