@@ -69,6 +69,8 @@ type BuildOutput struct {
 	// containing the collapsed transitive upstream dependency set of this
 	// build.
 	Dependencies map[string]string
+
+	Status bool
 }
 
 // DependencyTarget encapsulates the target and version of a dependency.

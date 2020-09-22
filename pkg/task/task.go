@@ -53,6 +53,7 @@ type Task struct {
 	Type     Type         `json:"type"`     // Type of the task
 	Input    interface{}  `json:"input"`    // The input data for this task
 	Result   Result       `json:"result"`   // Result of the task, when terminal.
+	Status   bool         `json:"status"`   // Status of task
 }
 
 func (t *Task) Created() time.Time {

@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/rs/xid"
-	"github.com/syndtr/goleveldb/leveldb/storage"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/rs/xid"
+	"github.com/syndtr/goleveldb/leveldb/storage"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -96,7 +97,7 @@ func (s *Storage) AppendTaskState(id string, state State) error {
 	return s.Put(CURRENTPREFIX, tsk)
 }
 
-func (s *Storage) MarkCompleted(id string, error error, data interface{}) error {
+func (s *Storage) MarkCompleted(id string, error error, data interface{}, status bool) error {
 	tsk, err := s.Get(CURRENTPREFIX, id)
 	if err != nil {
 		return err
@@ -105,6 +106,7 @@ func (s *Storage) MarkCompleted(id string, error error, data interface{}) error 
 		State:   StateComplete,
 		Created: time.Now().UTC(),
 	}
+	tsk.Status = status
 	tsk.States = append(tsk.States, dated)
 	tsk.Result = Result{
 		Data: data,

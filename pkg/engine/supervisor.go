@@ -82,6 +82,7 @@ func (e *Engine) worker(n int) {
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
 
 			var data interface{}
+			var status bool
 
 			// Create a packing directory under the work dir.
 			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID+".out")
@@ -96,14 +97,33 @@ func (e *Engine) worker(n int) {
 
 			switch tsk.Type {
 			case task.TypeRun:
-				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+				res, err := e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+				if err != nil {
+					logging.S().Errorw("doRun returned err", "err", err)
+				} else {
+					status = res.Status
+				}
+
+				data = res
 			case task.TypeBuild:
-				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
+				res, err := e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
+				if err != nil {
+					logging.S().Errorw("doBuild returned err", "err", err)
+				} else {
+					status = true
+					for _, v := range res {
+						if v.Status == false {
+							status = false
+							break
+						}
+					}
+				}
+				data = res
 			default:
 				// wut
 			}
 
-			err = e.store.MarkCompleted(tsk.ID, err, data)
+			err = e.store.MarkCompleted(tsk.ID, err, data, status)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
@@ -434,5 +454,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	return &api.RunOutput{
 		RunID:       out.RunID,
 		Composition: input.Composition,
+		Status:      out.Status,
 	}, nil
 }

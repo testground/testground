@@ -83,6 +83,9 @@ type RunOutput struct {
 
 	// Composition that was used for this run.
 	Composition Composition
+
+	// Status of run - ok or failed
+	Status bool
 }
 
 type CollectionInput struct {
