@@ -95,6 +95,8 @@ func (e *Engine) worker(n int) {
 
 			ow := rpc.NewFileOutputWriter(f)
 
+			var j string
+
 			switch tsk.Type {
 			case task.TypeRun:
 				res, err := e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
@@ -103,6 +105,8 @@ func (e *Engine) worker(n int) {
 				} else {
 					status = res.Status
 				}
+
+				j = res.Journal.(string)
 
 				data = res
 			case task.TypeBuild:
@@ -123,7 +127,7 @@ func (e *Engine) worker(n int) {
 				// wut
 			}
 
-			err = e.store.MarkCompleted(tsk.ID, err, data, status)
+			err = e.store.MarkCompleted(tsk.ID, err, data, status, j)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
@@ -448,6 +452,14 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	if err != nil {
+		if out != nil {
+			return &api.RunOutput{
+				RunID:       out.RunID,
+				Composition: input.Composition,
+				Status:      out.Status,
+				Journal:     out.Journal,
+			}, err
+		}
 		return nil, err
 	}
 
@@ -455,5 +467,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		RunID:       out.RunID,
 		Composition: input.Composition,
 		Status:      out.Status,
+		Journal:     out.Journal,
 	}, nil
 }

@@ -97,7 +97,7 @@ func (s *Storage) AppendTaskState(id string, state State) error {
 	return s.Put(CURRENTPREFIX, tsk)
 }
 
-func (s *Storage) MarkCompleted(id string, error error, data interface{}, status bool) error {
+func (s *Storage) MarkCompleted(id string, error error, data interface{}, status bool, journal string) error {
 	tsk, err := s.Get(CURRENTPREFIX, id)
 	if err != nil {
 		return err
@@ -107,6 +107,7 @@ func (s *Storage) MarkCompleted(id string, error error, data interface{}, status
 		Created: time.Now().UTC(),
 	}
 	tsk.Status = status
+	tsk.Journal = journal
 	tsk.States = append(tsk.States, dated)
 	tsk.Result = Result{
 		Data: data,

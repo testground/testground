@@ -86,6 +86,9 @@ type RunOutput struct {
 
 	// Status of run - ok or failed
 	Status bool
+
+	// event log for various information related to the run
+	Journal interface{}
 }
 
 type CollectionInput struct {

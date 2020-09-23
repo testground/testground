@@ -52,6 +52,7 @@ type Task struct {
 	States   []DatedState `json:"states"`   // State of the task
 	Type     Type         `json:"type"`     // Type of the task
 	Input    interface{}  `json:"input"`    // The input data for this task
+	Journal  string       `json:"journal"`  // Journal from the execution of the task
 	Result   Result       `json:"result"`   // Result of the task, when terminal.
 	Status   bool         `json:"status"`   // Status of task
 }

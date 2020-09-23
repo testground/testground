@@ -42,7 +42,7 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 		log.Debugw("handle request", "command", "get logs")
 		defer log.Debugw("request handled", "command", "get logs")
 
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/plain")
 
 		taskId := r.URL.Query().Get("task_id")
 		if taskId == "" {
@@ -60,7 +60,7 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 		tgw := rpc.NewFileOutputWriter(ww)
 
 		go func() {
-			_, err := client.ParseLogsRequest(brWriter{w}, rr)
+			_, err := client.ParseLogsRequest(w, rr)
 			if err != nil {
 				fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
 			}

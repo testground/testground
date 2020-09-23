@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
@@ -153,6 +152,8 @@ func defaultKubernetesConfig() KubernetesConfig {
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	c.initPool()
 
+	var journal string
+
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
@@ -220,7 +221,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	eg.Go(func() error {
 		var err error
-		allPodsSucceeded, err = c.monitorTestplanRunState(ctx, ow, input)
+		allPodsSucceeded, err = c.monitorTestplanRunState(ctx, ow, input, &journal)
 		return err
 	})
 
@@ -360,14 +361,14 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	err = eg.Wait()
 	if err != nil {
-		return nil, err
+		return &api.RunOutput{RunID: input.RunID, Status: false, Journal: journal}, err
 	}
 
 	if !cfg.KeepService {
 		ow.Info("cleaning up finished pods...")
 	}
 
-	return &api.RunOutput{RunID: input.RunID, Status: allPodsSucceeded}, nil
+	return &api.RunOutput{RunID: input.RunID, Status: allPodsSucceeded, Journal: journal}, nil
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -611,12 +612,36 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput) (bool, error) {
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) (bool, error) {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
+	fieldSelector := "type!=Normal"
+	opts := metav1.ListOptions{
+		FieldSelector: fieldSelector,
+	}
+	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(opts)
+	if err != nil {
+		ow.Errorw("k8s client pods list error", "err", err.Error())
+	}
+	defer eventsWatcher.Stop()
+	eventsChan := eventsWatcher.ResultChan()
+
+	go func() {
+		for ge := range eventsChan {
+			e := ge.Object.(*v1.Event)
+
+			if strings.Contains(e.InvolvedObject.Name, input.RunID) {
+				event := fmt.Sprintf("obj<%s> type<%s> reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.InvolvedObject.Name, ge.Type, e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)
+
+				ow.Warnw("testplan received event", "event", event)
+
+				*journal = *journal + fmt.Sprintf("event: %s\n", event)
+			}
+		}
+	}()
+
 	podsByState := make(map[string]*v1.PodList)
-	var eventsForPods *v1.EventList
 	var countersMu sync.Mutex
 
 	start := time.Now()
@@ -650,22 +675,6 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			return len(res.Items)
 		}
 
-		events := func() int {
-			fieldSelector := "type!=Normal"
-			opts := metav1.ListOptions{
-				FieldSelector: fieldSelector,
-			}
-			res, err := client.CoreV1().Events(c.config.Namespace).List(opts)
-			if err != nil {
-				ow.Warnw("k8s client pods list error", "err", err.Error())
-				return -1
-			}
-			countersMu.Lock()
-			eventsForPods = res
-			countersMu.Unlock()
-			return len(res.Items)
-		}
-
 		counters := map[string]int{}
 		states := []string{"Pending", "Running", "Succeeded", "Failed", "Unknown"}
 
@@ -687,48 +696,36 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		ow.Debugw("testplan pods state", "running_for", time.Since(start).Truncate(time.Second), "succeeded", counters["Succeeded"], "running", counters["Running"], "pending", counters["Pending"], "failed", counters["Failed"], "unknown", counters["Unknown"])
 
-		events()
-
 		if counters["Failed"] > 0 {
 			for _, p := range podsByState["Failed"].Items {
-				fmt.Println("--- ", len(p.Status.ContainerStatuses), " ---")
+				if !strings.Contains(p.ObjectMeta.Name, input.RunID) {
+					continue
+				}
+
 				for _, st := range p.Status.ContainerStatuses {
-					fmt.Println("=======================================")
-					spew.Dump(st)
-					fmt.Println("=======================================")
+					event := fmt.Sprintf("pod status <failed> obj<%s> reason<%s> started_at<%s> finished_at<%s> exitcode<%d>", st.Name, st.State.Terminated.Reason, st.State.Terminated.StartedAt, st.State.Terminated.FinishedAt, st.State.Terminated.ExitCode)
+					ow.Warnw("testplan received status", "status", event)
+					*journal = *journal + fmt.Sprintf("status: %s\n", event)
 				}
 			}
 		}
 
-		if counters["Pending"] > 0 {
-			for _, p := range podsByState["Pending"].Items {
-				fmt.Println("--- ", len(p.Status.ContainerStatuses), " ---")
-				for _, st := range p.Status.ContainerStatuses {
-					fmt.Println("=======================================")
-					spew.Dump(st)
-					fmt.Println("=======================================")
-				}
-			}
+		// TODO(anteva): We might need to enable this in case errors happen while pods are being initialized or scheduled, that are not reported as `events` (similar to failed pods).
+		//if counters["Pending"] > 0 {
+		//for _, p := range podsByState["Pending"].Items {
+		//if !strings.Contains(p.ObjectMeta.Name, input.RunID) {
+		//continue
+		//}
 
-			fmt.Println("==== events (due to pending > 0) ====", len(eventsForPods.Items))
-			for _, e := range eventsForPods.Items {
-				if strings.Contains(e.InvolvedObject.Name, input.RunID) {
-					//		spew.Dump(e)
-					fmt.Printf("event: reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)
-				}
-
-				//│ testground-daemon (v1.Event) &Event{ObjectMeta:{tg-lotus-soup-btljbdp961nuj6e6vpsg-miners-0.163767b49e2482ba  default /api/v1/namespaces/default/events/tg-lotus-soup-btljbdp961nuj6e6vpsg-miners-0.163767b49e2482ba a7c1bd7a-253b-4d86-84 │
-				//│ 31-46c4f502b9ec 14195 0 2020-09-23 11:56:57 +0000 UTC <nil> <nil> map[] map[] [] []  [{kube-scheduler Update v1 2020-09-23 11:56:57 +0000 UTC FieldsV1 FieldsV1{Raw:*[123 34 102 58 99 111 117 110 116 34 58 123 125 44 34 102 58 102 105  │
-				//│ 14 115 116 84 105 109 101 115 116 97 109 112 34 58 123 125 44 34 102 58 105 110 118 111 108 118 101 100 79 98 106 101 99 116 34 58 123 34 102 58 97 112 105 86 101 114 115 105 111 110 34 58 123 125 44 34 102 58 107 105 110 100 34 58 12 │
-				//│ 3 125 44 34 102 58 110 97 109 101 34 58 123 125 44 34 102 58 110 97 109 101 115 112 97 99 101 34 58 123 125 44 34 102 58 114 101 115 111 117 114 99 101 86 101 114 115 105 111 110 34 58 123 125 44 34 102 58 117 105 100 34 58 123 125 12 │
-				//│ 5 44 34 102 58 108 97 115 116 84 105 109 101 115 116 97 109 112 34 58 123 125 44 34 102 58 109 101 115 115 97 103 101 34 58 123 125 44 34 102 58 114 101 97 115 111 110 34 58 123 125 44 34 102 58 115 111 117 114 99 101 34 58 123 34 102 │
-				//│  58 99 111 109 112 111 110 101 110 116 34 58 123 125 125 44 34 102 58 116 121 112 101 34 58 123 125 125[],}}]},InvolvedObject:ObjectReference{Kind:Pod,Namespace:default,Name:tg-lotus-soup-btljbdp961nuj6e6vpsg-miners-0,UID:5d386330-083 │
-				//│ d-487b-b0aa-79124c7d11c8,APIVersion:v1,ResourceVersion:2552809,FieldPath:,},Reason:FailedScheduling,Message:skip schedule deleting pod: default/tg-lotus-soup-btljbdp961nuj6e6vpsg-miners-0,Source:EventSource{Component:default-scheduler │
-				//│ ,Host:,},FirstTimestamp:2020-09-23 11:56:57 +0000 UTC,LastTimestamp:2020-09-23 11:56:57 +0000 UTC,Count:1,Type:Warning,EventTime:0001-01-01 00:00:00 +0000 UTC,Series:nil,Action:,Related:nil,ReportingController:,ReportingInstance:,}    │
-				//│
-
-			}
-		}
+		//for _, st := range p.Status.ContainerStatuses {
+		//if st.State.Waiting.Reason != "PodInitializing" {
+		//event := fmt.Sprintf("pod status: pending ; reason<%s> message<%s> name<%s> state<%s>", p.Status.Reason, p.Status.Message, st.Name, st.State.Waiting)
+		//ow.Warnw("testplan pending pod", "event", event)
+		//*journal = *journal + fmt.Sprintf("event: %s\n", event)
+		//}
+		//}
+		//}
+		//}
 
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
