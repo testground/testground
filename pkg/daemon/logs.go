@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -72,14 +71,4 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 			return
 		}
 	}
-}
-
-// brWriter replaces new lines with <br/> html tag
-type brWriter struct {
-	writer io.Writer
-}
-
-func (b brWriter) Write(bb []byte) (n int, err error) {
-	replaced := strings.Replace(string(bb), "\n", "<br/>", -1)
-	return b.writer.Write([]byte(replaced))
 }

@@ -2,10 +2,11 @@ package api
 
 import (
 	"context"
+	"time"
+
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
-	"time"
 )
 
 type ComponentType string

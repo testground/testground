@@ -24,6 +24,7 @@ import (
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/testground/sdk-go/peek"
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
@@ -65,6 +66,9 @@ const (
 	// note that there are other services running on the Kubernetes cluster such as
 	// api proxy, node_exporter, dummy, etc.
 	utilisation = 0.85
+
+	// global timeout for runs to complete
+	globalTimeout = 7 * time.Minute
 
 	// magic values that we monitor on the Testground runner side to detect when Testground
 	// testplan instances are initialised and at the stage of actually running a test
@@ -129,6 +133,21 @@ type ClusterK8sRunner struct {
 	imagesLRU *lru.Cache
 }
 
+type ResultK8s struct {
+	Status   bool                     `json:"status"`
+	Outcomes map[string]*GroupOutcome `json:"outcomes"`
+	Journal  string                   `json:"journal"`
+}
+
+type GroupOutcome struct {
+	Ok    int `json:"ok"`
+	Total int `json:"total"`
+}
+
+func (g *GroupOutcome) String() string {
+	return fmt.Sprintf("%d/%d", g.Ok, g.Total)
+}
+
 type KubernetesConfig struct {
 	// KubeConfigPath is the path to your kubernetes configuration path
 	KubeConfigPath string `json:"kubeConfigPath"`
@@ -149,8 +168,12 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
+func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
 	c.initPool()
+
+	runoutput = &api.RunOutput{RunID: input.RunID}
+	outcomes := make(map[string]*GroupOutcome)
+	var status bool
 
 	var journal string
 
@@ -162,18 +185,21 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	if cfg.Provider != "" {
 		err := c.pushImagesToDockerRegistry(ctx, ow, input)
 		if err != nil {
-			return nil, fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+			runerr = fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+			return
 		}
 	}
 
 	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
+		runerr = fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
+		return
 	}
 
 	defaultMemory, err := resource.ParseQuantity(cfg.TestplanPodMemory)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
+		runerr = fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
+		return
 	}
 
 	template := runtime.RunParams{
@@ -193,21 +219,24 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	// collisions in concurrent testplan runs
 	subnet, err := nextK8sSubnet()
 	if err != nil {
-		return nil, err
+		runerr = err
+		return
 	}
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	enoughResources, err := c.checkClusterResources(ow, input.Groups, defaultMemory, defaultCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
+		runerr = fmt.Errorf("couldn't check cluster resources: %v", err)
+		return
 	}
 
 	if !enoughResources {
 		if cfg.AutoscalerEnabled {
-			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in.")
 		} else {
-			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity.")
+			return
 		}
 	}
 
@@ -215,13 +244,42 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	ow.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
-	var allPodsSucceeded bool
-
 	var eg errgroup.Group
 
 	eg.Go(func() error {
 		var err error
-		allPodsSucceeded, err = c.monitorTestplanRunState(ctx, ow, input, &journal)
+		err = c.monitorTestplanRunState(ctx, ow, input, &journal)
+
+		lastId := "0"
+
+		for {
+			newId, nots := peek.MonitorEvents(&template, lastId)
+
+			for _, n := range nots {
+				if n.EventType == "outcome-ok" {
+					o := outcomes[n.GroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
+
+			if newId == lastId {
+				break
+			}
+
+			lastId = newId
+		}
+
+		status = true
+		if len(outcomes) == 0 {
+			status = false
+		}
+		for g := range outcomes {
+			if outcomes[g].Total != outcomes[g].Ok {
+				status = false
+				break
+			}
+		}
+
 		return err
 	})
 
@@ -232,6 +290,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		runenv.TestGroupID = g.ID
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestInstanceParams = g.Parameters
+
+		outcomes[g.ID] = &GroupOutcome{
+			Total: g.Instances,
+		}
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{
@@ -276,7 +338,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			var err error
 			podCPU, err = resource.ParseQuantity(g.Resources.CPU)
 			if err != nil {
-				return nil, err
+				runerr = err
+				return
 			}
 		}
 
@@ -285,7 +348,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			var err error
 			podMemory, err = resource.ParseQuantity(g.Resources.Memory)
 			if err != nil {
-				return nil, err
+				runerr = err
+				return
 			}
 		}
 
@@ -302,6 +366,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				}
 				client := c.pool.Acquire()
 				defer c.pool.Release(client)
+				ow.Debugw("deleting pod", "pod", podName)
 				err = client.CoreV1().Pods(c.config.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					ow.Errorw("couldn't remove pod", "pod", podName, "err", err)
@@ -326,7 +391,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	// we want to fetch logs even in an event of error
 	defer func() {
-		if input.TotalInstances <= 500 {
+		if input.TotalInstances <= 200 {
 			var gg errgroup.Group
 
 			for _, g := range input.Groups {
@@ -340,10 +405,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 						podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
+						ow.Debugw("fetching logs", "pod", podName)
 						logs, err := c.getPodLogs(ow, podName)
 						if err != nil {
 							return err
 						}
+						ow.Debugw("got logs", "pod", podName, "len", len(logs))
 
 						_, err = ow.WriteProgress([]byte(logs))
 						return err
@@ -352,23 +419,36 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			}
 
 			err = gg.Wait()
-
 			if err != nil {
 				ow.Errorw("error while fetching logs", "err", err.Error())
 			}
+
+			ow.Debugw("done getting logs")
 		}
 	}()
 
 	err = eg.Wait()
 	if err != nil {
-		return &api.RunOutput{RunID: input.RunID, Status: false, Journal: journal}, err
+		runoutput.Result = &ResultK8s{
+			Status:   false,
+			Journal:  journal,
+			Outcomes: outcomes,
+		}
+		runerr = err
+		return
 	}
 
 	if !cfg.KeepService {
 		ow.Info("cleaning up finished pods...")
 	}
 
-	return &api.RunOutput{RunID: input.RunID, Status: allPodsSucceeded, Journal: journal}, nil
+	runoutput.Result = &ResultK8s{
+		Status:   status,
+		Journal:  journal,
+		Outcomes: outcomes,
+	}
+	runerr = nil
+	return
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -603,7 +683,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	lr := byline.NewReader(podLogs)
 	lr.MapString(func(line string) string { return podName + " | " + line })
 
-	buf := new(bytes.Buffer)
+	buf := &bytes.Buffer{}
 	_, err = io.Copy(buf, lr)
 	if err != nil {
 		return "", fmt.Errorf("error in copy information from podLogs to buf: %v", err)
@@ -612,7 +692,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) (bool, error) {
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -623,6 +703,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(opts)
 	if err != nil {
 		ow.Errorw("k8s client pods list error", "err", err.Error())
+		return err
 	}
 	defer eventsWatcher.Stop()
 	eventsChan := eventsWatcher.ResultChan()
@@ -649,12 +730,12 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	for {
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return ctx.Err()
 		default:
 		}
 
-		if time.Since(start) > 7*time.Minute {
-			return false, errors.New("global timeout")
+		if time.Since(start) > globalTimeout {
+			return fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 
@@ -734,12 +815,12 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		if counters["Succeeded"] == input.TotalInstances {
 			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start).Truncate(time.Second))
-			return true, nil
+			return nil
 		}
 
 		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
 			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start).Truncate(time.Second))
-			return false, nil
+			return nil
 		}
 	}
 }
@@ -1088,4 +1169,43 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 
 	_, err = client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
+}
+
+func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
+	c.initPool()
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "testground.node.role.plan=true",
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var allocatableCPUs int64
+	var allocatableMemory int64
+	var capacityCPUs int64
+	var capacityMemory int64
+
+	for _, it := range res.Items {
+		i := it.Status.Allocatable["cpu"]
+		r, _ := i.AsInt64()
+		allocatableCPUs += r
+
+		i = it.Status.Allocatable["memory"]
+		r, _ = i.AsInt64()
+		allocatableMemory += r
+
+		i = it.Status.Capacity["cpu"]
+		r, _ = i.AsInt64()
+		capacityCPUs += r
+
+		i = it.Status.Capacity["memory"]
+		r, _ = i.AsInt64()
+		capacityMemory += r
+	}
+
+	return allocatableCPUs, allocatableMemory, nil
 }

@@ -51,7 +51,7 @@ func taskKey(prefix string, id string) []byte {
 }
 
 func (s *Storage) Get(prefix string, id string) (tsk *Task, err error) {
-	tsk = new(Task)
+	tsk = &Task{}
 	val, err := s.db.Get(taskKey(prefix, id), nil)
 	if err == leveldb.ErrNotFound {
 		return nil, ErrNotFound
@@ -97,7 +97,7 @@ func (s *Storage) AppendTaskState(id string, state State) error {
 	return s.Put(CURRENTPREFIX, tsk)
 }
 
-func (s *Storage) MarkCompleted(id string, error error, data interface{}, status bool, journal string) error {
+func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) error {
 	tsk, err := s.Get(CURRENTPREFIX, id)
 	if err != nil {
 		return err
@@ -106,14 +106,10 @@ func (s *Storage) MarkCompleted(id string, error error, data interface{}, status
 		State:   StateComplete,
 		Created: time.Now().UTC(),
 	}
-	tsk.Status = status
-	tsk.Journal = journal
 	tsk.States = append(tsk.States, dated)
-	tsk.Result = Result{
-		Data: data,
-	}
-	if error != nil {
-		tsk.Result.Error = error.Error()
+	tsk.Result = result
+	if errTask != nil {
+		tsk.Error = errTask.Error()
 	}
 	err = s.Put(CURRENTPREFIX, tsk)
 	if err != nil {
@@ -167,10 +163,11 @@ func (s *Storage) Range(prefix string, start time.Time, end time.Time) (tasks []
 	defer iter.Release()
 
 	for iter.Next() {
-		tsk := new(Task)
+		tsk := &Task{}
+
 		err := json.Unmarshal(iter.Value(), tsk)
 		if err != nil {
-			return tasks, err
+			return nil, err
 		}
 		tasks = append(tasks, tsk)
 	}

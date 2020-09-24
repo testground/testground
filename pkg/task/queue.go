@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/testground/testground/pkg/logging"
 )
 
 var (
@@ -20,7 +21,7 @@ func NewQueue(ts *Storage, max int) (*Queue, error) {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
-			tsk := new(Task)
+			tsk := &Task{}
 			err := json.Unmarshal(iter.Value(), tsk)
 			if err != nil {
 				return nil, err
@@ -79,8 +80,10 @@ func (q *Queue) Pop() (*Task, error) {
 	if q.tq.Len() == 0 {
 		return nil, ErrQueueEmpty
 	}
+	logging.S().Debugw("queue.pop", "len", q.tq.Len())
 	tsk := heap.Pop(q.tq).(*Task)
 
+	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
 	err := q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
 	if err != nil {
 		return nil, err
