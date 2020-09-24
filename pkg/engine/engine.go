@@ -210,12 +210,13 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 
 	id := xid.New().String()
 	err := e.queue.Push(&task.Task{
-		Version:  0,
-		Priority: request.Priority,
-		Plan:     request.Composition.Global.Plan,
-		Case:     request.Composition.Global.Case,
-		ID:       id,
-		Type:     task.TypeRun,
+		Version:     0,
+		Priority:    request.Priority,
+		Plan:        request.Composition.Global.Plan,
+		Case:        request.Composition.Global.Case,
+		ID:          id,
+		Type:        task.TypeRun,
+		Composition: request.Composition,
 		Input: &RunInput{
 			RunRequest: request,
 			Sources:    sources,

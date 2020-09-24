@@ -81,9 +81,6 @@ func (e *Engine) worker(n int) {
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
 
-			var data interface{}
-			var status bool
-
 			// Create a packing directory under the work dir.
 			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID+".out")
 			f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -95,39 +92,40 @@ func (e *Engine) worker(n int) {
 
 			ow := rpc.NewFileOutputWriter(f)
 
-			var j string
+			var result interface{}
+			var errTask error
 
 			switch tsk.Type {
 			case task.TypeRun:
-				res, err := e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
-				if err != nil {
-					logging.S().Errorw("doRun returned err", "err", err)
-				} else {
-					status = res.Status
+				var res *api.RunOutput
+				res, errTask = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+				if errTask != nil {
+					logging.S().Errorw("doRun returned err", "err", errTask)
 				}
 
-				j = res.Journal.(string)
-
-				data = res
+				if res != nil {
+					result = res.Result
+				}
 			case task.TypeBuild:
-				res, err := e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
-				if err != nil {
-					logging.S().Errorw("doBuild returned err", "err", err)
-				} else {
-					status = true
-					for _, v := range res {
-						if v.Status == false {
-							status = false
-							break
-						}
-					}
+				var res []*api.BuildOutput
+				res, errTask = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
+				if errTask != nil {
+					logging.S().Errorw("doBuild returned err", "err", errTask)
 				}
-				data = res
+
+				if res != nil {
+					var artifactPaths []string
+					for _, ap := range res {
+						artifactPaths = append(artifactPaths, ap.ArtifactPath)
+					}
+					result = artifactPaths
+				}
+
 			default:
 				// wut
 			}
 
-			err = e.store.MarkCompleted(tsk.ID, err, data, status, j)
+			err = e.store.MarkCompleted(tsk.ID, errTask, result)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
 			}
@@ -451,22 +449,9 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
-	if err != nil {
-		if out != nil {
-			return &api.RunOutput{
-				RunID:       out.RunID,
-				Composition: input.Composition,
-				Status:      out.Status,
-				Journal:     out.Journal,
-			}, err
-		}
-		return nil, err
+	if out != nil {
+		out.Composition = input.Composition
 	}
 
-	return &api.RunOutput{
-		RunID:       out.RunID,
-		Composition: input.Composition,
-		Status:      out.Status,
-		Journal:     out.Journal,
-	}, nil
+	return out, err
 }

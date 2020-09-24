@@ -21,7 +21,7 @@ func NewQueue(ts *Storage, max int) (*Queue, error) {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
-			tsk := new(Task)
+			tsk := &Task{}
 			err := json.Unmarshal(iter.Value(), tsk)
 			if err != nil {
 				return nil, err

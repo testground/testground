@@ -237,12 +237,12 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		return err
 	}
 
-	if tsk.Result.Error != "" {
-		return errors.New(tsk.Result.Error)
+	if tsk.Error != "" {
+		return errors.New(tsk.Error)
 	}
 
-	var rout api.RunOutput
-	err = mapstructure.Decode(tsk.Result.Data, &rout)
+	var composition api.Composition
+	err = mapstructure.Decode(tsk.Composition, &composition)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}
 		enc := toml.NewEncoder(f)
-		if err := enc.Encode(rout.Composition); err != nil {
+		if err := enc.Encode(composition); err != nil {
 			return fmt.Errorf("failed to encode composition into file: %w", err)
 		}
 	}

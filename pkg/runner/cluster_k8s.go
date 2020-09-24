@@ -66,6 +66,9 @@ const (
 	// api proxy, node_exporter, dummy, etc.
 	utilisation = 0.85
 
+	// global timeout for runs to complete
+	globalTimeout = 7 * time.Minute
+
 	// magic values that we monitor on the Testground runner side to detect when Testground
 	// testplan instances are initialised and at the stage of actually running a test
 	// check sdk/sync for more information
@@ -127,6 +130,11 @@ type ClusterK8sRunner struct {
 	config    KubernetesConfig
 	pool      *pool
 	imagesLRU *lru.Cache
+}
+
+type ResultK8s struct {
+	Status  bool   `json:"status"`
+	Journal string `json:"journal"`
 }
 
 type KubernetesConfig struct {
@@ -205,9 +213,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	if !enoughResources {
 		if cfg.AutoscalerEnabled {
-			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in.")
 		} else {
-			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity")
+			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity.")
 		}
 	}
 
@@ -365,14 +373,21 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	err = eg.Wait()
 	if err != nil {
-		return &api.RunOutput{RunID: input.RunID, Status: false, Journal: journal}, err
+		return &api.RunOutput{RunID: input.RunID, Result: c.GenerateResult(false, journal)}, err
 	}
 
 	if !cfg.KeepService {
 		ow.Info("cleaning up finished pods...")
 	}
 
-	return &api.RunOutput{RunID: input.RunID, Status: allPodsSucceeded, Journal: journal}, nil
+	return &api.RunOutput{RunID: input.RunID, Result: c.GenerateResult(allPodsSucceeded, journal)}, nil
+}
+
+func (*ClusterK8sRunner) GenerateResult(status bool, journal string) interface{} {
+	return &ResultK8s{
+		Status:  status,
+		Journal: journal,
+	}
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -657,8 +672,8 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 		default:
 		}
 
-		if time.Since(start) > 7*time.Minute {
-			return false, errors.New("global timeout")
+		if time.Since(start) > globalTimeout {
+			return false, fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 
@@ -1094,7 +1109,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 	return err
 }
 
-func (c *ClusterK8sRunner) GetResources() (int64, int64, error) {
+func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	c.initPool()
 
 	client := c.pool.Acquire()
