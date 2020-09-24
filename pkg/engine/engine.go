@@ -14,6 +14,7 @@ import (
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
@@ -77,6 +78,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		store, err = task.NewMemoryTaskStorage()
 	} else {
 		path := filepath.Join(cfg.EnvConfig.Dirs().Home(), "tasks.db")
+		logging.S().Infow("init leveldb task storage", "path", path)
 		store, err = task.NewTaskStorage(path)
 	}
 
@@ -372,7 +374,7 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 			if filters.TestPlan != "" && tsk.Plan != filters.TestPlan {
 				continue
 			}
-			
+
 			if filters.TestCase != "" && tsk.Case != filters.TestCase {
 				continue
 			}

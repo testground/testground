@@ -302,6 +302,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				}
 				client := c.pool.Acquire()
 				defer c.pool.Release(client)
+				ow.Debugw("deleting pod", "pod", podName)
 				err = client.CoreV1().Pods(c.config.Namespace).Delete(podName, &metav1.DeleteOptions{})
 				if err != nil {
 					ow.Errorw("couldn't remove pod", "pod", podName, "err", err)
@@ -326,7 +327,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	// we want to fetch logs even in an event of error
 	defer func() {
-		if input.TotalInstances <= 500 {
+		if input.TotalInstances <= 200 {
 			var gg errgroup.Group
 
 			for _, g := range input.Groups {
@@ -340,10 +341,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 						podName := fmt.Sprintf("%s-%s-%s-%d", jobName, input.RunID, g.ID, i)
 
+						ow.Debugw("fetching logs", "pod", podName)
 						logs, err := c.getPodLogs(ow, podName)
 						if err != nil {
 							return err
 						}
+						ow.Debugw("got logs", "pod", podName, "len", len(logs))
 
 						_, err = ow.WriteProgress([]byte(logs))
 						return err
@@ -352,10 +355,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			}
 
 			err = gg.Wait()
-
 			if err != nil {
 				ow.Errorw("error while fetching logs", "err", err.Error())
 			}
+
+			ow.Debugw("done getting logs")
 		}
 	}()
 
@@ -1088,4 +1092,43 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 
 	_, err = client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
 	return err
+}
+
+func (c *ClusterK8sRunner) GetResources() (int64, int64, error) {
+	c.initPool()
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+
+	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+		LabelSelector: "testground.node.role.plan=true",
+	})
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var allocatableCPUs int64
+	var allocatableMemory int64
+	var capacityCPUs int64
+	var capacityMemory int64
+
+	for _, it := range res.Items {
+		i := it.Status.Allocatable["cpu"]
+		r, _ := i.AsInt64()
+		allocatableCPUs += r
+
+		i = it.Status.Allocatable["memory"]
+		r, _ = i.AsInt64()
+		allocatableMemory += r
+
+		i = it.Status.Capacity["cpu"]
+		r, _ = i.AsInt64()
+		capacityCPUs += r
+
+		i = it.Status.Capacity["memory"]
+		r, _ = i.AsInt64()
+		capacityMemory += r
+	}
+
+	return allocatableCPUs, allocatableMemory, nil
 }

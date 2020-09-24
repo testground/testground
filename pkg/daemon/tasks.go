@@ -8,6 +8,7 @@ import (
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
 )
 
@@ -52,6 +53,14 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 			fmt.Fprintf(w, "tasks json decode error: %s", err.Error())
 			return
 		}
+
+		cr, _ := engine.RunnerByName("cluster:k8s")
+		rr := cr.(*runner.ClusterK8sRunner)
+		allocatableCPUs, allocatableMemory, _ := rr.GetResources()
+
+		w.Write([]byte("<strong>cluster resources</strong><br/>"))
+		w.Write([]byte(fmt.Sprintf("capacity cpus: %d<br/>", allocatableCPUs)))
+		w.Write([]byte(fmt.Sprintf("capacity memory: %s<br/>", ByteCountSI(allocatableMemory))))
 
 		tf := "Mon Jan _2 15:04:05"
 
@@ -106,4 +115,18 @@ func (d *Daemon) redirect() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/tasks", 301)
 	}
+}
+
+func ByteCountSI(b int64) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB",
+		float64(b)/float64(div), "kMGTPE"[exp])
 }
