@@ -449,7 +449,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
-	if out != nil {
+	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check
 		out.Composition = input.Composition
 	}
 

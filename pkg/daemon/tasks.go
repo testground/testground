@@ -59,9 +59,9 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		rr := cr.(*runner.ClusterK8sRunner)
 		allocatableCPUs, allocatableMemory, _ := rr.GetClusterCapacity()
 
-		w.Write([]byte("<strong>cluster resources</strong><br/>"))
-		w.Write([]byte(fmt.Sprintf("capacity cpus: %d<br/>", allocatableCPUs)))
-		w.Write([]byte(fmt.Sprintf("capacity memory: %s<br/>", ByteCountSI(allocatableMemory))))
+		_, _ = w.Write([]byte("<strong>cluster resources</strong><br/>"))
+		_, _ = w.Write([]byte(fmt.Sprintf("capacity cpus: %d<br/>", allocatableCPUs)))
+		_, _ = w.Write([]byte(fmt.Sprintf("capacity memory: %s<br/>", ByteCountSI(allocatableMemory))))
 
 		tf := "Mon Jan _2 15:04:05"
 

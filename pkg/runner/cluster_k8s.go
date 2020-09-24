@@ -157,8 +157,10 @@ func defaultKubernetesConfig() KubernetesConfig {
 	}
 }
 
-func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
+func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
 	c.initPool()
+
+	runoutput = &api.RunOutput{RunID: input.RunID}
 
 	var journal string
 
@@ -170,18 +172,21 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	if cfg.Provider != "" {
 		err := c.pushImagesToDockerRegistry(ctx, ow, input)
 		if err != nil {
-			return nil, fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+			runerr = fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
+			return
 		}
 	}
 
 	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
+		runerr = fmt.Errorf("couldn't parse default test plan pod CPU request; make sure you have specified `testplan_pod_cpu` in .env.toml; err: %w", err)
+		return
 	}
 
 	defaultMemory, err := resource.ParseQuantity(cfg.TestplanPodMemory)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
+		runerr = fmt.Errorf("couldn't parse default test plan pod Memory request; make sure you have specified `testplan_pod_memory` in .env.toml; err: %w", err)
+		return
 	}
 
 	template := runtime.RunParams{
@@ -201,21 +206,24 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	// collisions in concurrent testplan runs
 	subnet, err := nextK8sSubnet()
 	if err != nil {
-		return nil, err
+		runerr = err
+		return
 	}
 
 	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
 
 	enoughResources, err := c.checkClusterResources(ow, input.Groups, defaultMemory, defaultCPU)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't check cluster resources: %v", err)
+		runerr = fmt.Errorf("couldn't check cluster resources: %v", err)
+		return
 	}
 
 	if !enoughResources {
 		if cfg.AutoscalerEnabled {
 			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in.")
 		} else {
-			return nil, errors.New("too many test instances requested, resize cluster if you need more capacity.")
+			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity.")
+			return
 		}
 	}
 
@@ -284,7 +292,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			var err error
 			podCPU, err = resource.ParseQuantity(g.Resources.CPU)
 			if err != nil {
-				return nil, err
+				runerr = err
+				return
 			}
 		}
 
@@ -293,7 +302,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			var err error
 			podMemory, err = resource.ParseQuantity(g.Resources.Memory)
 			if err != nil {
-				return nil, err
+				runerr = err
+				return
 			}
 		}
 
@@ -373,21 +383,24 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	err = eg.Wait()
 	if err != nil {
-		return &api.RunOutput{RunID: input.RunID, Result: c.GenerateResult(false, journal)}, err
+		runoutput.Result = &ResultK8s{
+			Status:  false,
+			Journal: journal,
+		}
+		runerr = err
+		return
 	}
 
 	if !cfg.KeepService {
 		ow.Info("cleaning up finished pods...")
 	}
 
-	return &api.RunOutput{RunID: input.RunID, Result: c.GenerateResult(allPodsSucceeded, journal)}, nil
-}
-
-func (*ClusterK8sRunner) GenerateResult(status bool, journal string) interface{} {
-	return &ResultK8s{
-		Status:  status,
+	runoutput.Result = &ResultK8s{
+		Status:  allPodsSucceeded,
 		Journal: journal,
 	}
+	runerr = nil
+	return
 }
 
 func (*ClusterK8sRunner) ID() string {
@@ -622,7 +635,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	lr := byline.NewReader(podLogs)
 	lr.MapString(func(line string) string { return podName + " | " + line })
 
-	buf := new(bytes.Buffer)
+	buf := &bytes.Buffer{}
 	_, err = io.Copy(buf, lr)
 	if err != nil {
 		return "", fmt.Errorf("error in copy information from podLogs to buf: %v", err)
@@ -642,6 +655,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(opts)
 	if err != nil {
 		ow.Errorw("k8s client pods list error", "err", err.Error())
+		return false, err
 	}
 	defer eventsWatcher.Stop()
 	eventsChan := eventsWatcher.ResultChan()

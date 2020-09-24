@@ -113,7 +113,7 @@ func runCompositionCmd(c *cli.Context) (err error) {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 
-	err = doRun(c, comp)
+	err = run(c, comp)
 	if err != nil {
 		return err
 	}
@@ -127,10 +127,10 @@ func runSingleCmd(c *cli.Context) (err error) {
 		return err
 	}
 	logging.S().Infof("created a synthetic composition file for this job; all instances will run under singleton group %q", comp.Groups[0].ID)
-	return doRun(c, comp)
+	return run(c, comp)
 }
 
-func doRun(c *cli.Context, comp *api.Composition) (err error) {
+func run(c *cli.Context, comp *api.Composition) (err error) {
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
