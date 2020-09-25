@@ -20,10 +20,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/testground/sdk-go/peek"
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
@@ -234,6 +236,30 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var allPodsSucceeded bool
 
 	var eg errgroup.Group
+
+	eg.Go(func() error {
+		lastId := "0"
+		var same int
+
+		for {
+			newId, nots := peek.MonitorEvents(&template, lastId)
+			for _, n := range nots {
+				spew.Dump(n)
+			}
+
+			time.Sleep(2 * time.Second)
+
+			if newId == lastId {
+				same++
+			}
+
+			lastId = newId
+
+			if same >= 30 {
+				return nil
+			}
+		}
+	})
 
 	eg.Go(func() error {
 		var err error
