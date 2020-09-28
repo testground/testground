@@ -24,7 +24,7 @@ import (
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/testground/sdk-go/peek"
+	"github.com/testground/sdk-go/notification"
 	"github.com/testground/sdk-go/runtime"
 
 	"github.com/testground/testground/pkg/api"
@@ -66,9 +66,6 @@ const (
 	// note that there are other services running on the Kubernetes cluster such as
 	// api proxy, node_exporter, dummy, etc.
 	utilisation = 0.85
-
-	// global timeout for runs to complete
-	globalTimeout = 7 * time.Minute
 
 	// magic values that we monitor on the Testground runner side to detect when Testground
 	// testplan instances are initialised and at the stage of actually running a test
@@ -121,6 +118,8 @@ type ClusterK8sRunnerConfig struct {
 	CollectOutputsPodCPU    string `toml:"collect_outputs_pod_cpu"`
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
+
+	GlobalTimeoutMin int `toml:"global_timeout_min"`
 
 	Sysctls []string `toml:"sysctls"`
 }
@@ -253,9 +252,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		lastId := "0"
 
 		for {
-			newId, nots := peek.MonitorEvents(&template, lastId)
+			notifications, newId, errn := notification.Fetch(&template, lastId)
+			if errn != nil {
+				return errn
+			}
 
-			for _, n := range nots {
+			for _, n := range notifications {
 				if n.EventType == "outcome-ok" {
 					o := outcomes[n.GroupID]
 					o.Ok = o.Ok + 1
@@ -695,6 +697,9 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
+
+	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
+	globalTimeout := time.Duration(cfg.GlobalTimeoutMin) * time.Minute
 
 	fieldSelector := "type!=Normal"
 	opts := metav1.ListOptions{
