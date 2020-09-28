@@ -20,7 +20,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
@@ -135,8 +134,18 @@ type ClusterK8sRunner struct {
 }
 
 type ResultK8s struct {
-	Status  bool   `json:"status"`
-	Journal string `json:"journal"`
+	Status   bool                     `json:"status"`
+	Outcomes map[string]*GroupOutcome `json:"outcomes"`
+	Journal  string                   `json:"journal"`
+}
+
+type GroupOutcome struct {
+	Ok    int `json:"ok"`
+	Total int `json:"total"`
+}
+
+func (g *GroupOutcome) String() string {
+	return fmt.Sprintf("%d/%d", g.Ok, g.Total)
 }
 
 type KubernetesConfig struct {
@@ -163,6 +172,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	c.initPool()
 
 	runoutput = &api.RunOutput{RunID: input.RunID}
+	outcomes := make(map[string]*GroupOutcome)
+	var status bool
 
 	var journal string
 
@@ -233,37 +244,42 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	ow.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
-	var allPodsSucceeded bool
-
 	var eg errgroup.Group
 
 	eg.Go(func() error {
+		var err error
+		err = c.monitorTestplanRunState(ctx, ow, input, &journal)
+
 		lastId := "0"
-		var same int
 
 		for {
 			newId, nots := peek.MonitorEvents(&template, lastId)
+
 			for _, n := range nots {
-				spew.Dump(n)
+				if n.EventType == "outcome-ok" {
+					o := outcomes[n.GroupID]
+					o.Ok = o.Ok + 1
+				}
 			}
 
-			time.Sleep(2 * time.Second)
-
 			if newId == lastId {
-				same++
+				break
 			}
 
 			lastId = newId
+		}
 
-			if same >= 30 {
-				return nil
+		status = true
+		if len(outcomes) == 0 {
+			status = false
+		}
+		for g := range outcomes {
+			if outcomes[g].Total != outcomes[g].Ok {
+				status = false
+				break
 			}
 		}
-	})
 
-	eg.Go(func() error {
-		var err error
-		allPodsSucceeded, err = c.monitorTestplanRunState(ctx, ow, input, &journal)
 		return err
 	})
 
@@ -274,6 +290,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		runenv.TestGroupID = g.ID
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestInstanceParams = g.Parameters
+
+		outcomes[g.ID] = &GroupOutcome{
+			Total: g.Instances,
+		}
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{
@@ -410,8 +430,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	err = eg.Wait()
 	if err != nil {
 		runoutput.Result = &ResultK8s{
-			Status:  false,
-			Journal: journal,
+			Status:   false,
+			Journal:  journal,
+			Outcomes: outcomes,
 		}
 		runerr = err
 		return
@@ -422,8 +443,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	}
 
 	runoutput.Result = &ResultK8s{
-		Status:  allPodsSucceeded,
-		Journal: journal,
+		Status:   status,
+		Journal:  journal,
+		Outcomes: outcomes,
 	}
 	runerr = nil
 	return
@@ -670,7 +692,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) (bool, error) {
+func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -681,7 +703,7 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(opts)
 	if err != nil {
 		ow.Errorw("k8s client pods list error", "err", err.Error())
-		return false, err
+		return err
 	}
 	defer eventsWatcher.Stop()
 	eventsChan := eventsWatcher.ResultChan()
@@ -708,12 +730,12 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 	for {
 		select {
 		case <-ctx.Done():
-			return false, ctx.Err()
+			return ctx.Err()
 		default:
 		}
 
 		if time.Since(start) > globalTimeout {
-			return false, fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
+			return fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 
@@ -793,12 +815,12 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 		if counters["Succeeded"] == input.TotalInstances {
 			ow.Infow("all testplan instances in `Succeeded` state", "took", time.Since(start).Truncate(time.Second))
-			return true, nil
+			return nil
 		}
 
 		if (counters["Succeeded"] + counters["Failed"]) == input.TotalInstances {
 			ow.Warnw("all testplan instances in `Succeeded` or `Failed` state", "took", time.Since(start).Truncate(time.Second))
-			return false, nil
+			return nil
 		}
 	}
 }
