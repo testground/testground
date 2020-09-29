@@ -97,10 +97,10 @@ func (s *Storage) AppendTaskState(id string, state State) error {
 	return s.Put(CURRENTPREFIX, tsk)
 }
 
-func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) error {
+func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) (*Task, error) {
 	tsk, err := s.Get(CURRENTPREFIX, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	dated := DatedState{
 		State:   StateComplete,
@@ -113,9 +113,14 @@ func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) er
 	}
 	err = s.Put(CURRENTPREFIX, tsk)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return s.ChangePrefix(ARCHIVEPREFIX, CURRENTPREFIX, id)
+
+	err = s.ChangePrefix(ARCHIVEPREFIX, CURRENTPREFIX, id)
+	if err != nil {
+		return nil, err
+	}
+	return tsk, nil
 }
 
 // Change the prefix of a task

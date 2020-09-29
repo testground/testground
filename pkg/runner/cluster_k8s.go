@@ -138,6 +138,11 @@ type ResultK8s struct {
 	Journal  string                   `json:"journal"`
 }
 
+func (r *ResultK8s) String() string {
+	s := fmt.Sprintf("%v", r.Outcomes)
+	return s[4 : len(s)-1]
+}
+
 type GroupOutcome struct {
 	Ok    int `json:"ok"`
 	Total int `json:"total"`
