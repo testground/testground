@@ -26,23 +26,7 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		path := filepath.Join(engine.EnvConfig().Dirs().Daemon(), req.TaskID+".out")
-
-		file, err := os.Open(path)
-		if err != nil {
-			tgw.WriteError("cannot open logs file", "err", err)
-			return
-		}
-		defer file.Close()
-
-		// copy logs to responseWriter, they are already json marshaled
-		_, err = io.Copy(w, file)
-		if err != nil {
-			tgw.WriteError("couldnt copy logs contents", "err", err)
-			return
-		}
-
-		tsk, err := engine.Status(req.TaskID)
+		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, w)
 		if err != nil {
 			tgw.WriteError("error while getting task", "err", err)
 			return

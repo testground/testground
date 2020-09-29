@@ -2,7 +2,11 @@ package engine
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -408,4 +412,136 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 		return nil, err
 	}
 	return e.store.Get(task.QUEUEPREFIX, id)
+}
+
+func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
+	ow := rpc.NewFileOutputWriter(w)
+
+	path := filepath.Join(e.EnvConfig().Dirs().Daemon(), id+".out")
+
+	if !follow {
+		file, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		// copy logs to responseWriter, they are already json marshaled
+		_, err = io.Copy(w, file)
+		if err != nil {
+			return nil, err
+		}
+
+		return e.Status(id)
+	}
+
+	// wait for the task to start
+	for {
+		tsk, err := e.Status(id)
+		if err != nil {
+			return nil, err
+		}
+
+		if tsk.State().State == task.StateScheduled {
+			time.Sleep(time.Millisecond * 500)
+		} else {
+			break
+		}
+	}
+
+	stop := make(chan struct{})
+	file, err := newTailReader(path, stop)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	go func() {
+		for {
+			e.signalsLk.RLock()
+			_, running := e.signals[id]
+			e.signalsLk.RUnlock()
+			if !running {
+				close(stop)
+				return
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	// helps with very long progress lines
+	// (i.e. marshalled stdout logs into a chunk)
+	// unlike bufio reader
+	dec := json.NewDecoder(file)
+
+Outer:
+	for {
+		select {
+		case <-ctx.Done():
+			if cancel {
+				e.signalsLk.RLock()
+				if ch, ok := e.signals[id]; ok {
+					close(ch)
+				}
+				e.signalsLk.RUnlock()
+			}
+			break Outer
+		default:
+			var chunk rpc.Chunk
+			err := dec.Decode(&chunk)
+			if err != nil {
+				if err == io.EOF {
+					break Outer
+				}
+				return nil, err
+			}
+
+			m, err := base64.StdEncoding.DecodeString(chunk.Payload.(string))
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = ow.WriteProgress([]byte(m))
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	return e.Status(id)
+}
+
+type tailReader struct {
+	io.ReadCloser
+	stop chan struct{}
+}
+
+func (t tailReader) Read(b []byte) (int, error) {
+	for {
+		select {
+		case <-t.stop:
+			return 0, io.EOF
+		default:
+			n, err := t.ReadCloser.Read(b)
+			if n > 0 {
+				return n, nil
+			} else if err != io.EOF {
+				return n, err
+			}
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}
+}
+
+func newTailReader(fileName string, stop chan struct{}) (tailReader, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return tailReader{}, err
+	}
+
+	if _, err := f.Seek(0, 2); err != nil {
+		return tailReader{}, err
+	}
+	return tailReader{f, stop}, nil
 }

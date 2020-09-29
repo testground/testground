@@ -796,23 +796,6 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 			}
 		}
 
-		// TODO(anteva): We might need to enable this in case errors happen while pods are being initialized or scheduled, that are not reported as `events` (similar to failed pods).
-		//if counters["Pending"] > 0 {
-		//for _, p := range podsByState["Pending"].Items {
-		//if !strings.Contains(p.ObjectMeta.Name, input.RunID) {
-		//continue
-		//}
-
-		//for _, st := range p.Status.ContainerStatuses {
-		//if st.State.Waiting.Reason != "PodInitializing" {
-		//event := fmt.Sprintf("pod status: pending ; reason<%s> message<%s> name<%s> state<%s>", p.Status.Reason, p.Status.Message, st.Name, st.State.Waiting)
-		//ow.Warnw("testplan pending pod", "event", event)
-		//*journal = *journal + fmt.Sprintf("event: %s\n", event)
-		//}
-		//}
-		//}
-		//}
-
 		if counters["Running"] == input.TotalInstances && !allRunningStage {
 			allRunningStage = true
 			ow.Infow("all testplan instances in `Running` state", "took", time.Since(start).Truncate(time.Second))
