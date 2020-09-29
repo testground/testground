@@ -1,8 +1,9 @@
 package engine
 
 import (
-	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -413,7 +414,9 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 	return e.store.Get(task.QUEUEPREFIX, id)
 }
 
-func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error) {
+func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
+	ow := rpc.NewFileOutputWriter(w)
+
 	path := filepath.Join(e.EnvConfig().Dirs().Daemon(), id+".out")
 
 	if !follow {
@@ -423,23 +426,16 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 		}
 		defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-
-		for scanner.Scan() {
-			_, err = ow.WriteProgress(scanner.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			if err := scanner.Err(); err != nil {
-				return nil, err
-			}
+		// copy logs to responseWriter, they are already json marshaled
+		_, err = io.Copy(w, file)
+		if err != nil {
+			return nil, err
 		}
 
 		return e.Status(id)
 	}
 
-	// Wait for the task to start
+	// wait for the task to start
 	for {
 		tsk, err := e.Status(id)
 		if err != nil {
@@ -453,14 +449,31 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 		}
 	}
 
-	file, err := os.Open(path)
+	stop := make(chan struct{})
+	file, err := newTailReader(path, stop)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
-	reader := bufio.NewReader(file)
 
-	var prevBytes []byte
+	go func() {
+		for {
+			e.signalsLk.RLock()
+			_, running := e.signals[id]
+			e.signalsLk.RUnlock()
+			if !running {
+				close(stop)
+				return
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	// helps with very long progress lines
+	// (i.e. marshalled stdout logs into a chunk)
+	// unlike bufio reader
+	dec := json.NewDecoder(file)
 
 Outer:
 	for {
@@ -475,35 +488,21 @@ Outer:
 			}
 			break Outer
 		default:
-			e.signalsLk.RLock()
-			_, running := e.signals[id]
-			e.signalsLk.RUnlock()
-
-			line, err := reader.ReadBytes('\n')
-
-			if err == io.EOF {
-				if len(line) != 0 {
-					// It means we read part of a line so it's not actually
-					// the end of the file.
-					prevBytes = line
-					continue
-				}
-
-				if running {
-					continue
-				} else {
+			var chunk rpc.Chunk
+			err := dec.Decode(&chunk)
+			if err != nil {
+				if err == io.EOF {
 					break Outer
 				}
-			} else if err != nil {
 				return nil, err
 			}
 
-			if prevBytes != nil {
-				line = append(prevBytes, line...)
+			m, err := base64.StdEncoding.DecodeString(chunk.Payload.(string))
+			if err != nil {
+				return nil, err
 			}
 
-			prevBytes = nil
-			_, err = ow.WriteProgress(line)
+			_, err = ow.WriteProgress([]byte(m))
 			if err != nil {
 				return nil, err
 			}
@@ -511,4 +510,38 @@ Outer:
 	}
 
 	return e.Status(id)
+}
+
+type tailReader struct {
+	io.ReadCloser
+	stop chan struct{}
+}
+
+func (t tailReader) Read(b []byte) (int, error) {
+	for {
+		select {
+		case <-t.stop:
+			return 0, io.EOF
+		default:
+			n, err := t.ReadCloser.Read(b)
+			if n > 0 {
+				return n, nil
+			} else if err != io.EOF {
+				return n, err
+			}
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}
+}
+
+func newTailReader(fileName string, stop chan struct{}) (tailReader, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return tailReader{}, err
+	}
+
+	if _, err := f.Seek(0, 2); err != nil {
+		return tailReader{}, err
+	}
+	return tailReader{f, stop}, nil
 }

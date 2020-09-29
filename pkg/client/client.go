@@ -505,21 +505,6 @@ func ParseLogsRequest(w io.Writer, r io.ReadCloser) (api.LogsResponse, error) {
 				return err
 			}
 
-			var data struct {
-				T int    `json:"t"`
-				P string `json:"p"`
-			}
-
-			err = json.Unmarshal(m, &data)
-			if err != nil {
-				return err
-			}
-
-			m, err = base64.StdEncoding.DecodeString(data.P)
-			if err != nil {
-				return err
-			}
-
 			fmt.Fprint(w, string(m))
 			return nil
 		},

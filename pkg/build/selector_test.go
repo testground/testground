@@ -17,7 +17,6 @@ import (
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/engine"
-	"github.com/testground/testground/pkg/rpc"
 )
 
 func TestBuildSelector(t *testing.T) {
@@ -88,7 +87,7 @@ func TestBuildSelector(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			tsk, err := engine.Logs(context.Background(), id, true, false, rpc.Discard())
+			tsk, err := engine.Logs(context.Background(), id, true, false, ioutil.Discard)
 			if err != nil {
 				t.Fatal(err)
 			}

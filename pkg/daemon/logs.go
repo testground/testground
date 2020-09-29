@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -24,9 +26,9 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
+		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, w)
 		if err != nil {
-			tgw.WriteError("error while fetching logs", "err", err.Error())
+			tgw.WriteError("error while getting task", "err", err)
 			return
 		}
 
@@ -49,26 +51,19 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 			return
 		}
 
-		req := api.LogsRequest{
-			TaskID: taskId,
-			Follow: false,
-		}
+		path := filepath.Join(engine.EnvConfig().Dirs().Daemon(), taskId+".out")
 
-		rr, ww := io.Pipe()
-
-		tgw := rpc.NewFileOutputWriter(ww)
-
-		go func() {
-			_, err := client.ParseLogsRequest(w, rr)
-			if err != nil {
-				fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
-			}
-		}()
-
-		_, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
+		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(w, "error while fetching logs: %s", err.Error())
+			log.Errorw("cannot open logs file", "err", err)
 			return
+		}
+		defer file.Close()
+
+		_, err = client.ParseLogsRequest(w, file)
+
+		if err != nil && err != io.EOF {
+			fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
 		}
 	}
 }
