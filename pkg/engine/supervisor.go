@@ -17,6 +17,7 @@ import (
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
 	"golang.org/x/sync/errgroup"
 )
@@ -125,12 +126,13 @@ func (e *Engine) worker(n int) {
 				// wut
 			}
 
-			err = e.store.MarkCompleted(tsk.ID, errTask, result)
+			tsk, err = e.store.MarkCompleted(tsk.ID, errTask, result)
 			if err != nil {
 				logging.S().Errorw("could not update task status", "err", err)
+				return
 			}
 
-			err = e.postStatusToSlack(tsk.ID, task.StateComplete)
+			err = e.postStatusToSlack(tsk)
 			if err != nil {
 				logging.S().Errorw("could not send status to slack", "err", err)
 			}
@@ -140,13 +142,23 @@ func (e *Engine) worker(n int) {
 	}
 }
 
-func (e *Engine) postStatusToSlack(taskId string, state task.State) error {
+func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 	if e.envcfg.Daemon.SlackWebhookURL == "" {
 		return nil
 	}
 
 	cl := &http.Client{Timeout: time.Second * 10}
-	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed. Check status at: https://ci.testground.ipfs.team/tasks"}`)
+
+	payload := fmt.Sprintf(`{"text":"<https://ci.testground.ipfs.team|%s> *%s* run completed"}`, tsk.ID, tsk.Name())
+
+	if result, ok := tsk.Result.(*runner.ResultK8s); ok {
+		if result.Status {
+			payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
+		} else {
+			payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+		}
+	}
+	body := strings.NewReader(payload)
 	res, err := cl.Post(
 		e.envcfg.Daemon.SlackWebhookURL,
 		"application/json; charset=UTF-8",

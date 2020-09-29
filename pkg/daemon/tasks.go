@@ -70,9 +70,9 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 			result := parseResult(t.Result)
 			if t.State().State == task.StateComplete {
 				if result.Status { // green
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.State().State, t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result.Outcomes, t.Error)
+					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.State().State, t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result, t.Error)
 				} else {
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.State().State, t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#10060;", result.Outcomes, t.Error)
+					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.State().State, t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#10060;", result, t.Error)
 				}
 			}
 
