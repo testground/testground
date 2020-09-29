@@ -1,11 +1,8 @@
 package engine
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -411,104 +408,4 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 		return nil, err
 	}
 	return e.store.Get(task.QUEUEPREFIX, id)
-}
-
-func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error) {
-	path := filepath.Join(e.EnvConfig().Dirs().Daemon(), id+".out")
-
-	if !follow {
-		file, err := os.Open(path)
-		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		scanner := bufio.NewScanner(file)
-
-		for scanner.Scan() {
-			_, err = ow.WriteProgress(scanner.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			if err := scanner.Err(); err != nil {
-				return nil, err
-			}
-		}
-
-		return e.Status(id)
-	}
-
-	// Wait for the task to start
-	for {
-		tsk, err := e.Status(id)
-		if err != nil {
-			return nil, err
-		}
-
-		if tsk.State().State == task.StateScheduled {
-			time.Sleep(time.Millisecond * 500)
-		} else {
-			break
-		}
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-	reader := bufio.NewReader(file)
-
-	var prevBytes []byte
-
-Outer:
-	for {
-		select {
-		case <-ctx.Done():
-			if cancel {
-				e.signalsLk.RLock()
-				if ch, ok := e.signals[id]; ok {
-					close(ch)
-				}
-				e.signalsLk.RUnlock()
-			}
-			break Outer
-		default:
-			e.signalsLk.RLock()
-			_, running := e.signals[id]
-			e.signalsLk.RUnlock()
-
-			line, err := reader.ReadBytes('\n')
-
-			if err == io.EOF {
-				if len(line) != 0 {
-					// It means we read part of a line so it's not actually
-					// the end of the file.
-					prevBytes = line
-					continue
-				}
-
-				if running {
-					continue
-				} else {
-					break Outer
-				}
-			} else if err != nil {
-				return nil, err
-			}
-
-			if prevBytes != nil {
-				line = append(prevBytes, line...)
-			}
-
-			prevBytes = nil
-			_, err = ow.WriteProgress(line)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return e.Status(id)
 }
