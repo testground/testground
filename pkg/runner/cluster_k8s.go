@@ -170,11 +170,14 @@ func defaultKubernetesConfig() KubernetesConfig {
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
 	c.initPool()
 
-	runoutput = &api.RunOutput{RunID: input.RunID}
-	outcomes := make(map[string]*GroupOutcome)
-	var status bool
-
-	var journal string
+	runoutput = &api.RunOutput{
+		RunID: input.RunID,
+		Result: &ResultK8s{
+			Status:   false,
+			Outcomes: make(map[string]*GroupOutcome),
+		},
+	}
+	result := runoutput.Result.(*ResultK8s)
 
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
@@ -246,40 +249,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		var err error
-		err = c.monitorTestplanRunState(ctx, ow, input, &journal)
+		err := c.watchRunPods(ctx, ow, input, result)
 
-		lastId := "0"
-
-		for {
-			notifications, newId, errn := notification.Fetch(&template, lastId)
-			if errn != nil {
-				return errn
-			}
-
-			for _, n := range notifications {
-				if n.EventType == "outcome-ok" {
-					o := outcomes[n.GroupID]
-					o.Ok = o.Ok + 1
-				}
-			}
-
-			if newId == lastId {
-				break
-			}
-
-			lastId = newId
-		}
-
-		status = true
-		if len(outcomes) == 0 {
-			status = false
-		}
-		for g := range outcomes {
-			if outcomes[g].Total != outcomes[g].Ok {
-				status = false
-				break
-			}
+		erru := updateRunResult(&template, result)
+		if erru != nil {
+			return erru
 		}
 
 		return err
@@ -293,7 +267,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestInstanceParams = g.Parameters
 
-		outcomes[g.ID] = &GroupOutcome{
+		result.Outcomes[g.ID] = &GroupOutcome{
 			Total: g.Instances,
 		}
 
@@ -431,11 +405,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	err = eg.Wait()
 	if err != nil {
-		runoutput.Result = &ResultK8s{
-			Status:   false,
-			Journal:  journal,
-			Outcomes: outcomes,
-		}
 		runerr = err
 		return
 	}
@@ -444,11 +413,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		ow.Info("cleaning up finished pods...")
 	}
 
-	runoutput.Result = &ResultK8s{
-		Status:   status,
-		Journal:  journal,
-		Outcomes: outcomes,
-	}
 	runerr = nil
 	return
 }
@@ -694,7 +658,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, journal *string) error {
+func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -722,7 +686,8 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 
 				ow.Warnw("testplan received event", "event", event)
 
-				*journal = *journal + fmt.Sprintf("event: %s\n", event)
+				// TODO(anteva): Fix journal schema
+				result.Journal = result.Journal + fmt.Sprintf("event: %s\n", event)
 			}
 		}
 	}()
@@ -791,7 +756,8 @@ func (c *ClusterK8sRunner) monitorTestplanRunState(ctx context.Context, ow *rpc.
 				for _, st := range p.Status.ContainerStatuses {
 					event := fmt.Sprintf("pod status <failed> obj<%s> reason<%s> started_at<%s> finished_at<%s> exitcode<%d>", st.Name, st.State.Terminated.Reason, st.State.Terminated.StartedAt, st.State.Terminated.FinishedAt, st.State.Terminated.ExitCode)
 					ow.Warnw("testplan received status", "status", event)
-					*journal = *journal + fmt.Sprintf("status: %s\n", event)
+					// TODO(anteva): Fix journal schema
+					result.Journal = result.Journal + fmt.Sprintf("status: %s\n", event)
 				}
 			}
 		}
@@ -1196,4 +1162,41 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	}
 
 	return allocatableCPUs, allocatableMemory, nil
+}
+
+func updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+	lastId := "0"
+	for {
+		notifications, newId, errn := notification.Fetch(template, lastId)
+		if errn != nil {
+			return errn
+		}
+
+		// TODO(anteva): Fix notifications schema
+		for _, n := range notifications {
+			if n.EventType == "outcome-ok" {
+				o := result.Outcomes[n.GroupID]
+				o.Ok = o.Ok + 1
+			}
+		}
+
+		if newId == lastId {
+			break
+		}
+
+		lastId = newId
+	}
+
+	result.Status = true
+	if len(result.Outcomes) == 0 {
+		result.Status = false
+	}
+	for g := range result.Outcomes {
+		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+			result.Status = false
+			break
+		}
+	}
+
+	return nil
 }
