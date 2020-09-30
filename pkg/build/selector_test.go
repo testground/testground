@@ -39,7 +39,11 @@ func TestBuildSelector(t *testing.T) {
 		t.Fatalf("failed to parse manifest file: %s", err.Error())
 	}
 
-	env := &config.EnvConfig{}
+	env := &config.EnvConfig{
+		Daemon: config.DaemonConfig{
+			TasksInMemory: true,
+		},
+	}
 	err = env.Load()
 	require.NoError(err)
 
