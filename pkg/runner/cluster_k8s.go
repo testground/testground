@@ -135,7 +135,23 @@ type ClusterK8sRunner struct {
 type ResultK8s struct {
 	Status   bool                     `json:"status"`
 	Outcomes map[string]*GroupOutcome `json:"outcomes"`
-	Journal  string                   `json:"journal"`
+	Journal  *Journal                 `json:"journal"`
+}
+
+type Journal struct {
+	Events       map[string]string   `json:"events"`
+	PodsStatuses map[string]struct{} `json:"pods_statuses"`
+}
+
+func newResultK8s() *ResultK8s {
+	return &ResultK8s{
+		Status:   false,
+		Outcomes: make(map[string]*GroupOutcome),
+		Journal: &Journal{
+			Events:       make(map[string]string),
+			PodsStatuses: make(map[string]struct{}),
+		},
+	}
 }
 
 func (r *ResultK8s) String() string {
@@ -175,14 +191,11 @@ func defaultKubernetesConfig() KubernetesConfig {
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
 	c.initPool()
 
+	result := newResultK8s()
 	runoutput = &api.RunOutput{
-		RunID: input.RunID,
-		Result: &ResultK8s{
-			Status:   false,
-			Outcomes: make(map[string]*GroupOutcome),
-		},
+		RunID:  input.RunID,
+		Result: result,
 	}
-	result := runoutput.Result.(*ResultK8s)
 
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
@@ -687,12 +700,13 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 			e := ge.Object.(*v1.Event)
 
 			if strings.Contains(e.InvolvedObject.Name, input.RunID) {
+				id := e.ObjectMeta.Name
+
 				event := fmt.Sprintf("obj<%s> type<%s> reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.InvolvedObject.Name, ge.Type, e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)
 
 				ow.Warnw("testplan received event", "event", event)
 
-				// TODO(anteva): Fix journal schema
-				result.Journal = result.Journal + fmt.Sprintf("event: %s\n", event)
+				result.Journal.Events[id] = event
 			}
 		}
 	}()
@@ -761,8 +775,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 				for _, st := range p.Status.ContainerStatuses {
 					event := fmt.Sprintf("pod status <failed> obj<%s> reason<%s> started_at<%s> finished_at<%s> exitcode<%d>", st.Name, st.State.Terminated.Reason, st.State.Terminated.StartedAt, st.State.Terminated.FinishedAt, st.State.Terminated.ExitCode)
 					ow.Warnw("testplan received status", "status", event)
-					// TODO(anteva): Fix journal schema
-					result.Journal = result.Journal + fmt.Sprintf("status: %s\n", event)
+					result.Journal.PodsStatuses[event] = struct{}{}
 				}
 			}
 		}
@@ -1177,9 +1190,9 @@ func updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
 			return errn
 		}
 
-		// TODO(anteva): Fix notifications schema
 		for _, n := range notifications {
-			if n.EventType == "outcome-ok" {
+			// for now we emit only outcome OK events, so no need for more checks
+			if n.EventType == "outcome" {
 				o := result.Outcomes[n.GroupID]
 				o.Ok = o.Ok + 1
 			}
