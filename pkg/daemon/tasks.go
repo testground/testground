@@ -67,7 +67,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		fmt.Fprintf(w, "<table><th>task id</th><th>type</th><th>name</th><th>state</th><th>created</th><th>updated</td><th>outputs tgz</th><th>task logs</th><th>task journal</th><th>took</th><th>status</th><th>outcomes</th><th>error</th>")
 		for _, t := range tasks {
-			result := parseResult(t.Result)
+			result := decodeResultK8s(t.Result)
 			if t.State().State == task.StateComplete {
 				if result.Status { // green
 					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.State().State, t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result, t.Error)
@@ -108,7 +108,7 @@ func ByteCountSI(b int64) string {
 		float64(b)/float64(div), "kMGTPE"[exp])
 }
 
-func parseResult(result interface{}) *runner.ResultK8s {
+func decodeResultK8s(result interface{}) *runner.ResultK8s {
 	r := &runner.ResultK8s{}
 	err := mapstructure.Decode(result, r)
 	if err != nil {
