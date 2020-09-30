@@ -22,6 +22,7 @@ access_token = "docker hub access token"
 #   4. Runner defaults (applied by the runner).
 #
 [runners."cluster:k8s"]
+global_timeout_min          = 10
 testplan_pod_cpu            = "100m"
 testplan_pod_memory         = "100Mi"
 collect_outputs_pod_cpu     = "100m"
