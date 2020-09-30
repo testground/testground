@@ -30,6 +30,11 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 
 		result := decodeResultK8s(tsk.Result)
+		if len(result.Journal.Events) == 0 && len(result.Journal.PodsStatuses) == 0 {
+			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
+			return
+		}
+
 		if len(result.Journal.Events) > 0 {
 			_, _ = w.Write([]byte("Kubernetes Events\n"))
 			_, _ = w.Write([]byte("=================\n"))

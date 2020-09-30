@@ -271,7 +271,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 		erru := updateRunResult(&template, result)
 		if erru != nil {
-			return erru
+			ow.Errorw("could not update run result", "err", erru)
 		}
 
 		return err
@@ -290,37 +290,16 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
-		env = append(env, v1.EnvVar{
-			Name:  "REDIS_HOST",
-			Value: "testground-infra-redis-headless",
-		})
-		env = append(env, v1.EnvVar{
-			Name:  "INFLUXDB_URL",
-			Value: "http://influxdb:8086",
-		})
+		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis-headless"})
+		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
-			env = append(env, v1.EnvVar{
-				Name:  "LOG_LEVEL",
-				Value: cfg.LogLevel,
-			})
+			env = append(env, v1.EnvVar{Name: "LOG_LEVEL", Value: cfg.LogLevel})
 		}
 
-		env = append(env, v1.EnvVar{
-			Name: "POD_IP",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "status.podIP",
-				}},
-		})
-		env = append(env, v1.EnvVar{
-			Name: "HOST_IP",
-			ValueFrom: &v1.EnvVarSource{
-				FieldRef: &v1.ObjectFieldSelector{
-					FieldPath: "status.hostIP",
-				}},
-		})
+		env = append(env, v1.EnvVar{Name: "POD_IP", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "status.podIP"}}})
+		env = append(env, v1.EnvVar{Name: "HOST_IP", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "status.hostIP"}}})
 
 		// Inject exposed ports.
 		for name, value := range cfg.ExposedPorts.ToEnvVars() {
