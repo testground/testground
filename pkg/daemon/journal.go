@@ -31,16 +31,16 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 
 		result := decodeResultK8s(tsk.Result)
 		if len(result.Journal.Events) > 0 {
-			w.Write([]byte("Kubernetes Events"))
-			w.Write([]byte("================="))
+			_, _ = w.Write([]byte("Kubernetes Events"))
+			_, _ = w.Write([]byte("================="))
 		}
 		for _, v := range result.Journal.Events {
 			_, _ = w.Write([]byte(v))
 		}
 
 		if len(result.Journal.PodsStatuses) > 0 {
-			w.Write([]byte("Pods Statuses"))
-			w.Write([]byte("================="))
+			_, _ = w.Write([]byte("Pods Statuses"))
+			_, _ = w.Write([]byte("================="))
 		}
 		for k := range result.Journal.PodsStatuses {
 			_, _ = w.Write([]byte(k))
