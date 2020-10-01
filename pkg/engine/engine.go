@@ -422,14 +422,14 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	if !follow {
 		file, err := os.Open(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while os.Open, err: %w", err)
 		}
 		defer file.Close()
 
 		// copy logs to responseWriter, they are already json marshaled
 		_, err = io.Copy(w, file)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while io.Copy, err: %w", err)
 		}
 
 		return e.Status(id)
@@ -439,7 +439,7 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	for {
 		tsk, err := e.Status(id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while e.Status, err: %w", err)
 		}
 
 		if tsk.State().State == task.StateScheduled {
@@ -452,7 +452,7 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	stop := make(chan struct{})
 	file, err := newTailReader(path, stop)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when newTailReader, err: %w", err)
 	}
 	defer file.Close()
 
@@ -494,17 +494,17 @@ Outer:
 				if err == io.EOF {
 					break Outer
 				}
-				return nil, err
+				return nil, fmt.Errorf("error when decoding chunk, err: %w", err)
 			}
 
 			m, err := base64.StdEncoding.DecodeString(chunk.Payload.(string))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error when base64 decoding string, err: %w", err)
 			}
 
 			_, err = ow.WriteProgress([]byte(m))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error on ow.WriteProgress, err: %w", err)
 			}
 		}
 	}
@@ -540,7 +540,7 @@ func newTailReader(fileName string, stop chan struct{}) (tailReader, error) {
 		return tailReader{}, err
 	}
 
-	if _, err := f.Seek(0, 2); err != nil {
+	if _, err := f.Seek(0, 0); err != nil {
 		return tailReader{}, err
 	}
 	return tailReader{f, stop}, nil
