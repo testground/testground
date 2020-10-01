@@ -57,6 +57,7 @@ type Engine interface {
 	QueueRun(request *RunRequest, sources *UnpackedSources) (string, error)
 
 	Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
+	Kill(id string) error
 
 	Status(id string) (*task.Task, error)
 	Tasks(filters TasksFilters) ([]task.Task, error)

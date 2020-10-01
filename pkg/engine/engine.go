@@ -414,6 +414,16 @@ func (e *Engine) Status(id string) (*task.Task, error) {
 	return e.store.Get(task.QUEUEPREFIX, id)
 }
 
+func (e *Engine) Kill(id string) error {
+	e.signalsLk.RLock()
+	if ch, ok := e.signals[id]; ok {
+		close(ch)
+	}
+	e.signalsLk.RUnlock()
+
+	return nil
+}
+
 func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
 	ow := rpc.NewFileOutputWriter(w)
 
