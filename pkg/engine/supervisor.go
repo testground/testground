@@ -155,7 +155,11 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 		if result.Status {
 			payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
 		} else {
-			payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+			if tsk.IsCanceled() {
+				payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
+			} else {
+				payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+			}
 		}
 	}
 	body := strings.NewReader(payload)

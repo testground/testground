@@ -15,7 +15,7 @@ func (d *Daemon) killTaskHandler(engine api.Engine) func(w http.ResponseWriter, 
 		log.Debugw("handle request", "command", "kill task")
 		defer log.Debugw("request handled", "command", "kill task")
 
-		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Content-Type", "text/html")
 
 		taskId := r.URL.Query().Get("task_id")
 		if taskId == "" {
@@ -28,5 +28,15 @@ func (d *Daemon) killTaskHandler(engine api.Engine) func(w http.ResponseWriter, 
 			fmt.Fprintf(w, "cannot kill tsk")
 			return
 		}
+
+		redirect := `
+      <script>
+         setTimeout(function(){
+            window.location.href = 'https://ci.testground.ipfs.team/tasks';
+         }, 1000);
+      </script>
+			`
+
+		fmt.Fprintf(w, redirect)
 	}
 }
