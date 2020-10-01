@@ -30,7 +30,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 
 		result := decodeResultK8s(tsk.Result)
-		if result == nil {
+		if result == nil || result.Journal == nil {
 			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
 			return
 		}
