@@ -132,10 +132,14 @@ func (e *Engine) worker(n int) {
 				}
 
 			default:
-				// wut
+				logging.S().Errorw("unknown task type", "type", tsk.Type)
+				return
 			}
 
-			newState := task.DatedState{time.Now().UTC(), task.StateComplete}
+			newState := task.DatedState{
+				Created: time.Now().UTC(),
+				State:   task.StateComplete,
+			}
 			if errTask != nil {
 				tsk.Error = errTask.Error()
 

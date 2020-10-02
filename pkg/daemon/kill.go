@@ -37,6 +37,6 @@ func (d *Daemon) killTaskHandler(engine api.Engine) func(w http.ResponseWriter, 
       </script>
 			`
 
-		fmt.Fprintf(w, redirect)
+		fmt.Fprint(w, redirect)
 	}
 }
