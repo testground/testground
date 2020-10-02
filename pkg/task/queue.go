@@ -17,7 +17,7 @@ var (
 
 func NewQueue(ts *Storage, max int) (*Queue, error) {
 	tq := new(taskQueue)
-	for _, prefix := range []string{PrefixScheduled, PrefixProcessing} {
+	for _, prefix := range []string{prefixScheduled, prefixProcessing} {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
@@ -61,7 +61,7 @@ func (q *Queue) Push(tsk *Task) error {
 	}
 
 	// Persist this task to the database
-	err := q.ts.PersistNew(tsk)
+	err := q.ts.PersistScheduled(tsk)
 	if err != nil {
 		return err
 	}

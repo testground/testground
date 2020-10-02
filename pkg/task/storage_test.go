@@ -11,8 +11,8 @@ import (
 
 func TestChangePrefix(t *testing.T) {
 	id := "bt4brhjpc98qra498sg0"
-	nexp := taskKey(PrefixScheduled, id)
-	exp := taskKey(PrefixProcessing, id)
+	nexp := taskKey(prefixScheduled, id)
+	exp := taskKey(prefixProcessing, id)
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
 	if err != nil {
@@ -21,13 +21,13 @@ func TestChangePrefix(t *testing.T) {
 	ts := &Storage{db}
 
 	// Add a task to one prefix, then change it to another.
-	err = ts.put(PrefixScheduled, &Task{
+	err = ts.put(prefixScheduled, &Task{
 		ID: id,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = ts.changePrefix(PrefixProcessing, PrefixScheduled, id)
+	err = ts.changePrefix(prefixProcessing, prefixScheduled, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,23 +57,23 @@ func TestAppendTaskState(t *testing.T) {
 
 	// Create a task in the current prefix so we can append states to its log.
 	tsk := &Task{ID: id}
-	err = ts.put(PrefixProcessing, tsk)
+	err = ts.put(prefixProcessing, tsk)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	tsk.States = append(tsk.States, DatedState{time.Now(), StateProcessing})
 	// Through the lifetime of the task running, append state events to it.
-	if err := ts.PersistCurrent(tsk); err != nil {
+	if err := ts.PersistProcessing(tsk); err != nil {
 		t.Fatal(err)
 	}
 	tsk.States = append(tsk.States, DatedState{time.Now(), StateProcessing})
-	if err := ts.PersistCurrent(tsk); err != nil {
+	if err := ts.PersistProcessing(tsk); err != nil {
 		t.Fatal(err)
 	}
 
 	// How many states are there?
-	tsk, err = ts.get(PrefixProcessing, id)
+	tsk, err = ts.get(prefixProcessing, id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestArchive(t *testing.T) {
 		tsk := Task{
 			ID: id,
 		}
-		err := ts.put(PrefixComplete, &tsk)
+		err := ts.put(prefixComplete, &tsk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -119,7 +119,7 @@ func TestArchive(t *testing.T) {
 	before := time.Date(2020, 6, 8, 17, 46, 20, 0, cali)
 	after := time.Date(2020, 6, 8, 17, 46, 50, 0, cali)
 
-	between, err := ts.rangeIter(PrefixComplete, before, after)
+	between, err := ts.rangeIter(prefixComplete, before, after)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -29,7 +29,7 @@ func TestQueueIsPersistent(t *testing.T) {
 		t.Fatal(err)
 	}
 	// read the object from the backend
-	tsk2, err := q.ts.get(PrefixScheduled, tsk.ID)
+	tsk2, err := q.ts.get(prefixScheduled, tsk.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

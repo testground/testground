@@ -18,9 +18,9 @@ import (
 
 var (
 	// database key prefixes
-	PrefixScheduled  = "queue"
-	PrefixProcessing = "current"
-	PrefixComplete   = "archive"
+	prefixScheduled  = "queue"
+	prefixProcessing = "current"
+	prefixComplete   = "archive"
 
 	ErrNotFound = errors.New("task not found")
 )
@@ -85,41 +85,37 @@ func (s *Storage) Delete(prefix string, tsk *Task) error {
 }
 
 func (s *Storage) Get(id string) (*Task, error) {
-	tsk, err := s.get(PrefixComplete, id)
+	tsk, err := s.get(prefixComplete, id)
 	if err == nil {
 		return tsk, nil
 	}
 	if err != ErrNotFound {
 		return nil, err
 	}
-	tsk, err = s.get(PrefixProcessing, id)
+	tsk, err = s.get(prefixProcessing, id)
 	if err == nil {
 		return tsk, nil
 	}
 	if err != ErrNotFound {
 		return nil, err
 	}
-	return s.get(PrefixScheduled, id)
+	return s.get(prefixScheduled, id)
 }
 
-func (s *Storage) GetCurrent(id string) (*Task, error) {
-	return s.get(PrefixProcessing, id)
+func (s *Storage) PersistProcessing(tsk *Task) error {
+	return s.put(prefixProcessing, tsk)
 }
 
-func (s *Storage) PersistCurrent(tsk *Task) error {
-	return s.put(PrefixProcessing, tsk)
-}
-
-func (s *Storage) PersistNew(tsk *Task) error {
-	return s.put(PrefixScheduled, tsk)
+func (s *Storage) PersistScheduled(tsk *Task) error {
+	return s.put(prefixScheduled, tsk)
 }
 
 func (s *Storage) ProcessTask(tsk *Task) error {
-	return s.changePrefix(PrefixProcessing, PrefixScheduled, tsk.ID)
+	return s.changePrefix(prefixProcessing, prefixScheduled, tsk.ID)
 }
 
 func (s *Storage) ArchiveTask(tsk *Task) error {
-	return s.changePrefix(PrefixComplete, PrefixProcessing, tsk.ID)
+	return s.changePrefix(prefixComplete, prefixProcessing, tsk.ID)
 }
 
 // Change the prefix of a task
@@ -153,11 +149,11 @@ func (s *Storage) Filter(state State, start time.Time, end time.Time) (tasks []*
 
 	switch state {
 	case StateScheduled:
-		prefix = PrefixScheduled
+		prefix = prefixScheduled
 	case StateProcessing:
-		prefix = PrefixProcessing
+		prefix = prefixProcessing
 	case StateComplete:
-		prefix = PrefixComplete
+		prefix = prefixComplete
 	}
 
 	return s.rangeIter(prefix, start, end)

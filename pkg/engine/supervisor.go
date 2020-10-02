@@ -82,7 +82,7 @@ func (e *Engine) worker(n int) {
 				State:   task.StateProcessing,
 				Created: time.Now().UTC(),
 			})
-			err = e.store.PersistCurrent(tsk)
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
 				logging.S().Errorw("could not persist task", "err", err)
 			}
@@ -144,7 +144,7 @@ func (e *Engine) worker(n int) {
 			tsk.States = append(tsk.States, newState)
 			tsk.Result = result
 
-			err = e.store.PersistCurrent(tsk)
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
 				logging.S().Errorw("could not persist task", "err", err)
 				return
