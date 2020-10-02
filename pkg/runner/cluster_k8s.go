@@ -660,7 +660,11 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 	defer c.pool.Release(client)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-	runTimeout := time.Duration(cfg.RunTimeoutMin) * time.Minute
+
+	runTimeout := 10 * time.Minute
+	if cfg.RunTimeoutMin != 0 {
+		runTimeout = time.Duration(cfg.RunTimeoutMin) * time.Minute
+	}
 
 	fieldSelector := "type!=Normal"
 	opts := metav1.ListOptions{
