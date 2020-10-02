@@ -132,20 +132,12 @@ func (e *Engine) worker(n int) {
 				// wut
 			}
 
-			var newState task.DatedState
+			newState := task.DatedState{time.Now().UTC(), task.StateComplete}
 			if errTask != nil {
 				tsk.Error = errTask.Error()
 
 				if errors.Is(errTask, context.Canceled) {
-					newState = task.DatedState{
-						State:   task.StateCanceled,
-						Created: time.Now().UTC(),
-					}
-				} else {
-					newState = task.DatedState{
-						State:   task.StateComplete,
-						Created: time.Now().UTC(),
-					}
+					newState.State = task.StateCanceled
 				}
 			}
 
