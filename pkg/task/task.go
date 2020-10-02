@@ -1,6 +1,8 @@
 package task
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -82,5 +84,13 @@ func (t *Task) State() DatedState {
 }
 
 func (t *Task) ParseCreatedBy() string {
+	res := strings.Split(t.CreatedBy, ";")
+
+	if len(res) == 2 {
+		url := res[1]
+		title := res[0]
+		return fmt.Sprintf(`<a href="%s" target="_blank">%s</a>`, url, title)
+	}
+
 	return t.CreatedBy
 }
