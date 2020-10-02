@@ -16,6 +16,7 @@ const (
 	StateScheduled  State = "scheduled"
 	StateProcessing State = "processing"
 	StateComplete   State = "complete"
+	StateCanceled   State = "canceled"
 )
 
 // Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment

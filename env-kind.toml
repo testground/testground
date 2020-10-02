@@ -1,5 +1,5 @@
 [runners."cluster:k8s"]
-global_timeout_min          = 1
+run_timeout_min             = 1
 testplan_pod_cpu            = "10m"
 testplan_pod_memory         = "10Mi"
 collect_outputs_pod_cpu     = "10m"
@@ -14,7 +14,8 @@ ulimits = [
 ]
 
 [daemon]
-listen = ":8080"
+listen                    = ":8080"
+task_timeout_min          = 2
 
 [client]
 endpoint = "http://localhost:8080"

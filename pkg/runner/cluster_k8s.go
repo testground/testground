@@ -119,7 +119,7 @@ type ClusterK8sRunnerConfig struct {
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 
-	GlobalTimeoutMin int `toml:"global_timeout_min"`
+	RunTimeoutMin int `toml:"run_timeout_min"`
 
 	Sysctls []string `toml:"sysctls"`
 }
@@ -660,7 +660,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 	defer c.pool.Release(client)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-	globalTimeout := time.Duration(cfg.GlobalTimeoutMin) * time.Minute
+	runTimeout := time.Duration(cfg.RunTimeoutMin) * time.Minute
 
 	fieldSelector := "type!=Normal"
 	opts := metav1.ListOptions{
@@ -702,8 +702,8 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		default:
 		}
 
-		if time.Since(start) > globalTimeout {
-			return fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
+		if time.Since(start) > runTimeout {
+			return fmt.Errorf("run timeout reached. make sure your plan execution completes within %s.", runTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 

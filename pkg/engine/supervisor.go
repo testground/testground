@@ -47,6 +47,8 @@ func (e *Engine) deleteSignal(id string) {
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
 
+	taskTimeout := time.Duration(e.EnvConfig().Daemon.TaskTimeoutMin) * time.Minute
+
 	for {
 		tsk, err := e.queue.Pop()
 		if err == task.ErrQueueEmpty {
@@ -60,7 +62,7 @@ func (e *Engine) worker(n int) {
 		}
 
 		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
+			ctx, cancel := context.WithTimeout(context.Background(), taskTimeout)
 			defer cancel()
 
 			ch := make(chan int)
