@@ -46,6 +46,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 		for _, v := range result.Journal.Events {
 			_, _ = w.Write([]byte(v))
+			_, _ = w.Write([]byte("\n"))
 		}
 
 		if len(result.Journal.PodsStatuses) > 0 {
@@ -54,6 +55,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 		for k := range result.Journal.PodsStatuses {
 			_, _ = w.Write([]byte(k))
+			_, _ = w.Write([]byte("\n"))
 		}
 	}
 }
