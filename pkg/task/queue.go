@@ -17,7 +17,7 @@ var (
 
 func NewQueue(ts *Storage, max int) (*Queue, error) {
 	tq := new(taskQueue)
-	for _, prefix := range []string{QUEUEPREFIX, CURRENTPREFIX} {
+	for _, prefix := range []string{PrefixScheduled, PrefixProcessing} {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {

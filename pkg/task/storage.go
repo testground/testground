@@ -18,9 +18,9 @@ import (
 
 var (
 	// database key prefixes
-	QUEUEPREFIX   = "queue"
-	CURRENTPREFIX = "current"
-	ARCHIVEPREFIX = "archive"
+	PrefixScheduled  = "queue"
+	PrefixProcessing = "current"
+	PrefixComplete   = "archive"
 
 	ErrNotFound = errors.New("task not found")
 )
@@ -85,41 +85,41 @@ func (s *Storage) Delete(prefix string, tsk *Task) error {
 }
 
 func (s *Storage) Get(id string) (*Task, error) {
-	tsk, err := s.get(ARCHIVEPREFIX, id)
+	tsk, err := s.get(PrefixComplete, id)
 	if err == nil {
 		return tsk, nil
 	}
 	if err != ErrNotFound {
 		return nil, err
 	}
-	tsk, err = s.get(CURRENTPREFIX, id)
+	tsk, err = s.get(PrefixProcessing, id)
 	if err == nil {
 		return tsk, nil
 	}
 	if err != ErrNotFound {
 		return nil, err
 	}
-	return s.get(QUEUEPREFIX, id)
+	return s.get(PrefixScheduled, id)
 }
 
 func (s *Storage) GetCurrent(id string) (*Task, error) {
-	return s.get(CURRENTPREFIX, id)
+	return s.get(PrefixProcessing, id)
 }
 
 func (s *Storage) PersistCurrent(tsk *Task) error {
-	return s.put(CURRENTPREFIX, tsk)
+	return s.put(PrefixProcessing, tsk)
 }
 
 func (s *Storage) PersistNew(tsk *Task) error {
-	return s.put(QUEUEPREFIX, tsk)
+	return s.put(PrefixScheduled, tsk)
 }
 
 func (s *Storage) QueueTask(tsk *Task) error {
-	return s.changePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+	return s.changePrefix(PrefixProcessing, PrefixScheduled, tsk.ID)
 }
 
 func (s *Storage) ArchiveTask(tsk *Task) error {
-	return s.changePrefix(ARCHIVEPREFIX, CURRENTPREFIX, tsk.ID)
+	return s.changePrefix(PrefixComplete, PrefixProcessing, tsk.ID)
 }
 
 // Change the prefix of a task
@@ -148,8 +148,23 @@ func (s *Storage) changePrefix(dst string, src string, id string) error {
 	return trans.Commit()
 }
 
-// Range returns []*Task with all tasks between the given time ranges.
-func (s *Storage) Range(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
+func (s *Storage) Filter(state State, start time.Time, end time.Time) (tasks []*Task, err error) {
+	var prefix string
+
+	switch state {
+	case StateScheduled:
+		prefix = PrefixScheduled
+	case StateProcessing:
+		prefix = PrefixProcessing
+	case StateComplete:
+		prefix = PrefixComplete
+	}
+
+	return s.rangeIter(prefix, start, end)
+}
+
+// range returns []*Task with all tasks between the given time ranges.
+func (s *Storage) rangeIter(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			prefix,

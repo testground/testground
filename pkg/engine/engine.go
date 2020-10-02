@@ -355,19 +355,9 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	e.signalsLk.RLock()
 
 	for _, state := range filters.States {
-		var prefix string
 		var ires []task.Task
 
-		switch state {
-		case task.StateScheduled:
-			prefix = task.QUEUEPREFIX
-		case task.StateProcessing:
-			prefix = task.CURRENTPREFIX
-		case task.StateComplete:
-			prefix = task.ARCHIVEPREFIX
-		}
-
-		tsks, err := e.store.Range(prefix, before, after)
+		tsks, err := e.store.Filter(state, before, after)
 		if err != nil {
 			return nil, err
 		}
