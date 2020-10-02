@@ -396,22 +396,8 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	return res, nil
 }
 
-func (e *Engine) Status(id string) (*task.Task, error) {
-	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	tsk, err = e.store.Get(task.CURRENTPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	return e.store.Get(task.QUEUEPREFIX, id)
+func (e *Engine) GetTask(id string) (*task.Task, error) {
+	return e.store.Get(id)
 }
 
 func (e *Engine) Kill(id string) error {
@@ -442,12 +428,12 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 			return nil, fmt.Errorf("error while io.Copy, err: %w", err)
 		}
 
-		return e.Status(id)
+		return e.GetTask(id)
 	}
 
 	// wait for the task to start
 	for {
-		tsk, err := e.Status(id)
+		tsk, err := e.GetTask(id)
 		if err != nil {
 			return nil, fmt.Errorf("error while e.Status, err: %w", err)
 		}
@@ -519,7 +505,7 @@ Outer:
 		}
 	}
 
-	return e.Status(id)
+	return e.GetTask(id)
 }
 
 type tailReader struct {

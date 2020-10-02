@@ -50,7 +50,7 @@ func taskKey(prefix string, id string) []byte {
 	return []byte(strings.Join([]string{prefix, tskey}, ":"))
 }
 
-func (s *Storage) Get(prefix string, id string) (tsk *Task, err error) {
+func (s *Storage) get(prefix string, id string) (tsk *Task, err error) {
 	tsk = &Task{}
 	val, err := s.db.Get(taskKey(prefix, id), nil)
 	if err == leveldb.ErrNotFound {
@@ -66,7 +66,7 @@ func (s *Storage) Get(prefix string, id string) (tsk *Task, err error) {
 	return tsk, nil
 }
 
-func (s *Storage) Put(prefix string, tsk *Task) error {
+func (s *Storage) put(prefix string, tsk *Task) error {
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
@@ -81,50 +81,49 @@ func (s *Storage) Delete(prefix string, tsk *Task) error {
 	return s.db.Delete(key, &opt.WriteOptions{
 		Sync: true,
 	})
+
 }
 
-// A helper method for appending a state to a task's state slice
-func (s *Storage) AppendTaskState(id string, state State) error {
-	tsk, err := s.Get(CURRENTPREFIX, id)
-	if err != nil {
-		return err
+func (s *Storage) Get(id string) (*Task, error) {
+	tsk, err := s.get(ARCHIVEPREFIX, id)
+	if err == nil {
+		return tsk, nil
 	}
-	dated := DatedState{
-		State:   state,
-		Created: time.Now().UTC(),
+	if err != ErrNotFound {
+		return nil, err
 	}
-	tsk.States = append(tsk.States, dated)
-	return s.Put(CURRENTPREFIX, tsk)
+	tsk, err = s.get(CURRENTPREFIX, id)
+	if err == nil {
+		return tsk, nil
+	}
+	if err != ErrNotFound {
+		return nil, err
+	}
+	return s.get(QUEUEPREFIX, id)
 }
 
-func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) (*Task, error) {
-	tsk, err := s.Get(CURRENTPREFIX, id)
-	if err != nil {
-		return nil, err
-	}
-	dated := DatedState{
-		State:   StateComplete,
-		Created: time.Now().UTC(),
-	}
-	tsk.States = append(tsk.States, dated)
-	tsk.Result = result
-	if errTask != nil {
-		tsk.Error = errTask.Error()
-	}
-	err = s.Put(CURRENTPREFIX, tsk)
-	if err != nil {
-		return nil, err
-	}
+func (s *Storage) GetCurrent(id string) (*Task, error) {
+	return s.get(CURRENTPREFIX, id)
+}
 
-	err = s.ChangePrefix(ARCHIVEPREFIX, CURRENTPREFIX, id)
-	if err != nil {
-		return nil, err
-	}
-	return tsk, nil
+func (s *Storage) PersistCurrent(tsk *Task) error {
+	return s.put(CURRENTPREFIX, tsk)
+}
+
+func (s *Storage) PersistNew(tsk *Task) error {
+	return s.put(QUEUEPREFIX, tsk)
+}
+
+func (s *Storage) QueueTask(tsk *Task) error {
+	return s.changePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+}
+
+func (s *Storage) ArchiveTask(tsk *Task) error {
+	return s.changePrefix(ARCHIVEPREFIX, CURRENTPREFIX, tsk.ID)
 }
 
 // Change the prefix of a task
-func (s *Storage) ChangePrefix(dst string, src string, id string) error {
+func (s *Storage) changePrefix(dst string, src string, id string) error {
 	oldkey := taskKey(src, id)
 	newkey := taskKey(dst, id)
 	trans, err := s.db.OpenTransaction()

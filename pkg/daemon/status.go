@@ -2,9 +2,10 @@ package daemon
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/rpc"
-	"net/http"
 )
 
 func (d *Daemon) statusHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +20,7 @@ func (d *Daemon) statusHandler(engine api.Engine) func(w http.ResponseWriter, r 
 			return
 		}
 
-		tsk, err := engine.Status(req.TaskID)
+		tsk, err := engine.GetTask(req.TaskID)
 		if err != nil {
 			tgw.Warnw("could not fetch status", "task_id", req.TaskID, "err", err)
 			return

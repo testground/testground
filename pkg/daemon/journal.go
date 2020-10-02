@@ -23,7 +23,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		tsk, err := engine.Status(taskId)
+		tsk, err := engine.GetTask(taskId)
 		if err != nil {
 			fmt.Fprintf(w, "cannot fetch tsk")
 			return

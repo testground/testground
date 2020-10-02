@@ -78,9 +78,13 @@ func (e *Engine) worker(n int) {
 				}
 			}()
 
-			err = e.store.AppendTaskState(tsk.ID, task.StateProcessing)
+			tsk.States = append(tsk.States, task.DatedState{
+				State:   task.StateProcessing,
+				Created: time.Now().UTC(),
+			})
+			err = e.store.PersistCurrent(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
 
@@ -128,9 +132,35 @@ func (e *Engine) worker(n int) {
 				// wut
 			}
 
-			tsk, err = e.store.MarkCompleted(tsk.ID, errTask, result)
+			var newState task.DatedState
+			if errTask != nil {
+				tsk.Error = errTask.Error()
+
+				if errors.Is(errTask, context.Canceled) {
+					newState = task.DatedState{
+						State:   task.StateCanceled,
+						Created: time.Now().UTC(),
+					}
+				} else {
+					newState = task.DatedState{
+						State:   task.StateComplete,
+						Created: time.Now().UTC(),
+					}
+				}
+			}
+
+			tsk.States = append(tsk.States, newState)
+			tsk.Result = result
+
+			err = e.store.PersistCurrent(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
+				return
+			}
+
+			err = e.store.ArchiveTask(tsk)
+			if err != nil {
+				logging.S().Errorw("could not archive task", "err", err)
 				return
 			}
 
