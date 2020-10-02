@@ -84,7 +84,7 @@ func (q *Queue) Pop() (*Task, error) {
 	tsk := heap.Pop(q.tq).(*Task)
 
 	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
-	err := q.ts.QueueTask(tsk)
+	err := q.ts.ProcessTask(tsk)
 	if err != nil {
 		return nil, err
 	}

@@ -114,7 +114,7 @@ func (s *Storage) PersistNew(tsk *Task) error {
 	return s.put(PrefixScheduled, tsk)
 }
 
-func (s *Storage) QueueTask(tsk *Task) error {
+func (s *Storage) ProcessTask(tsk *Task) error {
 	return s.changePrefix(PrefixProcessing, PrefixScheduled, tsk.ID)
 }
 

@@ -1,7 +1,6 @@
 package task
 
 import (
-	"strings"
 	"time"
 )
 
@@ -63,7 +62,7 @@ func (t *Task) Created() time.Time {
 }
 
 func (t *Task) IsCanceled() bool {
-	return strings.Contains(t.Error, "context canceled")
+	return t.State().State == StateCanceled
 }
 
 func (t *Task) Name() string {
