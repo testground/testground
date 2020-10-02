@@ -50,7 +50,8 @@ type Task struct {
 	Composition interface{}  `json:"composition"` // Composition used for the task
 	Input       interface{}  `json:"input"`       // The input data for this task
 	Result      interface{}  `json:"result"`      // Result of the task, when terminal.
-	Error       string       `json:"error"`
+	Error       string       `json:"error"`       // Error from Testground
+	CreatedBy   string       `json:"created_by"`  // Who created the task
 }
 
 func (t *Task) Created() time.Time {
@@ -78,4 +79,8 @@ func (t *Task) State() DatedState {
 		panic("task must have a state")
 	}
 	return t.States[len(t.States)-1]
+}
+
+func (t *Task) ParseCreatedBy() string {
+	return t.CreatedBy
 }

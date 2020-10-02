@@ -19,3 +19,4 @@ task_timeout_min          = 2
 
 [client]
 endpoint = "http://localhost:8080"
+user = "myname"

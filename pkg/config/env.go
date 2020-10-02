@@ -48,4 +48,5 @@ type DaemonConfig struct {
 type ClientConfig struct {
 	Endpoint string `toml:"endpoint"`
 	Token    string `toml:"token"`
+	User     string `toml:"user"`
 }
