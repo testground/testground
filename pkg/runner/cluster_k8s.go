@@ -24,8 +24,8 @@ import (
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/testground/sdk-go/notification"
 	"github.com/testground/sdk-go/runtime"
+	ss "github.com/testground/sdk-go/sync"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
@@ -127,9 +127,10 @@ type ClusterK8sRunnerConfig struct {
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
 type ClusterK8sRunner struct {
-	config    KubernetesConfig
-	pool      *pool
-	imagesLRU *lru.Cache
+	config     KubernetesConfig
+	pool       *pool
+	imagesLRU  *lru.Cache
+	syncClient *ss.WatchClient
 }
 
 type ResultK8s struct {
@@ -269,7 +270,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	eg.Go(func() error {
 		err := c.watchRunPods(ctx, ow, input, result)
 
-		erru := updateRunResult(&template, result)
+		erru := c.updateRunResult(&template, result)
 		if erru != nil {
 			ow.Errorw("could not update run result", "err", erru)
 		}
@@ -486,6 +487,11 @@ func (c *ClusterK8sRunner) initPool() {
 		}
 
 		c.imagesLRU, _ = lru.New(256)
+
+		c.syncClient, err = ss.NewWatchClient(context.Background())
+		if err != nil {
+			log.Fatal(err)
+		}
 	})
 }
 
@@ -1165,27 +1171,19 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
-	lastId := "0"
-	for {
-		notifications, newId, errn := notification.Fetch(template, lastId)
-		if errn != nil {
-			return errn
-		}
+func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+	events, err := c.syncClient.FetchAllEvents(template)
+	if err != nil {
+		return err
+	}
 
-		for _, n := range notifications {
-			// for now we emit only outcome OK events, so no need for more checks
-			if n.EventType == "outcome" {
-				o := result.Outcomes[n.GroupID]
-				o.Ok = o.Ok + 1
-			}
+	for _, e := range events {
+		// for now we emit only outcome OK events, so no need for more checks
+		if e.SuccessEvent != nil {
+			se := e.SuccessEvent
+			o := result.Outcomes[se.TestGroupID]
+			o.Ok = o.Ok + 1
 		}
-
-		if newId == lastId {
-			break
-		}
-
-		lastId = newId
 	}
 
 	result.Status = true
