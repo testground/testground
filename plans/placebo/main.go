@@ -11,6 +11,7 @@ import (
 var testcases = map[string]interface{}{
 	"ok":    run.InitializedTestCaseFn(tcOk),
 	"panic": run.InitializedTestCaseFn(tcPanic),
+	"abort": run.InitializedTestCaseFn(tcAbort),
 	"stall": run.InitializedTestCaseFn(tcStall),
 }
 
@@ -20,6 +21,10 @@ func main() {
 
 func tcOk(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
+}
+
+func tcAbort(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	return errors.New("aborting...")
 }
 
 func tcStall(runenv *runtime.RunEnv, initCtx *run.InitContext) error {

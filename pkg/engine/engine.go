@@ -450,6 +450,7 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 			_, running := e.signals[id]
 			e.signalsLk.RUnlock()
 			if !running {
+				time.Sleep(2 * time.Second)
 				close(stop)
 				return
 			}
