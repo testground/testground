@@ -488,7 +488,7 @@ func (c *ClusterK8sRunner) initPool() {
 
 		c.imagesLRU, _ = lru.New(256)
 
-		c.syncClient, err = ss.NewWatchClient(context.Background())
+		c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
 		if err != nil {
 			log.Fatal(err)
 		}
