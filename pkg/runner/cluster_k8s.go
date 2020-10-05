@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
@@ -268,7 +269,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		err := c.watchRunPods(ctx, ow, input, result)
+		err := c.watchRunPods(ctx, ow, input, result, &template)
 
 		erru := c.updateRunResult(&template, result)
 		if erru != nil {
@@ -490,7 +491,7 @@ func (c *ClusterK8sRunner) initPool() {
 
 		c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
 		}
 	})
 }
@@ -661,7 +662,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s) error {
+func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s, rp *runtime.RunParams) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -697,6 +698,21 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 
 				result.Journal.Events[id] = event
 			}
+		}
+	}()
+
+	eventsCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		evs, err := c.syncClient.SubscribeEvents(eventsCtx, rp)
+		if err != nil {
+			ow.Errorw("subscribe events returned err", "err", err)
+			return
+		}
+
+		for ev := range evs {
+			ow.Warnw("daemon received testplan event", "event", spew.Sdump(ev))
 		}
 	}()
 
