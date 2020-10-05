@@ -1,43 +1,32 @@
 package main
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
-func main() {
-	runtime.Invoke(run)
+var testcases = map[string]interface{}{
+	"ok":    run.InitializedTestCaseFn(tcOk),
+	"panic": run.InitializedTestCaseFn(tcPanic),
+	"stall": run.InitializedTestCaseFn(tcStall),
 }
 
-func run(runenv *runtime.RunEnv) error {
-	switch c := runenv.TestCase; c {
-	case "ok":
-		return nil
-	case "metrics":
-		// create context for cancelation
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+func main() {
+	run.InvokeMap(testcases)
+}
 
-		// snapshot metrics every second and save them into "metrics" directory
-		err := runenv.HTTPPeriodicSnapshots(ctx, "http://"+runtime.HTTPListenAddr+"/metrics", time.Second, "metrics")
-		if err != nil {
-			return err
-		}
+func tcOk(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	return nil
+}
 
-		time.Sleep(time.Second * 5)
-		return nil
-	case "panic":
-		// panic
-		panic(errors.New("this is an intentional panic"))
-	case "stall":
-		// stall
-		time.Sleep(24 * time.Hour)
-		return nil
-	default:
-		return fmt.Errorf("aborting")
-	}
+func tcStall(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	time.Sleep(24 * time.Hour)
+	return nil
+}
+
+func tcPanic(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	panic(errors.New("this is an intentional panic"))
 }
