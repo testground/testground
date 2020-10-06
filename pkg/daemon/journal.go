@@ -23,13 +23,18 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		tsk, err := engine.Status(taskId)
+		tsk, err := engine.GetTask(taskId)
 		if err != nil {
 			fmt.Fprintf(w, "cannot fetch tsk")
 			return
 		}
 
 		result := decodeResultK8s(tsk.Result)
+		if result == nil || result.Journal == nil {
+			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
+			return
+		}
+
 		if len(result.Journal.Events) == 0 && len(result.Journal.PodsStatuses) == 0 {
 			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
 			return
@@ -41,6 +46,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 		for _, v := range result.Journal.Events {
 			_, _ = w.Write([]byte(v))
+			_, _ = w.Write([]byte("\n"))
 		}
 
 		if len(result.Journal.PodsStatuses) > 0 {
@@ -49,6 +55,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 		for k := range result.Journal.PodsStatuses {
 			_, _ = w.Write([]byte(k))
+			_, _ = w.Write([]byte("\n"))
 		}
 	}
 }

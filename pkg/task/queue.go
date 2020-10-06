@@ -17,7 +17,7 @@ var (
 
 func NewQueue(ts *Storage, max int) (*Queue, error) {
 	tq := new(taskQueue)
-	for _, prefix := range []string{QUEUEPREFIX, CURRENTPREFIX} {
+	for _, prefix := range []string{prefixScheduled, prefixProcessing} {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
@@ -61,7 +61,7 @@ func (q *Queue) Push(tsk *Task) error {
 	}
 
 	// Persist this task to the database
-	err := q.ts.Put(QUEUEPREFIX, tsk)
+	err := q.ts.PersistScheduled(tsk)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (q *Queue) Pop() (*Task, error) {
 	tsk := heap.Pop(q.tq).(*Task)
 
 	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
-	err := q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+	err := q.ts.ProcessTask(tsk)
 	if err != nil {
 		return nil, err
 	}

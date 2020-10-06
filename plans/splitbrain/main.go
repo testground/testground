@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -37,12 +38,12 @@ type node struct {
 }
 
 func main() {
-	testcases := map[string]runtime.TestCaseFn{
+	testcases := map[string]interface{}{
 		"drop":   routeFilter(network.Drop),
 		"reject": routeFilter(network.Reject),
 		"accept": routeFilter(network.Accept),
 	}
-	runtime.InvokeMap(testcases)
+	run.InvokeMap(testcases)
 }
 
 func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
@@ -55,7 +56,7 @@ func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
 	return false
 }
 
-func routeFilter(action network.FilterAction) runtime.TestCaseFn {
+func routeFilter(action network.FilterAction) run.TestCaseFn {
 
 	return func(runenv *runtime.RunEnv) error {
 

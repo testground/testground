@@ -20,12 +20,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/testground/sdk-go/notification"
 	"github.com/testground/sdk-go/runtime"
+	ss "github.com/testground/sdk-go/sync"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
@@ -119,7 +120,7 @@ type ClusterK8sRunnerConfig struct {
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 
-	GlobalTimeoutMin int `toml:"global_timeout_min"`
+	RunTimeoutMin int `toml:"run_timeout_min"`
 
 	Sysctls []string `toml:"sysctls"`
 }
@@ -127,9 +128,10 @@ type ClusterK8sRunnerConfig struct {
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
 type ClusterK8sRunner struct {
-	config    KubernetesConfig
-	pool      *pool
-	imagesLRU *lru.Cache
+	config     KubernetesConfig
+	pool       *pool
+	imagesLRU  *lru.Cache
+	syncClient *ss.WatchClient
 }
 
 type ResultK8s struct {
@@ -267,9 +269,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		err := c.watchRunPods(ctx, ow, input, result)
+		err := c.watchRunPods(ctx, ow, input, result, &template)
 
-		erru := updateRunResult(&template, result)
+		erru := c.updateRunResult(&template, result)
 		if erru != nil {
 			ow.Errorw("could not update run result", "err", erru)
 		}
@@ -486,6 +488,11 @@ func (c *ClusterK8sRunner) initPool() {
 		}
 
 		c.imagesLRU, _ = lru.New(256)
+
+		c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+		if err != nil {
+			log.Error(err)
+		}
 	})
 }
 
@@ -655,12 +662,16 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s) error {
+func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s, rp *runtime.RunParams) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-	globalTimeout := time.Duration(cfg.GlobalTimeoutMin) * time.Minute
+
+	runTimeout := 10 * time.Minute
+	if cfg.RunTimeoutMin != 0 {
+		runTimeout = time.Duration(cfg.RunTimeoutMin) * time.Minute
+	}
 
 	fieldSelector := "type!=Normal"
 	opts := metav1.ListOptions{
@@ -690,6 +701,21 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		}
 	}()
 
+	eventsCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		evs, err := c.syncClient.SubscribeEvents(eventsCtx, rp)
+		if err != nil {
+			ow.Errorw("subscribe events returned err", "err", err)
+			return
+		}
+
+		for ev := range evs {
+			ow.Warnw("daemon received testplan event", "event", spew.Sdump(ev))
+		}
+	}()
+
 	podsByState := make(map[string]*v1.PodList)
 	var countersMu sync.Mutex
 
@@ -702,8 +728,8 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		default:
 		}
 
-		if time.Since(start) > globalTimeout {
-			return fmt.Errorf("taas timeout reached. make sure your plan completes within %s.", globalTimeout)
+		if time.Since(start) > runTimeout {
+			return fmt.Errorf("run timeout reached. make sure your plan execution completes within %s.", runTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 
@@ -1161,27 +1187,19 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
-	lastId := "0"
-	for {
-		notifications, newId, errn := notification.Fetch(template, lastId)
-		if errn != nil {
-			return errn
-		}
+func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+	events, err := c.syncClient.FetchAllEvents(template)
+	if err != nil {
+		return err
+	}
 
-		for _, n := range notifications {
-			// for now we emit only outcome OK events, so no need for more checks
-			if n.EventType == "outcome" {
-				o := result.Outcomes[n.GroupID]
-				o.Ok = o.Ok + 1
-			}
+	for _, e := range events {
+		// for now we emit only outcome OK events, so no need for more checks
+		if e.SuccessEvent != nil {
+			se := e.SuccessEvent
+			o := result.Outcomes[se.TestGroupID]
+			o.Ok = o.Ok + 1
 		}
-
-		if newId == lastId {
-			break
-		}
-
-		lastId = newId
 	}
 
 	result.Status = true

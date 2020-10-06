@@ -193,6 +193,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		BuildGroups: buildIdx,
 		Composition: *comp,
 		Manifest:    *manifest,
+		CreatedBy:   cfg.Client.User,
 	}
 
 	if wait {
