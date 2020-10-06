@@ -1,6 +1,8 @@
 package task
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -15,6 +17,7 @@ const (
 	StateScheduled  State = "scheduled"
 	StateProcessing State = "processing"
 	StateComplete   State = "complete"
+	StateCanceled   State = "canceled"
 )
 
 // Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment
@@ -49,7 +52,8 @@ type Task struct {
 	Composition interface{}  `json:"composition"` // Composition used for the task
 	Input       interface{}  `json:"input"`       // The input data for this task
 	Result      interface{}  `json:"result"`      // Result of the task, when terminal.
-	Error       string       `json:"error"`
+	Error       string       `json:"error"`       // Error from Testground
+	CreatedBy   string       `json:"created_by"`  // Who created the task
 }
 
 func (t *Task) Created() time.Time {
@@ -58,6 +62,10 @@ func (t *Task) Created() time.Time {
 	}
 
 	return t.States[0].Created
+}
+
+func (t *Task) IsCanceled() bool {
+	return t.State().State == StateCanceled
 }
 
 func (t *Task) Name() string {
@@ -73,4 +81,16 @@ func (t *Task) State() DatedState {
 		panic("task must have a state")
 	}
 	return t.States[len(t.States)-1]
+}
+
+func (t *Task) ParseCreatedBy() string {
+	res := strings.Split(t.CreatedBy, ";")
+
+	if len(res) == 2 {
+		url := res[1]
+		title := res[0]
+		return fmt.Sprintf(`<a href="%s" target="_blank">%s</a>`, url, title)
+	}
+
+	return t.CreatedBy
 }

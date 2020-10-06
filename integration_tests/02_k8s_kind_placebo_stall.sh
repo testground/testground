@@ -13,6 +13,8 @@ docker tag $ARTIFACT testplan:placebo
 # The plan is renamed as `testplan:placebo` because kind will check DockerHub if the tag is `latest`.
 kind load docker-image testplan:placebo
 
+testground healthcheck --runner local:docker --fix
+export REDIS_HOST=localhost
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 2 --plan placebo --testcase stall --wait &
 sleep 20
 BEFORE=$(kubectl get pods | grep placebo | grep Running | wc -l)

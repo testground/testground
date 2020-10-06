@@ -187,6 +187,7 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 				Created: time.Now().UTC(),
 			},
 		},
+		CreatedBy: request.CreatedBy,
 	})
 
 	return id, err
@@ -228,6 +229,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 				Created: time.Now().UTC(),
 			},
 		},
+		CreatedBy: request.CreatedBy,
 	})
 
 	return id, err
@@ -355,19 +357,9 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	e.signalsLk.RLock()
 
 	for _, state := range filters.States {
-		var prefix string
 		var ires []task.Task
 
-		switch state {
-		case task.StateScheduled:
-			prefix = task.QUEUEPREFIX
-		case task.StateProcessing:
-			prefix = task.CURRENTPREFIX
-		case task.StateComplete:
-			prefix = task.ARCHIVEPREFIX
-		}
-
-		tsks, err := e.store.Range(prefix, before, after)
+		tsks, err := e.store.Filter(state, before, after)
 		if err != nil {
 			return nil, err
 		}
@@ -396,22 +388,18 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	return res, nil
 }
 
-func (e *Engine) Status(id string) (*task.Task, error) {
-	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
-	if err == nil {
-		return tsk, nil
+func (e *Engine) GetTask(id string) (*task.Task, error) {
+	return e.store.Get(id)
+}
+
+func (e *Engine) Kill(id string) error {
+	e.signalsLk.RLock()
+	if ch, ok := e.signals[id]; ok {
+		close(ch)
 	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	tsk, err = e.store.Get(task.CURRENTPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	return e.store.Get(task.QUEUEPREFIX, id)
+	e.signalsLk.RUnlock()
+
+	return nil
 }
 
 func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
@@ -422,24 +410,24 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	if !follow {
 		file, err := os.Open(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while os.Open, err: %w", err)
 		}
 		defer file.Close()
 
 		// copy logs to responseWriter, they are already json marshaled
 		_, err = io.Copy(w, file)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while io.Copy, err: %w", err)
 		}
 
-		return e.Status(id)
+		return e.GetTask(id)
 	}
 
 	// wait for the task to start
 	for {
-		tsk, err := e.Status(id)
+		tsk, err := e.GetTask(id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while e.Status, err: %w", err)
 		}
 
 		if tsk.State().State == task.StateScheduled {
@@ -452,7 +440,7 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 	stop := make(chan struct{})
 	file, err := newTailReader(path, stop)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when newTailReader, err: %w", err)
 	}
 	defer file.Close()
 
@@ -462,6 +450,7 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 			_, running := e.signals[id]
 			e.signalsLk.RUnlock()
 			if !running {
+				time.Sleep(2 * time.Second)
 				close(stop)
 				return
 			}
@@ -494,22 +483,22 @@ Outer:
 				if err == io.EOF {
 					break Outer
 				}
-				return nil, err
+				return nil, fmt.Errorf("error when decoding chunk, err: %w", err)
 			}
 
 			m, err := base64.StdEncoding.DecodeString(chunk.Payload.(string))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error when base64 decoding string, err: %w", err)
 			}
 
 			_, err = ow.WriteProgress([]byte(m))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error on ow.WriteProgress, err: %w", err)
 			}
 		}
 	}
 
-	return e.Status(id)
+	return e.GetTask(id)
 }
 
 type tailReader struct {
@@ -540,7 +529,7 @@ func newTailReader(fileName string, stop chan struct{}) (tailReader, error) {
 		return tailReader{}, err
 	}
 
-	if _, err := f.Seek(0, 2); err != nil {
+	if _, err := f.Seek(0, 0); err != nil {
 		return tailReader{}, err
 	}
 	return tailReader{f, stop}, nil

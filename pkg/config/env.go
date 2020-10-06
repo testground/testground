@@ -42,9 +42,11 @@ type DaemonConfig struct {
 	QueueSize       int      `toml:"queue_size"`
 	TasksInMemory   bool     `toml:"tasks_in_memory"`
 	SlackWebhookURL string   `toml:"slack_webhook_url"`
+	TaskTimeoutMin  int      `toml:"task_timeout_min"`
 }
 
 type ClientConfig struct {
 	Endpoint string `toml:"endpoint"`
 	Token    string `toml:"token"`
+	User     string `toml:"user"`
 }

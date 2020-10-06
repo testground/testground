@@ -196,6 +196,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 	req := &api.BuildRequest{
 		Composition: *comp,
 		Manifest:    *manifest,
+		CreatedBy:   cfg.Client.User,
 	}
 
 	if wait {

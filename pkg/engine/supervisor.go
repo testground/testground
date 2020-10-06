@@ -47,6 +47,11 @@ func (e *Engine) deleteSignal(id string) {
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
 
+	taskTimeout := 10 * time.Minute
+	if e.EnvConfig().Daemon.TaskTimeoutMin != 0 {
+		taskTimeout = time.Duration(e.EnvConfig().Daemon.TaskTimeoutMin) * time.Minute
+	}
+
 	for {
 		tsk, err := e.queue.Pop()
 		if err == task.ErrQueueEmpty {
@@ -60,7 +65,7 @@ func (e *Engine) worker(n int) {
 		}
 
 		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
+			ctx, cancel := context.WithTimeout(context.Background(), taskTimeout)
 			defer cancel()
 
 			ch := make(chan int)
@@ -76,9 +81,13 @@ func (e *Engine) worker(n int) {
 				}
 			}()
 
-			err = e.store.AppendTaskState(tsk.ID, task.StateProcessing)
+			tsk.States = append(tsk.States, task.DatedState{
+				State:   task.StateProcessing,
+				Created: time.Now().UTC(),
+			})
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
 
@@ -123,12 +132,34 @@ func (e *Engine) worker(n int) {
 				}
 
 			default:
-				// wut
+				logging.S().Errorw("unknown task type", "type", tsk.Type)
+				return
 			}
 
-			tsk, err = e.store.MarkCompleted(tsk.ID, errTask, result)
+			newState := task.DatedState{
+				Created: time.Now().UTC(),
+				State:   task.StateComplete,
+			}
+			if errTask != nil {
+				tsk.Error = errTask.Error()
+
+				if errors.Is(errTask, context.Canceled) {
+					newState.State = task.StateCanceled
+				}
+			}
+
+			tsk.States = append(tsk.States, newState)
+			tsk.Result = result
+
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
+				return
+			}
+
+			err = e.store.ArchiveTask(tsk)
+			if err != nil {
+				logging.S().Errorw("could not archive task", "err", err)
 				return
 			}
 
@@ -155,7 +186,11 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 		if result.Status {
 			payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
 		} else {
-			payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+			if tsk.IsCanceled() {
+				payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
+			} else {
+				payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+			}
 		}
 	}
 	body := strings.NewReader(payload)

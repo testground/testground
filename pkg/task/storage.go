@@ -18,9 +18,9 @@ import (
 
 var (
 	// database key prefixes
-	QUEUEPREFIX   = "queue"
-	CURRENTPREFIX = "current"
-	ARCHIVEPREFIX = "archive"
+	prefixScheduled  = "queue"
+	prefixProcessing = "current"
+	prefixComplete   = "archive"
 
 	ErrNotFound = errors.New("task not found")
 )
@@ -50,7 +50,7 @@ func taskKey(prefix string, id string) []byte {
 	return []byte(strings.Join([]string{prefix, tskey}, ":"))
 }
 
-func (s *Storage) Get(prefix string, id string) (tsk *Task, err error) {
+func (s *Storage) get(prefix string, id string) (tsk *Task, err error) {
 	tsk = &Task{}
 	val, err := s.db.Get(taskKey(prefix, id), nil)
 	if err == leveldb.ErrNotFound {
@@ -66,7 +66,7 @@ func (s *Storage) Get(prefix string, id string) (tsk *Task, err error) {
 	return tsk, nil
 }
 
-func (s *Storage) Put(prefix string, tsk *Task) error {
+func (s *Storage) put(prefix string, tsk *Task) error {
 	val, err := json.Marshal(tsk)
 	if err != nil {
 		return err
@@ -81,50 +81,45 @@ func (s *Storage) Delete(prefix string, tsk *Task) error {
 	return s.db.Delete(key, &opt.WriteOptions{
 		Sync: true,
 	})
+
 }
 
-// A helper method for appending a state to a task's state slice
-func (s *Storage) AppendTaskState(id string, state State) error {
-	tsk, err := s.Get(CURRENTPREFIX, id)
-	if err != nil {
-		return err
+func (s *Storage) Get(id string) (*Task, error) {
+	tsk, err := s.get(prefixComplete, id)
+	if err == nil {
+		return tsk, nil
 	}
-	dated := DatedState{
-		State:   state,
-		Created: time.Now().UTC(),
+	if err != ErrNotFound {
+		return nil, err
 	}
-	tsk.States = append(tsk.States, dated)
-	return s.Put(CURRENTPREFIX, tsk)
+	tsk, err = s.get(prefixProcessing, id)
+	if err == nil {
+		return tsk, nil
+	}
+	if err != ErrNotFound {
+		return nil, err
+	}
+	return s.get(prefixScheduled, id)
 }
 
-func (s *Storage) MarkCompleted(id string, errTask error, result interface{}) (*Task, error) {
-	tsk, err := s.Get(CURRENTPREFIX, id)
-	if err != nil {
-		return nil, err
-	}
-	dated := DatedState{
-		State:   StateComplete,
-		Created: time.Now().UTC(),
-	}
-	tsk.States = append(tsk.States, dated)
-	tsk.Result = result
-	if errTask != nil {
-		tsk.Error = errTask.Error()
-	}
-	err = s.Put(CURRENTPREFIX, tsk)
-	if err != nil {
-		return nil, err
-	}
+func (s *Storage) PersistProcessing(tsk *Task) error {
+	return s.put(prefixProcessing, tsk)
+}
 
-	err = s.ChangePrefix(ARCHIVEPREFIX, CURRENTPREFIX, id)
-	if err != nil {
-		return nil, err
-	}
-	return tsk, nil
+func (s *Storage) PersistScheduled(tsk *Task) error {
+	return s.put(prefixScheduled, tsk)
+}
+
+func (s *Storage) ProcessTask(tsk *Task) error {
+	return s.changePrefix(prefixProcessing, prefixScheduled, tsk.ID)
+}
+
+func (s *Storage) ArchiveTask(tsk *Task) error {
+	return s.changePrefix(prefixComplete, prefixProcessing, tsk.ID)
 }
 
 // Change the prefix of a task
-func (s *Storage) ChangePrefix(dst string, src string, id string) error {
+func (s *Storage) changePrefix(dst string, src string, id string) error {
 	oldkey := taskKey(src, id)
 	newkey := taskKey(dst, id)
 	trans, err := s.db.OpenTransaction()
@@ -149,8 +144,23 @@ func (s *Storage) ChangePrefix(dst string, src string, id string) error {
 	return trans.Commit()
 }
 
-// Range returns []*Task with all tasks between the given time ranges.
-func (s *Storage) Range(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
+func (s *Storage) Filter(state State, start time.Time, end time.Time) (tasks []*Task, err error) {
+	var prefix string
+
+	switch state {
+	case StateScheduled:
+		prefix = prefixScheduled
+	case StateProcessing:
+		prefix = prefixProcessing
+	case StateComplete:
+		prefix = prefixComplete
+	}
+
+	return s.rangeIter(prefix, start, end)
+}
+
+// range returns []*Task with all tasks between the given time ranges.
+func (s *Storage) rangeIter(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
 			prefix,
