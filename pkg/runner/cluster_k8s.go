@@ -700,7 +700,6 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		}
 	}()
 
-	//TODO: Enable monitoring of events as they come
 	//eventsCtx, cancel := context.WithCancel(context.Background())
 	//defer cancel()
 

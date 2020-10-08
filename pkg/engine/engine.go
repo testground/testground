@@ -344,8 +344,6 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 
 	if filters.Before != nil {
 		before = filters.Before.UTC()
-	} else {
-		before = time.Now().UTC().Add(-24 * time.Hour) // Last day
 	}
 
 	if filters.After != nil {
@@ -386,6 +384,9 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 
 	e.signalsLk.RUnlock()
 	return res, nil
+}
+func (e *Engine) DeleteTask(id string) error {
+	return e.store.Delete(id)
 }
 
 func (e *Engine) GetTask(id string) (*task.Task, error) {

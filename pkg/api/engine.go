@@ -56,11 +56,11 @@ type Engine interface {
 	QueueBuild(request *BuildRequest, sources *UnpackedSources) (string, error)
 	QueueRun(request *RunRequest, sources *UnpackedSources) (string, error)
 
+	Tasks(filters TasksFilters) ([]task.Task, error)
+	GetTask(id string) (*task.Task, error)
 	Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
 	Kill(id string) error
-
-	GetTask(id string) (*task.Task, error)
-	Tasks(filters TasksFilters) ([]task.Task, error)
+	DeleteTask(id string) error
 
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
