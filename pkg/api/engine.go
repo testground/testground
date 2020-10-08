@@ -58,6 +58,7 @@ type Engine interface {
 
 	Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
 	Kill(id string) error
+	DeleteTask(id string) error
 
 	GetTask(id string) (*task.Task, error)
 	Tasks(filters TasksFilters) ([]task.Task, error)

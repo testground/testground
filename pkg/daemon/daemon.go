@@ -70,7 +70,9 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		})
 	})
 
+	r.HandleFunc("/dashboard", srv.dashboardHandler(engine)).Methods("GET")
 	r.HandleFunc("/kill", srv.killTaskHandler(engine)).Methods("GET")
+	r.HandleFunc("/delete", srv.deleteHandler(engine)).Methods("GET")
 	r.HandleFunc("/tasks", srv.listTasksHandler(engine)).Methods("GET")
 	r.HandleFunc("/logs", srv.getLogsHandler(engine)).Methods("GET")
 	r.HandleFunc("/outputs", srv.getOutputsHandler(engine)).Methods("GET")

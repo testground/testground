@@ -387,6 +387,9 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	e.signalsLk.RUnlock()
 	return res, nil
 }
+func (e *Engine) DeleteTask(id string) error {
+	return e.store.Delete(id)
+}
 
 func (e *Engine) GetTask(id string) (*task.Task, error) {
 	return e.store.Get(id)

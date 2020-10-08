@@ -76,12 +76,28 @@ func (s *Storage) put(prefix string, tsk *Task) error {
 	})
 }
 
-func (s *Storage) Delete(prefix string, tsk *Task) error {
-	key := []byte(strings.Join([]string{prefix, tsk.ID}, ":"))
-	return s.db.Delete(key, &opt.WriteOptions{
+func (s *Storage) Delete(id string) error {
+	tsk, err := s.get(prefixComplete, id)
+	if err == nil {
+		return s.delete(prefixComplete, tsk)
+	}
+	if err != ErrNotFound {
+		return err
+	}
+	tsk, err = s.get(prefixProcessing, id)
+	if err == nil {
+		return s.delete(prefixProcessing, tsk)
+	}
+	if err != ErrNotFound {
+		return err
+	}
+	return s.delete(prefixScheduled, tsk)
+}
+
+func (s *Storage) delete(prefix string, tsk *Task) error {
+	return s.db.Delete(taskKey(prefix, tsk.ID), &opt.WriteOptions{
 		Sync: true,
 	})
-
 }
 
 func (s *Storage) Get(id string) (*Task, error) {
