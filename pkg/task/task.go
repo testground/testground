@@ -94,3 +94,26 @@ func (t *Task) ParseCreatedBy() string {
 
 	return t.CreatedBy
 }
+
+func (t *Task) CreatedByCommit() (string, string, string, bool) {
+	res := strings.Split(t.CreatedBy, ";")
+
+	if len(res) == 2 {
+		//https://github.com/filecoin-project/oni/commit/d8b5a13f1fc758c674ffcee6dbd7f13540997283
+
+		url := res[1]
+
+		res = strings.Split(url, "/")
+		if len(res) != 7 {
+			fmt.Println(len(res))
+			return "", "", "", false
+		}
+
+		owner := res[3]
+		repo := res[4]
+		commit := res[6]
+		return owner, repo, commit, true
+	}
+
+	return "", "", "", false
+}

@@ -90,6 +90,7 @@ func (e *Engine) worker(n int) {
 				logging.S().Errorw("could not persist task", "err", err)
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
+			e.postStatusToGithub(tsk, "TaaS is running your plan", "pending")
 
 			// Create a packing directory under the work dir.
 			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID+".out")
@@ -173,6 +174,40 @@ func (e *Engine) worker(n int) {
 	}
 }
 
+func (e *Engine) postStatusToGithub(tsk *task.Task, msg, state string) error {
+	if e.envcfg.Daemon.GithubRepoStatusToken == "" {
+		return nil
+	}
+
+	owner, repo, hash, ok := tsk.CreatedByCommit()
+	if !ok {
+		return nil
+	}
+
+	cl := &http.Client{Timeout: time.Second * 10}
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/statuses/%s", owner, repo, hash)
+
+	plan := tsk.Plan + "/" + tsk.Case
+	payload := fmt.Sprintf(`{"state":"%s","target_url":"https://ci.testground.ipfs.team/tasks","description":"%s","context":"taas/%s"}`, state, msg, plan)
+
+	body := strings.NewReader(payload)
+
+	req, err := http.NewRequest("POST", url, body)
+	req.Header.Add("Authorization", "Basic bm9uc2Vuc2U6YzQyYzU0ZjU5MjNjYWJkMTk5ZGU0NjVmZjBhYzNkMzZjNDNiN2U2Mw==")
+	//req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	res, err := cl.Do(req)
+	if err != nil {
+		return err
+	}
+
+	res.Body.Close()
+
+	return nil
+}
+
 func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 	if e.envcfg.Daemon.SlackWebhookURL == "" {
 		return nil
@@ -184,11 +219,14 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 
 	if result, ok := tsk.Result.(*runner.ResultK8s); ok {
 		if result.Status {
+			e.postStatusToGithub(tsk, "Testplan run succeeded!", "success")
 			payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
 		} else {
 			if tsk.IsCanceled() {
+				e.postStatusToGithub(tsk, "Testplan run was canceled!", "failure")
 				payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
 			} else {
+				e.postStatusToGithub(tsk, "Testplan run failed!", "failure")
 				payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
 			}
 		}
