@@ -1,0 +1,15 @@
+{
+  "name": "example",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Example Testground Node test",
+  "main": "index.js",
+  "author": "Henrique Dias <mail@hacdias.com>",
+  "license": "MIT",
+  "dependencies": {
+    "testground-sdk": "git+https://github.com/testground/sdk-js.git#ef253d0"
+  },
+  "devDependencies": {
+    "standard": "^14.3.4"
+  }
+}
