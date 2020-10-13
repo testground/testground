@@ -20,6 +20,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"golang.org/x/sync/errgroup"
@@ -700,21 +701,20 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		}
 	}()
 
-	//TODO: Enable monitoring of events as they come
-	//eventsCtx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
+	eventsCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	//go func() {
-	//evs, err := c.syncClient.SubscribeEvents(eventsCtx, rp)
-	//if err != nil {
-	//ow.Errorw("subscribe events returned err", "err", err)
-	//return
-	//}
+	go func() {
+		evs, err := c.syncClient.SubscribeEvents(eventsCtx, rp)
+		if err != nil {
+			ow.Errorw("subscribe events returned err", "err", err)
+			return
+		}
 
-	//for ev := range evs {
-	//ow.Warnw("daemon received testplan event", "event", spew.Sdump(ev))
-	//}
-	//}()
+		for ev := range evs {
+			ow.Warnw("daemon received testplan event", "event", spew.Sdump(ev))
+		}
+	}()
 
 	podsByState := make(map[string]*v1.PodList)
 	var countersMu sync.Mutex

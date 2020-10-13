@@ -344,8 +344,6 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 
 	if filters.Before != nil {
 		before = filters.Before.UTC()
-	} else {
-		before = time.Now().UTC().Add(-24 * time.Hour) // Last day
 	}
 
 	if filters.After != nil {
