@@ -104,12 +104,14 @@ func (t *Task) ParseCreatedBy() string {
 	return t.CreatedBy
 }
 
+// CreatedByCommit parses the task.CreatedBy field in case it contains a ;
+// https://github.com/filecoin-project/oni/commit/d8b5a13f1fc758c674ffcee6dbd7f13540997283
+// Currently CircleCI utilises the following format for the `user` field in the `.env.toml`
+// user="filecoin-project/oni -> '$CIRCLE_BRANCH';https://github.com/filecoin-project/oni/commit/'$CIRCLE_SHA1'
 func (t *Task) CreatedByCommit() (string, string, string, bool) {
 	res := strings.Split(t.CreatedBy, ";")
 
 	if len(res) == 2 {
-		//https://github.com/filecoin-project/oni/commit/d8b5a13f1fc758c674ffcee6dbd7f13540997283
-
 		url := res[1]
 
 		res = strings.Split(url, "/")

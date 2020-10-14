@@ -23,6 +23,8 @@ func pingpong(runenv *runtime.RunEnv) error {
 		return nil
 	}
 
+	runenv.AttachSyncClient(client)
+
 	netclient := network.NewClient(client, runenv)
 	runenv.RecordMessage("before netclient.MustWaitNetworkInitialized")
 	netclient.MustWaitNetworkInitialized(ctx)
