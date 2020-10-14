@@ -20,6 +20,15 @@ const (
 	StateCanceled   State = "canceled"
 )
 
+type Outcome string
+
+const (
+	OutcomeUnknown  Outcome = "unknown"
+	OutcomeSuccess  Outcome = "success"
+	OutcomeFailure  Outcome = "failure"
+	OutcomeCanceled Outcome = "canceled"
+)
+
 // Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment
 // with the testground command-line we have two kinds of tasks
 // TypeBuild -- which functions similarly to `testground build`. The result of this task will contain

@@ -33,6 +33,7 @@ import (
 	"github.com/testground/testground/pkg/healthcheck"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/task"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -134,7 +135,7 @@ type ClusterK8sRunner struct {
 }
 
 type ResultK8s struct {
-	Status   bool                     `json:"status"`
+	Outcome  task.Outcome             `json:"outcome"`
 	Outcomes map[string]*GroupOutcome `json:"outcomes"`
 	Journal  *Journal                 `json:"journal"`
 }
@@ -146,7 +147,7 @@ type Journal struct {
 
 func newResultK8s() *ResultK8s {
 	return &ResultK8s{
-		Status:   false,
+		Outcome:  task.OutcomeUnknown,
 		Outcomes: make(map[string]*GroupOutcome),
 		Journal: &Journal{
 			Events:       make(map[string]string),
@@ -197,6 +198,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		RunID:  input.RunID,
 		Result: result,
 	}
+
+	defer func() {
+		if ctx.Err() == context.Canceled {
+			result.Outcome = task.OutcomeCanceled
+		}
+	}()
 
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
@@ -700,21 +707,6 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		}
 	}()
 
-	//eventsCtx, cancel := context.WithCancel(context.Background())
-	//defer cancel()
-
-	//go func() {
-	//evs, err := c.syncClient.SubscribeEvents(eventsCtx, rp)
-	//if err != nil {
-	//ow.Errorw("subscribe events returned err", "err", err)
-	//return
-	//}
-
-	//for ev := range evs {
-	//ow.Warnw("daemon received testplan event", "event", spew.Sdump(ev))
-	//}
-	//}()
-
 	podsByState := make(map[string]*v1.PodList)
 	var countersMu sync.Mutex
 
@@ -1201,13 +1193,13 @@ func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *
 		}
 	}
 
-	result.Status = true
+	result.Outcome = task.OutcomeSuccess
 	if len(result.Outcomes) == 0 {
-		result.Status = false
+		result.Outcome = task.OutcomeFailure
 	}
 	for g := range result.Outcomes {
 		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-			result.Status = false
+			result.Outcome = task.OutcomeFailure
 			break
 		}
 	}

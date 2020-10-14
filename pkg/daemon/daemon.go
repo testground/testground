@@ -71,7 +71,7 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	})
 
 	r.HandleFunc("/kill", srv.killTaskHandler(engine)).Methods("GET")
-	r.HandleFunc("/delete", srv.deleteHandler(engine)).Methods("GET")
+	r.HandleFunc("/delete", srv.deleteHandler(engine)).Methods("GET") // temporary endpoint until we build a proper ACL/admin endpoints within the daemon
 	r.HandleFunc("/tasks", srv.listTasksHandler(engine)).Methods("GET")
 	r.HandleFunc("/logs", srv.getLogsHandler(engine)).Methods("GET")
 	r.HandleFunc("/outputs", srv.getOutputsHandler(engine)).Methods("GET")

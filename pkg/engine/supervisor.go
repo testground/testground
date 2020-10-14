@@ -90,7 +90,7 @@ func (e *Engine) worker(n int) {
 				logging.S().Errorw("could not persist task", "err", err)
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
-			err = e.postStatusToGithub(tsk, "TaaS is running your plan", "pending")
+			err = e.postStatusToGithub(tsk)
 			if err != nil {
 				logging.S().Errorw("could not post status to github", "err", err)
 			}
@@ -171,13 +171,18 @@ func (e *Engine) worker(n int) {
 			if err != nil {
 				logging.S().Errorw("could not send status to slack", "err", err)
 			}
+			err = e.postStatusToGithub(tsk)
+			if err != nil {
+				logging.S().Errorw("could not post status to github", "err", err)
+			}
+
 			e.deleteSignal(tsk.ID)
 			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
 		}()
 	}
 }
 
-func (e *Engine) postStatusToGithub(tsk *task.Task, msg, state string) error {
+func (e *Engine) postStatusToGithub(tsk *task.Task) error {
 	if e.envcfg.Daemon.GithubRepoStatusToken == "" {
 		return nil
 	}
@@ -185,6 +190,35 @@ func (e *Engine) postStatusToGithub(tsk *task.Task, msg, state string) error {
 	owner, repo, hash, ok := tsk.CreatedByCommit()
 	if !ok {
 		return nil
+	}
+
+	result, ok := tsk.Result.(*runner.ResultK8s)
+	if !ok {
+		return errors.New("can't post to github: task result is not from k8s")
+	}
+
+	var msg, state string
+
+	switch tsk.State().State {
+	case task.StateProcessing:
+		msg = "TaaS is running your plan"
+		state = "pending"
+	case task.StateComplete:
+		switch result.Outcome {
+		case task.OutcomeSuccess:
+			msg = "Testplan run succeeded!"
+			state = "success"
+		case task.OutcomeCanceled:
+			msg = "Testplan run was canceled!"
+			state = "failure"
+		case task.OutcomeFailure:
+			msg = "Testplan run failed!"
+			state = "failure"
+		case task.OutcomeUnknown:
+			return errors.New("can't post update to github: task outcome is unknown")
+		}
+	default:
+		return errors.New("can't post update to github: task state is not processing or completed")
 	}
 
 	cl := &http.Client{Timeout: time.Second * 10}
@@ -200,8 +234,7 @@ func (e *Engine) postStatusToGithub(tsk *task.Task, msg, state string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Add("Authorization", "Basic bm9uc2Vuc2U6YzQyYzU0ZjU5MjNjYWJkMTk5ZGU0NjVmZjBhYzNkMzZjNDNiN2U2Mw==")
-	//req.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Add("Authorization", "Basic "+e.envcfg.Daemon.GithubRepoStatusToken)
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 
 	res, err := cl.Do(req)
@@ -219,33 +252,23 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 		return nil
 	}
 
-	cl := &http.Client{Timeout: time.Second * 10}
+	result, ok := tsk.Result.(*runner.ResultK8s)
+	if !ok {
+		return nil
+	}
 
 	payload := fmt.Sprintf(`{"text":"<https://ci.testground.ipfs.team|%s> *%s* run completed"}`, tsk.ID, tsk.Name())
 
-	if result, ok := tsk.Result.(*runner.ResultK8s); ok {
-		if result.Status {
-			err := e.postStatusToGithub(tsk, "Testplan run succeeded!", "success")
-			if err != nil {
-				logging.S().Errorw("could not post status to github", "err", err)
-			}
-			payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
-		} else {
-			if tsk.IsCanceled() {
-				err := e.postStatusToGithub(tsk, "Testplan run was canceled!", "failure")
-				if err != nil {
-					logging.S().Errorw("could not post status to github", "err", err)
-				}
-				payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
-			} else {
-				err := e.postStatusToGithub(tsk, "Testplan run failed!", "failure")
-				if err != nil {
-					logging.S().Errorw("could not post status to github", "err", err)
-				}
-				payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
-			}
-		}
+	switch result.Outcome {
+	case task.OutcomeSuccess:
+		payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
+	case task.OutcomeCanceled:
+		payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
+	case task.OutcomeFailure:
+		payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
 	}
+
+	cl := &http.Client{Timeout: time.Second * 10}
 	body := strings.NewReader(payload)
 	res, err := cl.Post(
 		e.envcfg.Daemon.SlackWebhookURL,

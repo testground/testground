@@ -335,6 +335,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
+// Tasks returns a list of tasks that match the filters argument
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	var (
 		res    []task.Task
@@ -385,6 +386,8 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	e.signalsLk.RUnlock()
 	return res, nil
 }
+
+// DeleteTask removes a task from the Testground daemon database
 func (e *Engine) DeleteTask(id string) error {
 	return e.store.Delete(id)
 }
@@ -393,6 +396,7 @@ func (e *Engine) GetTask(id string) (*task.Task, error) {
 	return e.store.Get(id)
 }
 
+// Kill closes the signal channel for a given task, which signals to the runner to stop it
 func (e *Engine) Kill(id string) error {
 	e.signalsLk.RLock()
 	if ch, ok := e.signals[id]; ok {
@@ -403,6 +407,8 @@ func (e *Engine) Kill(id string) error {
 	return nil
 }
 
+// Logs writes the Testground daemon logs for a given task to the passed writer.
+// It is used when using the `--follow` option with `testground run`
 func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
 	ow := rpc.NewFileOutputWriter(w)
 

@@ -58,9 +58,9 @@ type Engine interface {
 
 	Tasks(filters TasksFilters) ([]task.Task, error)
 	GetTask(id string) (*task.Task, error)
-	Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
-	Kill(id string) error
-	DeleteTask(id string) error
+	Logs(ctx context.Context, taskId string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
+	Kill(taskId string) error
+	DeleteTask(taskId string) error
 
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error

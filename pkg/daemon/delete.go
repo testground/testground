@@ -8,6 +8,8 @@ import (
 	"github.com/testground/testground/pkg/logging"
 )
 
+// deleteHandler removes a task from the Testground daemon's database
+// it does not terminate any started containers or pods
 func (d *Daemon) deleteHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
