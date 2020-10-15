@@ -4,6 +4,7 @@
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://protocol.ai)
 ![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
+[![Go Report Card](https://goreportcard.com/badge/testground/testground)](https://goreportcard.com/report/testground/testground)
 [![CircleCI](https://circleci.com/gh/testground/testground.svg?style=svg)](https://circleci.com/gh/testground/testground)
 
 Testground is a platform for testing, benchmarking, and simulating distributed and p2p
