@@ -9,7 +9,6 @@ import (
 )
 
 // deleteHandler removes a task from the Testground daemon's database
-// it does not terminate any started containers or pods
 func (d *Daemon) deleteHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log := logging.S().With("req_id", r.Header.Get("X-Request-ID"))
@@ -25,7 +24,13 @@ func (d *Daemon) deleteHandler(engine api.Engine) func(w http.ResponseWriter, r 
 			return
 		}
 
-		err := engine.DeleteTask(taskId)
+		err := engine.Kill(taskId)
+		if err != nil {
+			fmt.Fprintf(w, "cannot kill tsk")
+			return
+		}
+
+		err = engine.DeleteTask(taskId)
 		if err != nil {
 			fmt.Fprintf(w, "cannot delete tsk")
 			return
