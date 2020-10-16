@@ -42,6 +42,18 @@ var RunCommand = cli.Command{
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
+				&cli.StringFlag{
+					Name:  "metadata-repo",
+					Usage: "repo that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-branch",
+					Usage: "branch that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-commit",
+					Usage: "commit that triggered this run",
+				},
 			),
 		},
 		&cli.Command{
@@ -92,6 +104,18 @@ var RunCommand = cli.Command{
 					Name:    "use-build",
 					Aliases: []string{"ub"},
 					Usage:   "build artifact to use (from a previous build)",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-repo",
+					Usage: "repo that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-branch",
+					Usage: "branch that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-commit",
+					Usage: "commit that triggered this run",
 				},
 			),
 		},
@@ -193,7 +217,12 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		BuildGroups: buildIdx,
 		Composition: *comp,
 		Manifest:    *manifest,
-		CreatedBy:   cfg.Client.User,
+		CreatedBy: api.CreatedBy{
+			User:   cfg.Client.User,
+			Repo:   c.String("metadata-repo"),
+			Branch: c.String("metadata-branch"),
+			Commit: c.String("metadata-commit"),
+		},
 	}
 
 	if wait {

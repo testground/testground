@@ -70,23 +70,23 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		for _, t := range tasks {
 			result := decodeResultK8s(t.Result)
 			if t.State().State == task.StateCanceled {
-				fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9898;", result, t.Error, t.ParseCreatedBy())
+				fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9898;", result, t.Error, t.RenderCreatedBy())
 			}
 
 			if t.State().State == task.StateComplete {
 				if result.Outcome == task.OutcomeSuccess { // green
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result, t.Error, t.ParseCreatedBy())
+					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result, t.Error, t.RenderCreatedBy())
 				} else if result.Outcome == task.OutcomeFailure { // red
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#10060;", result, t.Error, t.ParseCreatedBy())
+					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#10060;", result, t.Error, t.RenderCreatedBy())
 				}
 			}
 
 			if t.State().State == task.StateProcessing {
-				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, "&#9203;", t.ID, t.ID, t.ParseCreatedBy())
+				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, "&#9203;", t.ID, t.ID, t.RenderCreatedBy())
 			}
 
 			if t.State().State == task.StateScheduled {
-				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td></td><td></td><td></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), "&#128338;", t.ID, t.ID, t.ParseCreatedBy())
+				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td></td><td></td><td></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), "&#128338;", t.ID, t.ID, t.RenderCreatedBy())
 			}
 		}
 		fmt.Fprintf(w, "</table>")

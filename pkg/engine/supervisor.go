@@ -187,10 +187,14 @@ func (e *Engine) postStatusToGithub(tsk *task.Task) error {
 		return nil
 	}
 
-	owner, repo, hash, ok := tsk.CreatedByCommit()
-	if !ok {
+	if !tsk.CreatedByCI() {
 		return nil
 	}
+
+	ownerrepo := strings.Split(tsk.CreatedBy.Repo, "/")
+	owner := ownerrepo[0]
+	repo := ownerrepo[1]
+	hash := tsk.CreatedBy.Commit
 
 	result, ok := tsk.Result.(*runner.ResultK8s)
 	if !ok {

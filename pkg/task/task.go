@@ -2,7 +2,6 @@ package task
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -47,6 +46,13 @@ type DatedState struct {
 	State   State     `json:"state"`
 }
 
+type CreatedBy struct {
+	User   string `json:"user,omitempty"`
+	Repo   string `json:"repo,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Commit string `json:"commit,omitempty"`
+}
+
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store
 // metadata in our task storage database as well as the wire format returned when clients get the
 // state of a running or scheduled task.
@@ -62,7 +68,7 @@ type Task struct {
 	Input       interface{}  `json:"input"`       // The input data for this task
 	Result      interface{}  `json:"result"`      // Result of the task, when terminal.
 	Error       string       `json:"error"`       // Error from Testground
-	CreatedBy   string       `json:"created_by"`  // Who created the task
+	CreatedBy   CreatedBy    `json:"created_by"`  // Who created the task
 }
 
 func (t *Task) Created() time.Time {
@@ -92,39 +98,14 @@ func (t *Task) State() DatedState {
 	return t.States[len(t.States)-1]
 }
 
-func (t *Task) ParseCreatedBy() string {
-	res := strings.Split(t.CreatedBy, ";")
-
-	if len(res) == 2 {
-		url := res[1]
-		title := res[0]
-		return fmt.Sprintf(`<a href="%s" target="_blank">%s</a>`, url, title)
-	}
-
-	return t.CreatedBy
+func (t *Task) CreatedByCI() bool {
+	return t.CreatedBy.Repo != "" && t.CreatedBy.Commit != "" && t.CreatedBy.Branch != ""
 }
 
-// CreatedByCommit parses the task.CreatedBy field in case it contains a ;
-// https://github.com/filecoin-project/oni/commit/d8b5a13f1fc758c674ffcee6dbd7f13540997283
-// Currently CircleCI utilises the following format for the `user` field in the `.env.toml`
-// user="filecoin-project/oni -> '$CIRCLE_BRANCH';https://github.com/filecoin-project/oni/commit/'$CIRCLE_SHA1'
-func (t *Task) CreatedByCommit() (string, string, string, bool) {
-	res := strings.Split(t.CreatedBy, ";")
-
-	if len(res) == 2 {
-		url := res[1]
-
-		res = strings.Split(url, "/")
-		if len(res) != 7 {
-			fmt.Println(len(res))
-			return "", "", "", false
-		}
-
-		owner := res[3]
-		repo := res[4]
-		commit := res[6]
-		return owner, repo, commit, true
+func (t *Task) RenderCreatedBy() string {
+	if t.CreatedByCI() {
+		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s -> %s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
 	}
 
-	return "", "", "", false
+	return t.CreatedBy.User
 }

@@ -193,7 +193,7 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 				Created: time.Now().UTC(),
 			},
 		},
-		CreatedBy: request.CreatedBy,
+		CreatedBy: task.CreatedBy(request.CreatedBy),
 	})
 
 	return id, err
@@ -235,7 +235,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 				Created: time.Now().UTC(),
 			},
 		},
-		CreatedBy: request.CreatedBy,
+		CreatedBy: task.CreatedBy(request.CreatedBy),
 	})
 
 	return id, err
