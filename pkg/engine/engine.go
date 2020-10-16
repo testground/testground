@@ -75,7 +75,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		err   error
 	)
 
-	trt := cfg.EnvConfig.Daemon.TaskRepoType
+	trt := cfg.EnvConfig.Daemon.Scheduler.TaskRepoType
 	switch trt {
 	case "memory":
 		store, err = task.NewMemoryTaskStorage()
@@ -93,7 +93,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		return nil, fmt.Errorf("unknown task repo type: %s", trt)
 	}
 
-	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.QueueSize)
+	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.Scheduler.QueueSize)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	for i := 0; i < cfg.EnvConfig.Daemon.Workers; i++ {
+	for i := 0; i < cfg.EnvConfig.Daemon.Scheduler.Workers; i++ {
 		go e.worker(i)
 	}
 

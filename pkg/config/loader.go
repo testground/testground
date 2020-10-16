@@ -29,8 +29,8 @@ func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
 	e.Client.Endpoint = DefaultClientURL
-	e.Daemon.Workers = DefaultWorkers
-	e.Daemon.QueueSize = DefaultQueueSize
+	e.Daemon.Scheduler.Workers = DefaultWorkers
+	e.Daemon.Scheduler.QueueSize = DefaultQueueSize
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.

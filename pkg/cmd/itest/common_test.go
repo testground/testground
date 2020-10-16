@@ -22,7 +22,9 @@ func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 
 	cfg := &config.EnvConfig{
 		Daemon: config.DaemonConfig{
-			TaskRepoType: "memory",
+			Scheduler: config.SchedulerConfig{
+				TaskRepoType: "memory",
+			},
 		},
 	}
 	if err := cfg.Load(); err != nil {
