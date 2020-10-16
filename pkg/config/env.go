@@ -40,7 +40,7 @@ type DaemonConfig struct {
 	Tokens                []string `toml:"tokens"`
 	Workers               int      `toml:"workers"`
 	QueueSize             int      `toml:"queue_size"`
-	TasksInMemory         bool     `toml:"tasks_in_memory"`
+	TaskRepoType          string   `toml:"task_repo_type"`
 	SlackWebhookURL       string   `toml:"slack_webhook_url"`
 	GithubRepoStatusToken string   `toml:"github_repo_status_token"`
 	TaskTimeoutMin        int      `toml:"task_timeout_min"`

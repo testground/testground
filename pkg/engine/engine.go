@@ -75,16 +75,22 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		err   error
 	)
 
-	if cfg.EnvConfig.Daemon.TasksInMemory {
+	trt := cfg.EnvConfig.Daemon.TaskRepoType
+	switch trt {
+	case "memory":
 		store, err = task.NewMemoryTaskStorage()
-	} else {
+		if err != nil {
+			return nil, err
+		}
+	case "disk":
 		path := filepath.Join(cfg.EnvConfig.Dirs().Home(), "tasks.db")
 		logging.S().Infow("init leveldb task storage", "path", path)
 		store, err = task.NewTaskStorage(path)
-	}
-
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unknown task repo type: %s", trt)
 	}
 
 	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.QueueSize)

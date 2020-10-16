@@ -41,7 +41,7 @@ func TestBuildSelector(t *testing.T) {
 
 	env := &config.EnvConfig{
 		Daemon: config.DaemonConfig{
-			TasksInMemory: true,
+			TaskRepoType: "memory",
 		},
 	}
 	err = env.Load()
