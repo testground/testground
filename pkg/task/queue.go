@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
+	"github.com/testground/testground/pkg/logging"
 )
 
 var (
@@ -16,11 +17,11 @@ var (
 
 func NewQueue(ts *Storage, max int) (*Queue, error) {
 	tq := new(taskQueue)
-	for _, prefix := range []string{QUEUEPREFIX, CURRENTPREFIX} {
+	for _, prefix := range []string{prefixScheduled, prefixProcessing} {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
-			tsk := new(Task)
+			tsk := &Task{}
 			err := json.Unmarshal(iter.Value(), tsk)
 			if err != nil {
 				return nil, err
@@ -60,7 +61,7 @@ func (q *Queue) Push(tsk *Task) error {
 	}
 
 	// Persist this task to the database
-	err := q.ts.Put(QUEUEPREFIX, tsk)
+	err := q.ts.PersistScheduled(tsk)
 	if err != nil {
 		return err
 	}
@@ -79,9 +80,11 @@ func (q *Queue) Pop() (*Task, error) {
 	if q.tq.Len() == 0 {
 		return nil, ErrQueueEmpty
 	}
+	logging.S().Debugw("queue.pop", "len", q.tq.Len())
 	tsk := heap.Pop(q.tq).(*Task)
 
-	err := q.ts.ChangePrefix(CURRENTPREFIX, QUEUEPREFIX, tsk.ID)
+	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
+	err := q.ts.ProcessTask(tsk)
 	if err != nil {
 		return nil, err
 	}

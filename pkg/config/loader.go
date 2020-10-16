@@ -20,6 +20,8 @@ const (
 	// DefaultClientURL is the HTTP(S) endpoint of the server.
 	DefaultClientURL = "http://" + DefaultListenAddr
 
+	DefaultTaskRepoType = "memory"
+
 	DefaultWorkers = 2
 
 	DefaultQueueSize = 100
@@ -29,8 +31,9 @@ func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
 	e.Client.Endpoint = DefaultClientURL
-	e.Daemon.Workers = DefaultWorkers
-	e.Daemon.QueueSize = DefaultQueueSize
+	e.Daemon.Scheduler.Workers = DefaultWorkers
+	e.Daemon.Scheduler.QueueSize = DefaultQueueSize
+	e.Daemon.Scheduler.TaskRepoType = DefaultTaskRepoType
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.

@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"github.com/testground/sdk-go/ptypes"
 	"net"
 	"os"
 	"os/exec"
@@ -83,7 +84,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
-		TestSubnet:        &runtime.IPNet{IPNet: *localSubnet},
+		TestSubnet:        &ptypes.IPNet{IPNet: *localSubnet},
 	}
 
 	// Spawn as many instances as the input parameters require.

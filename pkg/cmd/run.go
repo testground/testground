@@ -42,6 +42,18 @@ var RunCommand = cli.Command{
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
+				&cli.StringFlag{
+					Name:  "metadata-repo",
+					Usage: "repo that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-branch",
+					Usage: "branch that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-commit",
+					Usage: "commit that triggered this run",
+				},
 			),
 		},
 		&cli.Command{
@@ -93,6 +105,18 @@ var RunCommand = cli.Command{
 					Aliases: []string{"ub"},
 					Usage:   "build artifact to use (from a previous build)",
 				},
+				&cli.StringFlag{
+					Name:  "metadata-repo",
+					Usage: "repo that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-branch",
+					Usage: "branch that triggered this run",
+				},
+				&cli.StringFlag{
+					Name:  "metadata-commit",
+					Usage: "commit that triggered this run",
+				},
 			),
 		},
 	},
@@ -113,7 +137,7 @@ func runCompositionCmd(c *cli.Context) (err error) {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 
-	err = doRun(c, comp)
+	err = run(c, comp)
 	if err != nil {
 		return err
 	}
@@ -127,10 +151,10 @@ func runSingleCmd(c *cli.Context) (err error) {
 		return err
 	}
 	logging.S().Infof("created a synthetic composition file for this job; all instances will run under singleton group %q", comp.Groups[0].ID)
-	return doRun(c, comp)
+	return run(c, comp)
 }
 
-func doRun(c *cli.Context, comp *api.Composition) (err error) {
+func run(c *cli.Context, comp *api.Composition) (err error) {
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
@@ -193,6 +217,12 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		BuildGroups: buildIdx,
 		Composition: *comp,
 		Manifest:    *manifest,
+		CreatedBy: api.CreatedBy{
+			User:   cfg.Client.User,
+			Repo:   c.String("metadata-repo"),
+			Branch: c.String("metadata-branch"),
+			Commit: c.String("metadata-commit"),
+		},
 	}
 
 	if wait {
@@ -237,12 +267,12 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 		return err
 	}
 
-	if tsk.Result.Error != "" {
-		return errors.New(tsk.Result.Error)
+	if tsk.Error != "" {
+		return errors.New(tsk.Error)
 	}
 
-	var rout api.RunOutput
-	err = mapstructure.Decode(tsk.Result.Data, &rout)
+	var composition api.Composition
+	err = mapstructure.Decode(tsk.Composition, &composition)
 	if err != nil {
 		return err
 	}
@@ -253,7 +283,7 @@ func doRun(c *cli.Context, comp *api.Composition) (err error) {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}
 		enc := toml.NewEncoder(f)
-		if err := enc.Encode(rout.Composition); err != nil {
+		if err := enc.Encode(composition); err != nil {
 			return fmt.Errorf("failed to encode composition into file: %w", err)
 		}
 	}

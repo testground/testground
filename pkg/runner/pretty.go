@@ -160,29 +160,26 @@ func (c *PrettyPrinter) processStdout(idx uint32, id string, stdout io.ReadClose
 			continue
 		}
 
-		switch evt.Type {
-		case runtime.EventTypeFinish:
-			switch evt.Outcome {
-			case runtime.EventOutcomeOK:
-				ok = true
-				c.print(idx, id, ts, Ok, "")
-			case runtime.EventOutcomeFailed:
-				failed = true
-				c.print(idx, id, ts, Fail, evt.Error)
-			case runtime.EventOutcomeCrashed:
-				failed = true
-				c.print(idx, id, ts, Crash, evt.Error, evt.Stacktrace)
-			default:
-				c.print(idx, id, ts, InternalErr, fmt.Sprintf("unknown outcome: %s", evt.Outcome))
-				return
-			}
-
-		case runtime.EventTypeMessage:
+		switch {
+		case evt.SuccessEvent != nil:
+			ok = true
+			c.print(idx, id, ts, Ok, "")
+		case evt.FailureEvent != nil:
+			failed = true
+			c.print(idx, id, ts, Fail, evt.FailureEvent.Error)
+		case evt.CrashEvent != nil:
+			failed = true
+			c.print(idx, id, ts, Crash, evt.CrashEvent.Error, evt.CrashEvent.Stacktrace)
+		case evt.MessageEvent != nil:
 			c.print(idx, id, ts, Message, evt.Message)
-
-		case runtime.EventTypeStart:
-			m, _ := json.Marshal(evt.Runenv)
+		case evt.StartEvent != nil:
+			m, _ := json.Marshal(evt.StartEvent.Runenv)
 			c.print(idx, id, ts, Start, string(m))
+		case evt.StageStartEvent != nil:
+		case evt.StageEndEvent != nil:
+		default:
+			c.print(idx, id, ts, InternalErr, fmt.Sprintf("unknown event: %v", evt))
+			return
 		}
 	}
 }

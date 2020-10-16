@@ -1,6 +1,9 @@
 package task
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // State (kind: string) represents the last known state of a task.
 // A task can be in one of three states
@@ -13,6 +16,16 @@ const (
 	StateScheduled  State = "scheduled"
 	StateProcessing State = "processing"
 	StateComplete   State = "complete"
+	StateCanceled   State = "canceled"
+)
+
+type Outcome string
+
+const (
+	OutcomeUnknown  Outcome = "unknown"
+	OutcomeSuccess  Outcome = "success"
+	OutcomeFailure  Outcome = "failure"
+	OutcomeCanceled Outcome = "canceled"
 )
 
 // Type (kind: string) represents the kind of activity the daemon asked to perform. In alignment
@@ -33,26 +46,29 @@ type DatedState struct {
 	State   State     `json:"state"`
 }
 
-// Result (kind: struct)
-// This will be redefined at a later time.
-type Result struct {
-	Error string      `json:"error"`
-	Data  interface{} `json:"data"`
+type CreatedBy struct {
+	User   string `json:"user,omitempty"`
+	Repo   string `json:"repo,omitempty"`
+	Branch string `json:"branch,omitempty"`
+	Commit string `json:"commit,omitempty"`
 }
 
 // Task (kind: struct) contains metadata about a testground task. This schema is used to store
 // metadata in our task storage database as well as the wire format returned when clients get the
 // state of a running or scheduled task.
 type Task struct {
-	Version  int          `json:"version"`  // Schema version
-	Priority int          `json:"priority"` // Scheduling priority
-	ID       string       `json:"id"`       // Unique identifier for this task
-	Plan     string       `json:"plan"`     // Test plan
-	Case     string       `json:"case"`     // Test case
-	States   []DatedState `json:"states"`   // State of the task
-	Type     Type         `json:"type"`     // Type of the task
-	Input    interface{}  `json:"input"`    // The input data for this task
-	Result   Result       `json:"result"`   // Result of the task, when terminal.
+	Version     int          `json:"version"`     // Schema version
+	Priority    int          `json:"priority"`    // Scheduling priority
+	ID          string       `json:"id"`          // Unique identifier for this task
+	Plan        string       `json:"plan"`        // Test plan
+	Case        string       `json:"case"`        // Test case
+	States      []DatedState `json:"states"`      // State of the task
+	Type        Type         `json:"type"`        // Type of the task
+	Composition interface{}  `json:"composition"` // Composition used for the task
+	Input       interface{}  `json:"input"`       // The input data for this task
+	Result      interface{}  `json:"result"`      // Result of the task, when terminal.
+	Error       string       `json:"error"`       // Error from Testground
+	CreatedBy   CreatedBy    `json:"created_by"`  // Who created the task
 }
 
 func (t *Task) Created() time.Time {
@@ -61,6 +77,10 @@ func (t *Task) Created() time.Time {
 	}
 
 	return t.States[0].Created
+}
+
+func (t *Task) IsCanceled() bool {
+	return t.State().State == StateCanceled
 }
 
 func (t *Task) Name() string {
@@ -76,4 +96,16 @@ func (t *Task) State() DatedState {
 		panic("task must have a state")
 	}
 	return t.States[len(t.States)-1]
+}
+
+func (t *Task) CreatedByCI() bool {
+	return t.CreatedBy.Repo != "" && t.CreatedBy.Commit != "" && t.CreatedBy.Branch != ""
+}
+
+func (t *Task) RenderCreatedBy() string {
+	if t.CreatedByCI() {
+		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s -> %s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
+	}
+
+	return t.CreatedBy.User
 }

@@ -6,7 +6,7 @@ import (
 )
 
 var testcases = map[string]interface{}{
-	"ping-pong":       pingpong,
+	"ping-pong":       run.InitializedTestCaseFn(pingpong),
 	"traffic-allowed": routingPolicyTest(network.AllowAll),
 	"traffic-blocked": routingPolicyTest(network.DenyAll),
 }

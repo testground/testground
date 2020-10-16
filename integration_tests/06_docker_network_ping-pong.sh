@@ -20,7 +20,7 @@ echo "run.out is $SIZEOUT bytes."
 SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
 test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 pushd $RUNID
-OUTCOMEOK=$(find . | grep run.out | xargs awk '{print $0, FILENAME}' | grep "outcome\":\"ok\"" | wc -l)
+OUTCOMEOK=$(find . | grep run.out | xargs awk '{print $0, FILENAME}' | grep "\"success_event\"" | wc -l)
 test $OUTCOMEOK -eq 2
 popd
 popd

@@ -36,15 +36,22 @@ type DockerHubConfig struct {
 }
 
 type DaemonConfig struct {
-	Listen          string   `toml:"listen"`
-	Tokens          []string `toml:"tokens"`
-	Workers         int      `toml:"workers"`
-	QueueSize       int      `toml:"queue_size"`
-	TasksInMemory   bool     `toml:"tasks_in_memory"`
-	SlackWebhookURL string   `toml:"slack_webhook_url"`
+	Listen                string          `toml:"listen"`
+	Scheduler             SchedulerConfig `toml:"scheduler"`
+	Tokens                []string        `toml:"tokens"`
+	SlackWebhookURL       string          `toml:"slack_webhook_url"`
+	GithubRepoStatusToken string          `toml:"github_repo_status_token"`
+}
+
+type SchedulerConfig struct {
+	Workers        int    `toml:"workers"`
+	QueueSize      int    `toml:"queue_size"`
+	TaskRepoType   string `toml:"task_repo_type"`
+	TaskTimeoutMin int    `toml:"task_timeout_min"`
 }
 
 type ClientConfig struct {
 	Endpoint string `toml:"endpoint"`
 	Token    string `toml:"token"`
+	User     string `toml:"user"`
 }

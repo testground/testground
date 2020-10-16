@@ -3,6 +3,12 @@ package build_test
 import (
 	"context"
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
+
 	"github.com/BurntSushi/toml"
 	"github.com/docker/docker/client"
 	"github.com/otiai10/copy"
@@ -11,12 +17,6 @@ import (
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/engine"
-	"github.com/testground/testground/pkg/rpc"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"testing"
-	"time"
 )
 
 func TestBuildSelector(t *testing.T) {
@@ -39,7 +39,13 @@ func TestBuildSelector(t *testing.T) {
 		t.Fatalf("failed to parse manifest file: %s", err.Error())
 	}
 
-	env := &config.EnvConfig{}
+	env := &config.EnvConfig{
+		Daemon: config.DaemonConfig{
+			Scheduler: config.SchedulerConfig{
+				TaskRepoType: "memory",
+			},
+		},
+	}
 	err = env.Load()
 	require.NoError(err)
 
@@ -87,14 +93,14 @@ func TestBuildSelector(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			tsk, err := engine.Logs(context.Background(), id, true, false, rpc.Discard())
+			tsk, err := engine.Logs(context.Background(), id, true, false, ioutil.Discard)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			err = nil
-			if tsk.Result.Error != "" {
-				err = errors.New(tsk.Result.Error)
+			if tsk.Error != "" {
+				err = errors.New(tsk.Error)
 			}
 
 			assertion(err)
