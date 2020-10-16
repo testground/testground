@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
+	"os"
+	"path/filepath"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -25,9 +26,9 @@ func (d *Daemon) logsHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 			return
 		}
 
-		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
+		tsk, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, w)
 		if err != nil {
-			tgw.WriteError("error while fetching logs", "err", err.Error())
+			tgw.WriteError("error while getting task", "err", err)
 			return
 		}
 
@@ -42,7 +43,7 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 		log.Debugw("handle request", "command", "get logs")
 		defer log.Debugw("request handled", "command", "get logs")
 
-		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Content-Type", "text/plain")
 
 		taskId := r.URL.Query().Get("task_id")
 		if taskId == "" {
@@ -50,36 +51,19 @@ func (d *Daemon) getLogsHandler(engine api.Engine) func(w http.ResponseWriter, r
 			return
 		}
 
-		req := api.LogsRequest{
-			TaskID: taskId,
-			Follow: false,
-		}
+		path := filepath.Join(engine.EnvConfig().Dirs().Daemon(), taskId+".out")
 
-		rr, ww := io.Pipe()
-
-		tgw := rpc.NewFileOutputWriter(ww)
-
-		go func() {
-			_, err := client.ParseLogsRequest(brWriter{w}, rr)
-			if err != nil {
-				fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
-			}
-		}()
-
-		_, err := engine.Logs(r.Context(), req.TaskID, req.Follow, req.CancelWithContext, tgw)
+		file, err := os.Open(path)
 		if err != nil {
-			fmt.Fprintf(w, "error while fetching logs: %s", err.Error())
+			log.Errorw("cannot open logs file", "err", err)
 			return
 		}
+		defer file.Close()
+
+		_, err = client.ParseLogsRequest(w, file)
+
+		if err != nil && err != io.EOF {
+			fmt.Fprintf(w, "error while parsing logs: %s", err.Error())
+		}
 	}
-}
-
-// brWriter replaces new lines with <br/> html tag
-type brWriter struct {
-	writer io.Writer
-}
-
-func (b brWriter) Write(bb []byte) (n int, err error) {
-	replaced := strings.Replace(string(bb), "\n", "<br/>", -1)
-	return b.writer.Write([]byte(replaced))
 }

@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -37,12 +39,12 @@ type node struct {
 }
 
 func main() {
-	testcases := map[string]runtime.TestCaseFn{
+	testcases := map[string]interface{}{
 		"drop":   routeFilter(network.Drop),
 		"reject": routeFilter(network.Reject),
 		"accept": routeFilter(network.Accept),
 	}
-	runtime.InvokeMap(testcases)
+	run.InvokeMap(testcases)
 }
 
 func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
@@ -55,7 +57,7 @@ func expectErrors(runenv *runtime.RunEnv, a *node, b *node) bool {
 	return false
 }
 
-func routeFilter(action network.FilterAction) runtime.TestCaseFn {
+func routeFilter(action network.FilterAction) run.TestCaseFn {
 
 	return func(runenv *runtime.RunEnv) error {
 
@@ -115,9 +117,11 @@ func routeFilter(action network.FilterAction) runtime.TestCaseFn {
 
 			for _, p := range nodes {
 				if p.Region == regionB {
-					pnet := net.IPNet{
-						IP:   *p.IP,
-						Mask: net.IPMask([]byte{255, 255, 255, 255}),
+					pnet := ptypes.IPNet{
+						IPNet: net.IPNet{
+							IP:   *p.IP,
+							Mask: net.IPMask([]byte{255, 255, 255, 255}),
+						},
 					}
 					cfg.Rules = append(cfg.Rules, network.LinkRule{
 						Subnet: pnet,

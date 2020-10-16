@@ -1,8 +1,9 @@
 package engine
 
 import (
-	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/build"
 	"github.com/testground/testground/pkg/config"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
@@ -73,18 +75,25 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		err   error
 	)
 
-	if cfg.EnvConfig.Daemon.TasksInMemory {
+	trt := cfg.EnvConfig.Daemon.Scheduler.TaskRepoType
+	switch trt {
+	case "memory":
 		store, err = task.NewMemoryTaskStorage()
-	} else {
+		if err != nil {
+			return nil, err
+		}
+	case "disk":
 		path := filepath.Join(cfg.EnvConfig.Dirs().Home(), "tasks.db")
+		logging.S().Infow("init leveldb task storage", "path", path)
 		store, err = task.NewTaskStorage(path)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unknown task repo type: %s", trt)
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.QueueSize)
+	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.Scheduler.QueueSize)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +116,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		e.runners[r.ID()] = r
 	}
 
-	for i := 0; i < cfg.EnvConfig.Daemon.Workers; i++ {
+	for i := 0; i < cfg.EnvConfig.Daemon.Scheduler.Workers; i++ {
 		go e.worker(i)
 	}
 
@@ -184,6 +193,7 @@ func (e *Engine) QueueBuild(request *api.BuildRequest, sources *api.UnpackedSour
 				Created: time.Now().UTC(),
 			},
 		},
+		CreatedBy: task.CreatedBy(request.CreatedBy),
 	})
 
 	return id, err
@@ -208,12 +218,13 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 
 	id := xid.New().String()
 	err := e.queue.Push(&task.Task{
-		Version:  0,
-		Priority: request.Priority,
-		Plan:     request.Composition.Global.Plan,
-		Case:     request.Composition.Global.Case,
-		ID:       id,
-		Type:     task.TypeRun,
+		Version:     0,
+		Priority:    request.Priority,
+		Plan:        request.Composition.Global.Plan,
+		Case:        request.Composition.Global.Case,
+		ID:          id,
+		Type:        task.TypeRun,
+		Composition: request.Composition,
 		Input: &RunInput{
 			RunRequest: request,
 			Sources:    sources,
@@ -224,6 +235,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 				Created: time.Now().UTC(),
 			},
 		},
+		CreatedBy: task.CreatedBy(request.CreatedBy),
 	})
 
 	return id, err
@@ -329,6 +341,7 @@ func stringInSlice(a string, list []string) bool {
 	return false
 }
 
+// Tasks returns a list of tasks that match the filters argument
 func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	var (
 		res    []task.Task
@@ -338,8 +351,6 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 
 	if filters.Before != nil {
 		before = filters.Before.UTC()
-	} else {
-		before = time.Now().UTC().Add(-24 * time.Hour) // Last day
 	}
 
 	if filters.After != nil {
@@ -351,19 +362,9 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	e.signalsLk.RLock()
 
 	for _, state := range filters.States {
-		var prefix string
 		var ires []task.Task
 
-		switch state {
-		case task.StateScheduled:
-			prefix = task.QUEUEPREFIX
-		case task.StateProcessing:
-			prefix = task.CURRENTPREFIX
-		case task.StateComplete:
-			prefix = task.ARCHIVEPREFIX
-		}
-
-		tsks, err := e.store.Range(prefix, before, after)
+		tsks, err := e.store.Filter(state, before, after)
 		if err != nil {
 			return nil, err
 		}
@@ -372,7 +373,7 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 			if filters.TestPlan != "" && tsk.Plan != filters.TestPlan {
 				continue
 			}
-			
+
 			if filters.TestCase != "" && tsk.Case != filters.TestCase {
 				continue
 			}
@@ -392,55 +393,54 @@ func (e *Engine) Tasks(filters api.TasksFilters) ([]task.Task, error) {
 	return res, nil
 }
 
-func (e *Engine) Status(id string) (*task.Task, error) {
-	tsk, err := e.store.Get(task.ARCHIVEPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	tsk, err = e.store.Get(task.CURRENTPREFIX, id)
-	if err == nil {
-		return tsk, nil
-	}
-	if err != task.ErrNotFound {
-		return nil, err
-	}
-	return e.store.Get(task.QUEUEPREFIX, id)
+// DeleteTask removes a task from the Testground daemon database
+func (e *Engine) DeleteTask(id string) error {
+	return e.store.Delete(id)
 }
 
-func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error) {
+func (e *Engine) GetTask(id string) (*task.Task, error) {
+	return e.store.Get(id)
+}
+
+// Kill closes the signal channel for a given task, which signals to the runner to stop it
+func (e *Engine) Kill(id string) error {
+	e.signalsLk.RLock()
+	if ch, ok := e.signals[id]; ok {
+		close(ch)
+	}
+	e.signalsLk.RUnlock()
+
+	return nil
+}
+
+// Logs writes the Testground daemon logs for a given task to the passed writer.
+// It is used when using the `--follow` option with `testground run`
+func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, w io.Writer) (*task.Task, error) {
+	ow := rpc.NewFileOutputWriter(w)
+
 	path := filepath.Join(e.EnvConfig().Dirs().Daemon(), id+".out")
 
 	if !follow {
 		file, err := os.Open(path)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while os.Open, err: %w", err)
 		}
 		defer file.Close()
 
-		scanner := bufio.NewScanner(file)
-
-		for scanner.Scan() {
-			_, err = ow.WriteProgress(scanner.Bytes())
-			if err != nil {
-				return nil, err
-			}
-
-			if err := scanner.Err(); err != nil {
-				return nil, err
-			}
+		// copy logs to responseWriter, they are already json marshaled
+		_, err = io.Copy(w, file)
+		if err != nil {
+			return nil, fmt.Errorf("error while io.Copy, err: %w", err)
 		}
 
-		return e.Status(id)
+		return e.GetTask(id)
 	}
 
-	// Wait for the task to start
+	// wait for the task to start
 	for {
-		tsk, err := e.Status(id)
+		tsk, err := e.GetTask(id)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("error while e.Status, err: %w", err)
 		}
 
 		if tsk.State().State == task.StateScheduled {
@@ -450,14 +450,32 @@ func (e *Engine) Logs(ctx context.Context, id string, follow bool, cancel bool, 
 		}
 	}
 
-	file, err := os.Open(path)
+	stop := make(chan struct{})
+	file, err := newTailReader(path, stop)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error when newTailReader, err: %w", err)
 	}
 	defer file.Close()
-	reader := bufio.NewReader(file)
 
-	var prevBytes []byte
+	go func() {
+		for {
+			e.signalsLk.RLock()
+			_, running := e.signals[id]
+			e.signalsLk.RUnlock()
+			if !running {
+				time.Sleep(2 * time.Second)
+				close(stop)
+				return
+			}
+
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
+	// helps with very long progress lines
+	// (i.e. marshalled stdout logs into a chunk)
+	// unlike bufio reader
+	dec := json.NewDecoder(file)
 
 Outer:
 	for {
@@ -472,40 +490,60 @@ Outer:
 			}
 			break Outer
 		default:
-			e.signalsLk.RLock()
-			_, running := e.signals[id]
-			e.signalsLk.RUnlock()
-
-			line, err := reader.ReadBytes('\n')
-
-			if err == io.EOF {
-				if len(line) != 0 {
-					// It means we read part of a line so it's not actually
-					// the end of the file.
-					prevBytes = line
-					continue
-				}
-
-				if running {
-					continue
-				} else {
+			var chunk rpc.Chunk
+			err := dec.Decode(&chunk)
+			if err != nil {
+				if err == io.EOF {
 					break Outer
 				}
-			} else if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error when decoding chunk, err: %w", err)
 			}
 
-			if prevBytes != nil {
-				line = append(prevBytes, line...)
-			}
-
-			prevBytes = nil
-			_, err = ow.WriteProgress(line)
+			m, err := base64.StdEncoding.DecodeString(chunk.Payload.(string))
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("error when base64 decoding string, err: %w", err)
+			}
+
+			_, err = ow.WriteProgress([]byte(m))
+			if err != nil {
+				return nil, fmt.Errorf("error on ow.WriteProgress, err: %w", err)
 			}
 		}
 	}
 
-	return e.Status(id)
+	return e.GetTask(id)
+}
+
+type tailReader struct {
+	io.ReadCloser
+	stop chan struct{}
+}
+
+func (t tailReader) Read(b []byte) (int, error) {
+	for {
+		select {
+		case <-t.stop:
+			return 0, io.EOF
+		default:
+			n, err := t.ReadCloser.Read(b)
+			if n > 0 {
+				return n, nil
+			} else if err != io.EOF {
+				return n, err
+			}
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}
+}
+
+func newTailReader(fileName string, stop chan struct{}) (tailReader, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return tailReader{}, err
+	}
+
+	if _, err := f.Seek(0, 0); err != nil {
+		return tailReader{}, err
+	}
+	return tailReader{f, stop}, nil
 }

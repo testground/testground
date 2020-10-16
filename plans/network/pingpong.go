@@ -7,25 +7,18 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
 
-func pingpong(runenv *runtime.RunEnv) error {
+func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
 	runenv.RecordMessage("before sync.MustBoundClient")
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	if !runenv.TestSidecar {
-		return nil
-	}
-
-	netclient := network.NewClient(client, runenv)
-	runenv.RecordMessage("before netclient.MustWaitNetworkInitialized")
-	netclient.MustWaitNetworkInitialized(ctx)
+	client := initCtx.SyncClient
+	netclient := initCtx.NetClient
 
 	oldAddrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -64,8 +57,9 @@ func pingpong(runenv *runtime.RunEnv) error {
 	ipC := byte((seq >> 8) + 1)
 	ipD := byte(seq)
 
-	config.IPv4 = &runenv.TestSubnet.IPNet
+	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
+	config.IPv4.Mask = []byte{255, 255, 255, 0}
 	config.CallbackState = "ip-changed"
 
 	var (

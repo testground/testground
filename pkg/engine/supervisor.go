@@ -17,6 +17,7 @@ import (
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
 	"golang.org/x/sync/errgroup"
 )
@@ -46,6 +47,11 @@ func (e *Engine) deleteSignal(id string) {
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
 
+	taskTimeout := 10 * time.Minute
+	if e.EnvConfig().Daemon.Scheduler.TaskTimeoutMin != 0 {
+		taskTimeout = time.Duration(e.EnvConfig().Daemon.Scheduler.TaskTimeoutMin) * time.Minute
+	}
+
 	for {
 		tsk, err := e.queue.Pop()
 		if err == task.ErrQueueEmpty {
@@ -59,7 +65,7 @@ func (e *Engine) worker(n int) {
 		}
 
 		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
+			ctx, cancel := context.WithTimeout(context.Background(), taskTimeout)
 			defer cancel()
 
 			ch := make(chan int)
@@ -75,13 +81,19 @@ func (e *Engine) worker(n int) {
 				}
 			}()
 
-			err = e.store.AppendTaskState(tsk.ID, task.StateProcessing)
+			tsk.States = append(tsk.States, task.DatedState{
+				State:   task.StateProcessing,
+				Created: time.Now().UTC(),
+			})
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
 			}
 			logging.S().Infow("worker processing task", "worker_id", n, "task_id", tsk.ID)
-
-			var data interface{}
+			err = e.postStatusToGithub(tsk)
+			if err != nil {
+				logging.S().Errorw("could not post status to github", "err", err)
+			}
 
 			// Create a packing directory under the work dir.
 			file := filepath.Join(e.EnvConfig().Dirs().Daemon(), tsk.ID+".out")
@@ -94,37 +106,174 @@ func (e *Engine) worker(n int) {
 
 			ow := rpc.NewFileOutputWriter(f)
 
+			var result interface{}
+			var errTask error
+
 			switch tsk.Type {
 			case task.TypeRun:
-				data, err = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+				var res *api.RunOutput
+				res, errTask = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+				if errTask != nil {
+					logging.S().Errorw("doRun returned err", "err", errTask)
+				}
+
+				if res != nil {
+					result = res.Result
+				}
 			case task.TypeBuild:
-				data, err = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
+				var res []*api.BuildOutput
+				res, errTask = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
+				if errTask != nil {
+					logging.S().Errorw("doBuild returned err", "err", errTask)
+				}
+
+				if res != nil {
+					var artifactPaths []string
+					for _, ap := range res {
+						artifactPaths = append(artifactPaths, ap.ArtifactPath)
+					}
+					result = artifactPaths
+				}
+
 			default:
-				// wut
+				logging.S().Errorw("unknown task type", "type", tsk.Type)
+				return
 			}
 
-			err = e.store.MarkCompleted(tsk.ID, err, data)
+			newState := task.DatedState{
+				Created: time.Now().UTC(),
+				State:   task.StateComplete,
+			}
+			if errTask != nil {
+				tsk.Error = errTask.Error()
+
+				if errors.Is(errTask, context.Canceled) {
+					newState.State = task.StateCanceled
+				}
+			}
+
+			tsk.States = append(tsk.States, newState)
+			tsk.Result = result
+
+			err = e.store.PersistProcessing(tsk)
 			if err != nil {
-				logging.S().Errorw("could not update task status", "err", err)
+				logging.S().Errorw("could not persist task", "err", err)
+				return
 			}
 
-			err = e.postStatusToSlack(tsk.ID, task.StateComplete)
+			err = e.store.ArchiveTask(tsk)
+			if err != nil {
+				logging.S().Errorw("could not archive task", "err", err)
+				return
+			}
+
+			err = e.postStatusToSlack(tsk)
 			if err != nil {
 				logging.S().Errorw("could not send status to slack", "err", err)
 			}
+			err = e.postStatusToGithub(tsk)
+			if err != nil {
+				logging.S().Errorw("could not post status to github", "err", err)
+			}
+
 			e.deleteSignal(tsk.ID)
 			logging.S().Infow("worker completed task", "worker_id", n, "task_id", tsk.ID)
 		}()
 	}
 }
 
-func (e *Engine) postStatusToSlack(taskId string, state task.State) error {
+func (e *Engine) postStatusToGithub(tsk *task.Task) error {
+	if e.envcfg.Daemon.GithubRepoStatusToken == "" {
+		return nil
+	}
+
+	if !tsk.CreatedByCI() {
+		return nil
+	}
+
+	ownerrepo := strings.Split(tsk.CreatedBy.Repo, "/")
+	owner := ownerrepo[0]
+	repo := ownerrepo[1]
+	hash := tsk.CreatedBy.Commit
+
+	result, ok := tsk.Result.(*runner.ResultK8s)
+	if !ok {
+		return errors.New("can't post to github: task result is not from k8s")
+	}
+
+	var msg, state string
+
+	switch tsk.State().State {
+	case task.StateProcessing:
+		msg = "TaaS is running your plan"
+		state = "pending"
+	case task.StateComplete:
+		switch result.Outcome {
+		case task.OutcomeSuccess:
+			msg = "Testplan run succeeded!"
+			state = "success"
+		case task.OutcomeCanceled:
+			msg = "Testplan run was canceled!"
+			state = "failure"
+		case task.OutcomeFailure:
+			msg = "Testplan run failed!"
+			state = "failure"
+		case task.OutcomeUnknown:
+			return errors.New("can't post update to github: task outcome is unknown")
+		}
+	default:
+		return errors.New("can't post update to github: task state is not processing or completed")
+	}
+
+	cl := &http.Client{Timeout: time.Second * 10}
+
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/statuses/%s", owner, repo, hash)
+
+	plan := tsk.Plan + "/" + tsk.Case
+	payload := fmt.Sprintf(`{"state":"%s","target_url":"https://ci.testground.ipfs.team/tasks","description":"%s","context":"taas/%s"}`, state, msg, plan)
+
+	body := strings.NewReader(payload)
+
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Authorization", "Basic "+e.envcfg.Daemon.GithubRepoStatusToken)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	res, err := cl.Do(req)
+	if err != nil {
+		return err
+	}
+
+	res.Body.Close()
+
+	return nil
+}
+
+func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 	if e.envcfg.Daemon.SlackWebhookURL == "" {
 		return nil
 	}
 
+	result, ok := tsk.Result.(*runner.ResultK8s)
+	if !ok {
+		return nil
+	}
+
+	payload := fmt.Sprintf(`{"text":"<https://ci.testground.ipfs.team|%s> *%s* run completed"}`, tsk.ID, tsk.Name())
+
+	switch result.Outcome {
+	case task.OutcomeSuccess:
+		payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
+	case task.OutcomeCanceled:
+		payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
+	case task.OutcomeFailure:
+		payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+	}
+
 	cl := &http.Client{Timeout: time.Second * 10}
-	body := strings.NewReader(`{"text":"Task ` + taskId + ` completed. Check status at: https://ci.testground.ipfs.team/tasks"}`)
+	body := strings.NewReader(payload)
 	res, err := cl.Post(
 		e.envcfg.Daemon.SlackWebhookURL,
 		"application/json; charset=UTF-8",
@@ -427,12 +576,9 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
 	}
 
-	if err != nil {
-		return nil, err
+	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check
+		out.Composition = input.Composition
 	}
 
-	return &api.RunOutput{
-		RunID:       out.RunID,
-		Composition: input.Composition,
-	}, nil
+	return out, err
 }

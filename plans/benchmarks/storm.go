@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -210,7 +211,7 @@ func handleRequest(runenv *runtime.RunEnv, conn net.Conn) {
 	conn.Close()
 }
 
-func getSubnetAddr(subnet *runtime.IPNet) (*net.TCPAddr, error) {
+func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return nil, err
@@ -228,7 +229,7 @@ func getSubnetAddr(subnet *runtime.IPNet) (*net.TCPAddr, error) {
 	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
-func shareAddresses(ctx context.Context, client *sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
+func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

@@ -83,6 +83,15 @@ type RunOutput struct {
 
 	// Composition that was used for this run.
 	Composition Composition
+
+	// Result of the run
+	// Depending on runner, might include:
+	// - Status of run (green, red, yellow :: success, fail, partial success)
+	// - Event log containing various information related to the run, for example:
+	// -- Kubernetes events
+	// -- Kubernetes pod Status
+	// -- etc.
+	Result interface{}
 }
 
 type CollectionInput struct {

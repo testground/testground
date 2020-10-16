@@ -4,16 +4,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
-	runtime.Invoke(run)
+	run.Invoke(tests)
 }
 
 // Pick a different example function to run
 // depending on the name of the test case.
-func run(runenv *runtime.RunEnv) error {
+func tests(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
 	case "startup":
 		return StartTimeBench(runenv)

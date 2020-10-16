@@ -196,6 +196,9 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 	req := &api.BuildRequest{
 		Composition: *comp,
 		Manifest:    *manifest,
+		CreatedBy: api.CreatedBy{
+			User: cfg.Client.User,
+		},
 	}
 
 	if wait {
@@ -253,20 +256,20 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		return err
 	}
 
-	if tsk.Result.Error != "" {
-		return errors.New(tsk.Result.Error)
+	if tsk.Error != "" {
+		return errors.New(tsk.Error)
 	}
 
-	var rout []api.BuildOutput
-	err = mapstructure.Decode(tsk.Result.Data, &rout)
+	var artifactPaths []string
+	err = mapstructure.Decode(tsk.Result, &artifactPaths)
 	if err != nil {
 		return err
 	}
 
-	for i, out := range rout {
+	for i, ap := range artifactPaths {
 		g := comp.Groups[i]
-		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", out.ArtifactPath)
-		g.Run.Artifact = out.ArtifactPath
+		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", ap)
+		g.Run.Artifact = ap
 	}
 
 	return nil

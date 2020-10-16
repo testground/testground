@@ -20,6 +20,7 @@ type BuildRequest struct {
 	Priority    int              `json:"priority"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`
+	CreatedBy   CreatedBy        `json:"created_by"`
 }
 
 // RunRequest is the request struct for the `run` function.
@@ -28,7 +29,10 @@ type RunRequest struct {
 	BuildGroups []int            `json:"build_groups"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`
+	CreatedBy   CreatedBy        `json:"created_by"`
 }
+
+type CreatedBy task.CreatedBy
 
 type OutputsRequest struct {
 	Runner string `json:"runner"`

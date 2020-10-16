@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"io"
+	"time"
+
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
-	"time"
 )
 
 type ComponentType string
@@ -45,6 +47,8 @@ type TasksFilters struct {
 }
 
 type Engine interface {
+	TasksManager
+
 	BuilderByName(name string) (Builder, bool)
 	RunnerByName(name string) (Runner, bool)
 
@@ -54,10 +58,6 @@ type Engine interface {
 	QueueBuild(request *BuildRequest, sources *UnpackedSources) (string, error)
 	QueueRun(request *RunRequest, sources *UnpackedSources) (string, error)
 
-	Status(id string) (*task.Task, error)
-	Logs(ctx context.Context, id string, follow bool, cancel bool, ow *rpc.OutputWriter) (*task.Task, error)
-	Tasks(filters TasksFilters) ([]task.Task, error)
-
 	DoBuildPurge(ctx context.Context, builder, plan string, ow *rpc.OutputWriter) error
 	DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error
 	DoTerminate(ctx context.Context, ctype ComponentType, ref string, ow *rpc.OutputWriter) error
@@ -65,4 +65,12 @@ type Engine interface {
 
 	EnvConfig() config.EnvConfig
 	Context() context.Context
+}
+
+type TasksManager interface {
+	Tasks(filters TasksFilters) ([]task.Task, error)
+	GetTask(id string) (*task.Task, error)
+	Kill(taskId string) error
+	DeleteTask(taskId string) error
+	Logs(ctx context.Context, taskId string, follow bool, cancel bool, w io.Writer) (*task.Task, error)
 }
