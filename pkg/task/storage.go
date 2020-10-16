@@ -182,7 +182,7 @@ func (s *Storage) Filter(state State, start time.Time, end time.Time) (tasks []*
 	return s.rangeIter(prefix, start, end)
 }
 
-// range returns []*Task with all tasks between the given time ranges.
+// rangeIter returns []*Task with all tasks between the given time ranges.
 func (s *Storage) rangeIter(prefix string, start time.Time, end time.Time) (tasks []*Task, err error) {
 	rng := util.Range{
 		Start: []byte(strings.Join([]string{
