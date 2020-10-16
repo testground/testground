@@ -40,7 +40,10 @@ ulimits = [
 
 [daemon]
 listen                    = ":8080"
+
+[daemon.scheduler]
 task_timeout_min          = 20
+task_repo_type            = "disk"
 
 [client]
 endpoint = "http://localhost:8080"
