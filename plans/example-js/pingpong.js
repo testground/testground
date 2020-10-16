@@ -48,12 +48,10 @@ async function pingpong (runenv) {
 
     const ipC = (seq >> 8) + 1
     const ipD = seq
-    const ip = [...runenv.testSubnet.toString().split('/')[0].split('.').slice(0, 2), ipC, ipD]
+    const ip = [...runenv.testSubnet[0].octets.slice(0, 2), ipC, ipD]
 
-    config.IPv4 = `${ip.join('.')}/32`
+    config.IPv4 = `${ip.join('.')}/${runenv.testSubnet[1]}`
     config.callbackState = 'ip-changed'
-
-    console.log(config)
 
     if (seq === 1) {
       server = net.createServer()
