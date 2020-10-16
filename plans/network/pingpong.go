@@ -59,7 +59,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 255, 255, 255}
+	config.IPv4.Mask = []byte{255, 255, 255, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
