@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"math/rand"
 	"net"
@@ -251,7 +252,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return
 	}
 
-	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
+	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
 
 	enoughResources, err := c.checkClusterResources(ow, input.Groups, defaultMemory, defaultCPU)
 	if err != nil {

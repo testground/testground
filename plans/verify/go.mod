@@ -3,10 +3,7 @@ module github.com/testground/testround/plans/verify
 go 1.14
 
 require (
-	github.com/go-redis/redis/v7 v7.4.0 // indirect
-	github.com/prometheus/client_golang v1.7.1 // indirect
 	github.com/sparrc/go-ping v0.0.0-20190613174326-4e5b6552494c
-	github.com/stretchr/testify v1.5.1 // indirect
-	github.com/testground/sdk-go v0.1.1
-	go.uber.org/zap v1.15.0 // indirect
+	github.com/testground/sdk-go v0.2.6-0.20201013134246-8d8414e32da5
+	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
 )

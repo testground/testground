@@ -189,7 +189,7 @@ func (l *NetlinkLink) AddRules(rules []network.LinkRule) error {
 		dropRoute := nl.FR_ACT_BLACKHOLE
 		rejectRoute := nl.FR_ACT_PROHIBIT
 		r := netlink.Route{
-			Dst: &rule.Subnet,
+			Dst: &rule.Subnet.IPNet,
 		}
 		switch rule.Filter {
 		// delete drop and reject routes, if they exist.

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"reflect"
 	"time"
@@ -126,7 +127,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, err
 	}
 
-	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
+	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
 
 	// Create the data network.
 	log.Infow("creating data network", "parent", parent, "subnet", subnet)

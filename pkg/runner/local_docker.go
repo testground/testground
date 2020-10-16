@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"net"
 	"os"
@@ -198,7 +199,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return nil, err
 	}
 
-	template.TestSubnet = &runtime.IPNet{IPNet: *subnet}
+	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
 
 	// Merge the incoming configuration with the default configuration.
 	cfg := defaultConfig

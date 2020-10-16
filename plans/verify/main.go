@@ -8,20 +8,26 @@ import (
 	"time"
 
 	"github.com/sparrc/go-ping"
+	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
 
 func main() {
-	testcases := map[string]runtime.TestCaseFn{
+	testcases := map[string]interface{}{
 		"uses-data-network": UsesDataNetwork,
 	}
-	runtime.InvokeMap(testcases)
+	run.InvokeMap(testcases)
 }
 
-func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (*sync.Client, error) {
+func setupNetwork(ctx context.Context, runenv *runtime.RunEnv) (sync.Client, error) {
 	client := sync.MustBoundClient(ctx, runenv)
-	return client, client.WaitNetworkInitialized(ctx, runenv)
+
+	netclient := network.NewClient(client, runenv)
+	netclient.MustWaitNetworkInitialized(ctx)
+
+	return client, netclient.WaitNetworkInitialized(ctx)
 }
 
 func isControlNet(nw string) bool {
