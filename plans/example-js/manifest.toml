@@ -1,10 +1,10 @@
 name = "example-js"
 
 [defaults]
-builder = "docker:generic"
+builder = "docker:node"
 runner = "local:docker"
 
-[builders."docker:generic"]
+[builders."docker:node"]
 enabled = true
 
 [runners."local:docker"]

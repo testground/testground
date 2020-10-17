@@ -26,6 +26,7 @@ var AllBuilders = []api.Builder{
 	&build.DockerGoBuilder{},
 	&build.ExecGoBuilder{},
 	&build.DockerGenericBuilder{},
+	&build.DockerNodeBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.
