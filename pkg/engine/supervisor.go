@@ -261,15 +261,15 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 		return nil
 	}
 
-	payload := fmt.Sprintf(`{"text":"<https://ci.testground.ipfs.team|%s> *%s* run completed"}`, tsk.ID, tsk.Name())
+	payload := fmt.Sprintf(`{"text":"<https://ci.testground.ipfs.team/tasks#taskID_%s|%s> *%s* run completed"}`, tsk.ID, tsk.ID, tsk.Name())
 
 	switch result.Outcome {
 	case task.OutcomeSuccess:
-		payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.Name(), result, tsk.Took())
+		payload = fmt.Sprintf(`{"text":"✅ <https://ci.testground.ipfs.team/tasks#taskID_%s|%s> *%s* run succeeded (%s) %s"}`, tsk.ID, tsk.ID, tsk.Name(), result, tsk.Took())
 	case task.OutcomeCanceled:
-		payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
+		payload = fmt.Sprintf(`{"text":"⚪ <https://ci.testground.ipfs.team/tasks#taskID_%s|%s> *%s* run canceled %s ; %s"}`, tsk.ID, tsk.ID, tsk.Name(), tsk.Took(), tsk.Error)
 	case task.OutcomeFailure:
-		payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
+		payload = fmt.Sprintf(`{"text":"❌ <https://ci.testground.ipfs.team/tasks#taskID_%s|%s> *%s* run failed (%s) %s ; %s"}`, tsk.ID, tsk.ID, tsk.Name(), result, tsk.Took(), tsk.Error)
 	}
 
 	cl := &http.Client{Timeout: time.Second * 10}
@@ -300,7 +300,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	}
 
 	var (
-		plan    = comp.Global.Plan
+		plan    = clean(comp.Global.Plan)
 		builder = comp.Global.Builder
 	)
 
@@ -548,8 +548,8 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		RunID:          id,
 		EnvConfig:      *e.envcfg,
 		RunnerConfig:   obj,
-		TestPlan:       plan,
-		TestCase:       tcase,
+		TestPlan:       clean(plan),
+		TestCase:       clean(tcase),
 		TotalInstances: int(comp.Global.TotalInstances),
 		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
 	}
@@ -567,6 +567,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		in.Groups = append(in.Groups, g)
 	}
 
+	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", runner, "instances", in.TotalInstances)
 	out, err := run.Run(ctx, &in, ow)
 	if err == nil {
 		ow.Infow("run finished successfully", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
@@ -581,4 +582,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	return out, err
+}
+
+func clean(name string) string {
+	forbiddenChar := "/"
+
+	name = strings.Replace(name, forbiddenChar, "-", -1)
+
+	return name
 }

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <meta name="generator" content="">
+    <title>Testground as a Service</title>
+
+    <!-- Bootstrap core CSS -->
+    <link href="/static/bootstrap/assets/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+      .bd-placeholder-img {
+        font-size: 1.125rem;
+        text-anchor: middle;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      @media (min-width: 768px) {
+        .bd-placeholder-img-lg {
+          font-size: 3.5rem;
+        }
+      }
+
+    </style>
+    <link href="/static/bootstrap/tasks.css" rel="stylesheet">
+  </head>
+  <body>
+    <nav class="navbar navbar-dark bg-dark flex-md-nowrap p-0 shadow">
+  <a class="navbar-brand col-md-3 col-lg-2 mr-0 px-3" href="/">Testground as a Service</a>
+  <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-toggle="collapse" data-target="#sidebarMenu" aria-controls="sidebarMenu" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <!--
+  <ul class="navbar-brand navbar-nav px-3">
+    <li class="nav-item text-nowrap">
+      <a class="nav-link" href="#">Sign out</a>
+    </li>
+  </ul>
+  -->
+</nav>
+
+<div class="container-fluid">
+  <div class="row">
+    <main role="main" class="col-md-12 ml-sm-auto col-lg-12 px-md-4">
+      <h1 class="h2" style="margin-top: 10px">Cluster resources</h1>
+      <p>CPUs: {{.CPUs}}<br/>Memory: {{.Memory}}</p>
+    </main>
+  </div>
+
+  <div class="row">
+    <main role="main" class="col-md-12 ml-sm-auto col-lg-12 px-md-4">
+      <h1 class="h2" style="margin-top: 10px">Tasks</h1>
+      <div class="table-responsive">
+        <table class="table table-hover table-md">
+          <thead>
+            <tr>
+              <th>id</th>
+              <th>name</th>
+              <!-- <th style="width: 150px">created</th> -->
+              <th>updated</th>
+              <th>outputs</th>
+              <th>logs</th>
+              <th>journal</th>
+              <th>dashboard</th>
+              <th>took</th>
+              <th>status</th>
+              <th>outcomes</th>
+              <th>error</th>
+              <th>actions</th>
+              <th>created by</th>
+            </tr>
+          </thead>
+          <tbody>
+
+          {{range .Tasks}}
+
+          <tr id="taskID_{{.ID}}">
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <!-- <td>{{ .Created }}</td> -->
+            <td>{{ .Updated }}</td>
+            <td><a href="/outputs?run_id={{ .ID }}">download</a></td>
+            <td><a href="/logs?task_id={{ .ID }}">logs</a></td>
+            <td><a href="/journal?task_id={{ .ID }}">journal</a></td>
+            <td><a href="/dashboard?task_id={{ .ID }}">dashboard</a></td>
+            <td>{{ .Took }}</td>
+            <td>{{ unescape .Status }}</td>
+            <td>{{ .Outcomes }}</td>
+            <td>{{ .Error }}</td>
+            <td>{{ unescape .Actions }}</td>
+            <td>{{ unescape .CreatedBy }}</td>
+          </tr>
+
+          {{end}}
+
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+      <script>window.jQuery || document.write('<script src="/static/bootstrap/assets/js/vendor/jquery.min.js"><\/script>')</script><script src="/static/bootstrap/assets/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="/static/bootstrap/tasks.js"></script></body>
+</html>
+

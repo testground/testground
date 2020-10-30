@@ -41,6 +41,8 @@ type DaemonConfig struct {
 	Tokens                []string        `toml:"tokens"`
 	SlackWebhookURL       string          `toml:"slack_webhook_url"`
 	GithubRepoStatusToken string          `toml:"github_repo_status_token"`
+	RootURL               string          `toml:"root_url"`
+	InfluxDBEndpoint      string          `toml:"influxdb_endpoint"`
 }
 
 type SchedulerConfig struct {

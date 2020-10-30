@@ -104,7 +104,7 @@ func (t *Task) CreatedByCI() bool {
 
 func (t *Task) RenderCreatedBy() string {
 	if t.CreatedByCI() {
-		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s -> %s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
+		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s<br/>%s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
 	}
 
 	return t.CreatedBy.User

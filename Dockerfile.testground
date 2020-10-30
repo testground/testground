@@ -21,16 +21,8 @@ ARG TG_VERSION
 
 RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=${TG_VERSION}" -o testground
 
-#:::
-#::: RUNTIME CONTAINER
-#:::
-
-FROM golang:${GO_VERSION}-buster
-
-RUN mkdir -p /usr/local/bin
-COPY --from=0 /testground /usr/local/bin/testground
-ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
+WORKDIR "/"
 
 EXPOSE 8082
 
-ENTRYPOINT [ "/usr/local/bin/testground", "--vv", "daemon" ]
+ENTRYPOINT [ "/testground", "--vv", "daemon" ]
