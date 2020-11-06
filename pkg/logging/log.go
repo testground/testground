@@ -17,7 +17,7 @@ var (
 	stdout zapcore.WriteSyncer
 	stderr zapcore.WriteSyncer
 
-	level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
+	level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 
 	terminal = true
 
