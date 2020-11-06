@@ -130,5 +130,5 @@ WORKDIR /plan
 COPY . /
 RUN npm ci
 EXPOSE 6060
-ENTRYPOINT [ "node", "index.js"]
+ENTRYPOINT [ "npm", "start"]
 `
