@@ -1,4 +1,4 @@
-const { invokeMap } = require('testground-sdk')
+const { invokeMap } = require('@testground/sdk')
 
 const testcases = {
   failure: require('./failure'),

@@ -7,7 +7,7 @@
   "author": "Henrique Dias <mail@hacdias.com>",
   "license": "MIT",
   "dependencies": {
-    "testground-sdk": "git+https://github.com/testground/sdk-js.git#master"
+    "@testground/sdk": "git+https://github.com/testground/sdk-js.git#master"
   },
   "devDependencies": {
     "standard": "^14.3.4"

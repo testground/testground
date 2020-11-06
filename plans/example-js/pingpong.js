@@ -2,7 +2,7 @@ const os = require('os')
 const net = require('net')
 const ipaddr = require('ipaddr.js')
 const { performance } = require('perf_hooks')
-const { sync, network } = require('testground-sdk')
+const { sync, network } = require('@testground/sdk')
 
 async function pingpong (runenv) {
   runenv.recordMessage('before sync.newBoundClient')
@@ -30,7 +30,7 @@ async function pingpong (runenv) {
         bandwidth: 1 << 20 // 1 Mib
       },
       callbackState: 'network-configured', // Fix this small and big letters thingies.
-      routingPolicy: 'deny-all' // TODO: make constants
+      routingPolicy: network.DENY_ALL
     }
 
     runenv.recordMessage('before netclient.configureNetwork')
