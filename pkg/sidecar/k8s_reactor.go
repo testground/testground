@@ -23,6 +23,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
+	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -302,6 +303,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		}
 	}
 
+	var addedGwRoute bool
 	for _, r := range routesToBeDeleted {
 		// Don't route to the default route. Blackhole these routes.
 		bh := netlink.Route{
@@ -311,6 +313,25 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 		routeDst := "nil"
 		if r.Dst != nil {
 			routeDst = r.Dst.String()
+		}
+
+		// detect the gateway => we know that we are going to delete the services CIDR, which are routed via the gateway,
+		// so we use they to figure out the gateway IP as well as the link index
+		if !addedGwRoute && routeDst == "100.64.0.0/10" {
+			addedGwRoute = true
+
+			logging.S().Infow("detecting gateway", "linkIndex", r.LinkIndex, "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
+			if err := netlinkHandle.RouteAdd(&netlink.Route{
+				LinkIndex: r.LinkIndex,
+				Src:       nil,
+				Dst: &net.IPNet{
+					IP:   r.Gw,
+					Mask: net.CIDRMask(32, 32),
+				},
+				Scope: unix.RT_SCOPE_LINK,
+			}); err != nil {
+				return nil, fmt.Errorf("failed to add gateway route to pod: %v", err)
+			}
 		}
 
 		logging.S().Debugw("really removing route", "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
