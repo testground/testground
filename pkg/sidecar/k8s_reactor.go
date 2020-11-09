@@ -32,7 +32,8 @@ import (
 const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
-	podCidr              = "100.96.0.0/11"
+	podCIDR              = "100.96.0.0/11"
+	servicesCIDR         = "100.64.0.0/10"
 )
 
 var (
@@ -252,8 +253,8 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 
 		logging.S().Debugw("inspecting controlLink route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
 
-		if route.Dst != nil && route.Dst.String() == podCidr {
-			logging.S().Debugw("marking for deletion podCidr dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
+		if route.Dst != nil && route.Dst.String() == podCIDR {
+			logging.S().Debugw("marking for deletion podCIDR dst route", "route.Src", route.Src, "route.Dst", routeDst, "gw", route.Gw, "container", container.ID)
 			routesToBeDeleted = append(routesToBeDeleted, route)
 			continue
 		}
@@ -317,7 +318,7 @@ func (d *K8sReactor) manageContainer(ctx context.Context, container *docker.Cont
 
 		// detect the gateway => we know that we are going to delete the services CIDR, which are routed via the gateway,
 		// so we use they to figure out the gateway IP as well as the link index
-		if !addedGwRoute && routeDst == "100.64.0.0/10" {
+		if !addedGwRoute && routeDst == servicesCIDR {
 			addedGwRoute = true
 
 			logging.S().Infow("detecting gateway", "linkIndex", r.LinkIndex, "route.Src", r.Src, "route.Dst", routeDst, "gw", r.Gw, "container", container.ID)
