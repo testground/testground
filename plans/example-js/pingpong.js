@@ -29,7 +29,7 @@ async function pingpong (runenv) {
         latency: 100 * 1000 * 1000, // 100ms in nanoseconds
         bandwidth: 1 << 20 // 1 Mib
       },
-      callbackState: 'network-configured', // Fix this small and big letters thingies.
+      callbackState: 'network-configured',
       routingPolicy: network.DENY_ALL
     }
 
