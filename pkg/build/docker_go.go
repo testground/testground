@@ -134,9 +134,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-	defer cancel()
-
 	if err != nil {
 		return nil, err
 	}
