@@ -36,13 +36,9 @@ func (d DockerNodeBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rp
 	}
 
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
+	basesrc := in.UnpackedSources.BaseDir
 
-	var (
-		basesrc  = in.UnpackedSources.BaseDir
-		cli, err = client.NewClientWithOpts(cliopts...)
-	)
-
-
+	cli, err := client.NewClientWithOpts(cliopts...)
 	if err != nil {
 		return nil, err
 	}
