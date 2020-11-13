@@ -42,8 +42,6 @@ func (d DockerNodeBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rp
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-	defer cancel()
 
 	if err != nil {
 		return nil, err
