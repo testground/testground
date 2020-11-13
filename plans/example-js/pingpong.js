@@ -46,9 +46,7 @@ async function pingpong (runenv) {
 
     runenv.recordMessage(`I am ${seq}`)
 
-    const ipC = (seq >> 8) + 1
-    const ipD = seq
-    const ip = [...runenv.testSubnet[0].octets.slice(0, 2), ipC, ipD]
+    const ip = [...runenv.testSubnet[0].octets.slice(0, 2), 1, seq]
 
     config.IPv4 = `${ip.join('.')}/${runenv.testSubnet[1]}`
     config.callbackState = 'ip-changed'
