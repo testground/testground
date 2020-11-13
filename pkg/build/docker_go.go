@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DefaultBuildBaseImage = "golang:1.14.4-buster"
+	DefaultGoBuildBaseImage = "golang:1.14.4-buster"
 
 	buildNetworkName = "testground-build"
 )
@@ -35,7 +35,7 @@ var (
 	_ api.Builder      = &DockerGoBuilder{}
 	_ api.Terminatable = &DockerGoBuilder{}
 
-	dockerfileTmpl = template.Must(template.New("Dockerfile").Parse(DockerfileTemplate))
+	goDockerfileTmpl = template.Must(template.New("Dockerfile").Parse(GoDockerfileTemplate))
 )
 
 // DockerGoBuilder builds the test plan as a go-based container.
@@ -134,9 +134,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
 
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
-	defer cancel()
-
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +165,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		CgoEnabled:           cgoEnabled,
 	}
 
-	if err = dockerfileTmpl.Execute(f, &vars); err != nil {
+	if err = goDockerfileTmpl.Execute(f, &vars); err != nil {
 		return nil, fmt.Errorf("failed to execute Dockerfile template and/or write into file %s: %w", dockerfileDst, err)
 	}
 
@@ -193,7 +190,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// fall back to default build base image, if one is not configured explicitly.
 	if cfg.BuildBaseImage == "" {
-		cfg.BuildBaseImage = DefaultBuildBaseImage
+		cfg.BuildBaseImage = DefaultGoBuildBaseImage
 	}
 
 	// If we have version overrides, apply them.
@@ -535,7 +532,7 @@ func (b *DockerGoBuilder) Purge(ctx context.Context, testplan string, ow *rpc.Ou
 	return nil
 }
 
-const DockerfileTemplate = `
+const GoDockerfileTemplate = `
 # BUILD_BASE_IMAGE is the base image to use for the build. It contains a rolling
 # accumulation of Go build/package caches.
 ARG BUILD_BASE_IMAGE
