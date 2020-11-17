@@ -16,6 +16,7 @@ type Item struct {
 	Series  string
 	RootURL string
 	Unit    string
+	Tags    []string
 }
 
 func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +66,21 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		for i, m := range measurements {
+			tags, err := d.mv.GetTags(m)
+			if err != nil {
+				panic(err)
+			}
+
+			tagsWithValues, err := d.mv.GetTagsValues(tags)
+			if err != nil {
+				panic(err)
+			}
+
+			_, marshaledTags, _, err := d.mv.GetData(m, tags, tagsWithValues)
+			if err != nil {
+				panic(err)
+			}
+
 			split := strings.Split(m, ".")
 			d := Item{
 				Title:   split[2],
@@ -72,11 +88,13 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 				Unit:    split[len(split)-2],
 				Id:      fmt.Sprintf("measurement_%d", i),
 				RootURL: engine.EnvConfig().Daemon.RootURL,
+				Tags:    marshaledTags,
 			}
 			data.Items = append(data.Items, d)
 		}
 
 		err = t.Execute(w, data)
+
 		if err != nil {
 			panic(err)
 		}

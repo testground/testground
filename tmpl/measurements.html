@@ -11,73 +11,11 @@
     <!-- Bootstrap core CSS -->
     <link href="/static/bootstrap/assets/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <style>
-      .bd-placeholder-img {
-        font-size: 1.125rem;
-        text-anchor: middle;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-      }
-
-      @media (min-width: 768px) {
-        .bd-placeholder-img-lg {
-          font-size: 3.5rem;
-        }
-      }
-
-table {
-  width: 100%;
-  table-layout: fixed;
-}
-
-.highcharts-figure, .highcharts-data-table table {
-    min-width: 310px; 
-    max-width: 1200px;
-    margin: 1em auto;
-}
-
-.highcharts-data-table table {
-	font-family: Verdana, sans-serif;
-	border-collapse: collapse;
-	border: 1px solid #EBEBEB;
-	margin: 10px auto;
-	text-align: center;
-	width: 100%;
-	max-width: 1200px;
-}
-.highcharts-data-table caption {
-    padding: 1em 0;
-    font-size: 1.2em;
-    color: #555;
-}
-.highcharts-data-table th {
-	font-weight: 600;
-    padding: 0.5em;
-}
-.highcharts-data-table td, .highcharts-data-table th, .highcharts-data-table caption {
-    padding: 0.5em;
-}
-.highcharts-data-table thead tr, .highcharts-data-table tr:nth-child(even) {
-    background: #f8f8f8;
-}
-.highcharts-data-table tr:hover {
-    background: #f1f7ff;
-}
-
-    </style>
     <link href="/static/bootstrap/tasks.css" rel="stylesheet">
-    <script src="/static/highcharts/highcharts.js"></script>
-    <script src="/static/highcharts/modules/data.js"></script>
-    <script src="/static/highcharts/modules/series-label.js"></script>
-    <script src="/static/highcharts/modules/exporting.js"></script>
-    <script src="/static/highcharts/modules/export-data.js"></script>
-    <script src="/static/highcharts/modules/accessibility.js"></script>
-
     <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
     <script>window.jQuery || document.write('<script src="/static/bootstrap/assets/js/vendor/jquery.min.js"><\/script>')</script>
     <script src="/static/bootstrap/assets/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
   </head>
   <body>
     <nav class="navbar navbar-dark bg-dark flex-md-nowrap p-0 shadow">
@@ -113,117 +51,55 @@ table {
     </div>
 
     <div id="collapse_{{ .Id }}" class="collapse" aria-labelledby="heading_{{ .Id }}" data-parent="#accordionExample">
-      <div class="card-body">
-        <figure class="highcharts-figure">
-          <div id="container_{{.Id}}"></div>
-        </figure>
+      <div class="card-body" style="width: 1400px" id="myDiv_{{.Id}}">
 
-        <button id="btn_{{.Id}}" class="btn btn-success">
-          Toggle series
-        </button>
+      <script>
+      Plotly.d3.csv("{{ .RootURL }}/data?series={{.Series}}", function(err, rows){
+
+      function unpack(rows, key) {
+        return rows.map(function(row) { return row[key]; });
+      }
+
+      var data = [];
+      {{range $key, $t := .Tags}}
+
+      data.push({
+        mode: "lines",
+        name: '{{$t}}',
+        x: unpack(rows, 'Time'),
+        y: unpack(rows, '{{$t}}'),
+      })
+
+      {{end}}
+
+      var layout = {
+        title: '{{.Title}}',
+        showlegend: true,
+        updatemenus: [{
+          buttons: [{
+            label: 'Show',
+            method: 'restyle',
+            args: [ 'visible', true ]
+          }, {
+            label: 'Hide',
+            method: 'restyle',
+            args: [ 'visible', 'legendonly' ]
+          }]
+        }],
+        yaxis: {
+          title: {
+            text: '{{.Unit}}',
+          }
+        }
+      };
+
+        Plotly.newPlot('myDiv_{{.Id}}', data, layout, {scrollZoom: true, editable: false});
+      })
+      </script>
+
       </div>
     </div>
   </div>
-
-
-
-		<script type="text/javascript">
-  Highcharts.chart('container_{{.Id}}', {
-    chart: {
-        type: 'spline',
-        zoomType: 'xy'
-    },
-    title: {
-        text: '{{.Title}}'
-    },
-    subtitle: {
-        text: ''
-    },
-    xAxis: {
-        type: 'datetime',
-        dateTimeLabelFormats: {
-            second: '%Y-%m-%d-%H:%M:%S',
-            minute: '%Y-%m-%d-%H:%M',
-            hour: '%Y-%m-%d-%H:%M',
-            day: '%Y-%m-%d',
-            week: '%Y-%m-%d',
-            month: '%Y-%m',
-            year: '%Y'
-        },
-        title: {
-            text: 'Timestamp'
-        }
-    },
-    yAxis: {
-        title: {
-            text: ''
-        },
-        labels: {
-            formatter: function() {
-              return this.value + " " + {{ .Unit }};
-            }
-        },
-        min: 0
-    },
-//    tooltip: {
-//        headerFormat: '<b>{series.name}</b><br>',
-//        pointFormat: '{point.x:%e. %b ; %H:%M}: {point.y}ns'
-//    },
-
-    plotOptions: {
-        series: {
-            marker: {
-                enabled: true
-            }
-        }
-    },
-
-    colors: ['#6CF', '#39F', '#06C', '#036', '#000'],
-
-    // Define the data points. All series have a dummy year
-    // of 1970/71 in order to be compared on the same x axis. Note
-    // that in JavaScript, months start at 0 for January, 1 for February etc.
-    series: [{
-        name: ""
-    }],
-
-    legend: {
-      maxHeight: 100,
-    },
-
-    data: {
-      csvURL: '{{ .RootURL }}/data?series={{.Series}}',
-        beforeParse: function (csv) {
-            return csv.replace(/\n\n/g, '\n');
-        }
-    },
-
-
-    responsive: {
-        rules: [{
-            condition: {
-                maxWidth: 1600
-            }
-        }]
-    }
-}, function(chart) {
-    $('#btn_{{ .Id }}').click(function() {
-      var series = chart.series[0];
-      if (series.visible) {
-        $(chart.series).each(function(){
-          this.setVisible(false, false);
-        });
-        chart.redraw();
-      } else {
-        $(chart.series).each(function(){
-          this.setVisible(true, false);
-        });
-        chart.redraw();
-      }
-    });
-});
-
-		</script>
 
   {{end}}
 
