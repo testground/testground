@@ -11,34 +11,23 @@ import (
 	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
-	"github.com/testground/sdk-go/sync"
 )
 
-func routingPolicyTest(policy network.RoutingPolicyType) run.TestCaseFn {
-	return func(env *runtime.RunEnv) error {
+func routingPolicyTest(policy network.RoutingPolicyType) run.InitializedTestCaseFn {
+	return func(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 		defer cancel()
 
-		if !env.TestSidecar {
-			return nil
-		}
-
-		env.RecordMessage("before sync.MustBoundClient")
-		client := sync.MustBoundClient(ctx, env)
-		defer client.Close()
-
-		netclient := network.NewClient(client, env)
-		env.RecordMessage("before netclient.MustWaitNetworkInitialized")
-		netclient.MustWaitNetworkInitialized(ctx)
+		netclient := initCtx.NetClient
 
 		config := &network.Config{
 			Network:       "default",
 			Enable:        true,
-			CallbackState: "network-configured",
+			CallbackState: "network-configured-with-policy",
 			RoutingPolicy: policy,
 		}
 
-		env.RecordMessage("before netclient.MustConfigureNetwork")
+		env.RecordMessage("configuring network with network policy: %s", policy)
 		netclient.MustConfigureNetwork(ctx, config)
 
 		const (
