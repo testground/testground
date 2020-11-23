@@ -46,12 +46,14 @@
 </nav>
 
 <div class="container-fluid">
+  {{ if .ClusterEnabled }}
   <div class="row">
     <main role="main" class="col-md-12 ml-sm-auto col-lg-12 px-md-4">
       <h1 class="h2" style="margin-top: 10px">Cluster resources</h1>
       <p>CPUs: {{.CPUs}}<br/>Memory: {{.Memory}}</p>
     </main>
   </div>
+  {{ end }}
 
   <div class="row">
     <main role="main" class="col-md-12 ml-sm-auto col-lg-12 px-md-4">

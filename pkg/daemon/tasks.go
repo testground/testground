@@ -62,14 +62,20 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		cr, _ := engine.RunnerByName("cluster:k8s")
 		rr := cr.(*runner.ClusterK8sRunner)
-		allocatableCPUs, allocatableMemory, _ := rr.GetClusterCapacity()
+
+		var allocatableCPUs, allocatableMemory int64
+		if rr.Enabled() {
+			allocatableCPUs, allocatableMemory, _ = rr.GetClusterCapacity()
+		}
 
 		data := struct {
-			Tasks  []interface{}
-			CPUs   string
-			Memory string
+			Tasks          []interface{}
+			ClusterEnabled bool
+			CPUs           string
+			Memory         string
 		}{
 			nil,
+			rr.Enabled(),
 			fmt.Sprintf("%d", allocatableCPUs),
 			humanize.Bytes(uint64(allocatableMemory)),
 		}

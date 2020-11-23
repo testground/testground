@@ -482,6 +482,12 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 	return []string{"docker:go", "docker:generic"}
 }
 
+func (c *ClusterK8sRunner) Enabled() bool {
+	c.initPool()
+
+	return c.pool != nil
+}
+
 func (c *ClusterK8sRunner) initPool() {
 	once.Do(func() {
 		log := logging.S().With("runner", "cluster:k8s")
@@ -492,7 +498,7 @@ func (c *ClusterK8sRunner) initPool() {
 		workers := 20
 		c.pool, err = newPool(workers, c.config)
 		if err != nil {
-			log.Fatal(err)
+			log.Warn(err)
 		}
 
 		c.imagesLRU, _ = lru.New(256)
