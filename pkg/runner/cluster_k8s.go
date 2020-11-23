@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"math/rand"
 	"net"
@@ -20,6 +19,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"

@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"net"
 	"os"
@@ -14,6 +13,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/testground/sdk-go/ptypes"
+	ss "github.com/testground/sdk-go/sync"
+
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
 
@@ -23,7 +25,9 @@ import (
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/healthcheck"
+	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
+	"github.com/testground/testground/pkg/task"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -92,6 +96,8 @@ type LocalDockerRunner struct {
 
 	controlNetworkID string
 	outputsDir       string
+
+	syncClient *ss.WatchClient
 }
 
 func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
@@ -165,21 +171,65 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	return hh.RunChecks(ctx, fix)
 }
 
-func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
+func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+	events, err := c.syncClient.FetchAllEvents(template)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range events {
+		// for now we emit only outcome OK events, so no need for more checks
+		if e.SuccessEvent != nil {
+			se := e.SuccessEvent
+			o := result.Outcomes[se.TestGroupID]
+			o.Ok = o.Ok + 1
+		}
+	}
+
+	result.Outcome = task.OutcomeSuccess
+	if len(result.Outcomes) == 0 {
+		result.Outcome = task.OutcomeFailure
+	}
+	for g := range result.Outcomes {
+		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+			result.Outcome = task.OutcomeFailure
+			break
+		}
+	}
+
+	return nil
+}
+
+func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
-	var (
-		log = ow.With("runner", "local:docker", "run_id", input.RunID)
-		err error
-	)
+	result := newResultK8s()
+	runoutput = &api.RunOutput{
+		RunID:  input.RunID,
+		Result: result,
+	}
+
+	log := ow.With("runner", "local:docker", "run_id", input.RunID)
+
+	r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	defer func() {
+		if ctx.Err() == context.Canceled {
+			result.Outcome = task.OutcomeCanceled
+		}
+	}()
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// Build a template runenv.
@@ -196,15 +246,16 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	// Create a data network.
 	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &template, "default")
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
 
 	// Merge the incoming configuration with the default configuration.
 	cfg := defaultConfig
-	if err := mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
-		return nil, fmt.Errorf("error while merging configurations: %w", err)
+	if err = mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
+		err = fmt.Errorf("error while merging configurations: %w", err)
+		return
 	}
 
 	ports := make(nat.PortSet)
@@ -224,6 +275,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
+
+		result.Outcomes[g.ID] = &GroupOutcome{
+			Total: g.Instances,
+		}
 
 		reviewResources(g, ow)
 
@@ -320,11 +375,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	// If an error occurred interim, abort.
 	if err != nil {
 		log.Error(err)
-		return nil, err
+		return
 	}
 
 	if cfg.Unstarted {
-		return &api.RunOutput{RunID: input.RunID}, nil
+		return
 	}
 
 	var (
@@ -333,12 +388,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		ratelimit = make(chan struct{}, 16)
 	)
 
-	ctx, cancel := context.WithCancel(ctx)
+	ctxContainers, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	log.Infow("starting containers", "count", len(containers))
 
-	g, gctx := errgroup.WithContext(ctx)
+	g, gctx := errgroup.WithContext(ctxContainers)
 	for _, c := range containers {
 		c := c
 		f := func() error {
@@ -456,11 +511,15 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	select {
 	case err = <-doneCh:
+		erru := r.updateRunResult(&template, result)
+		if erru != nil {
+			ow.Errorw("could not update run result", "err", erru)
+		}
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
 
-	return &api.RunOutput{RunID: input.RunID}, err
+	return
 }
 
 func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {

@@ -3,6 +3,7 @@ module github.com/testground/testground
 go 1.14
 
 require (
+	cloud.google.com/go v0.45.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Microsoft/hcsshim v0.8.7 // indirect
@@ -19,11 +20,12 @@ require (
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.0.0
 	github.com/go-playground/validator/v10 v10.3.0
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.3
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/hashicorp/golang-lru v0.5.1
+	github.com/hashicorp/golang-lru v0.5.3
 	github.com/imdario/mergo v0.3.8
 	github.com/influxdata/influxdb1-client v0.0.0-20200515024757-02f0bf5dbca3
 	github.com/kubernetes/client-go v11.0.0+incompatible
@@ -56,6 +58,7 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae
 	golang.org/x/tools v0.0.0-20191125144606-a911d9008d1f // indirect
+	google.golang.org/appengine v1.6.2 // indirect
 	google.golang.org/grpc v1.29.1 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	k8s.io/api v0.17.0
