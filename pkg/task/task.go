@@ -60,6 +60,7 @@ type Task struct {
 	Version     int          `json:"version"`     // Schema version
 	Priority    int          `json:"priority"`    // Scheduling priority
 	ID          string       `json:"id"`          // Unique identifier for this task
+	Runner      string       `json:"runner"`      // Runner that ran this task
 	Plan        string       `json:"plan"`        // Test plan
 	Case        string       `json:"case"`        // Test case
 	States      []DatedState `json:"states"`      // State of the task

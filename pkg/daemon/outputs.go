@@ -34,7 +34,7 @@ func (d *Daemon) outputsHandler(engine api.Engine) func(w http.ResponseWriter, r
 			tgw.WriteResult(result)
 		}()
 
-		err = engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
+		err = engine.DoCollectOutputs(r.Context(), req.RunID, tgw)
 		if err != nil {
 			log.Warnw("collect outputs error", "err", err.Error())
 			return
@@ -61,8 +61,7 @@ func (d *Daemon) getOutputsHandler(engine api.Engine) func(w http.ResponseWriter
 		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.tgz\"", runId))
 
 		req := api.OutputsRequest{
-			Runner: "cluster:k8s",
-			RunID:  runId,
+			RunID: runId,
 		}
 
 		rr, ww := io.Pipe()
@@ -76,7 +75,7 @@ func (d *Daemon) getOutputsHandler(engine api.Engine) func(w http.ResponseWriter
 			}
 		}()
 
-		err := engine.DoCollectOutputs(r.Context(), req.Runner, req.RunID, tgw)
+		err := engine.DoCollectOutputs(r.Context(), req.RunID, tgw)
 		if err != nil {
 			log.Warnw("collect outputs error", "err", err.Error())
 			return

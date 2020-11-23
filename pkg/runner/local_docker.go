@@ -171,7 +171,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	return hh.RunChecks(ctx, fix)
 }
 
-func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
 	events, err := c.syncClient.FetchAllEvents(template)
 	if err != nil {
 		return err
@@ -206,7 +206,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
-	result := newResultK8s()
+	result := newResult()
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
 		Result: result,

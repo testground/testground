@@ -136,7 +136,7 @@ type ClusterK8sRunner struct {
 	syncClient *ss.WatchClient
 }
 
-type ResultK8s struct {
+type Result struct {
 	Outcome  task.Outcome             `json:"outcome"`
 	Outcomes map[string]*GroupOutcome `json:"outcomes"`
 	Journal  *Journal                 `json:"journal"`
@@ -147,8 +147,8 @@ type Journal struct {
 	PodsStatuses map[string]struct{} `json:"pods_statuses"`
 }
 
-func newResultK8s() *ResultK8s {
-	return &ResultK8s{
+func newResult() *Result {
+	return &Result{
 		Outcome:  task.OutcomeUnknown,
 		Outcomes: make(map[string]*GroupOutcome),
 		Journal: &Journal{
@@ -158,7 +158,7 @@ func newResultK8s() *ResultK8s {
 	}
 }
 
-func (r *ResultK8s) String() string {
+func (r *Result) String() string {
 	s := fmt.Sprintf("%v", r.Outcomes)
 	return s[4 : len(s)-1]
 }
@@ -195,7 +195,7 @@ func defaultKubernetesConfig() KubernetesConfig {
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
 	c.initPool()
 
-	result := newResultK8s()
+	result := newResult()
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
 		Result: result,
@@ -670,7 +670,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	return buf.String(), nil
 }
 
-func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *ResultK8s, rp *runtime.RunParams) error {
+func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWriter, input *api.RunInput, result *Result, rp *runtime.RunParams) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -1180,7 +1180,7 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *ResultK8s) error {
+func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
 	events, err := c.syncClient.FetchAllEvents(template)
 	if err != nil {
 		return err

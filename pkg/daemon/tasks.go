@@ -77,7 +77,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		tf := "Mon Jan _2 15:04:05"
 
 		for _, t := range tasks {
-			result := decodeResultK8s(t.Result)
+			result := decodeResult(t.Result)
 
 			currentTask := struct {
 				ID        string
@@ -149,8 +149,8 @@ func (d *Daemon) redirect() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func decodeResultK8s(result interface{}) *runner.ResultK8s {
-	r := &runner.ResultK8s{}
+func decodeResult(result interface{}) *runner.Result {
+	r := &runner.Result{}
 	err := mapstructure.Decode(result, r)
 	if err != nil {
 		logging.S().Errorw("error while decoding result", "err", err)

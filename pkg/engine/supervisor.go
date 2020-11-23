@@ -196,7 +196,7 @@ func (e *Engine) postStatusToGithub(tsk *task.Task) error {
 	repo := ownerrepo[1]
 	hash := tsk.CreatedBy.Commit
 
-	result, ok := tsk.Result.(*runner.ResultK8s)
+	result, ok := tsk.Result.(*runner.Result)
 	if !ok {
 		return errors.New("can't post to github: task result is not from k8s")
 	}
@@ -256,7 +256,7 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 		return nil
 	}
 
-	result, ok := tsk.Result.(*runner.ResultK8s)
+	result, ok := tsk.Result.(*runner.Result)
 	if !ok {
 		return nil
 	}
