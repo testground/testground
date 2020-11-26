@@ -205,7 +205,7 @@ func (v *Viewer) GetData(series string, tags []string, tagsWithValues map[string
 			run := row.Tags["run"]
 
 			if _, ok := rows[run]; !ok {
-				panic("cant find run, something is wrong")
+				panic(fmt.Sprintf("cant find run %s in rows, for series %s", run, series))
 			}
 
 			val := row.Values[0][1].(json.Number)

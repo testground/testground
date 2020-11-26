@@ -54,7 +54,7 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		t := template.New("measurements.html")
 		t, err = t.ParseFiles("tmpl/measurements.html")
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("cannot ParseFiles with tmpl/measurements: %s", err))
 		}
 
 		data := struct {
@@ -68,17 +68,20 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		for i, m := range measurements {
 			tags, err := d.mv.GetTags(m)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(w, "failed to get tags for measurement %s: %s", m, err)
+				return
 			}
 
 			tagsWithValues, err := d.mv.GetTagsValues(tags)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(w, "failed to get tags values for measurement %s: %s", m, err)
+				return
 			}
 
 			_, marshaledTags, _, err := d.mv.GetData(m, tags, tagsWithValues)
 			if err != nil {
-				panic(err)
+				fmt.Fprintf(w, "failed to get data for measurement %s: %s", m, err)
+				return
 			}
 
 			split := strings.Split(m, ".")
@@ -94,9 +97,8 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		err = t.Execute(w, data)
-
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("cannot execute template: %s", err))
 		}
 	}
 }

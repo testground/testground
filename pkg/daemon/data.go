@@ -28,17 +28,20 @@ func (d *Daemon) dataHandler(engine api.Engine) func(w http.ResponseWriter, r *h
 
 		tags, err := d.mv.GetTags(series)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(w, "failed to get tags for series %s: %s", series, err)
+			return
 		}
 
 		tagsWithValues, err := d.mv.GetTagsValues(tags)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(w, "failed to get tags values for series %s: %s", series, err)
+			return
 		}
 
 		data, marshaledTags, orderedRuns, err := d.mv.GetData(series, tags, tagsWithValues)
 		if err != nil {
-			panic(err)
+			fmt.Fprintf(w, "failed to get data for series %s: %s", series, err)
+			return
 		}
 
 		csvData := generateCsvData(data, orderedRuns, marshaledTags)

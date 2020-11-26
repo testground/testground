@@ -139,12 +139,12 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		t := template.New("tasks.html").Funcs(template.FuncMap{"unescape": unescape})
 		t, err = t.ParseFiles("tmpl/tasks.html")
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("cannot ParseFiles with tmpl/tasks: %s", err))
 		}
 
 		err = t.Execute(w, data)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("cannot execute template: %s", err))
 		}
 	}
 }
