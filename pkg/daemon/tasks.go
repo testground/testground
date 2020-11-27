@@ -3,7 +3,9 @@ package daemon
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/mitchellh/mapstructure"
@@ -45,9 +47,11 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		w.Header().Set("Content-Type", "text/html")
 
+		before := time.Now().Add(-7 * 24 * time.Hour)
 		req := api.TasksRequest{
 			Types:  []task.Type{task.TypeBuild, task.TypeRun},
 			States: []task.State{task.StateScheduled, task.StateProcessing, task.StateComplete},
+			Before: &before,
 		}
 
 		tasks, err := engine.Tasks(req)
@@ -58,38 +62,90 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		cr, _ := engine.RunnerByName("cluster:k8s")
 		rr := cr.(*runner.ClusterK8sRunner)
-		allocatableCPUs, allocatableMemory, _ := rr.GetClusterCapacity()
 
-		_, _ = w.Write([]byte("<strong>cluster resources</strong><br/>"))
-		_, _ = w.Write([]byte(fmt.Sprintf("capacity cpus: %d<br/>", allocatableCPUs)))
-		_, _ = w.Write([]byte(fmt.Sprintf("capacity memory: %s<br/>", humanize.Bytes(uint64(allocatableMemory)))))
+		var allocatableCPUs, allocatableMemory int64
+		if rr.Enabled() {
+			allocatableCPUs, allocatableMemory, _ = rr.GetClusterCapacity()
+		}
+
+		data := struct {
+			Tasks          []interface{}
+			ClusterEnabled bool
+			CPUs           string
+			Memory         string
+		}{
+			nil,
+			rr.Enabled(),
+			fmt.Sprintf("%d", allocatableCPUs),
+			humanize.Bytes(uint64(allocatableMemory)),
+		}
 
 		tf := "Mon Jan _2 15:04:05"
 
-		fmt.Fprintf(w, "<table><th>task id</th><th>type</th><th>name</th><th>created</th><th>updated</td><th>outputs tgz</th><th>task logs</th><th>task journal</th><th>took</th><th>status</th><th>outcomes</th><th>error</th><th>actions</th><th>created by</th>")
 		for _, t := range tasks {
-			result := decodeResultK8s(t.Result)
-			if t.State().State == task.StateCanceled {
-				fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9898;", result, t.Error, t.RenderCreatedBy())
+			result := decodeResult(t.Result)
+
+			currentTask := struct {
+				ID        string
+				Name      string
+				Created   string
+				Updated   string
+				Took      string
+				Outcomes  string
+				Status    string
+				Error     string
+				Actions   string
+				CreatedBy string
+			}{
+				t.ID,
+				t.Name(),
+				t.Created().Format(tf),
+				t.State().Created.Format(tf),
+				t.Took().String(),
+				"",
+				"",
+				"",
+				"",
+				t.RenderCreatedBy(),
 			}
 
-			if t.State().State == task.StateComplete {
-				if result.Outcome == task.OutcomeSuccess { // green
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#9989;", result, t.Error, t.RenderCreatedBy())
-				} else if result.Outcome == task.OutcomeFailure { // red
-					fmt.Fprintf(w, "<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a><td><a href=/journal?task_id=%s>journal</a></td></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td></td><td>%s</td></tr>", t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, t.Took(), "&#10060;", result, t.Error, t.RenderCreatedBy())
+			currentTask.Outcomes = result.String()
+			currentTask.Error = t.Error
+
+			switch t.State().State {
+			case task.StateComplete:
+				switch result.Outcome {
+				case task.OutcomeSuccess:
+					currentTask.Status = "&#9989;"
+				case task.OutcomeFailure:
+					currentTask.Status = "&#10060;"
+				default:
+					currentTask.Status = "&#10060;"
 				}
+			case task.StateCanceled:
+				currentTask.Status = "&#9898;"
+			case task.StateProcessing:
+				currentTask.Status = "&#9203;"
+				currentTask.Actions = fmt.Sprintf(`<a href=/kill?task_id=%s>kill</a><br/><a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a>`, t.ID, t.ID)
+				currentTask.Took = ""
+			case task.StateScheduled:
+				currentTask.Status = "&#128338;"
+				currentTask.Took = ""
 			}
 
-			if t.State().State == task.StateProcessing {
-				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td><a href=/outputs?run_id=%s>download</a></td><td><a href=/logs?task_id=%s>logs</a></td><td><a href=/journal?task_id=%s>journal</a></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), t.ID, t.ID, t.ID, "&#9203;", t.ID, t.ID, t.RenderCreatedBy())
-			}
-
-			if t.State().State == task.StateScheduled {
-				fmt.Fprintf(w, `<tr><td>%s</td><td>%s</td><td>%s</td><td>%v</td><td>%s</td><td></td><td></td><td></td><td></td><td>%s</td><td></td><td></td><td><a href=/kill?task_id=%s>kill</a> | <a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a></td><td>%s</td></tr>`, t.ID, t.Type, t.Name(), t.Created().Format(tf), t.State().Created.Format(tf), "&#128338;", t.ID, t.ID, t.RenderCreatedBy())
-			}
+			data.Tasks = append(data.Tasks, currentTask)
 		}
-		fmt.Fprintf(w, "</table>")
+
+		t := template.New("tasks.html").Funcs(template.FuncMap{"unescape": unescape})
+		t, err = t.ParseFiles("tmpl/tasks.html")
+		if err != nil {
+			panic(fmt.Sprintf("cannot ParseFiles with tmpl/tasks: %s", err))
+		}
+
+		err = t.Execute(w, data)
+		if err != nil {
+			panic(fmt.Sprintf("cannot execute template: %s", err))
+		}
 	}
 }
 
@@ -99,11 +155,15 @@ func (d *Daemon) redirect() func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func decodeResultK8s(result interface{}) *runner.ResultK8s {
-	r := &runner.ResultK8s{}
+func decodeResult(result interface{}) *runner.Result {
+	r := &runner.Result{}
 	err := mapstructure.Decode(result, r)
 	if err != nil {
 		logging.S().Errorw("error while decoding result", "err", err)
 	}
 	return r
+}
+
+func unescape(s string) template.HTML {
+	return template.HTML(s)
 }

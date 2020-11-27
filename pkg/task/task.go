@@ -60,6 +60,7 @@ type Task struct {
 	Version     int          `json:"version"`     // Schema version
 	Priority    int          `json:"priority"`    // Scheduling priority
 	ID          string       `json:"id"`          // Unique identifier for this task
+	Runner      string       `json:"runner"`      // Runner that ran this task
 	Plan        string       `json:"plan"`        // Test plan
 	Case        string       `json:"case"`        // Test case
 	States      []DatedState `json:"states"`      // State of the task
@@ -104,7 +105,7 @@ func (t *Task) CreatedByCI() bool {
 
 func (t *Task) RenderCreatedBy() string {
 	if t.CreatedByCI() {
-		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s -> %s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
+		return fmt.Sprintf(`<a href="https://github.com/%s/commit/%s" target="_blank">%s<br/>%s</a>`, t.CreatedBy.Repo, t.CreatedBy.Commit, t.CreatedBy.Repo, t.CreatedBy.Branch)
 	}
 
 	return t.CreatedBy.User

@@ -20,6 +20,8 @@ const (
 	// DefaultClientURL is the HTTP(S) endpoint of the server.
 	DefaultClientURL = "http://" + DefaultListenAddr
 
+	DefaultInfluxDBEndpoint = "http://localhost:8086"
+
 	DefaultTaskRepoType = "memory"
 
 	DefaultWorkers = 2
@@ -30,6 +32,7 @@ const (
 func (e *EnvConfig) Load() error {
 	// apply fallbacks.
 	e.Daemon.Listen = DefaultListenAddr
+	e.Daemon.InfluxDBEndpoint = DefaultInfluxDBEndpoint
 	e.Client.Endpoint = DefaultClientURL
 	e.Daemon.Scheduler.Workers = DefaultWorkers
 	e.Daemon.Scheduler.QueueSize = DefaultQueueSize

@@ -11,6 +11,7 @@ import (
 	"github.com/testground/testground/pkg/config"
 	"github.com/testground/testground/pkg/engine"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/metrics"
 
 	"github.com/gorilla/mux"
 	"github.com/pborman/uuid"
@@ -19,6 +20,7 @@ import (
 type Daemon struct {
 	server *http.Server
 	l      net.Listener
+	mv     *metrics.Viewer
 	doneCh chan struct{}
 }
 
@@ -37,7 +39,12 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		return nil, err
 	}
 
-	r := mux.NewRouter()
+	mv, err := metrics.NewViewer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	r := mux.NewRouter().StrictSlash(true)
 
 	if len(cfg.Daemon.Tokens) > 0 {
 		tokens := map[string]struct{}{}
@@ -70,6 +77,11 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		})
 	})
 
+	staticDir := "/static/"
+	r.PathPrefix(staticDir).Handler(http.StripPrefix(staticDir, http.FileServer(http.Dir("."+staticDir))))
+
+	r.HandleFunc("/data", srv.dataHandler(engine)).Methods("GET")
+	r.HandleFunc("/dashboard", srv.dashboardHandler(engine)).Methods("GET")
 	r.HandleFunc("/kill", srv.killTaskHandler(engine)).Methods("GET")
 	r.HandleFunc("/delete", srv.deleteHandler(engine)).Methods("GET") // temporary endpoint until we build a proper ACL/admin endpoints within the daemon
 	r.HandleFunc("/tasks", srv.listTasksHandler(engine)).Methods("GET")
@@ -99,6 +111,8 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	srv.mv = mv
 
 	return srv, nil
 }

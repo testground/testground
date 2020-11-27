@@ -28,9 +28,13 @@ RUN cd / && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags "-X github.c
 FROM golang:${GO_VERSION}-buster
 
 RUN mkdir -p /usr/local/bin
-COPY --from=0 /testground /usr/local/bin/testground
-ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
+COPY --from=0 /testground /testground
+COPY --from=0 /static /static
+COPY --from=0 /tmpl /tmpl
+ENV PATH="/:/usr/local/bin:${PATH}"
 
-EXPOSE 8082
+EXPOSE 8042
 
-ENTRYPOINT [ "/usr/local/bin/testground", "--vv", "daemon" ]
+WORKDIR "/"
+
+ENTRYPOINT [ "/testground", "--vv", "daemon" ]

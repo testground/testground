@@ -224,6 +224,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		Plan:        request.Composition.Global.Plan,
 		Case:        request.Composition.Global.Case,
 		ID:          id,
+		Runner:      runner,
 		Type:        task.TypeRun,
 		Composition: request.Composition,
 		Input: &RunInput{
@@ -242,7 +243,13 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	return id, err
 }
 
-func (e *Engine) DoCollectOutputs(ctx context.Context, runner string, runID string, ow *rpc.OutputWriter) error {
+func (e *Engine) DoCollectOutputs(ctx context.Context, runID string, ow *rpc.OutputWriter) error {
+	t, err := e.GetTask(runID)
+	if err != nil {
+		return fmt.Errorf("could not get task %s: %s", runID, err.Error())
+	}
+
+	runner := t.Runner
 	run, ok := e.runners[runner]
 	if !ok {
 		return fmt.Errorf("unknown runner: %s", runner)

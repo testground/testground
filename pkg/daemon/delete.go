@@ -39,8 +39,8 @@ func (d *Daemon) deleteHandler(engine api.Engine) func(w http.ResponseWriter, r 
 		redirect := `
       <script>
          setTimeout(function(){
-            window.location.href = 'https://ci.testground.ipfs.team/tasks';
-         }, 1000);
+            window.location.href = '` + engine.EnvConfig().Daemon.RootURL + `/tasks';
+         }, 2000);
       </script>
 			`
 

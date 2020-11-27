@@ -29,19 +29,19 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		result := decodeResultK8s(tsk.Result)
+		result := decodeResult(tsk.Result)
 		if result == nil || result.Journal == nil {
-			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
+			_, _ = w.Write([]byte("No events or statuses captured for this run.\n"))
 			return
 		}
 
 		if len(result.Journal.Events) == 0 && len(result.Journal.PodsStatuses) == 0 {
-			_, _ = w.Write([]byte("No Kubernetes events or pods statuses captured for this run.\n"))
+			_, _ = w.Write([]byte("No events or statuses captured for this run.\n"))
 			return
 		}
 
 		if len(result.Journal.Events) > 0 {
-			_, _ = w.Write([]byte("Kubernetes Events\n"))
+			_, _ = w.Write([]byte("Events\n"))
 			_, _ = w.Write([]byte("=================\n"))
 		}
 		for _, v := range result.Journal.Events {
@@ -50,7 +50,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 		}
 
 		if len(result.Journal.PodsStatuses) > 0 {
-			_, _ = w.Write([]byte("Pods Statuses\n"))
+			_, _ = w.Write([]byte("Statuses\n"))
 			_, _ = w.Write([]byte("=================\n"))
 		}
 		for k := range result.Journal.PodsStatuses {
