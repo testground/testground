@@ -45,7 +45,20 @@ func (s *Server) subscribe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) barrier(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	var req BarrierRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	err = s.Barrier(r.Context(), req.State, req.Target)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) signalEntry(w http.ResponseWriter, r *http.Request) {

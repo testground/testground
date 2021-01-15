@@ -6,11 +6,28 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
+func (s *DefaultService) Barrier(ctx context.Context, state string, target int64) (err error) {
+	if target == 0 {
+		s.log.Warnw("requested a barrier with target zero; satisfying immediately", "state", state)
+		return nil
+	}
 
+	b := &barrier{
+		key:      state,
+		target:   target,
+		ctx:      ctx,
+		doneCh:   make(chan error, 1),
+		resultCh: make(chan error),
+	}
 
-func (s *DefaultService) Barrier(ctx context.Context, state string, target int) (err error) {
-	// TODO
-	return nil
+	s.barrierCh <- b
+	err = <-b.resultCh
+	if err != nil {
+		return err
+	}
+
+	err = <-b.doneCh
+	return err
 }
 
 func (s *DefaultService) SignalEntry(ctx context.Context, state string) (seq int64, err error) {

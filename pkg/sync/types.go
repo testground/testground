@@ -15,6 +15,11 @@ type SubscribeRequest struct {
 	Topic string `json:"topic"`
 }
 
+type BarrierRequest struct {
+	State  string `json:"state"`
+	Target int64  `json:"target"`
+}
+
 type SignalEntryRequest struct {
 	State string `json:"state"`
 }
@@ -24,8 +29,6 @@ type SignalEntryResponse struct {
 }
 
 type SignalEventRequest struct {
-	Key   string      `json:"key"`
+	Key   string      `json:""`
 	Event interface{} `json:"event"`
 }
-
-// Event Types
