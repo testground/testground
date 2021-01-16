@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"reflect"
 )
 
 type Service interface {
@@ -14,4 +15,24 @@ type Service interface {
 	SignalEntry(ctx context.Context, state string) (after int64, err error)
 	SignalAndWait(ctx context.Context, state string, target int64) (seq int64, err error)
 	SignalEvent(ctx context.Context, key string, event interface{}) error
+}
+
+// Subscription represents a receive channel for data being published in a
+// Topic.
+type Subscription struct {
+	ctx    context.Context
+	outCh  reflect.Value
+	doneCh chan error
+
+	// sendFn performs a select over outCh and the context, and returns true if
+	// we sent the value, or false if the context fired.
+	sendFn func(v reflect.Value) (sent bool)
+
+	topic  string
+	key    string
+	lastid string
+}
+
+func (s *Subscription) Done() <-chan error {
+	return s.doneCh
 }

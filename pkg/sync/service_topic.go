@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v7"
+	"reflect"
 )
 
 // Publish publishes an item on the supplied topic. The payload type must match
@@ -49,7 +50,72 @@ func (s *DefaultService) Publish(ctx context.Context, topic string, payload inte
 	return seq, nil
 }
 
-func (s *DefaultService) Subscribe(ctx context.Context, topic string) (err error) {
-	// TODO
+func (s *DefaultService) Subscribe(ctx context.Context, topic string) (sub *Subscription, err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	if err := s.ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	chv := reflect.ValueOf(ch)
+	if k := chv.Kind(); k != reflect.Chan {
+		return nil, fmt.Errorf("value is not a channel: %T", ch)
+	}
+
+	// compare the naked types; this makes the subscription work with pointer
+	// or value channels.
+	var deref bool
+	chtyp := chv.Type().Elem()
+	if chtyp.Kind() == reflect.Ptr {
+		chtyp = chtyp.Elem()
+	} else {
+		deref = true
+	}
+
+	ttyp := topic.typ
+	if ttyp.Kind() == reflect.Ptr {
+		ttyp = ttyp.Elem()
+	}
+	if chtyp != ttyp {
+		return nil, fmt.Errorf("unexpected channel type; expected: [*]%s, was: %s", ttyp, chtyp)
+	}
+
+	key := topic.Key(rp)
+
+	// sendFn is a closure that sends an element into the supplied ch,
+	// performing necessary pointer to value conversions if necessary.
+	//
+	// sendFn will block if the receiver is not consuming from the channel.
+	// If the context is closed, the send will be aborted, and the closure will
+	// return a false value.
+	sendFn := func(v reflect.Value) (sent bool) {
+		if deref {
+			v = v.Elem()
+		}
+		cases := []reflect.SelectCase{
+			{Dir: reflect.SelectSend, Chan: chv, Send: v},
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
+		}
+		_, _, ctxFired := reflect.Select(cases)
+		return !ctxFired
+	}
+
+	sub := &Subscription{
+		ctx:    ctx,
+		outCh:  chv,
+		doneCh: make(chan error, 1),
+		sendFn: sendFn,
+		topic:  topic,
+		key:    key,
+		lastid: "0",
+	}
+
+	resultCh := make(chan error)
+	c.newSubCh <- &newSubscription{sub, resultCh}
+	err := <-resultCh
+	return sub, err
+
 	return nil
 }

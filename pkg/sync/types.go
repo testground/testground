@@ -32,3 +32,4 @@ type SignalEventRequest struct {
 	Key   string      `json:""`
 	Event interface{} `json:"event"`
 }
+
