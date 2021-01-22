@@ -25,7 +25,7 @@ type subscriptionConsumer struct {
 	log *zap.SugaredLogger
 
 	connErr error
-	rmSubCh chan<- []*Subscription
+	rmSubCh chan<- []*subscription
 }
 
 func (sc *subscriptionConsumer) interrupt() error {
@@ -63,7 +63,7 @@ func (sc *subscriptionConsumer) interrupt() error {
 	return nil
 }
 
-func (sc *subscriptionConsumer) resume(active map[string]*Subscription) {
+func (sc *subscriptionConsumer) resume(active map[string]*subscription) {
 	if len(active) == 0 {
 		sc.log.Debugw("no subscriptions to consume, yielding")
 		return
@@ -79,7 +79,7 @@ func (sc *subscriptionConsumer) resume(active map[string]*Subscription) {
 	go sc.consume(active)
 }
 
-func (sc *subscriptionConsumer) consume(active map[string]*Subscription) {
+func (sc *subscriptionConsumer) consume(active map[string]*subscription) {
 	defer func() { sc.notifyCh <- struct{}{} }()
 
 	defer atomic.StoreInt32(&sc.state, StateStopped)
@@ -140,7 +140,7 @@ RegenerateConnection:
 		i++
 	}
 
-	var rmSub []*Subscription
+	var rmSub []*subscription
 	for atomic.LoadInt32(&sc.state) == StateRunning {
 		sc.log.Debugw("XREAD streams", "streams", args.Streams)
 

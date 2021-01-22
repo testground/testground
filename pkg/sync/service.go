@@ -19,7 +19,7 @@ type DefaultService struct {
 	log     *zap.SugaredLogger
 
 	barrierCh chan *barrier
-	subCh     chan *Subscription
+	subCh     chan *subscription
 }
 
 func NewService(ctx context.Context, log *zap.SugaredLogger, cfg *RedisConfiguration) (Service, error) {
@@ -35,9 +35,9 @@ func NewService(ctx context.Context, log *zap.SugaredLogger, cfg *RedisConfigura
 		log:       log,
 		rclient:   rclient,
 		barrierCh: make(chan *barrier),
-		subCh:     make(chan *Subscription),
+		subCh:     make(chan *subscription),
 	}
-	
+
 	s.sugarOperations = &sugarOperations{s}
 
 	s.wg.Add(2)
@@ -65,3 +65,20 @@ type barrier struct {
 	doneCh   chan error
 	resultCh chan error
 }
+
+// subscription represents a receive channel for data being published in a
+// Topic.
+type subscription struct {
+	ctx      context.Context
+	outCh    chan interface{}
+	doneCh   chan error
+	resultCh chan error
+
+	// sendFn performs a select over outCh and the context, and returns true if
+	// we sent the value, or false if the context fired.
+	sendFn func(interface{}) (sent bool)
+
+	topic  string
+	lastid string
+}
+

@@ -50,7 +50,7 @@ func (s *DefaultService) Publish(ctx context.Context, topic string, payload inte
 	return seq, nil
 }
 
-func (s *DefaultService) Subscribe(ctx context.Context, topic string, ch chan interface{}) (sub *Subscription, err error) {
+func (s *DefaultService) Subscribe(ctx context.Context, topic string) (*Subscription, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -59,32 +59,32 @@ func (s *DefaultService) Subscribe(ctx context.Context, topic string, ch chan in
 		return nil, err
 	}
 
-	// sendFn is a closure that sends an element into the supplied ch,
-	// performing necessary pointer to value conversions if necessary.
-	//
-	// sendFn will block if the receiver is not consuming from the channel.
+	sub := &subscription{
+		ctx:      ctx,
+		outCh:    make(chan interface{}),
+		doneCh:   make(chan error, 1),
+		resultCh: make(chan error),
+		topic:    topic,
+		lastid:   "0",
+	}
+
+	// sendFn is a closure that sends an element into the supplied ch and
+	// it will block if the receiver is not consuming from the channel.
 	// If the context is closed, the send will be aborted, and the closure will
 	// return a false value.
-	sendFn := func(v interface{}) (sent bool) {
+	sub.sendFn = func(v interface{}) (sent bool) {
 		cases := []reflect.SelectCase{
-			{Dir: reflect.SelectSend, Chan: reflect.ValueOf(ch), Send: reflect.ValueOf(v)},
+			{Dir: reflect.SelectSend, Chan: reflect.ValueOf(sub.outCh), Send: reflect.ValueOf(v)},
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
 		}
 		_, _, ctxFired := reflect.Select(cases)
 		return !ctxFired
 	}
 
-	sub = &Subscription{
-		ctx:    ctx,
-		outCh:  ch,
-		doneCh: make(chan error, 1),
-		resultCh: make(chan error),
-		sendFn: sendFn,
-		topic:  topic,
-		lastid: "0",
-	}
-
 	s.subCh <- sub
-	err = <-sub.resultCh
-	return sub, err
+	err := <-sub.resultCh
+	return &Subscription{
+		outCh:  sub.outCh,
+		doneCh: sub.doneCh,
+	}, err
 }

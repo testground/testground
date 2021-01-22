@@ -41,25 +41,21 @@ func (c *sugarOperations) SignalAndWait(ctx context.Context, state string, targe
 	return seq, err
 }
 
-/*
-
 // PublishSubscribe publishes the payload on the supplied Topic, then subscribes
 // to it, sending payloads to the supplied channel.
 //
 // If any operation fails, PublishSubscribe short-circuits and returns a non-nil
 // error and a negative sequence. If Publish succeeds, but Subscribe fails,
-// the seq number will be greater than zero, but the returned Subscription will
+// the seq number will be greater than zero, but the returned subscription will
 // be nil, and the error, non-nil.
-func (c *sugarOperations) PublishSubscribe(ctx context.Context, topic *Topic, payload interface{}, ch interface{}) (seq int64, sub *Subscription, err error) {
+func (c *sugarOperations) PublishSubscribe(ctx context.Context, topic string, payload interface{}) (seq int64, sub *Subscription, err error) {
 	seq, err = c.Publish(ctx, topic, payload)
 	if err != nil {
 		return -1, nil, err
 	}
-	sub, err = c.Subscribe(ctx, topic, ch)
+	sub, err = c.Subscribe(ctx, topic)
 	if err != nil {
 		return seq, nil, err
 	}
 	return seq, sub, err
 }
-
-*/

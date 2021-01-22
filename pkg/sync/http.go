@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"go.uber.org/zap"
 	"net/http"
 )
@@ -41,7 +43,47 @@ func (s *Server) publish(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) subscribe(w http.ResponseWriter, r *http.Request) {
-	// TODO
+	var req SubscribeRequest
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	sub, err := s.Subscribe(r.Context(), req.Topic)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	enc := json.NewEncoder(w)
+
+	for {
+		select {
+		case data := <-sub.outCh:
+			err = enc.Encode(data)
+			if err != nil {
+				// TODO: handle
+				return
+			}
+
+			_, err = w.Write([]byte("\n"))
+			if err != nil {
+				// TODO: handle
+				return
+			}
+		case err = <-sub.doneCh:
+			if errors.Is(err, context.Canceled) {
+				// Cancelled by the user.
+				return
+			}
+			// TODO: check error
+			return
+		case <-r.Context().Done():
+			// Cancelled by the user.
+			return
+		}
+	}
 }
 
 func (s *Server) barrier(w http.ResponseWriter, r *http.Request) {

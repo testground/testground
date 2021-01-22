@@ -151,17 +151,17 @@ func (s *DefaultService) subscriptionWorker() {
 	defer s.wg.Done()
 
 	var (
-		active  = make(map[string]*Subscription)
-		rmSubCh = make(chan []*Subscription, 1)
+		active  = make(map[string]*subscription)
+		rmSubCh = make(chan []*subscription, 1)
 	)
 
 	log := s.log.With("process", "subscriptions")
 
-	monitorCtx := func(s *Subscription) {
+	monitorCtx := func(s *subscription) {
 		select {
 		case <-s.ctx.Done():
 			log.Debugw("context closure detected; removing subscription", "topic", s.topic)
-			rmSubCh <- []*Subscription{s}
+			rmSubCh <- []*subscription{s}
 		case <-s.ctx.Done():
 			log.Debugw("yielding context monitor routine due to global context closure", "topic", s.topic)
 		}
