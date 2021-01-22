@@ -2,12 +2,11 @@ package sync
 
 import (
 	"context"
-	"reflect"
 )
 
 type Service interface {
 	Publish(ctx context.Context, topic string, payload interface{}) (seq int64, err error)
-	// Subscribe(ctx context.Context, topic string, ch interface{}) (*Subscription, error)
+	Subscribe(ctx context.Context, topic string, ch chan interface{}) (*Subscription, error)
 	PublishAndWait(ctx context.Context, topic string, payload interface{}, state string, target int64) (seq int64, err error)
 	// PublishSubscribe(ctx context.Context, topic string, payload interface{}, ch interface{}) (seq int64, sub *Subscription, err error)
 
@@ -21,15 +20,15 @@ type Service interface {
 // Topic.
 type Subscription struct {
 	ctx    context.Context
-	outCh  reflect.Value
+	outCh  chan interface{}
 	doneCh chan error
+	resultCh chan error
 
 	// sendFn performs a select over outCh and the context, and returns true if
 	// we sent the value, or false if the context fired.
-	sendFn func(v reflect.Value) (sent bool)
+	sendFn func(interface{}) (sent bool)
 
 	topic  string
-	key    string
 	lastid string
 }
 

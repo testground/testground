@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -142,5 +143,103 @@ func (s *DefaultService) barrierWorker() {
 		for _, b := range del {
 			remove(b)
 		}
+	}
+}
+
+
+func (s *DefaultService) subscriptionWorker() {
+	defer s.wg.Done()
+
+	var (
+		active  = make(map[string]*Subscription)
+		rmSubCh = make(chan []*Subscription, 1)
+	)
+
+	log := s.log.With("process", "subscriptions")
+
+	monitorCtx := func(s *Subscription) {
+		select {
+		case <-s.ctx.Done():
+			log.Debugw("context closure detected; removing subscription", "topic", s.topic)
+			rmSubCh <- []*Subscription{s}
+		case <-s.ctx.Done():
+			log.Debugw("yielding context monitor routine due to global context closure", "topic", s.topic)
+		}
+	}
+
+	consumer := &subscriptionConsumer{s: s, log: log, rmSubCh: rmSubCh, notifyCh: make(chan struct{}, 1)}
+
+	var finalErr error // error to broadcast to remaining subscribers upon returning.
+	defer func() {
+		for _, sub := range active {
+			sub.doneCh <- finalErr
+			close(sub.doneCh)
+			close(sub.outCh)
+		}
+	}()
+
+	for {
+		// Manage subscriptions.
+		select {
+		case sub := <-s.subCh:
+			if _, ok := active[sub.topic]; ok {
+				sub.resultCh <- fmt.Errorf("failed to add duplicate subscription")
+				continue
+			}
+
+			log.Debugw("adding subscription", "topic", sub.topic)
+
+			// interrupt consumer and wait until it yields, before mutating the active set.
+			err := consumer.interrupt()
+			if err != nil {
+				panic(fmt.Sprintf("failed to interrupt consumer when adding subscription; exiting; err: %s", err))
+			}
+
+			active[sub.topic] = sub
+			go monitorCtx(sub)
+			sub.resultCh <- nil
+
+		case subs := <-rmSubCh:
+			// interrupt consumer and wait until it yields, before accessing subscriptions.
+			err := consumer.interrupt()
+			if err != nil {
+				panic(fmt.Sprintf("failed to interrupt consumer when removing subscriptions; exiting; err: %s", err))
+			}
+
+			for _, s := range subs {
+				// this was a planned removal, sending err = nil.
+				s.doneCh <- nil
+				close(s.doneCh)
+				close(s.outCh)
+
+				delete(active, s.topic)
+			}
+
+		case <-s.ctx.Done():
+			err := consumer.interrupt()
+			if err != nil {
+				log.Debugw("failed to interrupt consumer when exiting", "error", err)
+				finalErr = err
+				return
+			}
+			return
+		}
+
+		if len(rmSubCh)+len(s.subCh) > 0 {
+			log.Debugf("more subscription control events to consume; looping over")
+			// we still have pending items, continue draining before we resume
+			// consuming.
+			continue
+		}
+
+		if len(active) == 0 {
+			continue
+		}
+
+		log.Debugf("resume consuming")
+
+		// no copy of the active set is needed, as we always interrupt the
+		// consumer before mutating the active set.
+		consumer.resume(active)
 	}
 }

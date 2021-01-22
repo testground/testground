@@ -21,7 +21,7 @@ type subscriptionConsumer struct {
 	conn     *redis.Conn
 	clientid int64 // atomic
 
-	c   *DefaultService
+	s   *DefaultService
 	log *zap.SugaredLogger
 
 	connErr error
@@ -47,7 +47,7 @@ func (sc *subscriptionConsumer) interrupt() error {
 	for ok := true; ok; ok = atomic.LoadInt32(&sc.state) != StateStopped {
 		clientid := atomic.LoadInt64(&sc.clientid)
 		sc.log.Debugw("attempting to unblock connection", "client_id", clientid)
-		unblocked, err := sc.c.rclient.ClientUnblock(clientid).Result()
+		unblocked, err := sc.s.rclient.ClientUnblock(clientid).Result()
 		if err != nil {
 			return err
 		}
@@ -101,7 +101,7 @@ RegenerateConnection:
 		if sc.conn != nil {
 			_ = sc.conn.Close()
 		}
-		sc.conn = sc.c.rclient.Conn()
+		sc.conn = sc.s.rclient.Conn()
 		clientid, sc.connErr = sc.conn.ClientID().Result()
 		if sc.connErr == nil {
 			atomic.StoreInt64(&sc.clientid, clientid)
@@ -109,11 +109,11 @@ RegenerateConnection:
 			break
 		}
 
-		sc.log.Debugf("failed to create subscription connection", "error", sc.connErr)
+		sc.log.Debugw("failed to create subscription connection", "error", sc.connErr)
 
 		select {
 		case <-time.After(1 * time.Second):
-		case <-sc.c.ctx.Done():
+		case <-sc.s.ctx.Done():
 			return // we're done.
 		}
 	}
@@ -164,15 +164,10 @@ RegenerateConnection:
 
 			for _, msg := range xr.Messages {
 				payload := msg.Values[RedisPayloadKey]
-				val, err := sub.topic.decodePayload(payload)
-				if err != nil {
-					sc.log.Debugw("XREAD response: failed to decode message", "key", xr.Stream, "error", err, "id", msg.ID)
-					continue
-				}
 
 				sc.log.Debugw("dispatching message to subscriber", "key", xr.Stream, "id", msg.ID)
 
-				if sent := sub.sendFn(val); !sent {
+				if sent := sub.sendFn(payload); !sent {
 					// we could not send value because context fired.
 					// skip all further messages on this stream, and queue for
 					// removal.
