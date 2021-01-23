@@ -2,19 +2,69 @@ package sync
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"github.com/gorilla/mux"
+	"github.com/testground/testground/pkg/logging"
 	"go.uber.org/zap"
+	"net"
 	"net/http"
 )
 
 type Server struct {
 	Service
-	log *zap.SugaredLogger
+	server *http.Server
+	l      net.Listener
+	log    *zap.SugaredLogger
 }
 
-func NewSyncServer() {
-	// TODO: start HTTP server w/ TLS. See how to force HTTP/2 connections.
+func NewSyncServer(ctx context.Context, cfg *RedisConfiguration) (srv *Server, err error) {
+	srv = new(Server)
+	srv.log = logging.S()
+	srv.Service, err = NewService(ctx, srv.log, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	r := mux.NewRouter().StrictSlash(true)
+
+	r.HandleFunc("/publish", srv.publish).Methods("POST")
+	r.HandleFunc("/subscribe", srv.subscribe).Methods("POST")
+	r.HandleFunc("/barrier", srv.barrier).Methods("POST")
+	r.HandleFunc("/signal/event", srv.signalEvent).Methods("POST")
+	r.HandleFunc("/signal/entry", srv.signalEntry).Methods("POST")
+
+	srv.server = &http.Server{
+		Handler: r,
+		TLSConfig: &tls.Config{
+			NextProtos: []string{"h2"},
+		},
+	}
+
+	srv.l, err = net.Listen("tcp", ":443")
+	if err != nil {
+		return nil, err
+	}
+
+	return srv, nil
+}
+
+func (s *Server) Serve() error {
+	s.log.Infow("daemon listening", "addr", s.Addr())
+	return s.server.ServeTLS(s.l, "certs/localhost.crt", "certs/localhost.key")
+}
+
+func (s *Server) Addr() string {
+	return s.l.Addr().String()
+}
+
+func (s *Server) Port() int {
+	return s.l.Addr().(*net.TCPAddr).Port
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.server.Shutdown(ctx)
 }
 
 func (s *Server) sendJSON(w http.ResponseWriter, d interface{}) {
