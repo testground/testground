@@ -54,10 +54,7 @@ func (c *connection) publishHandler(id string, req *PublishRequest) {
 }
 
 func (c *connection) subscribeHandler(id string, req *SubscribeRequest) {
-	ctx, cancel := context.WithTimeout(c.ctx, time.Second*10)
-	defer cancel()
-
-	sub, err := c.service.Subscribe(ctx, req.Topic)
+	sub, err := c.service.Subscribe(c.ctx, req.Topic)
 	if err != nil {
 		c.responses <- &Response{ID: id, Error: err.Error()}
 		return
@@ -83,11 +80,8 @@ func (c *connection) subscribeHandler(id string, req *SubscribeRequest) {
 }
 
 func (c *connection) barrierHandler(id string, req *BarrierRequest) {
-	ctx, cancel := context.WithTimeout(c.ctx, time.Second*10)
-	defer cancel()
-
 	resp := &Response{ID: id}
-	err := c.service.Barrier(ctx, req.State, req.Target)
+	err := c.service.Barrier(c.ctx, req.State, req.Target)
 	if err != nil {
 		resp.Error = err.Error()
 	}
