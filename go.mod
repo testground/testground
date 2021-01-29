@@ -20,6 +20,10 @@ require (
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/go-git/go-git/v5 v5.0.0
 	github.com/go-playground/validator/v10 v10.3.0
+	github.com/go-redis/redis/v7 v7.4.0
+	github.com/gobwas/httphead v0.1.0 // indirect
+	github.com/gobwas/pool v0.2.1 // indirect
+	github.com/gobwas/ws v1.0.4 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/google/uuid v1.1.1
@@ -64,4 +68,5 @@ require (
 	k8s.io/api v0.17.0
 	k8s.io/apimachinery v0.17.0
 	k8s.io/client-go v0.0.0-20190706005506-4ed54556a14a
+	nhooyr.io/websocket v1.8.6
 )

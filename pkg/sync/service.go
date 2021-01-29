@@ -9,8 +9,6 @@ import (
 )
 
 type DefaultService struct {
-	*sugarOperations
-
 	wg     sync.WaitGroup
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -22,7 +20,7 @@ type DefaultService struct {
 	subCh     chan *subscription
 }
 
-func NewService(ctx context.Context, log *zap.SugaredLogger, cfg *RedisConfiguration) (Service, error) {
+func NewService(ctx context.Context, log *zap.SugaredLogger, cfg *RedisConfiguration) (*DefaultService, error) {
 	rclient, err := redisClient(ctx, log, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create redis client: %w", err)
@@ -37,8 +35,6 @@ func NewService(ctx context.Context, log *zap.SugaredLogger, cfg *RedisConfigura
 		barrierCh: make(chan *barrier),
 		subCh:     make(chan *subscription),
 	}
-
-	s.sugarOperations = &sugarOperations{s}
 
 	s.wg.Add(2)
 	go s.barrierWorker()
@@ -81,4 +77,3 @@ type subscription struct {
 	topic  string
 	lastid string
 }
-

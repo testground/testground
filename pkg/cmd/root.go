@@ -21,6 +21,7 @@ var RootCommands = cli.CommandsByName{
 	&StatusCommand,
 	&LogsCommand,
 	&VersionCommand,
+	&SyncCommand,
 }
 
 func init() {

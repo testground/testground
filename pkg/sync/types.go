@@ -33,3 +33,19 @@ type SignalEventRequest struct {
 	Event interface{} `json:"event"`
 }
 
+type Request struct {
+	ID                 string              `json:"id"`
+	PublishRequest     *PublishRequest     `json:"publish"`
+	SubscribeRequest   *SubscribeRequest   `json:"subscribe"`
+	BarrierRequest     *BarrierRequest     `json:"barrier"`
+	SignalEntryRequest *SignalEntryRequest `json:"signal_entry"`
+	SignalEventRequest *SignalEventRequest `json:"signal_event"`
+}
+
+type Response struct {
+	ID                  string               `json:"id"`
+	Error               string               `json:"error"`
+	PublishResponse     *PublishResponse     `json:"publish"`
+	SubscribeResponse   interface{}          `json:"subscribe"`
+	SignalEntryResponse *SignalEntryResponse `json:"signal_entry"`
+}
