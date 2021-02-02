@@ -18,7 +18,7 @@ func syncCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
-	service, err := sync.NewService(ctx, logging.S(), &sync.RedisConfiguration{
+	service, err := sync.NewRedisService(ctx, logging.S(), &sync.RedisConfiguration{
 		Port: 6379,
 		Host: "localhost", // TODO: testground-redis?
 	})
@@ -26,7 +26,7 @@ func syncCommand(c *cli.Context) error {
 		return err
 	}
 
-	srv, err := sync.NewSyncServer(service)
+	srv, err := sync.NewServer(service)
 	if err != nil {
 		return err
 	}

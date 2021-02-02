@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func (s *DefaultService) barrierWorker() {
+func (s *RedisService) barrierWorker() {
 	defer s.wg.Done()
 
 	var (
@@ -147,7 +147,7 @@ func (s *DefaultService) barrierWorker() {
 }
 
 
-func (s *DefaultService) subscriptionWorker() {
+func (s *RedisService) subscriptionWorker() {
 	defer s.wg.Done()
 
 	var (

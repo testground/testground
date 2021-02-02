@@ -16,7 +16,7 @@ import (
 // topic, or an error if one occurred, starting with 1 (for the first item).
 //
 // If error is non-nil, the sequence number must be disregarded.
-func (s *DefaultService) Publish(ctx context.Context, topic string, payload interface{}) (seq int64, err error) {
+func (s *RedisService) Publish(ctx context.Context, topic string, payload interface{}) (seq int64, err error) {
 	log := s.log.With("topic", topic)
 	log.Debugw("publishing item on topic", "payload", payload)
 
@@ -50,7 +50,7 @@ func (s *DefaultService) Publish(ctx context.Context, topic string, payload inte
 	return seq, nil
 }
 
-func (s *DefaultService) Subscribe(ctx context.Context, topic string) (*Subscription, error) {
+func (s *RedisService) Subscribe(ctx context.Context, topic string) (*Subscription, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}

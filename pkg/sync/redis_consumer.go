@@ -21,7 +21,7 @@ type subscriptionConsumer struct {
 	conn     *redis.Conn
 	clientid int64 // atomic
 
-	s   *DefaultService
+	s   *RedisService
 	log *zap.SugaredLogger
 
 	connErr error

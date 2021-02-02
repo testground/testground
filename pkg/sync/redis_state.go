@@ -6,7 +6,7 @@ import (
 	"github.com/go-redis/redis/v7"
 )
 
-func (s *DefaultService) Barrier(ctx context.Context, state string, target int64) (err error) {
+func (s *RedisService) Barrier(ctx context.Context, state string, target int64) (err error) {
 	if target == 0 {
 		s.log.Warnw("requested a barrier with target zero; satisfying immediately", "state", state)
 		return nil
@@ -30,7 +30,7 @@ func (s *DefaultService) Barrier(ctx context.Context, state string, target int64
 	return err
 }
 
-func (s *DefaultService) SignalEntry(ctx context.Context, state string) (seq int64, err error) {
+func (s *RedisService) SignalEntry(ctx context.Context, state string) (seq int64, err error) {
 	s.log.Debugw("signalling entry to state", "key", state)
 
 	// Increment a counter on the state key.
@@ -43,7 +43,7 @@ func (s *DefaultService) SignalEntry(ctx context.Context, state string) (seq int
 	return seq, err
 }
 
-func (s *DefaultService) SignalEvent(ctx context.Context, key string, event interface{}) (err error) {
+func (s *RedisService) SignalEvent(ctx context.Context, key string, event interface{}) (err error) {
 	ev, err := json.Marshal(event)
 	if err != nil {
 		return err

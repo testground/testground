@@ -17,7 +17,7 @@ type Server struct {
 	log     *zap.SugaredLogger
 }
 
-func NewSyncServer(service Service) (srv *Server, err error) {
+func NewServer(service Service) (srv *Server, err error) {
 	srv = &Server{
 		service: service,
 		server: &http.Server{
