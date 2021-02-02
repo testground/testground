@@ -2,6 +2,8 @@ module github.com/testground/testground
 
 go 1.14
 
+replace github.com/testground/testground/pkg/sync => ./pkg/sync
+
 require (
 	cloud.google.com/go v0.45.1 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
@@ -52,6 +54,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
 	github.com/testground/sdk-go v0.2.6-0.20201016180515-1e40e1b0ec3a
+	github.com/testground/testground/pkg/sync v0.0.0-00010101000000-000000000000
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0
