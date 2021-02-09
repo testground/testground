@@ -6,7 +6,7 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
-.PHONY: install goinstall pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
+.PHONY: install goinstall pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground docker-sync-service test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
 
 install: goinstall docker
 
@@ -29,13 +29,16 @@ lint:
 build-all:
 	$(call eachmod,go build -o /dev/null ./...)
 
-docker: docker-testground docker-sidecar
+docker: docker-testground docker-sidecar docker-sync-service
 
 docker-sidecar:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/sidecar:edge -f Dockerfile.sidecar .
 
 docker-testground:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground:edge -f Dockerfile.testground .
+
+docker-sync-service:
+	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/sync-service:edge -f Dockerfile.sync-service .
 
 test-go:
 	testground plan import --from ./plans/placebo

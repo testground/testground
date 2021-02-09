@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"nhooyr.io/websocket"
+	"strconv"
 )
 
 type Server struct {
@@ -17,7 +18,7 @@ type Server struct {
 	log     *zap.SugaredLogger
 }
 
-func NewServer(service Service) (srv *Server, err error) {
+func NewServer(service Service, port int) (srv *Server, err error) {
 	srv = &Server{
 		service: service,
 		server: &http.Server{
@@ -26,7 +27,7 @@ func NewServer(service Service) (srv *Server, err error) {
 		log: logging.S(),
 	}
 
-	srv.l, err = net.Listen("tcp", ":8080")
+	srv.l, err = net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return nil, err
 	}

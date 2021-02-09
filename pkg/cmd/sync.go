@@ -8,6 +8,8 @@ import (
 	"net/http"
 )
 
+const defaultSyncServerPort = 8050
+
 var SyncCommand = cli.Command{
 	Name:   "sync",
 	Usage:  "run the sync server process",
@@ -26,7 +28,7 @@ func syncCommand(c *cli.Context) error {
 		return err
 	}
 
-	srv, err := sync.NewServer(service)
+	srv, err := sync.NewServer(service, defaultSyncServerPort)
 	if err != nil {
 		return err
 	}
