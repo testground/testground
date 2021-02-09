@@ -6,9 +6,11 @@ import (
 	"github.com/testground/testground/pkg/sync"
 	"github.com/urfave/cli/v2"
 	"net/http"
+	"os"
 )
 
-const defaultSyncServerPort = 8050
+const defaultRedisHost = "testground-redis"
+const envRedisHost = "REDIS_HOST"
 
 var SyncCommand = cli.Command{
 	Name:   "sync",
@@ -20,15 +22,20 @@ func syncCommand(c *cli.Context) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
+	redisHost := os.Getenv(envRedisHost)
+	if redisHost == "" {
+		redisHost = defaultRedisHost
+	}
+
 	service, err := sync.NewRedisService(ctx, logging.S(), &sync.RedisConfiguration{
 		Port: 6379,
-		Host: "localhost", // TODO: testground-redis?
+		Host: redisHost,
 	})
 	if err != nil {
 		return err
 	}
 
-	srv, err := sync.NewServer(service, defaultSyncServerPort)
+	srv, err := sync.NewServer(service, 5050)
 	if err != nil {
 		return err
 	}

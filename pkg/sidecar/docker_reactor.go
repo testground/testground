@@ -77,7 +77,7 @@ func (d *DockerReactor) ResolveServices(runid string) {
 	}
 
 	wantedRoutes := []string{
-		os.Getenv(EnvRedisHost),
+		os.Getenv(EnvSyncServiceHost),
 		os.Getenv(EnvInfluxdbHost),
 	}
 

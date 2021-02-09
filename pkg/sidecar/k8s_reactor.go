@@ -89,8 +89,8 @@ func (d *K8sReactor) ResolveServices(runid string) {
 		host string
 	}{
 		{
-			"redis",
-			os.Getenv(EnvRedisHost),
+			"sync-service",
+			os.Getenv(EnvSyncServiceHost),
 		},
 		{
 			"influxdb",
