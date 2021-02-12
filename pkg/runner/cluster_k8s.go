@@ -27,8 +27,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/testground/sdk-go/runtime"
-	ss "github.com/testground/sdk-go/sync"
-
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
@@ -133,7 +131,7 @@ type ClusterK8sRunner struct {
 	config     KubernetesConfig
 	pool       *pool
 	imagesLRU  *lru.Cache
-	syncClient *ss.WatchClient
+	//syncClient *ss.WatchClient
 }
 
 type Result struct {
@@ -503,10 +501,10 @@ func (c *ClusterK8sRunner) initPool() {
 
 		c.imagesLRU, _ = lru.New(256)
 
-		c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-		if err != nil {
-			log.Error(err)
-		}
+		//c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+		//if err != nil {
+		//	log.Error(err)
+		//}
 	})
 }
 
@@ -1187,19 +1185,19 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 }
 
 func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	events, err := c.syncClient.FetchAllEvents(template)
-	if err != nil {
-		return err
-	}
+	//events, err := c.syncClient.FetchAllEvents(template)
+	//if err != nil {
+	//	return err
+	//}
 
-	for _, e := range events {
-		// for now we emit only outcome OK events, so no need for more checks
-		if e.SuccessEvent != nil {
-			se := e.SuccessEvent
-			o := result.Outcomes[se.TestGroupID]
-			o.Ok = o.Ok + 1
-		}
-	}
+	//for _, e := range events {
+	//	// for now we emit only outcome OK events, so no need for more checks
+	//	if e.SuccessEvent != nil {
+	//		se := e.SuccessEvent
+	//		o := result.Outcomes[se.TestGroupID]
+	//		o.Ok = o.Ok + 1
+	//	}
+	//}
 
 	result.Outcome = task.OutcomeSuccess
 	if len(result.Outcomes) == 0 {

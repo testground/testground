@@ -387,6 +387,14 @@ github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e40
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
 github.com/testground/sdk-go v0.2.6-0.20201016180515-1e40e1b0ec3a h1:iQDLQpTGtdfatdQtGqQBuoXFrl2AQ0n3Q8mNKkqbmnw=
 github.com/testground/sdk-go v0.2.6-0.20201016180515-1e40e1b0ec3a/go.mod h1:Q4dnWsUBH+dZ1u7aEGDBHWGUaLfhitjUq3UJQqxeTmk=
+github.com/testground/sdk-go v0.2.8-0.20210209153818-65fd365c28a5 h1:9cX4uJu9mRc3alezbOvOJq6cnczaX5f5xrkaEjvq9/w=
+github.com/testground/sdk-go v0.2.8-0.20210209153818-65fd365c28a5/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
+github.com/testground/sdk-go v0.2.8-0.20210212143522-9386f83ba570 h1:8uJllz90Sq93+/Mo4bdbyV/0z3/S5c8se6X7yMCCv4g=
+github.com/testground/sdk-go v0.2.8-0.20210212143522-9386f83ba570/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
+github.com/testground/sdk-go v0.2.8-0.20210212144316-a133a9a688d9 h1:nxn9WpClyo9NoPU0D/pzH5cpOXYn+KPI4lSbuJbBrvA=
+github.com/testground/sdk-go v0.2.8-0.20210212144316-a133a9a688d9/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
+github.com/testground/sdk-go v0.2.8-0.20210212151226-b1f8f925486f h1:T/TJgtsGX8ArFt4t3heAc3swlyxYy6CrTfrB/zgA+Lo=
+github.com/testground/sdk-go v0.2.8-0.20210212151226-b1f8f925486f/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
 github.com/ugorji/go v1.1.7 h1:/68gy2h+1mWMrwZFeD1kQialdSzAb432dtpeJ42ovdo=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=

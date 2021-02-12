@@ -13,11 +13,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/testground/sdk-go/ptypes"
-	ss "github.com/testground/sdk-go/sync"
-
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/testground/sdk-go/runtime"
 
@@ -25,7 +23,6 @@ import (
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/healthcheck"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
 
@@ -97,7 +94,7 @@ type LocalDockerRunner struct {
 	controlNetworkID string
 	outputsDir       string
 
-	syncClient *ss.WatchClient
+	// syncClient *ss.WatchClient
 }
 
 func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
@@ -172,30 +169,30 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 }
 
 func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	events, err := c.syncClient.FetchAllEvents(template)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range events {
-		// for now we emit only outcome OK events, so no need for more checks
-		if e.SuccessEvent != nil {
-			se := e.SuccessEvent
-			o := result.Outcomes[se.TestGroupID]
-			o.Ok = o.Ok + 1
-		}
-	}
-
-	result.Outcome = task.OutcomeSuccess
-	if len(result.Outcomes) == 0 {
-		result.Outcome = task.OutcomeFailure
-	}
-	for g := range result.Outcomes {
-		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-			result.Outcome = task.OutcomeFailure
-			break
-		}
-	}
+	//events, err := c.syncClient.FetchAllEvents(template)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//for _, e := range events {
+	//	// for now we emit only outcome OK events, so no need for more checks
+	//	if e.SuccessEvent != nil {
+	//		se := e.SuccessEvent
+	//		o := result.Outcomes[se.TestGroupID]
+	//		o.Ok = o.Ok + 1
+	//	}
+	//}
+	//
+	//result.Outcome = task.OutcomeSuccess
+	//if len(result.Outcomes) == 0 {
+	//	result.Outcome = task.OutcomeFailure
+	//}
+	//for g := range result.Outcomes {
+	//	if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+	//		result.Outcome = task.OutcomeFailure
+	//		break
+	//	}
+	//}
 
 	return nil
 }
@@ -214,11 +211,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	log := ow.With("runner", "local:docker", "run_id", input.RunID)
 
-	r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-	if err != nil {
-		log.Error(err)
-		return
-	}
+	//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+	//if err != nil {
+	//	log.Error(err)
+	//	return
+	//}
 
 	defer func() {
 		if ctx.Err() == context.Canceled {

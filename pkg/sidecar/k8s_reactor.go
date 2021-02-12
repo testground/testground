@@ -61,7 +61,7 @@ func NewK8sReactor() (Reactor, error) {
 	}
 
 	// sidecar nodes perform Redis GC.
-	client.EnableBackgroundGC(nil)
+	//client.EnableBackgroundGC(nil)
 
 	cache, _ := lru.New(32)
 

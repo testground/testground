@@ -54,7 +54,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 				Cmd:   []string{"--save", "", "--appendonly", "no", "--maxclients", "120000", "--stop-writes-on-bgsave-error", "no"},
 			},
 			HostConfig: &container.HostConfig{
-				NetworkMode:  container.NetworkMode(controlNetworkID),
+				NetworkMode: container.NetworkMode(controlNetworkID),
 				Resources: container.Resources{
 					Ulimits: []*units.Ulimit{
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
@@ -76,7 +76,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 	// sync service, which uses redis.
 	_, exposed, _ = nat.ParsePortSpecs([]string{"5050:5050"})
 	hh.Enlist("local-sync-service",
-		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-redis"),
+		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-sync-service"),
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-sync-service",
 			ContainerConfig: &container.Config{
@@ -101,7 +101,6 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 					Name: "unless-stopped",
 				},
 			},
-			ImageStrategy: docker.ImageStrategyPull,
 		}),
 	)
 

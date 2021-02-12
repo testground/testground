@@ -21,10 +21,11 @@ type Server struct {
 func NewServer(service Service, port int) (srv *Server, err error) {
 	srv = &Server{
 		service: service,
-		server: &http.Server{
-			Handler: http.HandlerFunc(srv.handler),
-		},
-		log: logging.S(),
+		log:     logging.S(),
+	}
+
+	srv.server = &http.Server{
+		Handler: http.HandlerFunc(srv.handler),
 	}
 
 	srv.l, err = net.Listen("tcp", ":"+strconv.Itoa(port))
