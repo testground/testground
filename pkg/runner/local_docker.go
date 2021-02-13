@@ -198,6 +198,11 @@ func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result 
 }
 
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
+	//if r.syncClient == nil {
+	//	TODO: WLock and only cvhange if nil
+	//}
+
+
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
 	r.lk.RLock()

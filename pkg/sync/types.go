@@ -52,6 +52,7 @@ type SignalEntryResponse struct {
 }
 
 // SignalEventRequest represents a signal event request.
+// TODO: THIS LOOKS EXACTLY THE SAME AS PUBLISH REQUEST, KEY = TOPIC, EVENT = PAYLOAD
 type SignalEventRequest struct {
 	Key   string      `json:""`
 	Event interface{} `json:"event"`
@@ -62,6 +63,7 @@ type SignalEventRequest struct {
 // The ID will be used on further responses.
 type Request struct {
 	ID                 string              `json:"id"`
+	IsCancel           bool                `json:"is_cancel"`
 	PublishRequest     *PublishRequest     `json:"publish,omitempty"`
 	SubscribeRequest   *SubscribeRequest   `json:"subscribe,omitempty"`
 	BarrierRequest     *BarrierRequest     `json:"barrier,omitempty"`

@@ -44,6 +44,7 @@ func (s *RedisService) SignalEntry(ctx context.Context, state string) (seq int64
 }
 
 func (s *RedisService) SignalEvent(ctx context.Context, key string, event interface{}) (err error) {
+	// TODO: THIS LOOKS EXACTLY THE SAME AS s.Publish
 	ev, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -57,4 +58,9 @@ func (s *RedisService) SignalEvent(ctx context.Context, key string, event interf
 
 	_, err = s.rclient.XAdd(args).Result()
 	return err
+}
+
+func (s *RedisService) SubscribeEvents(ctx context.Context, key string) error {
+	// TODO: THIS SEEMS TO BE EXACTLY THE SAME AS .Subscribe?
+	return nil
 }

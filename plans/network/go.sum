@@ -307,6 +307,8 @@ github.com/testground/sdk-go v0.2.8-0.20210212144316-a133a9a688d9 h1:nxn9WpClyo9
 github.com/testground/sdk-go v0.2.8-0.20210212144316-a133a9a688d9/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
 github.com/testground/sdk-go v0.2.8-0.20210212151226-b1f8f925486f h1:T/TJgtsGX8ArFt4t3heAc3swlyxYy6CrTfrB/zgA+Lo=
 github.com/testground/sdk-go v0.2.8-0.20210212151226-b1f8f925486f/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
+github.com/testground/sdk-go v0.2.8-0.20210213095222-c3f87394ed3d h1:EqObE2F6XygmZdCeYSleOEz+mpD8cHBAJA36QEn9uhE=
+github.com/testground/sdk-go v0.2.8-0.20210213095222-c3f87394ed3d/go.mod h1:h91nxtRIcWkDc4jZxIQXdP4axWACTeQ1FswquWD4hm0=
 github.com/testground/testground v0.5.3 h1:WSfB6njhk0IGyMKr7Ky4jBa2k1rct4Oen11bio1fHFI=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
 github.com/testground/testground/pkg/sync v0.0.0-20210209132443-6a85d538cc52 h1:XSw6osjTgol1KvjnVcvf2Dab3qdvfWpXJxzF/RQ3RIE=

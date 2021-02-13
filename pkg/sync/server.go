@@ -62,10 +62,11 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conn := &connection{
-		Conn:      c,
-		service:   s.service,
-		ctx:       r.Context(),
-		responses: make(chan *Response),
+		Conn:        c,
+		service:     s.service,
+		ctx:         r.Context(),
+		responses:   make(chan *Response),
+		cancelFuncs: map[string]context.CancelFunc{},
 	}
 
 	go func() {

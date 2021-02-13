@@ -3,8 +3,10 @@ package sync
 import (
 	"context"
 	"errors"
+	"github.com/testground/testground/pkg/logging"
 	"nhooyr.io/websocket"
 	"nhooyr.io/websocket/wsjson"
+	"sync"
 	"time"
 )
 
@@ -13,6 +15,11 @@ type connection struct {
 	service   Service
 	ctx       context.Context
 	responses chan *Response
+
+	// cancelFuncs contains cancel functions for requests that can
+	// be canceled, such as subscribes.
+	cancelFuncs   map[string]context.CancelFunc
+	cancelFuncsMu sync.RWMutex
 }
 
 func (c *connection) consumeRequests() error {
@@ -20,6 +27,19 @@ func (c *connection) consumeRequests() error {
 		req, err := c.readTimeout(time.Hour)
 		if err != nil {
 			return err
+		}
+
+		if req.IsCancel {
+			var cancel context.CancelFunc
+			c.cancelFuncsMu.Lock()
+			cancel = c.cancelFuncs[req.ID]
+			delete(c.cancelFuncs, req.ID)
+			c.cancelFuncsMu.Unlock()
+
+			if cancel == nil {
+				logging.S().Warnw("attempt to cancel uncancellable request", "id", req.ID)
+				continue
+			}
 		}
 
 		switch {
@@ -54,7 +74,12 @@ func (c *connection) publishHandler(id string, req *PublishRequest) {
 }
 
 func (c *connection) subscribeHandler(id string, req *SubscribeRequest) {
-	sub, err := c.service.Subscribe(c.ctx, req.Topic)
+	ctx, cancel := context.WithCancel(c.ctx)
+	c.cancelFuncsMu.Lock()
+	c.cancelFuncs[id] = cancel
+	c.cancelFuncsMu.Unlock()
+
+	sub, err := c.service.Subscribe(ctx, req.Topic)
 	if err != nil {
 		c.responses <- &Response{ID: id, Error: err.Error()}
 		return
