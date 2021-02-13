@@ -38,8 +38,8 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
-	github.com/testground/sdk-go v0.2.8-0.20210213114614-134b53d72b7d
-	github.com/testground/testground/pkg/sync v0.0.0-20210209132443-6a85d538cc52
+	github.com/testground/sdk-go v0.2.8-0.20210213125302-c720fd1fbe90
+	github.com/testground/testground/pkg/sync v0.0.0-20210213121426-110b24f9530b
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
