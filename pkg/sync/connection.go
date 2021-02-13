@@ -49,8 +49,8 @@ func (c *connection) consumeRequests() error {
 			go c.subscribeHandler(req.ID, req.SubscribeRequest)
 		case req.BarrierRequest != nil:
 			go c.barrierHandler(req.ID, req.BarrierRequest)
-		case req.SignalEventRequest != nil:
-			go c.signalEventHandler(req.ID, req.SignalEventRequest)
+		//case req.SignalEventRequest != nil:
+		//	go c.signalEventHandler(req.ID, req.SignalEventRequest)
 		case req.SignalEntryRequest != nil:
 			go c.signalEntryHandler(req.ID, req.SignalEntryRequest)
 		}
@@ -129,17 +129,17 @@ func (c *connection) signalEntryHandler(id string, req *SignalEntryRequest) {
 	c.responses <- resp
 }
 
-func (c *connection) signalEventHandler(id string, req *SignalEventRequest) {
-	ctx, cancel := context.WithTimeout(c.ctx, time.Second*10)
-	defer cancel()
-
-	resp := &Response{ID: id}
-	err := c.service.SignalEvent(ctx, req.Key, req.Event)
-	if err != nil {
-		resp.Error = err.Error()
-	}
-	c.responses <- resp
-}
+//func (c *connection) signalEventHandler(id string, req *SignalEventRequest) {
+//	ctx, cancel := context.WithTimeout(c.ctx, time.Second*10)
+//	defer cancel()
+//
+//	resp := &Response{ID: id}
+//	err := c.service.SignalEvent(ctx, req.Key, req.Event)
+//	if err != nil {
+//		resp.Error = err.Error()
+//	}
+//	c.responses <- resp
+//}
 
 func (c *connection) consumeResponses() error {
 	for {
