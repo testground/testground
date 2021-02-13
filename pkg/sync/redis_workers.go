@@ -146,7 +146,6 @@ func (s *RedisService) barrierWorker() {
 	}
 }
 
-
 func (s *RedisService) subscriptionWorker() {
 	defer s.wg.Done()
 

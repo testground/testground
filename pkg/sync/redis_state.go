@@ -2,8 +2,6 @@ package sync
 
 import (
 	"context"
-	"encoding/json"
-	"github.com/go-redis/redis/v7"
 )
 
 func (s *RedisService) Barrier(ctx context.Context, state string, target int64) (err error) {
@@ -43,6 +41,7 @@ func (s *RedisService) SignalEntry(ctx context.Context, state string) (seq int64
 	return seq, err
 }
 
+/*
 func (s *RedisService) SignalEvent(ctx context.Context, key string, event interface{}) (err error) {
 	// TODO: THIS LOOKS EXACTLY THE SAME AS s.Publish
 	ev, err := json.Marshal(event)
@@ -63,4 +62,4 @@ func (s *RedisService) SignalEvent(ctx context.Context, key string, event interf
 func (s *RedisService) SubscribeEvents(ctx context.Context, key string) error {
 	// TODO: THIS SEEMS TO BE EXACTLY THE SAME AS .Subscribe?
 	return nil
-}
+} */

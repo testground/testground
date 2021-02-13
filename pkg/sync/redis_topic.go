@@ -30,10 +30,11 @@ func (s *RedisService) Publish(ctx context.Context, topic string, payload interf
 
 	// Perform a Redis transaction, adding the item to the stream and fetching
 	// the XLEN of the stream.
-	args := new(redis.XAddArgs)
-	args.ID = "*"
-	args.Stream = topic
-	args.Values = map[string]interface{}{RedisPayloadKey: bytes}
+	args := &redis.XAddArgs{
+		Stream: topic,
+		ID:     "*",
+		Values: map[string]interface{}{RedisPayloadKey: bytes},
+	}
 
 	pipe := s.rclient.TxPipeline()
 	_ = pipe.XAdd(args)

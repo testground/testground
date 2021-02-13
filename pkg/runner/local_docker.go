@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"github.com/testground/testground/pkg/logging"
 	"io"
 	"net"
 	"os"
@@ -36,6 +37,8 @@ import (
 
 	"github.com/imdario/mergo"
 	"golang.org/x/sync/errgroup"
+
+	ss "github.com/testground/sdk-go/sync"
 )
 
 const InfraMaxFilesUlimit int64 = 1048576
@@ -95,6 +98,7 @@ type LocalDockerRunner struct {
 	outputsDir       string
 
 	// syncClient *ss.WatchClient
+	syncClient *ss.DefaultClient
 }
 
 func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
@@ -168,40 +172,28 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	return hh.RunChecks(ctx, fix)
 }
 
-func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	//events, err := c.syncClient.FetchAllEvents(template)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//for _, e := range events {
-	//	// for now we emit only outcome OK events, so no need for more checks
-	//	if e.SuccessEvent != nil {
-	//		se := e.SuccessEvent
-	//		o := result.Outcomes[se.TestGroupID]
-	//		o.Ok = o.Ok + 1
-	//	}
-	//}
-	//
-	//result.Outcome = task.OutcomeSuccess
-	//if len(result.Outcomes) == 0 {
-	//	result.Outcome = task.OutcomeFailure
-	//}
-	//for g := range result.Outcomes {
-	//	if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-	//		result.Outcome = task.OutcomeFailure
-	//		break
-	//	}
-	//}
-
-	return nil
-}
-
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
-	//if r.syncClient == nil {
-	//	TODO: WLock and only cvhange if nil
-	//}
+	log := ow.With("runner", "local:docker", "run_id", input.RunID)
 
+	// Setup sync client if not already.
+	r.lk.Lock()
+	if r.syncClient == nil {
+		err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
+		if err != nil {
+			r.lk.Unlock()
+			log.Error(err)
+			return
+		}
+
+		//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+		r.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
+		if err != nil {
+			r.lk.Unlock()
+			log.Error(err)
+			return
+		}
+	}
+	r.lk.Unlock()
 
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
@@ -213,14 +205,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		RunID:  input.RunID,
 		Result: result,
 	}
-
-	log := ow.With("runner", "local:docker", "run_id", input.RunID)
-
-	//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-	//if err != nil {
-	//	log.Error(err)
-	//	return
-	//}
 
 	defer func() {
 		if ctx.Err() == context.Canceled {
@@ -393,6 +377,47 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	ctxContainers, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	ctxEvents, cancelEvents := context.WithCancel(ctxContainers)
+	defer cancelEvents()
+	eventsCh, err := r.syncClient.SubscribeEvents(ctx, &template)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+	eventsWait := sync.WaitGroup{}
+
+	go func() {
+		eventsWait.Add(1)
+		for {
+			select {
+			case <-ctxEvents.Done():
+				goto calculateOutcome
+			case e := <-eventsCh:
+				// for now we emit only outcome OK events, so no need for more checks
+				if e.SuccessEvent != nil {
+					se := e.SuccessEvent
+					o := result.Outcomes[se.TestGroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
+		}
+
+	calculateOutcome:
+		result.Outcome = task.OutcomeSuccess
+		if len(result.Outcomes) == 0 {
+			result.Outcome = task.OutcomeFailure
+		}
+
+		for g := range result.Outcomes {
+			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+				result.Outcome = task.OutcomeFailure
+				break
+			}
+		}
+
+		eventsWait.Done()
+	}()
+
 	log.Infow("starting containers", "count", len(containers))
 
 	g, gctx := errgroup.WithContext(ctxContainers)
@@ -513,10 +538,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	select {
 	case err = <-doneCh:
-		erru := r.updateRunResult(&template, result)
-		if erru != nil {
-			ow.Errorw("could not update run result", "err", erru)
-		}
+		cancelEvents()
+		eventsWait.Wait()
 	case <-ctx.Done():
 		err = ctx.Err()
 	}

@@ -9,7 +9,6 @@ type Service interface {
 	Subscribe(ctx context.Context, topic string) (*Subscription, error)
 	Barrier(ctx context.Context, state string, target int64) error
 	SignalEntry(ctx context.Context, state string) (after int64, err error)
-	SignalEvent(ctx context.Context, key string, event interface{}) error
 }
 
 // Subscription represents a subscription to a certain topic to which
@@ -51,12 +50,13 @@ type SignalEntryResponse struct {
 	Seq int64 `json:"seq"`
 }
 
+/*
 // SignalEventRequest represents a signal event request.
 // TODO: THIS LOOKS EXACTLY THE SAME AS PUBLISH REQUEST, KEY = TOPIC, EVENT = PAYLOAD
 type SignalEventRequest struct {
 	Key   string      `json:""`
 	Event interface{} `json:"event"`
-}
+} */
 
 // Request represents a request from the test instance to the sync service.
 // The request ID must be present and one of the requests must be non-nil.
@@ -68,7 +68,6 @@ type Request struct {
 	SubscribeRequest   *SubscribeRequest   `json:"subscribe,omitempty"`
 	BarrierRequest     *BarrierRequest     `json:"barrier,omitempty"`
 	SignalEntryRequest *SignalEntryRequest `json:"signal_entry,omitempty"`
-	SignalEventRequest *SignalEventRequest `json:"signal_event,omitempty"`
 }
 
 // Response represents a response from the sync service to a test instance.

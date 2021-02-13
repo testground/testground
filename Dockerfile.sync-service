@@ -34,7 +34,7 @@ COPY --from=0 /static /static
 COPY --from=0 /tmpl /tmpl
 ENV PATH="/:/usr/local/bin:${PATH}"
 
-EXPOSE 8050
+EXPOSE 5050
 
 WORKDIR "/"
 

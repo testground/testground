@@ -61,10 +61,13 @@ func (s *Server) handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+
 	conn := &connection{
 		Conn:        c,
 		service:     s.service,
-		ctx:         r.Context(),
+		ctx:         ctx,
 		responses:   make(chan *Response),
 		cancelFuncs: map[string]context.CancelFunc{},
 	}
