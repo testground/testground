@@ -88,7 +88,7 @@ func (c *connection) subscribeHandler(id string, req *SubscribeRequest) {
 		case data := <-sub.outCh:
 			c.responses <- &Response{ID: id, SubscribeResponse: data}
 		case err = <-sub.doneCh:
-			if errors.Is(err, context.Canceled) {
+			if err == nil || errors.Is(err, context.Canceled) {
 				// Cancelled by the user.
 				return
 			}

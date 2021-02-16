@@ -2,4 +2,4 @@ module github.com/testground/testground/plans/splitbrain
 
 go 1.14
 
-require github.com/testground/sdk-go v0.2.6-0.20201016180515-1e40e1b0ec3a
+require github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c

@@ -97,7 +97,6 @@ type LocalDockerRunner struct {
 	controlNetworkID string
 	outputsDir       string
 
-	// syncClient *ss.WatchClient
 	syncClient *ss.DefaultClient
 }
 
@@ -186,7 +185,6 @@ func (r *LocalDockerRunner) setupSyncClient() error {
 		return err
 	}
 
-	//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
 	r.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
 	if err != nil {
 		return err
