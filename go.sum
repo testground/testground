@@ -385,12 +385,6 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401 h1:h9FML1FUPWJgWXa5DxYYMgApb4UNYLw67/Qr0F7hdhY=
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401/go.mod h1:MT3F6oeXhaO0bwhclY7dbOxKVfuDuWuO9YHy+TZvgNc=
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
-github.com/testground/sdk-go v0.2.8-0.20210213125302-c720fd1fbe90 h1:+JPsk8bvYsGDzrEaYv9S4XZLonOSo2X+wQuCjDzdgPI=
-github.com/testground/sdk-go v0.2.8-0.20210213125302-c720fd1fbe90/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
-github.com/testground/sdk-go v0.2.8-0.20210216134352-ea0513f4db5c h1:+n0OHBJ0+1Ai1arqRxxWpUnWywxm5Kao0vrY1hotmyY=
-github.com/testground/sdk-go v0.2.8-0.20210216134352-ea0513f4db5c/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
-github.com/testground/sdk-go v0.2.8-0.20210216135855-e85405f76293 h1:Wm/P2jQsRGuwFnuRFy11/iBgZp0i6VK+78UJTyrolbA=
-github.com/testground/sdk-go v0.2.8-0.20210216135855-e85405f76293/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
 github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c h1:RHgQ7HqhKZcRInSgOTHRnHMPHdl7Q+ZjtBWsXXrdQvI=
 github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
