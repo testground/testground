@@ -198,6 +198,8 @@ func (s *RedisService) subscriptionWorker() {
 			go monitorCtx(sub)
 			sub.resultCh <- nil
 
+			log.Debugw("added subscription", "topic", sub.topic)
+
 		case subs := <-rmSubCh:
 			// interrupt consumer and wait until it yields, before accessing subscriptions.
 			err := consumer.interrupt()

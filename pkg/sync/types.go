@@ -50,14 +50,6 @@ type SignalEntryResponse struct {
 	Seq int64 `json:"seq"`
 }
 
-/*
-// SignalEventRequest represents a signal event request.
-// TODO: THIS LOOKS EXACTLY THE SAME AS PUBLISH REQUEST, KEY = TOPIC, EVENT = PAYLOAD
-type SignalEventRequest struct {
-	Key   string      `json:""`
-	Event interface{} `json:"event"`
-} */
-
 // Request represents a request from the test instance to the sync service.
 // The request ID must be present and one of the requests must be non-nil.
 // The ID will be used on further responses.

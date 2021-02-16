@@ -40,26 +40,3 @@ func (s *RedisService) SignalEntry(ctx context.Context, state string) (seq int64
 	s.log.Debugw("new value of state", "key", state, "value", seq)
 	return seq, err
 }
-
-/*
-func (s *RedisService) SignalEvent(ctx context.Context, key string, event interface{}) (err error) {
-	// TODO: THIS LOOKS EXACTLY THE SAME AS s.Publish
-	ev, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	args := &redis.XAddArgs{
-		Stream: key,
-		ID:     "*",
-		Values: map[string]interface{}{RedisPayloadKey: ev},
-	}
-
-	_, err = s.rclient.XAdd(args).Result()
-	return err
-}
-
-func (s *RedisService) SubscribeEvents(ctx context.Context, key string) error {
-	// TODO: THIS SEEMS TO BE EXACTLY THE SAME AS .Subscribe?
-	return nil
-} */

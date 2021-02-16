@@ -172,28 +172,81 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	return hh.RunChecks(ctx, fix)
 }
 
+// setupSyncClient sets up the sync client if it is not set up already.
+func (r *LocalDockerRunner) setupSyncClient() error {
+	r.lk.Lock()
+	defer r.lk.Unlock()
+
+	if r.syncClient != nil {
+		return nil
+	}
+
+	err := os.Setenv(ss.EnvServiceHost, "127.0.0.1")
+	if err != nil {
+		return err
+	}
+
+	//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+	r.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, wg *sync.WaitGroup, tpl *runtime.RunParams) (context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	eventsCh, err := r.syncClient.SubscribeEvents(ctx, tpl)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+
+	wg.Add(1)
+	go func() {
+		running := true
+		for running {
+			select {
+			case <-ctx.Done():
+				running = false
+			case e := <-eventsCh:
+				// for now we emit only outcome OK events, so no need for more checks
+				if e.SuccessEvent != nil {
+					se := e.SuccessEvent
+					o := result.Outcomes[se.TestGroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
+		}
+
+		result.Outcome = task.OutcomeSuccess
+		if len(result.Outcomes) == 0 {
+			result.Outcome = task.OutcomeFailure
+		}
+
+		for g := range result.Outcomes {
+			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+				result.Outcome = task.OutcomeFailure
+				break
+			}
+		}
+
+		wg.Done()
+	}()
+
+	return cancel, nil
+}
+
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
 	log := ow.With("runner", "local:docker", "run_id", input.RunID)
 
-	// Setup sync client if not already.
-	r.lk.Lock()
-	if r.syncClient == nil {
-		err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
-		if err != nil {
-			r.lk.Unlock()
-			log.Error(err)
-			return
-		}
-
-		//r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-		r.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
-		if err != nil {
-			r.lk.Unlock()
-			log.Error(err)
-			return
-		}
+	err = r.setupSyncClient()
+	if err != nil {
+		r.lk.Unlock()
+		log.Error(err)
+		return
 	}
-	r.lk.Unlock()
 
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
@@ -377,46 +430,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	ctxContainers, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ctxEvents, cancelEvents := context.WithCancel(ctxContainers)
-	defer cancelEvents()
-	eventsCh, err := r.syncClient.SubscribeEvents(ctx, &template)
-	if err != nil {
-		log.Error(err)
-		return
-	}
-	eventsWait := sync.WaitGroup{}
-
-	go func() {
-		eventsWait.Add(1)
-		for {
-			select {
-			case <-ctxEvents.Done():
-				goto calculateOutcome
-			case e := <-eventsCh:
-				// for now we emit only outcome OK events, so no need for more checks
-				if e.SuccessEvent != nil {
-					se := e.SuccessEvent
-					o := result.Outcomes[se.TestGroupID]
-					o.Ok = o.Ok + 1
-				}
-			}
-		}
-
-	calculateOutcome:
-		result.Outcome = task.OutcomeSuccess
-		if len(result.Outcomes) == 0 {
-			result.Outcome = task.OutcomeFailure
-		}
-
-		for g := range result.Outcomes {
-			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-				result.Outcome = task.OutcomeFailure
-				break
-			}
-		}
-
-		eventsWait.Done()
-	}()
+	eventsWg := sync.WaitGroup{}
+	eventsCancel, err := r.collectOutcomes(ctxContainers, result, &eventsWg, &template)
+	defer eventsCancel()
 
 	log.Infow("starting containers", "count", len(containers))
 
@@ -538,8 +554,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	select {
 	case err = <-doneCh:
-		cancelEvents()
-		eventsWait.Wait()
+		eventsCancel()
+		eventsWg.Wait()
+		fmt.Println(result.Outcome)
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
