@@ -34,6 +34,7 @@ func syncCommand(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	service.EnableBackgroundGC(nil)
 
 	srv, err := sync.NewServer(service, 5050)
 	if err != nil {

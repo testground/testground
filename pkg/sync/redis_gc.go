@@ -1,10 +1,5 @@
 package sync
 
-// TODO: this code was from sdk-go. Think about implementation of the GC for this centralized service.
-
-/*
-package sync
-
 import (
 	"time"
 
@@ -24,10 +19,10 @@ var GCFrequency = 30 * time.Minute
 //
 // An optional notifyCh can be passed in to be notified everytime GC runs, with
 // the result of each run. This is mostly used for testing.
-func (c *DefaultClient) EnableBackgroundGC(notifyCh chan error) {
+func (s *RedisService) EnableBackgroundGC(notifyCh chan error) {
 	go func() {
 		for {
-			err := c.RunGC()
+			err := s.RunGC()
 
 			select {
 			case notifyCh <- err:
@@ -36,7 +31,7 @@ func (c *DefaultClient) EnableBackgroundGC(notifyCh chan error) {
 
 			select {
 			case <-time.After(GCFrequency):
-			case <-c.ctx.Done():
+			case <-s.ctx.Done():
 				return
 			}
 		}
@@ -47,35 +42,35 @@ func (c *DefaultClient) EnableBackgroundGC(notifyCh chan error) {
 // with SCAN, fetching the last access time of all keys via a pipelined OBJECT
 // IDLETIME, and deleting the keys that have been idle for greater or equal to
 // GCLastAccessThreshold.
-func (c *DefaultClient) RunGC() error {
+func (s *RedisService) RunGC() error {
 	var (
 		del    []string // delete set, recycled.
 		cursor uint64   // Redis cursor ID, reset on every iteration.
 		purged int64
 	)
 
-	c.log.Infow("sync gc: running", "expiry_threshold", GCLastAccessThreshold)
-	defer func() { c.log.Infow("sync gc: finished", "purged", purged) }()
+	s.log.Infow("sync gc: running", "expiry_threshold", GCLastAccessThreshold)
+	defer func() { s.log.Infow("sync gc: finished", "purged", purged) }()
 
 	for ok := true; ok; ok = cursor != 0 {
 		del = del[:0]
 
-		keys, crsor, err := c.rclient.Scan(cursor, "", 50).Result()
+		keys, crsor, err := s.rclient.Scan(cursor, "", 50).Result()
 		if err != nil {
-			c.log.Warnw("sync gc: failed to scan keys", "error", err)
+			s.log.Warnw("sync gc: failed to scan keys", "error", err)
 			return err
 		}
 
 		cursor = crsor
 
 		// Execute a Redis pipeline to fetch idle times for keys.
-		p := c.rclient.Pipeline()
+		p := s.rclient.Pipeline()
 		idletimes := make([]*redis.DurationCmd, 0, len(keys))
 		for _, k := range keys {
 			idletimes = append(idletimes, p.ObjectIdleTime(k))
 		}
 		if _, err = p.Exec(); err != nil {
-			c.log.Warnw("sync gc: failed to obtain object idle times", "error", err)
+			s.log.Warnw("sync gc: failed to obtain object idle times", "error", err)
 			return err
 		}
 
@@ -83,7 +78,7 @@ func (c *DefaultClient) RunGC() error {
 		for i, it := range idletimes {
 			t, err := it.Result()
 			if err != nil {
-				c.log.Warnw("sync gc: failed to obtain object idle time for key; skipping", "key", keys[i], "error", err)
+				s.log.Warnw("sync gc: failed to obtain object idle time for key; skipping", "key", keys[i], "error", err)
 				return err
 			}
 			if t >= GCLastAccessThreshold {
@@ -97,20 +92,18 @@ func (c *DefaultClient) RunGC() error {
 		}
 
 		// Delete the keys that have been inactive for too long.
-		delcnt, err := c.rclient.Del(del...).Result()
+		delcnt, err := s.rclient.Del(del...).Result()
 		if err != nil {
-			c.log.Warnw("sync gc: failed to delete keys", "error", err)
+			s.log.Warnw("sync gc: failed to delete keys", "error", err)
 			return err
 		}
 
 		// Check that the expected amount of keys were deleted.
 		if l := len(del); int64(l) != delcnt {
-			c.log.Warnw("sync gc: less keys deleted than expected", "expected", l, "actual", delcnt)
+			s.log.Warnw("sync gc: less keys deleted than expected", "expected", l, "actual", delcnt)
 		}
 
 		purged += delcnt
 	}
 	return nil
 }
-
- */

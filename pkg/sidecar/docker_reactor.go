@@ -52,9 +52,6 @@ func NewDockerReactor() (Reactor, error) {
 		return nil, err
 	}
 
-	// sidecar nodes perform Redis GC.
-	// TODO(hacdias): client.EnableBackgroundGC(nil)
-
 	cache, _ := lru.New(32)
 
 	r := &DockerReactor{
