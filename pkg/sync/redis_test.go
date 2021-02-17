@@ -96,16 +96,13 @@ func TestBarrier(t *testing.T) {
 	defer service.Close()
 
 	state := "yoda"
-	go func() {
-		for i := 1; i <= 10; i++ {
-			if curr, err := service.SignalEntry(ctx, state); err != nil {
-				t.Fatal(err)
-			} else if curr != int64(i) {
-				t.Fatalf("expected current count to be: %d; was: %d", i, curr)
-			}
+	for i := 1; i <= 10; i++ {
+		if curr, err := service.SignalEntry(ctx, state); err != nil {
+			t.Fatal(err)
+		} else if curr != int64(i) {
+			t.Fatalf("expected current count to be: %d; was: %d", i, curr)
 		}
-
-	}()
+	}
 
 	err = service.Barrier(ctx, state, 10)
 	if err != nil {
@@ -149,10 +146,8 @@ func TestBarrierZero(t *testing.T) {
 	defer service.Close()
 
 	go func() {
-		select {
-		case <-time.After(3 * time.Second):
-			t.Error("expected test to finish")
-		}
+		time.Sleep(3 * time.Second)
+		t.Error("expected test to finish")
 	}()
 
 	err = service.Barrier(ctx, "apollo", 0)
@@ -201,10 +196,8 @@ func TestBarrierDeadline(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		select {
-		case <-time.After(3 * time.Second):
-			t.Error("expected a cancel")
-		}
+		time.Sleep(3 * time.Second)
+		t.Error("expected a cancel")
 	}()
 
 	err = service.Barrier(ctx, "yoda", 10)
