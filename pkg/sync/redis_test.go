@@ -1,9 +1,17 @@
 package sync
 
-// TODO: tests! The code below is copy-pasted from sdk-go.
-
-/*
-
+import (
+	"context"
+	"errors"
+	"fmt"
+	"github.com/testground/testground/pkg/logging"
+	"go.uber.org/zap"
+	"math/rand"
+	"os"
+	"os/exec"
+	"testing"
+	"time"
+)
 
 func TestMain(m *testing.M) {
 	// Avoid collisions in Redis keys over test runs.
@@ -35,7 +43,9 @@ func TestMain(m *testing.M) {
 func ensureRedis() (func() error, error) {
 	// Try to obtain a client; if this fails, we'll attempt to start a redis
 	// instance.
-	client, err := redisClient(context.Background(), zap.S())
+	client, err := redisClient(context.Background(), zap.S(), &RedisConfiguration{
+		Host: "localhost",
+	})
 	if err == nil {
 		_ = client.Close()
 		return func() error { return nil }, err
@@ -49,7 +59,9 @@ func ensureRedis() (func() error, error) {
 	time.Sleep(1 * time.Second)
 
 	// Try to obtain a client again.
-	if client, err = redisClient(context.Background(), zap.S()); err != nil {
+	if client, err = redisClient(context.Background(), zap.S(), &RedisConfiguration{
+		Host: "localhost",
+	}); err != nil {
 		return func() error { return nil }, fmt.Errorf("failed to obtain redis client despite starting instance: %v", err)
 	}
 	defer client.Close()
@@ -62,37 +74,37 @@ func ensureRedis() (func() error, error) {
 	}, nil
 }
 
+func getService(ctx context.Context) (*RedisService, error) {
+	return NewRedisService(ctx, logging.S(), &RedisConfiguration{
+		Port: 6379,
+		Host: "localhost",
+	})
+}
 
 func TestBarrier(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
-	state := State("yoda")
-	b, err := client.Barrier(ctx, state, 10)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ch := b.C
-
-	for i := 1; i <= 10; i++ {
-		if curr, err := client.SignalEntry(ctx, state); err != nil {
-			t.Fatal(err)
-		} else if curr != int64(i) {
-			t.Fatalf("expected current count to be: %d; was: %d", i, curr)
+	state := "yoda"
+	go func() {
+		for i := 1; i <= 10; i++ {
+			if curr, err := service.SignalEntry(ctx, state); err != nil {
+				t.Fatal(err)
+			} else if curr != int64(i) {
+				t.Fatalf("expected current count to be: %d; was: %d", i, curr)
+			}
 		}
-	}
 
-	if err := <-ch; err != nil {
+	}()
+
+	err = service.Barrier(ctx, state, 10)
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -101,27 +113,23 @@ func TestBarrierBeyondTarget(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
-	state := State("yoda")
+	state := "yoda"
 	for i := 1; i <= 20; i++ {
-		if curr, err := client.SignalEntry(ctx, state); err != nil {
+		if curr, err := service.SignalEntry(ctx, state); err != nil {
 			t.Fatal(err)
 		} else if curr != int64(i) {
 			t.Fatalf("expected current count to be: %d; was: %d", i, curr)
 		}
 	}
 
-	ch := client.MustBarrier(ctx, state, 10).C
-	if err := <-ch; err != nil {
+	err = service.Barrier(ctx, state, 10)
+	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -130,27 +138,22 @@ func TestBarrierZero(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
-	state := State("apollo")
-	ch := client.MustBarrier(ctx, state, 0).C
-
-	select {
-	case err := <-ch:
-		if err != nil {
-			t.Errorf("expected nil error, instead got: %s", err)
+	go func() {
+		select {
+		case <-time.After(3 * time.Second):
+			t.Error("expected test to finish")
 		}
-	case <-time.After(3 * time.Second):
-		t.Error("expected test to finish")
-		return
+	}()
+
+	err = service.Barrier(ctx, "apollo", 0)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -158,28 +161,25 @@ func TestBarrierCancel(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
-	state := State("yoda")
-	ch := client.MustBarrier(ctx, state, 10).C
-	cancel()
-
-	select {
-	case err := <-ch:
-		if err != context.Canceled {
-			t.Errorf("expected context cancelled error; instead got: %s", err)
+	go func() {
+		select {
+		case <-time.After(1 * time.Second):
+			cancel()
+		case <-time.After(3 * time.Second):
+			t.Error("expected a cancel")
 		}
-	case <-time.After(3 * time.Second):
-		t.Error("expected a cancel")
-		return
+	}()
+
+	err = service.Barrier(ctx, "yoda", 10)
+
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context cancelled error; instead got: %s", err)
 	}
 }
 
@@ -187,32 +187,32 @@ func TestBarrierDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
-	state := State("yoda")
 	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	ch := client.MustBarrier(ctx, state, 10).C
-
-	select {
-	case err := <-ch:
-		if err != context.DeadlineExceeded {
-			t.Errorf("expected deadline exceeded error; instead got: %s", err)
+	go func() {
+		select {
+		case <-time.After(3 * time.Second):
+			t.Error("expected a cancel")
 		}
-	case <-time.After(3 * time.Second):
-		t.Error("expected a cancel")
-		return
+	}()
+
+	err = service.Barrier(ctx, "yoda", 10)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context cancelled error; instead got: %s", err)
 	}
 }
+
+/*
+
+
+
 
 func TestInmemSignalAndWait(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -701,4 +701,4 @@ func generateTestValues(length int) []TestPayload {
 
 
 
- */
+*/
