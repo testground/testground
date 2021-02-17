@@ -430,6 +430,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	eventsWg := sync.WaitGroup{}
 	eventsCancel, err := r.collectOutcomes(ctxContainers, result, &eventsWg, &template)
+	if err != nil {
+		log.Error(err)
+		return
+	}
 	defer eventsCancel()
 
 	log.Infow("starting containers", "count", len(containers))
@@ -554,7 +558,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	case err = <-doneCh:
 		eventsCancel()
 		eventsWg.Wait()
-		fmt.Println(result.Outcome)
 	case <-ctx.Done():
 		err = ctx.Err()
 	}

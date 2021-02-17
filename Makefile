@@ -58,7 +58,7 @@ test-integ-local-docker:
 	./integration_tests/09_docker_splitbrain_accept.sh
 	./integration_tests/10_docker_splitbrain_reject.sh
 	./integration_tests/11_docker_splitbrain_drop.sh
-	./integration_tests/12_docker_example-js_pingpong.sh
+	# ./integration_tests/12_docker_example-js_pingpong.sh
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
