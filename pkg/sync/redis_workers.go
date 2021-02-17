@@ -150,8 +150,6 @@ func (s *RedisService) barrierWorker() {
 				continue
 			}
 
-			fmt.Println(barriers)
-
 			curr, err := strconv.ParseInt(v.(string), 10, 64)
 			if err != nil {
 				log.Warnw("failed to parse barrier value", "error", err, "value", v, "key", key)
@@ -185,7 +183,7 @@ func (s *RedisService) subscriptionWorker() {
 	defer s.wg.Done()
 
 	var (
-		active  = make(map[string]*subscription)
+		active  = make(map[string]*subscriptionWrapper)
 		rmSubCh = make(chan []*subscription, 1)
 	)
 
@@ -205,10 +203,12 @@ func (s *RedisService) subscriptionWorker() {
 
 	var finalErr error // error to broadcast to remaining subscribers upon returning.
 	defer func() {
-		for _, sub := range active {
-			sub.doneCh <- finalErr
-			close(sub.doneCh)
-			close(sub.outCh)
+		for _, wrap := range active {
+			for _, sub := range wrap.subs {
+				sub.doneCh <- finalErr
+				close(sub.doneCh)
+				close(sub.outCh)
+			}
 		}
 	}()
 
@@ -216,11 +216,6 @@ func (s *RedisService) subscriptionWorker() {
 		// Manage subscriptions.
 		select {
 		case sub := <-s.subCh:
-			if _, ok := active[sub.topic]; ok {
-				sub.resultCh <- fmt.Errorf("failed to add duplicate subscription")
-				continue
-			}
-
 			log.Debugw("adding subscription", "topic", sub.topic)
 
 			// interrupt consumer and wait until it yields, before mutating the active set.
@@ -229,7 +224,20 @@ func (s *RedisService) subscriptionWorker() {
 				panic(fmt.Sprintf("failed to interrupt consumer when adding subscription; exiting; err: %s", err))
 			}
 
-			active[sub.topic] = sub
+			if _, ok := active[sub.topic]; !ok {
+				active[sub.topic] = &subscriptionWrapper{
+					subs:    make(map[string]*subscription),
+					newSubs: make(map[string]*subscription),
+					lastID:  "0",
+				}
+
+				active[sub.topic].subs[sub.id] = sub
+			} else if active[sub.topic].lastID == "0" {
+				active[sub.topic].subs[sub.id] = sub
+			} else {
+				active[sub.topic].newSubs[sub.id] = sub
+			}
+
 			go monitorCtx(sub)
 			sub.resultCh <- nil
 
@@ -248,7 +256,9 @@ func (s *RedisService) subscriptionWorker() {
 				close(s.doneCh)
 				close(s.outCh)
 
-				delete(active, s.topic)
+				if len(active[s.topic].subs) == 0 && len(active[s.topic].newSubs) == 0 {
+					delete(active, s.topic)
+				}
 			}
 
 		case <-s.ctx.Done():

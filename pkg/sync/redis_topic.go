@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-redis/redis/v7"
+	"github.com/google/uuid"
 	"reflect"
 )
 
@@ -61,12 +62,12 @@ func (s *RedisService) Subscribe(ctx context.Context, topic string) (*Subscripti
 	}
 
 	sub := &subscription{
+		id:       uuid.New().String()[24:],
 		ctx:      ctx,
 		outCh:    make(chan interface{}),
 		doneCh:   make(chan error, 1),
 		resultCh: make(chan error),
 		topic:    topic,
-		lastid:   "0",
 	}
 
 	// sendFn is a closure that sends an element into the supplied ch and

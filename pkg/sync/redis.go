@@ -89,17 +89,16 @@ type barrier struct {
 // subscription represents a receive channel for data being published in a
 // Topic.
 type subscription struct {
+	id       string
 	ctx      context.Context
 	outCh    chan interface{}
 	doneCh   chan error
 	resultCh chan error
+	topic    string
 
 	// sendFn performs a select over outCh and the context, and returns true if
 	// we sent the value, or false if the context fired.
 	sendFn func(interface{}) (sent bool)
-
-	topic  string
-	lastid string
 }
 
 // redisClient returns a Redis client constructed from this process' environment

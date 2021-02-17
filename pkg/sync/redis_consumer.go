@@ -28,6 +28,12 @@ type subscriptionConsumer struct {
 	rmSubCh chan<- []*subscription
 }
 
+type subscriptionWrapper struct {
+	subs    map[string]*subscription
+	newSubs map[string]*subscription
+	lastID  string
+}
+
 func (sc *subscriptionConsumer) interrupt() error {
 	sc.log.Debugw("interrupting consumer")
 
@@ -63,7 +69,7 @@ func (sc *subscriptionConsumer) interrupt() error {
 	return nil
 }
 
-func (sc *subscriptionConsumer) resume(active map[string]*subscription) {
+func (sc *subscriptionConsumer) resume(active map[string]*subscriptionWrapper) {
 	if len(active) == 0 {
 		sc.log.Debugw("no subscriptions to consume, yielding")
 		return
@@ -79,7 +85,7 @@ func (sc *subscriptionConsumer) resume(active map[string]*subscription) {
 	go sc.consume(active)
 }
 
-func (sc *subscriptionConsumer) consume(active map[string]*subscription) {
+func (sc *subscriptionConsumer) consume(active map[string]*subscriptionWrapper) {
 	defer func() { sc.notifyCh <- struct{}{} }()
 
 	defer atomic.StoreInt32(&sc.state, StateStopped)
@@ -132,10 +138,16 @@ RegenerateConnection:
 	args.Block = 0  // block forever if no elements are available
 	args.Count = 10 // max 10 elements per stream
 
-	for k, s := range active {
+	for k, wrap := range active {
 		// STREAMS stream1 stream2 stream3 seek_key1 seek_key2 seek_key3
 		args.Streams[i] = k
-		args.Streams[cnt+i] = s.lastid
+
+		if len(wrap.newSubs) > 0 {
+			args.Streams[cnt+i] = "0"
+		} else {
+			args.Streams[cnt+i] = wrap.lastID
+		}
+
 		rev[k] = cnt + i
 		i++
 	}
@@ -156,26 +168,51 @@ RegenerateConnection:
 				continue
 			}
 
-			sub, ok := active[xr.Stream]
+			wrap, ok := active[xr.Stream]
 			if !ok {
 				sc.log.Debugw("XREAD response: rcvd messages for a stream we're not subscribed to", "key", xr.Stream)
 				continue
 			}
 
+			toNewSubs := len(wrap.newSubs) > 0
 			for _, msg := range xr.Messages {
 				payload := msg.Values[RedisPayloadKey]
 
-				sc.log.Debugw("dispatching message to subscriber", "key", xr.Stream, "id", msg.ID)
-
-				if sent := sub.sendFn(payload); !sent {
-					// we could not send value because context fired.
-					// skip all further messages on this stream, and queue for
-					// removal.
-					sc.log.Debugw("context was closed when dispatching message to subscriber; rm subscription", "key", xr.Stream, "id", msg.ID)
-					rmSub = append(rmSub, sub)
-					break
+				var subs map[string]*subscription
+				if toNewSubs {
+					subs = wrap.newSubs
+				} else {
+					subs = wrap.subs
 				}
-				sub.lastid = msg.ID
+
+				for _, sub := range subs {
+					sc.log.Debugw("dispatching message to subscriber", "key", xr.Stream, "id", msg.ID, "sub", sub.id)
+
+					if sent := sub.sendFn(payload); !sent {
+						// we could not send value because context fired.
+						// skip all further messages on this stream, and queue for
+						// removal.
+						sc.log.Debugw("context was closed when dispatching message to subscriber; rm subscription", "key", xr.Stream, "id", msg.ID)
+						rmSub = append(rmSub, sub)
+						delete(subs, sub.id)
+						continue
+					}
+				}
+
+				if toNewSubs {
+					if msg.ID == wrap.lastID {
+						toNewSubs = false
+
+						// move the new subs to the regular subs map
+						for k, v := range wrap.newSubs {
+							wrap.subs[k] = v
+							delete(wrap.newSubs, k)
+						}
+					}
+				} else {
+					wrap.lastID = msg.ID
+				}
+
 			}
 		}
 
@@ -187,8 +224,12 @@ RegenerateConnection:
 		}
 
 		// Update the XREAD request.
-		for k, v := range active {
-			args.Streams[rev[k]] = v.lastid
+		for k, wrap := range active {
+			if len(wrap.newSubs) > 0 {
+				args.Streams[rev[k]] = "0"
+			} else {
+				args.Streams[rev[k]] = wrap.lastID
+			}
 		}
 	}
 }
