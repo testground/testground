@@ -2,10 +2,14 @@ package sync
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/go-redis/redis/v7"
+	"github.com/google/uuid"
 	"github.com/testground/testground/pkg/logging"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -209,104 +213,16 @@ func TestBarrierDeadline(t *testing.T) {
 	}
 }
 
-/*
-
-
-
-
-func TestInmemSignalAndWait(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client := NewInmemClient()
-	defer client.Close()
-
-	grp, ctx := errgroup.WithContext(ctx)
-	for i := 0; i < 10; i++ {
-		grp.Go(func() error {
-			_, err := client.SignalAndWait(ctx, State("amber"), 10)
-			return err
-		})
-	}
-
-	if err := grp.Wait(); err != nil {
-		t.Fatal(err)
-	}
-}
-func TestSignalAndWait(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
-
-	grp, ctx := errgroup.WithContext(ctx)
-	for i := 0; i < 10; i++ {
-		grp.Go(func() error {
-			_, err := client.SignalAndWait(ctx, State("amber"), 10)
-			return err
-		})
-	}
-
-	if err := grp.Wait(); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSignalAndWaitTimeout(t *testing.T) {
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(context.Background(), runenv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer client.Close()
-
-	grp, ctx := errgroup.WithContext(context.Background())
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	// launch only 9 instead of 10.
-	for i := 0; i < 9; i++ {
-		grp.Go(func() error {
-			_, err := client.SignalAndWait(ctx, State("amber"), 10)
-			return err
-		})
-	}
-
-	if err := grp.Wait(); err != context.DeadlineExceeded {
-		t.Fatalf("expected context deadline exceeded error; got: %s", err)
-	}
-}
-
 func TestGC(t *testing.T) {
 	GCLastAccessThreshold = 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	client, err := NewBoundClient(ctx, runenv)
+	service, err := getService(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer client.Close()
+	defer service.Close()
 
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
@@ -314,14 +230,14 @@ func TestGC(t *testing.T) {
 
 	// Create 200 keys.
 	for i := 1; i <= 200; i++ {
-		state := State(fmt.Sprintf("%s-%d", prefix, i))
-		if _, err := client.SignalEntry(ctx, state); err != nil {
+		state := fmt.Sprintf("%s-%d", prefix, i)
+		if _, err := service.SignalEntry(ctx, state); err != nil {
 			t.Fatal(err)
 		}
 	}
 
 	pattern := "*" + prefix + "*"
-	keys, _ := client.rclient.Keys(pattern).Result()
+	keys, _ := service.rclient.Keys(pattern).Result()
 	if l := len(keys); l != 200 {
 		t.Fatalf("expected 200 keys matching %s; got: %d", pattern, l)
 	}
@@ -329,47 +245,14 @@ func TestGC(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	ch := make(chan error, 1)
-	client.EnableBackgroundGC(ch)
+	service.EnableBackgroundGC(ch)
 
 	<-ch
 
-	keys, _ = client.rclient.Keys(pattern).Result()
+	keys, _ = service.rclient.Keys(pattern).Result()
 	if l := len(keys); l != 0 {
 		t.Fatalf("expected 0 keys matching %s; got: %d", pattern, l)
 	}
-}
-
-func TestRedisHost(t *testing.T) {
-	realRedisHost := os.Getenv(EnvRedisHost)
-	defer os.Setenv(EnvRedisHost, realRedisHost)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	_ = os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
-	client, err := redisClient(ctx, zap.S())
-	if err == nil {
-		_ = client.Close()
-		t.Error("should not have found redis host")
-	}
-
-	_ = os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
-	client, err = redisClient(ctx, zap.S())
-	if err == nil {
-		_ = client.Close()
-		t.Error("should not have found redis host")
-	}
-
-	realHost := realRedisHost
-	if realHost == "" {
-		realHost = "localhost"
-	}
-	_ = os.Setenv(EnvRedisHost, realHost)
-	client, err = redisClient(ctx, zap.S())
-	if err != nil {
-		t.Errorf("expected to establish connection to redis, but failed with: %s", err)
-	}
-	_ = client.Close()
 }
 
 func TestConnUnblock(t *testing.T) {
@@ -408,8 +291,7 @@ func TestConnUnblock(t *testing.T) {
 	}
 }
 
-
-
+/*
 type TestPayload struct {
 	FieldA string
 	FieldB struct {
@@ -419,81 +301,89 @@ type TestPayload struct {
 }
 
 func TestSubscribeAfterAllPublished(t *testing.T) {
-	var (
-		iterations      = 1000
-		runenv, cleanup = runtime.RandomTestRunEnv(t)
-	)
-
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
+	iterations := 1000
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := MustBoundClient(ctx, runenv)
-	defer client.Close()
+	service, err := getService(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
 
-	values := generateTestValues(iterations)
+	values := make([]TestPayload, 0, iterations)
+	for i := 0; i < iterations; i++ {
+		s := fmt.Sprintf("item-%d", i)
+		values = append(values, TestPayload{
+			FieldA: s,
+			FieldB: struct {
+				FieldB1 string
+				FieldB2 int
+			}{FieldB1: s, FieldB2: i},
+		})
+	}
 
-	run := func(pointer bool) func(*testing.T) {
-		return func(t *testing.T) {
-			topic := &Topic{name: fmt.Sprintf("pandemic:%v", pointer)}
-			if pointer {
-				topic.typ = reflect.TypeOf(&TestPayload{})
-			} else {
-				topic.typ = reflect.TypeOf(TestPayload{})
-			}
+	topic := fmt.Sprintf("pandemic:still2021")
 
-			produce(t, client, topic, values, pointer)
-
-			var ch interface{}
-			if pointer {
-				ch = make(chan *TestPayload, 128)
-			} else {
-				ch = make(chan TestPayload, 128)
-			}
-
-			_, err := client.Subscribe(ctx, topic, ch)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			consumeOrdered(t, ctx, ch, values)
+	for i, s := range values {
+		if seq, err := service.Publish(context.Background(), topic, s); err != nil {
+			t.Fatalf("failed while writing key to subtree: %s", err)
+		} else if seq != int64(i)+1 {
+			t.Fatalf("expected seq == i+1; seq: %d; i: %d", seq, i)
 		}
 	}
 
-	t.Run("pointer type", run(true))
-	t.Run("value type", run(false))
-}
+	sub, err := service.Subscribe(ctx, topic)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i, expected := range values {
+		chosen, recv, _ := reflect.Select([]reflect.SelectCase{
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(sub.outCh)},
+			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
+		})
+
+		switch chosen {
+		case 0:
+			if recv.Kind() == reflect.Ptr {
+				recv = recv.Elem()
+			}
+			if recv.Interface() != reflect.ValueOf(expected).Interface() {
+				t.Fatalf("expected value %v, got %v in position %d", expected, recv, i)
+			}
+		case 1:
+			t.Fatal("failed to receive all expected items within the deadline")
+		}
+	}
+} */
 
 func TestSubscribeFirstConcurrentWrites(t *testing.T) {
-	var (
-		iterations      = 1000
-		runenv, cleanup = runtime.RandomTestRunEnv(t)
-	)
-
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
+	iterations := 1000
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := MustBoundClient(ctx, runenv)
-	defer client.Close()
+	service, err := getService(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
 
-	topic := &Topic{name: "virus", typ: reflect.TypeOf("")}
+	topic := "virus:" + uuid.New().String()
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 
-	ch := make(chan string, 120)
-	_ = client.MustSubscribe(ctx, topic, ch)
+	sub, err := service.Subscribe(ctx, topic)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	grp, ctx := errgroup.WithContext(context.Background())
 	v := make([]bool, iterations)
 	for i := 0; i < iterations; i++ {
 		grp.Go(func() error {
-			seq, err := client.Publish(ctx, topic, "foo")
+			seq, err := service.Publish(ctx, topic, "foo")
 			if err != nil {
 				return err
 			}
@@ -514,30 +404,29 @@ func TestSubscribeFirstConcurrentWrites(t *testing.T) {
 
 	// receive all items.
 	for i := 0; i < iterations; i++ {
-		<-ch
+		<-sub.outCh
 	}
 
 	// no more items queued
-	if l := len(ch); l > 0 {
+	if l := len(sub.outCh); l > 0 {
 		t.Fatalf("expected no more items queued; got: %d", l)
 	}
 }
 
 func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 	var (
-		topics          = 100
-		iterations      = 100
-		runenv, cleanup = runtime.RandomTestRunEnv(t)
+		topics     = 100
+		iterations = 100
 	)
-
-	t.Cleanup(cleanup)
-	defer runenv.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := MustBoundClient(ctx, runenv)
-	defer client.Close()
+	service, err := getService(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
@@ -545,12 +434,12 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 	pgrp, ctx := errgroup.WithContext(context.Background())
 	sgrp, ctx := errgroup.WithContext(context.Background())
 	for i := 0; i < topics; i++ {
-		topic := &Topic{name: fmt.Sprintf("antigen-%d", i), typ: reflect.TypeOf("")}
+		topic := fmt.Sprintf("antigen-%d", i)
 
 		// launch producer.
 		pgrp.Go(func() error {
 			for i := 0; i < iterations; i++ {
-				_, err := client.Publish(ctx, topic, "foo")
+				_, err := service.Publish(ctx, topic, "foo")
 				if err != nil {
 					return err
 				}
@@ -560,10 +449,12 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 
 		// launch subscriber.
 		sgrp.Go(func() error {
-			ch := make(chan string, 120)
-			_ = client.MustSubscribe(ctx, topic, ch)
+			sub, err := service.Subscribe(ctx, topic)
+			if err != nil {
+				return err
+			}
 			for i := 0; i < iterations; i++ {
-				<-ch
+				<-sub.outCh
 			}
 			return nil
 		})
@@ -578,62 +469,24 @@ func TestSubscriptionConcurrentPublishersSubscribers(t *testing.T) {
 	}
 }
 
-func TestSubscriptionValidation(t *testing.T) {
-	runenv, cleanup := runtime.RandomTestRunEnv(t)
-	t.Cleanup(cleanup)
-	defer runenv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	client := MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	topic := &Topic{name: "immune", typ: reflect.TypeOf("")}
-
-	ctx, cancel = context.WithCancel(context.Background())
-
-	ch := make(chan string, 1)
-	_, err := client.Subscribe(ctx, topic, ch)
-	if err != nil {
-		t.Fatalf("expected nil error when adding subscription; got: %s", err)
-	}
-	_, err = client.Subscribe(ctx, topic, ch)
-	if err == nil {
-		t.Fatalf("expected non-nil error with duplicate subscription; got no error")
-	}
-
-	cancel()
-
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-
-	ch2 := make(chan struct{})
-	_, err = client.Subscribe(ctx, topic, ch2)
-	if err == nil {
-		t.Fatalf("expected non-nil error with incorrectly typed channel; got no error")
-	}
-}
-
 func TestSequenceOnWrite(t *testing.T) {
 	var (
-		iterations      = 1000
-		topic           = &Topic{name: "pandemic", typ: reflect.TypeOf("")}
-		runenv, cleanup = runtime.RandomTestRunEnv(t)
+		iterations = 1000
+		topic      = "pandemic:" + uuid.New().String()
 	)
-
-	t.Cleanup(cleanup)
-	defer runenv.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client := MustBoundClient(ctx, runenv)
-	defer client.Close()
+	service, err := getService(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
 
 	s := "a"
 	for i := 1; i <= iterations; i++ {
-		seq, err := client.Publish(ctx, topic, s)
+		seq, err := service.Publish(ctx, topic, s)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -644,61 +497,39 @@ func TestSequenceOnWrite(t *testing.T) {
 	}
 }
 
-func consumeOrdered(t *testing.T, ctx context.Context, ch interface{}, values []TestPayload) {
-	t.Helper()
+/*
 
-	for i, expected := range values {
-		chosen, recv, _ := reflect.Select([]reflect.SelectCase{
-			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)},
-			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
-		})
+func TestRedisHost(t *testing.T) {
+	realRedisHost := os.Getenv(EnvRedisHost)
+	defer os.Setenv(EnvRedisHost, realRedisHost)
 
-		switch chosen {
-		case 0:
-			if recv.Kind() == reflect.Ptr {
-				recv = recv.Elem()
-			}
-			if recv.Interface() != reflect.ValueOf(expected).Interface() {
-				t.Fatalf("expected value %v, got %v in position %d", expected, recv, i)
-			}
-		case 1:
-			t.Fatal("failed to receive all expected items within the deadline")
-		}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_ = os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
+	client, err := redisClient(ctx, zap.S())
+	if err == nil {
+		_ = client.Close()
+		t.Error("should not have found redis host")
 	}
-}
 
-func produce(t *testing.T, client *DefaultClient, topic *Topic, values []TestPayload, pointer bool) {
-	for i, s := range values {
-		var v interface{}
-		if pointer {
-			v = &s
-		} else {
-			v = s
-		}
-
-		if seq, err := client.Publish(context.Background(), topic, v); err != nil {
-			t.Fatalf("failed while writing key to subtree: %s", err)
-		} else if seq != int64(i)+1 {
-			t.Fatalf("expected seq == i+1; seq: %d; i: %d", seq, i)
-		}
+	_ = os.Setenv(EnvRedisHost, "redis-does-not-exist.example.com")
+	client, err = redisClient(ctx, zap.S())
+	if err == nil {
+		_ = client.Close()
+		t.Error("should not have found redis host")
 	}
-}
 
-func generateTestValues(length int) []TestPayload {
-	values := make([]TestPayload, 0, length)
-	for i := 0; i < length; i++ {
-		s := fmt.Sprintf("item-%d", i)
-		values = append(values, TestPayload{
-			FieldA: s,
-			FieldB: struct {
-				FieldB1 string
-				FieldB2 int
-			}{FieldB1: s, FieldB2: i},
-		})
+	realHost := realRedisHost
+	if realHost == "" {
+		realHost = "localhost"
 	}
-	return values
+	_ = os.Setenv(EnvRedisHost, realHost)
+	client, err = redisClient(ctx, zap.S())
+	if err != nil {
+		t.Errorf("expected to establish connection to redis, but failed with: %s", err)
+	}
+	_ = client.Close()
 }
-
-
 
 */

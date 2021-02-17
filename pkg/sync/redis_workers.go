@@ -256,6 +256,9 @@ func (s *RedisService) subscriptionWorker() {
 				close(s.doneCh)
 				close(s.outCh)
 
+				delete(active[s.topic].subs, s.id)
+				delete(active[s.topic].newSubs, s.id)
+
 				if len(active[s.topic].subs) == 0 && len(active[s.topic].newSubs) == 0 {
 					delete(active, s.topic)
 				}
