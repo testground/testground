@@ -9,29 +9,39 @@ import (
 func (s *RedisService) barrierWorker() {
 	defer s.wg.Done()
 
-	var (
-		pending []*barrier
-		keys    []string
-
-		log = s.log.With("process", "barriers")
-	)
+	pending := map[string][]*barrier{}
+	keys := []string{}
+	log := s.log.With("process", "barriers")
 
 	// remove removes the index from both the active and key slices.
 	remove := func(b *barrier) {
 		key := b.key
 		log.Debugw("stopping to monitor barrier", "key", key)
 
+		if _, ok := pending[key]; !ok {
+			// This must never happen.
+			log.Warnw("barrier is not on list", "key", key)
+			return
+		}
+
 		// drop this barrier from the active set.
-		for i, p := range pending {
+		for i, p := range pending[key] {
 			if p == b {
-				copy(pending[i:], pending[i+1:])
-				pending[len(pending)-1] = nil
-				pending = pending[:len(pending)-1]
+				copy(pending[key][i:], pending[key][i+1:])
+				pending[key][len(pending[key])-1] = nil
+				pending[key] = pending[key][:len(pending[key])-1]
 				break
 			}
 		}
 
-		// drop the key as well.
+		// only drop the key if there are no more pending listeners
+		// for that barrier key
+		if len(pending[key]) != 0 {
+			return
+		}
+
+		delete(pending, key)
+
 		for i, k := range keys {
 			if k == key {
 				copy(keys[i:], keys[i+1:])
@@ -56,13 +66,19 @@ func (s *RedisService) barrierWorker() {
 		}
 
 		select {
-		case newBarrier := <-s.barrierCh:
-			b := newBarrier
-			pending = append(pending, b)
-			keys = append(keys, b.key)
+		case b := <-s.barrierCh:
+			key := b.key
 
-			log.Debugw("added barrier", "new", b.key, "all", keys)
-			newBarrier.resultCh <- nil
+			// If this barrier is not yet being monitorized...
+			if _, ok := pending[key]; !ok {
+				log.Debugw("started monitoring barrier", "new", key, "all", keys)
+				pending[key] = []*barrier{}
+				keys = append(keys, key)
+			}
+
+			log.Debugw("added susbcriber to barrier", "new", key)
+			pending[key] = append(pending[key], b)
+			b.resultCh <- nil
 
 			if cnt == 0 {
 				// we need to reactivate the ticker.
@@ -74,23 +90,30 @@ func (s *RedisService) barrierWorker() {
 
 		case <-s.ctx.Done():
 			log.Debugw("yielding", "pending_barriers", len(pending))
-			for _, b := range pending {
-				log.Debugw("cancelling pending barrier", "key", b.key)
-				b.doneCh <- s.ctx.Err()
-				close(b.doneCh)
+
+			for key, barriers := range pending {
+				log.Debugw("cancelling pending barrier", "key", key)
+
+				for _, b := range barriers {
+					b.doneCh <- s.ctx.Err()
+					close(b.doneCh)
+				}
 			}
+
 			pending = nil
 			return
 		}
 
 		// Test all contexts and forget the barriers whose contexts have fired.
 		var del []*barrier
-		for _, b := range pending {
-			if err := b.ctx.Err(); err != nil {
-				log.Debugw("barrier context expired; removing", "key", b.key)
-				b.doneCh <- err
-				close(b.doneCh)
-				del = append(del, b)
+		for _, barriers := range pending {
+			for _, b := range barriers {
+				if err := b.ctx.Err(); err != nil {
+					log.Debugw("barrier context expired; removing", "key", b.key)
+					b.doneCh <- err
+					close(b.doneCh)
+					del = append(del, b)
+				}
 			}
 		}
 
@@ -118,25 +141,37 @@ func (s *RedisService) barrierWorker() {
 				continue // nobody else has INCR the barrier yet; skip.
 			}
 
-			b := pending[i]
-			curr, err := strconv.ParseInt(v.(string), 10, 64)
-			if err != nil {
-				log.Warnw("failed to parse barrier value", "error", err, "value", v, "key", b.key)
+			key := keys[i]
+			log.Debugw("processing barrier", "key", key)
+			barriers, ok := pending[key]
+			if !ok {
+				// This must never happen.
+				log.Warnw("failed to get barriers", "key", key)
 				continue
 			}
 
-			// Has the barrier been hit?
-			if curr >= b.target {
-				log.Debugw("barrier was hit; informing waiters", "key", b.key, "target", b.target, "curr", curr)
+			fmt.Println(barriers)
 
-				// barrier has been hit; send a nil error on the channel, and close it.
-				b.doneCh <- nil
-				close(b.doneCh)
+			curr, err := strconv.ParseInt(v.(string), 10, 64)
+			if err != nil {
+				log.Warnw("failed to parse barrier value", "error", err, "value", v, "key", key)
+				continue
+			}
 
-				// queue this deletion; otherwise indices won't line up.
-				del = append(del, b)
-			} else {
-				log.Debugw("barrier still unsatisfied", "key", b.key, "target", b.target, "curr", curr)
+			for _, b := range barriers {
+				// Has the barrier been hit?
+				if curr >= b.target {
+					log.Debugw("barrier was hit; informing waiters", "key", b.key, "target", b.target, "curr", curr)
+
+					// barrier has been hit; send a nil error on the channel, and close it.
+					b.doneCh <- nil
+					close(b.doneCh)
+
+					// queue this deletion; otherwise indices won't line up.
+					del = append(del, b)
+				} else {
+					log.Debugw("barrier still unsatisfied", "key", b.key, "target", b.target, "curr", curr)
+				}
 			}
 		}
 
