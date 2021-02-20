@@ -64,7 +64,7 @@ commands:
             tar xvzf redis-stable.tar.gz
             cd redis-stable
             make
-            sudo cp src/redis-server /bin/redis-server
+            sudo mv src/redis-server /bin/redis-server
             chmod +x ~/bin/redis-server
             fi
       - save_cache:
