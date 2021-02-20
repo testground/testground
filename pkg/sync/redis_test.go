@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v7"
@@ -13,6 +14,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -95,7 +97,7 @@ func TestBarrier(t *testing.T) {
 	}
 	defer service.Close()
 
-	state := "yoda"
+	state := "yoda:" + uuid.New().String()
 	for i := 1; i <= 10; i++ {
 		if curr, err := service.SignalEntry(ctx, state); err != nil {
 			t.Fatal(err)
@@ -120,7 +122,7 @@ func TestBarrierBeyondTarget(t *testing.T) {
 	}
 	defer service.Close()
 
-	state := "yoda"
+	state := "yoda" + uuid.New().String()
 	for i := 1; i <= 20; i++ {
 		if curr, err := service.SignalEntry(ctx, state); err != nil {
 			t.Fatal(err)
@@ -136,23 +138,31 @@ func TestBarrierBeyondTarget(t *testing.T) {
 }
 
 func TestBarrierZero(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	service, err := getService(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer service.Close()
+	timeout := time.After(3 * time.Second)
+	done := make(chan bool)
 
 	go func() {
-		time.Sleep(3 * time.Second)
-		t.Error("expected test to finish")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		service, err := getService(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer service.Close()
+
+		err = service.Barrier(ctx, "apollo", 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		done <- true
 	}()
 
-	err = service.Barrier(ctx, "apollo", 0)
-	if err != nil {
-		t.Fatal(err)
+	select {
+	case <-timeout:
+		t.Fatal("test didn't finish in time")
+	case <-done:
 	}
 }
 
@@ -167,15 +177,12 @@ func TestBarrierCancel(t *testing.T) {
 	defer service.Close()
 
 	go func() {
-		select {
-		case <-time.After(1 * time.Second):
-			cancel()
-		case <-time.After(3 * time.Second):
-			t.Error("expected a cancel")
-		}
+		time.Sleep(time.Second)
+		cancel()
 	}()
 
-	err = service.Barrier(ctx, "yoda", 10)
+	state := "yoda" + uuid.New().String()
+	err = service.Barrier(ctx, state, 10)
 
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context cancelled error; instead got: %s", err)
@@ -183,26 +190,34 @@ func TestBarrierCancel(t *testing.T) {
 }
 
 func TestBarrierDeadline(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	service, err := getService(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer service.Close()
-
-	ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+	timeout := time.After(3 * time.Second)
+	done := make(chan bool)
 
 	go func() {
-		time.Sleep(3 * time.Second)
-		t.Error("expected a cancel")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		service, err := getService(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer service.Close()
+
+		ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		state := "yoda" + uuid.New().String()
+		err = service.Barrier(ctx, state, 10)
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("expected context cancelled error; instead got: %s", err)
+		}
+		done <- true
 	}()
 
-	err = service.Barrier(ctx, "yoda", 10)
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Errorf("expected context cancelled error; instead got: %s", err)
+	select {
+	case <-timeout:
+		t.Fatal("test didn't finish in time")
+	case <-done:
 	}
 }
 
@@ -284,7 +299,6 @@ func TestConnUnblock(t *testing.T) {
 	}
 }
 
-/*
 type TestPayload struct {
 	FieldA string
 	FieldB struct {
@@ -316,7 +330,7 @@ func TestSubscribeAfterAllPublished(t *testing.T) {
 		})
 	}
 
-	topic := fmt.Sprintf("pandemic:still2021")
+	topic := "pandemic:2021:" + uuid.New().String()
 
 	for i, s := range values {
 		if seq, err := service.Publish(context.Background(), topic, s); err != nil {
@@ -337,19 +351,25 @@ func TestSubscribeAfterAllPublished(t *testing.T) {
 			{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())},
 		})
 
+		expect, err := json.Marshal(expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		switch chosen {
 		case 0:
 			if recv.Kind() == reflect.Ptr {
 				recv = recv.Elem()
 			}
-			if recv.Interface() != reflect.ValueOf(expected).Interface() {
-				t.Fatalf("expected value %v, got %v in position %d", expected, recv, i)
+
+			if (recv.Interface()) != string(expect) {
+				t.Fatalf("expected value %v, got %v in position %d", string(expect), recv.Interface(), i)
 			}
 		case 1:
 			t.Fatal("failed to receive all expected items within the deadline")
 		}
 	}
-} */
+}
 
 func TestSubscribeFirstConcurrentWrites(t *testing.T) {
 	iterations := 1000
