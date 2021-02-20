@@ -140,29 +140,36 @@ func TestBarrierBeyondTarget(t *testing.T) {
 func TestBarrierZero(t *testing.T) {
 	timeout := time.After(3 * time.Second)
 	done := make(chan bool)
+	var errs error
 
 	go func() {
+		defer func() {
+			done <- true
+		}()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		service, err := getService(ctx)
 		if err != nil {
-			t.Fatal(err)
+			errs = err
+			return
 		}
 		defer service.Close()
 
 		err = service.Barrier(ctx, "apollo", 0)
 		if err != nil {
-			t.Fatal(err)
+			errs = err
 		}
-
-		done <- true
 	}()
 
 	select {
 	case <-timeout:
 		t.Fatal("test didn't finish in time")
 	case <-done:
+		if errs != nil {
+			t.Fatal(errs)
+		}
 	}
 }
 
@@ -192,14 +199,20 @@ func TestBarrierCancel(t *testing.T) {
 func TestBarrierDeadline(t *testing.T) {
 	timeout := time.After(3 * time.Second)
 	done := make(chan bool)
+	var errs error
 
 	go func() {
+		defer func() {
+			done <- true
+		}()
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		service, err := getService(ctx)
 		if err != nil {
-			t.Fatal(err)
+			errs = err
+			return
 		}
 		defer service.Close()
 
@@ -211,13 +224,15 @@ func TestBarrierDeadline(t *testing.T) {
 		if !errors.Is(err, context.DeadlineExceeded) {
 			t.Errorf("expected context cancelled error; instead got: %s", err)
 		}
-		done <- true
 	}()
 
 	select {
 	case <-timeout:
 		t.Fatal("test didn't finish in time")
 	case <-done:
+		if errs != nil {
+			t.Fatal(errs)
+		}
 	}
 }
 
