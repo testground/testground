@@ -24,9 +24,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/testground/sdk-go/runtime"
+	ss "github.com/testground/sdk-go/sync"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
@@ -34,6 +33,7 @@ import (
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
+	"golang.org/x/sync/errgroup"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -131,7 +131,7 @@ type ClusterK8sRunner struct {
 	config     KubernetesConfig
 	pool       *pool
 	imagesLRU  *lru.Cache
-	//syncClient *ss.WatchClient
+	syncClient *ss.DefaultClient
 }
 
 type Result struct {
@@ -275,11 +275,19 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		err := c.watchRunPods(ctx, ow, input, result, &template)
+		eventsWg := sync.WaitGroup{}
+		eventsCancel, err := c.collectOutcomes(ctx, result, &eventsWg, &template)
+		if err != nil {
+			ow.Errorw("could not start collecting outcomes", "err", err)
+		} else {
+			defer eventsCancel()
+		}
 
-		erru := c.updateRunResult(&template, result)
-		if erru != nil {
-			ow.Errorw("could not update run result", "err", erru)
+		err = c.watchRunPods(ctx, ow, input, result, &template)
+
+		if eventsCancel != nil {
+			eventsCancel()
+			eventsWg.Wait()
 		}
 
 		return err
@@ -501,10 +509,17 @@ func (c *ClusterK8sRunner) initPool() {
 
 		c.imagesLRU, _ = lru.New(256)
 
-		//c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-		//if err != nil {
-		//	log.Error(err)
-		//}
+		// TODO: maybe make this a direct arg
+		err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		c.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
+		if err != nil {
+			log.Error(err)
+		}
 	})
 }
 
@@ -1184,31 +1199,45 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	//events, err := c.syncClient.FetchAllEvents(template)
-	//if err != nil {
-	//	return err
-	//}
-
-	//for _, e := range events {
-	//	// for now we emit only outcome OK events, so no need for more checks
-	//	if e.SuccessEvent != nil {
-	//		se := e.SuccessEvent
-	//		o := result.Outcomes[se.TestGroupID]
-	//		o.Ok = o.Ok + 1
-	//	}
-	//}
-
-	result.Outcome = task.OutcomeSuccess
-	if len(result.Outcomes) == 0 {
-		result.Outcome = task.OutcomeFailure
+func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, wg *sync.WaitGroup, tpl *runtime.RunParams) (context.CancelFunc, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	eventsCh, err := c.syncClient.SubscribeEvents(ctx, tpl)
+	if err != nil {
+		cancel()
+		return nil, err
 	}
-	for g := range result.Outcomes {
-		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-			result.Outcome = task.OutcomeFailure
-			break
+
+	wg.Add(1)
+	go func() {
+		running := true
+		for running {
+			select {
+			case <-ctx.Done():
+				running = false
+			case e := <-eventsCh:
+				// for now we emit only outcome OK events, so no need for more checks
+				if e.SuccessEvent != nil {
+					se := e.SuccessEvent
+					o := result.Outcomes[se.TestGroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
 		}
-	}
 
-	return nil
+		result.Outcome = task.OutcomeSuccess
+		if len(result.Outcomes) == 0 {
+			result.Outcome = task.OutcomeFailure
+		}
+
+		for g := range result.Outcomes {
+			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+				result.Outcome = task.OutcomeFailure
+				break
+			}
+		}
+
+		wg.Done()
+	}()
+
+	return cancel, nil
 }
