@@ -242,7 +242,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	err = r.setupSyncClient()
 	if err != nil {
-		r.lk.Unlock()
 		log.Error(err)
 		return
 	}
