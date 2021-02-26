@@ -9,7 +9,6 @@ ARG GO_VERSION=1.14
 FROM golang:${GO_VERSION}-buster
 
 COPY /go.mod /go.mod
-COPY /pkg/sync/go.mod /pkg/sync/go.mod
 
 # Download deps.
 RUN cd / && go mod download
