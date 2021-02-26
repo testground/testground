@@ -388,6 +388,8 @@ github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUng
 github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c h1:RHgQ7HqhKZcRInSgOTHRnHMPHdl7Q+ZjtBWsXXrdQvI=
 github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
+github.com/testground/testground/pkg/sync v0.0.0-20210213121426-110b24f9530b h1:Y59Fo2/mDQd2LPG4UryVENtJsnKNjKEEUDjQ2AngEE0=
+github.com/testground/testground/pkg/sync v0.0.0-20210213121426-110b24f9530b/go.mod h1:iKVQzgl2Y1VCmq0YYl4Y0gssx8KW5EWV1HL4kQxs5PQ=
 github.com/ugorji/go v1.1.7 h1:/68gy2h+1mWMrwZFeD1kQialdSzAb432dtpeJ42ovdo=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go/codec v1.1.7 h1:2SvQaVZ1ouYrrKKwoSk2pzd4A9evlKJb9oTL+OaLUSs=

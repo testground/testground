@@ -29,16 +29,13 @@ lint:
 build-all:
 	$(call eachmod,go build -o /dev/null ./...)
 
-docker: docker-testground docker-sidecar docker-sync-service
+docker: docker-testground docker-sidecar
 
 docker-sidecar:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/sidecar:edge -f Dockerfile.sidecar .
 
 docker-testground:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground:edge -f Dockerfile.testground .
-
-docker-sync-service:
-	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/sync-service:edge -f Dockerfile.sync-service .
 
 test-go:
 	testground plan import --from ./plans/placebo
