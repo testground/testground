@@ -15,7 +15,7 @@ var TasksCommand = cli.Command{
 	Name:   "tasks",
 	Usage:  "get a list of the existing tasks",
 	Action: tasksCommand,
-	Flags: []cli.Flag{
+	Flags:  []cli.Flag{
 		// TODO(hac): add filters (type of task, date, state, etc)
 	},
 }

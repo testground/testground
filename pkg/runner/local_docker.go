@@ -275,6 +275,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
+		runenv.TestCaptureProfiles = g.Profiles
 
 		result.Outcomes[g.ID] = &GroupOutcome{
 			Total: g.Instances,

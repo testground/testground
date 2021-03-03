@@ -562,6 +562,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 			ArtifactPath: grp.Run.Artifact,
 			Parameters:   grp.Run.TestParams,
 			Resources:    grp.Resources,
+			Profiles:     grp.Run.Profiles,
 		}
 
 		in.Groups = append(in.Groups, g)
