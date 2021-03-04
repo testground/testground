@@ -63,7 +63,6 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 					},
 				},
-				// TODO: remove this bc we now connect directly?
 				Sysctls: map[string]string{
 					"net.core.somaxconn":             "150000",
 					"net.netfilter.nf_conntrack_max": "120000",
