@@ -45,6 +45,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 	)
 
 	// redis, using a downloaded image and no additional configuration.
+	_, exposed, _ = nat.ParsePortSpecs([]string{"6379:6379"})
 	hh.Enlist("local-redis",
 		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-redis"),
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
@@ -54,7 +55,9 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 				Cmd:   []string{"--save", "", "--appendonly", "no", "--maxclients", "120000", "--stop-writes-on-bgsave-error", "no"},
 			},
 			HostConfig: &container.HostConfig{
-				NetworkMode: container.NetworkMode(controlNetworkID),
+				// NOTE: we expose this port for compatibility with older sdk versions.
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
 				Resources: container.Resources{
 					Ulimits: []*units.Ulimit{
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},

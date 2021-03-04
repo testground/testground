@@ -131,7 +131,8 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Image:      "iptestground/sidecar:edge",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
-			Env:        []string{"SYNC_SERVICE_HOST=testground-sync-service", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
+			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
+			Env:        []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
