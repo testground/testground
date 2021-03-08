@@ -294,6 +294,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		runenv.TestGroupID = g.ID
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestInstanceParams = g.Parameters
+		runenv.TestCaptureProfiles = g.Profiles
 
 		result.Outcomes[g.ID] = &GroupOutcome{
 			Total: g.Instances,

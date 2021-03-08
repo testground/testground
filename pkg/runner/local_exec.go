@@ -121,6 +121,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 			runenv.TestInstanceParams = g.Parameters
 			runenv.TestOutputsPath = odir
 			runenv.TestStartTime = time.Now()
+			runenv.TestCaptureProfiles = g.Profiles
 
 			env := conv.ToOptionsSlice(runenv.ToEnvVars())
 			env = append(env, "INFLUXDB_URL=http://localhost:8086")

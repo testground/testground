@@ -202,6 +202,17 @@ type Run struct {
 	// TestParams specify the test parameters to pass down to instances of this
 	// group.
 	TestParams map[string]string `toml:"test_params" json:"test_params"`
+
+	// Profiles specifies the profiles to capture, and the frequency of capture
+	// of each. Profile support is SDK-dependent, as it relies entirely on the
+	// facilities provided by the language runtime.
+	//
+	// In the case of Go, all profile kinds listed in https://golang.org/pkg/runtime/pprof/#Profile
+	// are supported, taking a frequency expressed in time.Duration string
+	// representation (e.g. 5s for every five seconds). Additionally, a special
+	// profile kind "cpu" is supported; it takes no frequency and it starts a
+	// CPU profile for the entire duration of the test.
+	Profiles map[string]string `toml:"profiles" json:"profiles"`
 }
 
 type Dependency struct {
@@ -369,24 +380,27 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 				grp.Run.Artifact = def.Artifact
 			}
 
-			// If we have default parameters to set, handle the case where
-			// the group map is uninitialized by copying over all defaults,
-			// as well as the case where we have to merge.
-			if len(def.TestParams) > 0 {
-				if grp.Run.TestParams == nil {
-					grp.Run.TestParams = make(map[string]string, len(def.TestParams))
-					for k, v := range def.TestParams {
-						grp.Run.TestParams[k] = v
+			trickleMap := func(from, to map[string]string) (result map[string]string) {
+				if to == nil {
+					// copy all params in to.
+					result = make(map[string]string, len(from))
+					for k, v := range from {
+						result[k] = v
 					}
 				} else {
-					// Test params.
-					for k, v := range def.TestParams {
-						if _, present := grp.Run.TestParams[k]; !present {
-							grp.Run.TestParams[k] = v
+					result = to
+					// iterate over all global params, and copy over those that haven't been overridden.
+					for k, v := range from {
+						if _, present := to[k]; !present {
+							result[k] = v
 						}
 					}
 				}
+				return result
 			}
+
+			grp.Run.TestParams = trickleMap(def.TestParams, grp.Run.TestParams)
+			grp.Run.Profiles = trickleMap(def.Profiles, grp.Run.Profiles)
 		}
 	}
 

@@ -10,7 +10,6 @@ import (
 	"github.com/vishvananda/netlink"
 )
 
-
 type link struct {
 	netlink.Link
 	IPv4, IPv6 *net.IPNet
