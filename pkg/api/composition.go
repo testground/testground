@@ -381,15 +381,19 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 			}
 
 			trickleMap := func(from, to map[string]string) (result map[string]string) {
-				// copy all params in to.
-				result = make(map[string]string, len(from))
-				for k, v := range from {
-					result[k] = v
-				}
-				// iterate over all global params, and copy over those that haven't been overridden.
-				for k, v := range from {
-					if _, present := to[k]; !present {
+				if to == nil {
+					// copy all params in to.
+					result = make(map[string]string, len(from))
+					for k, v := range from {
 						result[k] = v
+					}
+				} else {
+					result = to
+					// iterate over all global params, and copy over those that haven't been overridden.
+					for k, v := range from {
+						if _, present := to[k]; !present {
+							result[k] = v
+						}
 					}
 				}
 				return result
