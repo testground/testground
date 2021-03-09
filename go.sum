@@ -348,6 +348,7 @@ github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.5/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
 github.com/prometheus/procfs v0.1.3/go.mod h1:lV6e/gmhEcM9IjHGsFOCxxuZ+z1YqCvr4OA4YeYWdaU=
+github.com/raulk/clock v1.1.0/go.mod h1:3MpVxdZ/ODBQDxbN+kzshf5OSZwPjtMDx6BBXBmOeY0=
 github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 h1:MkV+77GLUNo5oJ0jf870itWm3D0Sjh7+Za9gazKc5LQ=
 github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
@@ -385,11 +386,11 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401 h1:h9FML1FUPWJgWXa5DxYYMgApb4UNYLw67/Qr0F7hdhY=
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401/go.mod h1:MT3F6oeXhaO0bwhclY7dbOxKVfuDuWuO9YHy+TZvgNc=
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
-github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c h1:RHgQ7HqhKZcRInSgOTHRnHMPHdl7Q+ZjtBWsXXrdQvI=
-github.com/testground/sdk-go v0.2.8-0.20210216144729-a3015a8f6c5c/go.mod h1:Ba2KK4ZKSSnvnfgaLCAYqQ6zeB7K31mRpKhs5IahOC8=
+github.com/testground/sdk-go v0.2.8-0.20210309140151-4a69fdf9410c h1:BC7MxQhMof2t5nRdVUUN7DaDKccK0X3XMo1b9iESFTI=
+github.com/testground/sdk-go v0.2.8-0.20210309140151-4a69fdf9410c/go.mod h1:8pW5BYXPRFqy4CU1ptgxmt9SJtAX6ipuJS23381m5B8=
+github.com/testground/sync-service v0.0.0-20210302175343-57fd8e5f9932 h1:yM9xnALHqhRcI+ICCnC0u8oHQNrXUi+1N7QelE17ebY=
+github.com/testground/sync-service v0.0.0-20210302175343-57fd8e5f9932/go.mod h1:N0C1ixsBHj1IF4ThDET47WW8puvV1R1wJrglukv/Pjw=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
-github.com/testground/testground/pkg/sync v0.0.0-20210213121426-110b24f9530b h1:Y59Fo2/mDQd2LPG4UryVENtJsnKNjKEEUDjQ2AngEE0=
-github.com/testground/testground/pkg/sync v0.0.0-20210213121426-110b24f9530b/go.mod h1:iKVQzgl2Y1VCmq0YYl4Y0gssx8KW5EWV1HL4kQxs5PQ=
 github.com/ugorji/go v1.1.7 h1:/68gy2h+1mWMrwZFeD1kQialdSzAb432dtpeJ42ovdo=
 github.com/ugorji/go v1.1.7/go.mod h1:kZn38zHttfInRq0xu/PH0az30d+z6vm202qpg1oXVMw=
 github.com/ugorji/go/codec v1.1.7 h1:2SvQaVZ1ouYrrKKwoSk2pzd4A9evlKJb9oTL+OaLUSs=
