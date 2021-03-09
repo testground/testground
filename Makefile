@@ -6,12 +6,15 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
-.PHONY: install goinstall pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
+.PHONY: install goinstall sync-install pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
 
-install: goinstall docker
+install: goinstall docker sync-install
 
 goinstall:
 	go install -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
+
+sync-install:
+	docker pull iptestground/sync-service
 
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
