@@ -75,6 +75,10 @@ type RunGroup struct {
 
 	// Parameters are the runtime parameters to the test case.
 	Parameters map[string]string
+
+	// Profiles specifies the profiles to capture. Refer to the docs
+	// on Run#Profiles for more info.
+	Profiles map[string]string
 }
 
 type RunOutput struct {
