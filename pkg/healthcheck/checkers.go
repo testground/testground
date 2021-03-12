@@ -122,29 +122,29 @@ func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label strin
 // on localhost. If it is, it fails. If not, it succeeds.
 func CheckRedisPort(ctx context.Context, ow *rpc.OutputWriter, cli *client.Client) Checker {
 	return func() (bool, string, error) {
-		// First, we check if we can bind locally to 127.0.0.1:6379
+		// Check if the testground-redis container exists and is running. Even if it is running,
+		// there might be issues if the user has its own redis-server running.
+		ok, _, _ := CheckContainerStarted(ctx, ow, cli, "testground-redis")()
+		if ok {
+			return true, "testground-redis container is already running; if you are experiencing issues, " +
+				"please make sure you are not running any redis-service on your machine and the port 6379 is free.", nil
+		}
+
+		// Now check if 127.0.0.1:6379 is occupied.
 		ln, err := net.Listen("tcp", "127.0.0.1:6379")
 		if err != nil {
 			return false, "local port 6379 is already occupied; please stop any local Redis instances first.", nil
 		}
 		_ = ln.Close()
 
-		// Then, we check if our testground-redis container already exists and is running.
-		// If so, then we don't need to proceed with the checks as everything is okay.
-		ok, _, _ := CheckContainerStarted(ctx, ow, cli, "testground-redis")()
-		if ok {
-			return true, "testground-redis container is already running", nil
-		}
-
-		// Finally, we still need to check if we can bind on all interfaces (0.0.0.0) as that is
-		// the default Docker behaviour when running a container. Why not do this first? Because
-		// if we did this initially, we would be excluding the possibility of already having our
-		// own redis instance running!
+		// Now check if 0.0.0.0:6379 is occupied. On some systems, such as macOS, binding to 0.0.0.0:6379 will
+		// still allow other programs to bind on 127.0.0.1:6379. Thus, we need to check both cases.
 		ln, err = net.Listen("tcp", "0.0.0.0:6379")
 		if err != nil {
 			return false, "local port 6379 is already occupied; please stop any local Redis instances first.", nil
 		}
 		_ = ln.Close()
+
 		return true, "local port 6379 is free.", nil
 	}
 }
