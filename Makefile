@@ -37,6 +37,9 @@ docker-sidecar:
 docker-testground:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground:edge -f Dockerfile.testground .
 
+docker-actions:
+	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground-githubactions:edge -f Dockerfile.actions .
+
 test-go:
 	testground plan import --from ./plans/placebo
 	testground plan import --from ./plans/example

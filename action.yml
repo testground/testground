@@ -1,0 +1,26 @@
+---
+name: 'testground-composition'
+description: 'Run a Testground composition'
+inputs:
+  backend:
+    description: 'api endpoint for the testground daemon'
+    required: true
+    default: 'https://ci.testground.ipfs.team'
+  plan_directory:
+    description: 'testplan path relative to the root of the git directory'
+    required: true
+  composition_file:
+    description: 'composition file path relative to the root of the git directory'
+    required: true
+outputs:
+  status:
+    description: 'status of the testground run, i.e. completed/cancled'
+  outcome:
+    description: 'high-level result of the test'
+runs:
+  using: 'docker'
+  image: 'Dockerfile.actions'
+  args:
+    - ${{ inputs.backend }}
+    - ${{ inputs.plan_directory }}
+    - ${{ inputs.composition_file }}
