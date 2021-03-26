@@ -275,20 +275,20 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		eventsWg := sync.WaitGroup{}
-		eventsCancel, err := c.collectOutcomes(ctx, result, &eventsWg, &template)
-		if err != nil {
-			ow.Errorw("could not start collecting outcomes", "err", err)
-		} else {
-			defer eventsCancel()
-		}
+		//eventsWg := sync.WaitGroup{}
+		//eventsCancel, err := c.collectOutcomes(ctx, result, &eventsWg, &template)
+		//if err != nil {
+		//	ow.Errorw("could not start collecting outcomes", "err", err)
+		//} else {
+		//	defer eventsCancel()
+		//}
 
 		err = c.watchRunPods(ctx, ow, input, result, &template)
 
-		if eventsCancel != nil {
-			eventsCancel()
-			eventsWg.Wait()
-		}
+		//if eventsCancel != nil {
+		//	eventsCancel()
+		//	eventsWg.Wait()
+		//}
 
 		return err
 	})
@@ -1205,6 +1205,7 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
+// nolint
 func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, wg *sync.WaitGroup, tpl *runtime.RunParams) (context.CancelFunc, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	eventsCh, err := c.syncClient.SubscribeEvents(ctx, tpl)
