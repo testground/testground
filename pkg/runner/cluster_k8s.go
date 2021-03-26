@@ -275,22 +275,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		//eventsWg := sync.WaitGroup{}
-		//eventsCancel, err := c.collectOutcomes(ctx, result, &eventsWg, &template)
-		//if err != nil {
-		//	ow.Errorw("could not start collecting outcomes", "err", err)
-		//} else {
-		//	defer eventsCancel()
-		//}
+		err := c.collectOutcomes(ctx, result, &template)
+		if err != nil {
+			ow.Errorw("could not start collecting outcomes", "err", err)
+		}
 
-		err = c.watchRunPods(ctx, ow, input, result, &template)
-
-		//if eventsCancel != nil {
-		//	eventsCancel()
-		//	eventsWg.Wait()
-		//}
-
-		return err
+		return c.watchRunPods(ctx, ow, input, result, &template)
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -516,11 +506,11 @@ func (c *ClusterK8sRunner) initPool() {
 		c.imagesLRU, _ = lru.New(256)
 
 		// TODO: maybe make this a direct arg
-		err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
-		if err != nil {
-			log.Error(err)
-			return
-		}
+		// err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
+		// if err != nil {
+		// 	log.Error(err)
+		// 	return
+		// }
 
 		c.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
 		if err != nil {
@@ -1205,16 +1195,12 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-// nolint
-func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, wg *sync.WaitGroup, tpl *runtime.RunParams) (context.CancelFunc, error) {
-	ctx, cancel := context.WithCancel(ctx)
+func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) error {
 	eventsCh, err := c.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
-		cancel()
-		return nil, err
+		return err
 	}
 
-	wg.Add(1)
 	go func() {
 		running := true
 		for running {
@@ -1242,9 +1228,7 @@ func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, 
 				break
 			}
 		}
-
-		wg.Done()
 	}()
 
-	return cancel, nil
+	return nil
 }

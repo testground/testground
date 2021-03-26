@@ -181,7 +181,6 @@ func (r *LocalDockerRunner) setupSyncClient() error {
 		return nil
 	}
 
-	// TODO: maybe make this a direct arg
 	err := os.Setenv(ss.EnvServiceHost, "127.0.0.1")
 	if err != nil {
 		return err
