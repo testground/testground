@@ -56,18 +56,6 @@ commands:
             curl -L https://github.com/kubernetes-sigs/kind/releases/download/v0.8.1/kind-linux-amd64 -o ~/bin/kind
             chmod +x ~/bin/kind
             fi
-      - run:
-          name: "install redis"
-          command: |
-            if [ ! -f ~/bin/redis-server ]; then
-            cd $HOME
-            wget http://download.redis.io/redis-stable.tar.gz
-            tar xvzf redis-stable.tar.gz
-            cd redis-stable
-            make
-            mv src/redis-server ~/bin/redis-server
-            chmod +x ~/bin/redis-server
-            fi
       - save_cache:
           key: 'bin-cache-{{ .Branch }}'
           paths:
