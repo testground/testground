@@ -462,6 +462,11 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 		healthcheck.NotImplemented(),
 	)
 
+	hh.Enlist("sync service pod",
+		healthcheck.CheckK8sPods(ctx, client, "name=testground-sync-service", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
+	)
+
 	hh.Enlist("prometheus pod",
 		healthcheck.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
