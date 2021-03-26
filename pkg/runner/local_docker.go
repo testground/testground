@@ -132,7 +132,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
 			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
-			Env:        []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
+			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -195,15 +195,12 @@ func (r *LocalDockerRunner) setupSyncClient() error {
 	return nil
 }
 
-func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, wg *sync.WaitGroup, tpl *runtime.RunParams) (context.CancelFunc, error) {
-	ctx, cancel := context.WithCancel(ctx)
+func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) error {
 	eventsCh, err := r.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
-		cancel()
-		return nil, err
+		return err
 	}
 
-	wg.Add(1)
 	go func() {
 		running := true
 		for running {
@@ -231,11 +228,9 @@ func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result,
 				break
 			}
 		}
-
-		wg.Done()
 	}()
 
-	return cancel, nil
+	return nil
 }
 
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
@@ -430,13 +425,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	ctxContainers, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	eventsWg := sync.WaitGroup{}
-	eventsCancel, err := r.collectOutcomes(ctxContainers, result, &eventsWg, &template)
+	// collect the outcomes in parallel while the process runs.
+	err = r.collectOutcomes(ctxContainers, result, &template)
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	defer eventsCancel()
 
 	log.Infow("starting containers", "count", len(containers))
 
@@ -558,8 +552,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	select {
 	case err = <-doneCh:
-		eventsCancel()
-		eventsWg.Wait()
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
