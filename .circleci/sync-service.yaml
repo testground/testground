@@ -20,8 +20,8 @@ spec:
           image: iptestground/sync-service:latest
           command: ["/service"]
           ports:
-            - name: sidecarhttp
-              containerPort: 6060
+            - name: syncservicehttp
+              containerPort: 5050
           resources:
             limits:
               cpu: 20m
