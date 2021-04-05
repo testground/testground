@@ -46,7 +46,7 @@ require (
 	github.com/rs/xid v1.2.1
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/goleveldb v1.0.0
-	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
+	github.com/testground/plan-templates v1.0.3
 	github.com/testground/sdk-go v0.2.8-0.20210322095044-e00c1b9d2006
 	github.com/ulikunitz/xz v0.5.7 // indirect
 	github.com/urfave/cli/v2 v2.2.0
