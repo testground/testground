@@ -66,7 +66,7 @@ executors:
     machine:
       image: ubuntu-1604:201903-01
       docker_layer_caching: true
-    resource_class: xlarge
+    resource_class: large
     working_directory: << pipeline.parameters.workspace-dir >>/project
     environment:
       GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
