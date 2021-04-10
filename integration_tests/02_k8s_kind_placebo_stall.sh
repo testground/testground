@@ -14,7 +14,7 @@ docker tag $ARTIFACT testplan:placebo
 kind load docker-image testplan:placebo
 
 testground healthcheck --runner local:docker --fix
-export REDIS_HOST=localhost
+export SYNC_SERVER_HOST=localhost
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 2 --plan placebo --testcase stall --wait &
 sleep 20
 BEFORE=$(kubectl get pods | grep placebo | grep Running | wc -l)

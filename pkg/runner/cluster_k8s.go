@@ -505,13 +505,6 @@ func (c *ClusterK8sRunner) initPool() {
 
 		c.imagesLRU, _ = lru.New(256)
 
-		// TODO: maybe make this a direct arg
-		err = os.Setenv(ss.EnvServiceHost, "127.0.0.1")
-		if err != nil {
-			log.Error(err)
-			return
-		}
-
 		c.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
 		if err != nil {
 			log.Error(err)
