@@ -17,7 +17,7 @@ ulimits = [
 listen                    = ":8080"
 
 [daemon.scheduler]
-task_timeout_min          = 2
+task_timeout_min          = 10
 task_repo_type            = "disk"
 
 [client]
