@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/testground/testground/pkg/logging"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -272,6 +273,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
+		TestTempPath:      "/temp", // not using /tmp to avoid overriding linux standard paths.
 		TestStartTime:     time.Now(),
 	}
 
@@ -301,7 +303,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		groupIdx    int
 	}
 
-	var containers []testContainer
+	var (
+		containers []testContainer
+		tmpdirs    []string
+	)
 	for _, g := range input.Groups {
 		runenv := template
 		runenv.TestGroupInstanceCount = g.Instances
@@ -338,6 +343,16 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				break
 			}
 
+			// temporary directory.
+			var tmpdir string
+			tmpdir, err = ioutil.TempDir("", "testground")
+			if err != nil {
+				err = fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
+				break
+			}
+
+			tmpdirs = append(tmpdirs, tmpdir)
+
 			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan, input.TestCase, input.RunID, g.ID, i)
 			log.Infow("creating container", "name", name)
 
@@ -361,6 +376,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					Type:   mount.TypeBind,
 					Source: odir,
 					Target: runenv.TestOutputsPath,
+				}, {
+					Type:   mount.TypeBind,
+					Source: tmpdir,
+					Target: runenv.TestTempPath,
 				}},
 			}
 
@@ -553,6 +572,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	case err = <-doneCh:
 	case <-ctx.Done():
 		err = ctx.Err()
+	}
+
+	// remove all temporary directories.
+	for _, tmpdir := range tmpdirs {
+		_ = os.RemoveAll(tmpdir)
 	}
 
 	return

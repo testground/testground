@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/testground/sdk-go/ptypes"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -100,7 +101,10 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		_ = pretty.Wait()
 	}()
 
-	var total int
+	var (
+		total   int
+		tmpdirs []string
+	)
 	for _, g := range input.Groups {
 		reviewResources(g, ow)
 
@@ -115,11 +119,21 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 				continue
 			}
 
+			tmpdir, err := ioutil.TempDir("", "testground")
+			if err != nil {
+				err = fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
+				pretty.FailStart(tag, err)
+				continue
+			}
+
+			tmpdirs = append(tmpdirs, tmpdir)
+
 			runenv := template
 			runenv.TestGroupID = g.ID
 			runenv.TestGroupInstanceCount = g.Instances
 			runenv.TestInstanceParams = g.Parameters
 			runenv.TestOutputsPath = odir
+			runenv.TestTempPath = tmpdir
 			runenv.TestStartTime = time.Now()
 			runenv.TestCaptureProfiles = g.Profiles
 
@@ -151,6 +165,11 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 	if err := <-pretty.Wait(); err != nil {
 		return nil, err
+	}
+
+	// remove all temporary directories.
+	for _, tmpdir := range tmpdirs {
+		_ = os.RemoveAll(tmpdir)
 	}
 
 	return &api.RunOutput{RunID: input.RunID}, nil
