@@ -122,23 +122,23 @@ jobs:
       - run:
           name: "build testground"
           command: make install
-      # - run:
-      #     name: "make test-go"
-      #     command: |
-      #       cd $HOME/project
-      #       make test-go
+      - run:
+          name: "make test-go"
+          command: |
+            cd $HOME/project
+            make test-go
       - run:
           name: "create kind cluster"
           command: make kind-cluster
       - run:
           name: "run cluster:k8s integration tests"
           command: make test-integ-cluster-k8s
-      # - run:
-      #     name: "run local:docker integration tests"
-      #     command: make test-integ-local-docker
-      # - run:
-      #     name: "run local:exec integration tests"
-      #     command: make test-integ-local-exec
+      - run:
+          name: "run local:docker integration tests"
+          command: make test-integ-local-docker
+      - run:
+          name: "run local:exec integration tests"
+          command: make test-integ-local-exec
 
   build-macos:
     macos:
