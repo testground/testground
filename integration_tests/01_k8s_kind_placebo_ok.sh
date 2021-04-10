@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export SYNC_SERVICE_HOST=localhost
 my_dir="$(dirname "$0")"
 source "$my_dir/header.sh"
 
@@ -15,7 +16,6 @@ kind load docker-image testplan:placebo
 
 pushd $TEMPDIR
 testground healthcheck --runner local:docker --fix
-export SYNC_SERVICE_HOST=localhost
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 1 --plan placebo --testcase ok --collect --wait | tee run.out
 RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
 echo "checking run $RUNID"

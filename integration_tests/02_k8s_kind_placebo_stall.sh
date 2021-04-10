@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export SYNC_SERVICE_HOST=localhost
 my_dir="$(dirname "$0")"
 source "$my_dir/header.sh"
 
@@ -14,7 +15,6 @@ docker tag $ARTIFACT testplan:placebo
 kind load docker-image testplan:placebo
 
 testground healthcheck --runner local:docker --fix
-export SYNC_SERVICE_HOST=localhost
 testground run single --runner cluster:k8s --builder docker:go --use-build testplan:placebo --instances 2 --plan placebo --testcase stall --wait &
 sleep 20
 BEFORE=$(kubectl get pods | grep placebo | grep Running | wc -l)
