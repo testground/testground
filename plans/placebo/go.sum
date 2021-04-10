@@ -302,8 +302,8 @@ github.com/syndtr/gocapability v0.0.0-20170704070218-db04d3cc01c8/go.mod h1:hkRG
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401/go.mod h1:MT3F6oeXhaO0bwhclY7dbOxKVfuDuWuO9YHy+TZvgNc=
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
-github.com/testground/sdk-go v0.2.8-0.20210309140151-4a69fdf9410c h1:BC7MxQhMof2t5nRdVUUN7DaDKccK0X3XMo1b9iESFTI=
-github.com/testground/sdk-go v0.2.8-0.20210309140151-4a69fdf9410c/go.mod h1:8pW5BYXPRFqy4CU1ptgxmt9SJtAX6ipuJS23381m5B8=
+github.com/testground/sdk-go v0.2.8-0.20210410202843-68069e75663c h1:JRGCX+12GIKNAGWD1lAIRxdcNRifA5fOCcye1xyrj64=
+github.com/testground/sdk-go v0.2.8-0.20210410202843-68069e75663c/go.mod h1:8pW5BYXPRFqy4CU1ptgxmt9SJtAX6ipuJS23381m5B8=
 github.com/testground/sync-service v0.0.0-20210302175343-57fd8e5f9932 h1:yM9xnALHqhRcI+ICCnC0u8oHQNrXUi+1N7QelE17ebY=
 github.com/testground/sync-service v0.0.0-20210302175343-57fd8e5f9932/go.mod h1:N0C1ixsBHj1IF4ThDET47WW8puvV1R1wJrglukv/Pjw=
 github.com/testground/testground v0.5.3 h1:WSfB6njhk0IGyMKr7Ky4jBa2k1rct4Oen11bio1fHFI=

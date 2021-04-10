@@ -4,5 +4,5 @@ go 1.14
 
 require (
 	github.com/pkg/errors v0.9.1
-	github.com/testground/sdk-go v0.2.8-0.20210309140151-4a69fdf9410c
+	github.com/testground/sdk-go v0.2.8-0.20210410202843-68069e75663c
 )
