@@ -195,11 +195,13 @@ func (r *LocalDockerRunner) setupSyncClient() error {
 	return nil
 }
 
-func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) error {
+func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) (chan bool, error) {
 	eventsCh, err := r.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	done := make(chan bool)
 
 	go func() {
 		running := true
@@ -228,9 +230,11 @@ func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result,
 				break
 			}
 		}
+
+		done <- true
 	}()
 
-	return nil
+	return done, nil
 }
 
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
@@ -444,7 +448,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	defer cancel()
 
 	// collect the outcomes in parallel while the process runs.
-	err = r.collectOutcomes(ctxContainers, result, &template)
+	outcomesDoneCh, err := r.collectOutcomes(ctxContainers, result, &template)
 	if err != nil {
 		log.Error(err)
 		return
@@ -579,6 +583,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		_ = os.RemoveAll(tmpdir)
 	}
 
+	cancel()
+	<-outcomesDoneCh
 	return
 }
 
