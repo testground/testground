@@ -275,12 +275,22 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		err := c.collectOutcomes(ctx, result, &template)
+		ctxContainers, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		outcomesDoneCh, err := c.collectOutcomes(ctxContainers, result, &template)
 		if err != nil {
 			ow.Errorw("could not start collecting outcomes", "err", err)
 		}
 
-		return c.watchRunPods(ctx, ow, input, result, &template)
+		err = c.watchRunPods(ctx, ow, input, result, &template)
+		if err != nil {
+			return err
+		}
+
+		cancel()
+		<-outcomesDoneCh
+		return nil
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -1188,11 +1198,13 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) error {
+func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) (chan bool, error) {
 	eventsCh, err := c.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	done := make(chan bool)
 
 	go func() {
 		running := true
@@ -1221,7 +1233,9 @@ func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, 
 				break
 			}
 		}
+
+		done <- true
 	}()
 
-	return nil
+	return done, nil
 }
