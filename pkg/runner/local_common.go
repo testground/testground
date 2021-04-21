@@ -74,6 +74,35 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		}),
 	)
 
+	_, exposed, _ = nat.ParsePortSpecs([]string{"7379:7379"})
+	hh.Enlist("local-webdis",
+		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-webdis"),
+		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-webdis",
+			ContainerConfig: &container.Config{
+				Image: "nicolas/webdis",
+				Env:   []string{"REDIS_HOST=testground-redis"},
+			},
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+				Resources: container.Resources{
+					Ulimits: []*units.Ulimit{
+						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+					},
+				},
+				Sysctls: map[string]string{
+					"net.core.somaxconn":             "150000",
+					"net.netfilter.nf_conntrack_max": "120000",
+				},
+				RestartPolicy: container.RestartPolicy{
+					Name: "unless-stopped",
+				},
+			},
+			ImageStrategy: docker.ImageStrategyPull,
+		}),
+	)
+
 	_, exposed, _ = nat.ParsePortSpecs([]string{"8086:8086", "8088:8088"})
 	hh.Enlist("local-influxdb",
 		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-influxdb"),

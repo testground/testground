@@ -216,6 +216,7 @@ func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWr
 	opts.Filters.Add("name", "testground-grafana")
 	opts.Filters.Add("name", "testground-goproxy")
 	opts.Filters.Add("name", "testground-redis")
+	opts.Filters.Add("name", "testground-webdis")
 	opts.Filters.Add("name", "testground-influxdb")
 	opts.Filters.Add("name", "testground-sidecar")
 

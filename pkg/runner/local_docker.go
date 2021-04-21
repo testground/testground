@@ -292,6 +292,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
 		env = append(env, "REDIS_HOST=testground-redis")
+		env = append(env, "WEBDIS_HOST=testground-webdis")
 
 		// Inject exposed ports.
 		env = append(env, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
@@ -643,6 +644,7 @@ func (*LocalDockerRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter
 	infraOpts.Filters.Add("name", "testground-goproxy")
 	infraOpts.Filters.Add("name", "testground-influxdb")
 	infraOpts.Filters.Add("name", "testground-redis")
+	infraOpts.Filters.Add("name", "testground-webdis")
 	infraOpts.Filters.Add("name", "testground-sidecar")
 
 	// Build query for testground plans that are still running.
