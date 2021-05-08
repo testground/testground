@@ -17,7 +17,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: testground-sync-service
-          image: iptestground/sync-service:latest
+          image: iptestground/sync-service:no-redis
           command: ["/service"]
           env:
             - name: REDIS_HOST

@@ -36,7 +36,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
-	github.com/testground/sdk-go v0.2.8-0.20210410202843-68069e75663c
+	github.com/testground/sdk-go v0.2.8-0.20210508064141-e912b4cd3792
 	github.com/urfave/cli/v2 v2.2.0
 	github.com/vishvananda/netlink v1.0.0
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
