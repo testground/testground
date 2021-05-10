@@ -79,7 +79,6 @@ var defaultConfig = LocalDockerRunnerConfig{
 	Unstarted:      false,
 	Background:     false,
 	Ulimits:        []string{"nofile=1048576:1048576"},
-	ExposedPorts:   map[string]string{"pprof": "6060"},
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
