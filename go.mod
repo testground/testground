@@ -1,6 +1,6 @@
 module github.com/testground/testground
 
-go 1.14
+go 1.16
 
 require (
 	cloud.google.com/go v0.45.1 // indirect

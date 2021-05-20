@@ -3,7 +3,7 @@
 ![Testground logo](https://raw.githubusercontent.com/testground/pm/master/logo/TG_Banner_GitHub.jpg)
 
 [![](https://img.shields.io/badge/made%20by-Protocol%20Labs-blue.svg?style=flat-square)](http://protocol.ai)
-![](https://img.shields.io/badge/go-%3E%3D1.14.0-blue.svg)
+![](https://img.shields.io/badge/go-%3E%3D1.16.0-blue.svg)
 [![Go Report Card](https://goreportcard.com/badge/testground/testground)](https://goreportcard.com/report/testground/testground)
 [![CircleCI](https://circleci.com/gh/testground/testground.svg?style=svg)](https://circleci.com/gh/testground/testground)
 
@@ -37,7 +37,7 @@ from 2 to 10k instances, only when needed.
 
 _NOTE: currently, we don't distribute binaries, so you will have to build from source._
 
-***Prerequisites: Go 1.14+, Docker daemon running.***
+***Prerequisites: Go 1.16+, Docker daemon running.***
 
 ```shell script
 $ git clone https://github.com/testground/testground.git
