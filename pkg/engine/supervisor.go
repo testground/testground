@@ -552,6 +552,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		TestCase:       clean(tcase),
 		TotalInstances: int(comp.Global.TotalInstances),
 		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
+		EmitDumps:      comp.Global.EmitDumps,
 	}
 
 	// Trigger a build for each group, and wait until all of them are done.

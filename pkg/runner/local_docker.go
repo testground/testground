@@ -242,6 +242,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestOutputsPath:   "/outputs",
 		TestTempPath:      "/temp", // not using /tmp to avoid overriding linux standard paths.
 		TestStartTime:     time.Now(),
+		TestEmitDumps:     input.EmitDumps,
 	}
 
 	// Create a data network.
