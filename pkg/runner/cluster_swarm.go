@@ -88,6 +88,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       true,
+		TestEmitDumps:     input.EmitDumps,
 	}
 
 	// Create a docker client.

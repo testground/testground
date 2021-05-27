@@ -86,6 +86,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		TestInstanceCount: input.TotalInstances,
 		TestSidecar:       false,
 		TestSubnet:        &ptypes.IPNet{IPNet: *localSubnet},
+		TestEmitDumps:     input.EmitDumps,
 	}
 
 	// Spawn as many instances as the input parameters require.
