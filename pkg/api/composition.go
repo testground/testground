@@ -74,10 +74,6 @@ type Global struct {
 	// test parameters or build artifacts. Groups can override these in their
 	// local run definition.
 	Run *Run `toml:"run" json:"run"`
-
-	// EmitDumps specifies the frequency (in seconds) to emit goroutine dumps in a
-	// test instance. 0 (default) is disabled.
-	EmitDumps int `toml:"emit_dumps" json:"emit_dumps"`
 }
 
 type Metadata struct {
