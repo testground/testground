@@ -40,19 +40,23 @@ type Storage struct {
 //
 // This way we can easily range over periods of time and, at the same time, get specific tasks from
 // the storage.
-func taskKey(prefix string, id string) []byte {
+func taskKey(prefix string, id string) ([]byte, error) {
 	u, err := xid.FromString(id)
 	if err != nil {
-		panic("task key must be a xid id")
+		return nil, errors.New("task key must be a xid id")
 	}
 
 	tskey := strconv.FormatInt(u.Time().Unix(), 10) + "_" + u.String()
-	return []byte(strings.Join([]string{prefix, tskey}, ":"))
+	return []byte(strings.Join([]string{prefix, tskey}, ":")), nil
 }
 
 func (s *Storage) get(prefix string, id string) (tsk *Task, err error) {
 	tsk = &Task{}
-	val, err := s.db.Get(taskKey(prefix, id), nil)
+	key, err := taskKey(prefix, id)
+	if err != nil {
+		return nil, err
+	}
+	val, err := s.db.Get(key, nil)
 	if err == leveldb.ErrNotFound {
 		return nil, ErrNotFound
 	}
@@ -71,7 +75,11 @@ func (s *Storage) put(prefix string, tsk *Task) error {
 	if err != nil {
 		return err
 	}
-	return s.db.Put(taskKey(prefix, tsk.ID), val, &opt.WriteOptions{
+	key, err := taskKey(prefix, tsk.ID)
+	if err != nil {
+		return err
+	}
+	return s.db.Put(key, val, &opt.WriteOptions{
 		Sync: true,
 	})
 }
@@ -102,7 +110,11 @@ func (s *Storage) Delete(id string) error {
 }
 
 func (s *Storage) delete(prefix string, tsk *Task) error {
-	return s.db.Delete(taskKey(prefix, tsk.ID), &opt.WriteOptions{
+	key, err := taskKey(prefix, tsk.ID)
+	if err != nil {
+		return err
+	}
+	return s.db.Delete(key, &opt.WriteOptions{
 		Sync: true,
 	})
 }
@@ -143,8 +155,14 @@ func (s *Storage) ArchiveTask(tsk *Task) error {
 
 // Change the prefix of a task
 func (s *Storage) changePrefix(dst string, src string, id string) error {
-	oldkey := taskKey(src, id)
-	newkey := taskKey(dst, id)
+	oldkey, err := taskKey(src, id)
+	if err != nil {
+		return err
+	}
+	newkey, err := taskKey(dst, id)
+	if err != nil {
+		return err
+	}
 	trans, err := s.db.OpenTransaction()
 	if err != nil {
 		return err

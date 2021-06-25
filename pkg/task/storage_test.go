@@ -11,8 +11,14 @@ import (
 
 func TestChangePrefix(t *testing.T) {
 	id := "bt4brhjpc98qra498sg0"
-	nexp := taskKey(prefixScheduled, id)
-	exp := taskKey(prefixProcessing, id)
+	nexp, err := taskKey(prefixScheduled, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exp, err := taskKey(prefixProcessing, id)
+	if err != nil {
+		t.Fatal(err)
+	}
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
 	if err != nil {
