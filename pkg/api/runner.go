@@ -57,9 +57,6 @@ type RunInput struct {
 
 	// Groups enumerates the groups participating in this run.
 	Groups []*RunGroup
-
-	// EmitDumps is the frequency (in seconds) to emit goroutine dumps.
-	EmitDumps int
 }
 
 type RunGroup struct {

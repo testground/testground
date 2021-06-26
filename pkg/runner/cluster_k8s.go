@@ -240,7 +240,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
 		TestStartTime:     time.Now(),
-		TestEmitDumps:     input.EmitDumps,
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
