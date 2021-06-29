@@ -92,11 +92,9 @@ github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.m
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/evanphx/json-patch v4.2.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLiYLvXMP4fmwYFNcr97nuDLSk=
-github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568/go.mod h1:xEzjJPgXI435gkrCt3MPfRiAkVrwSbHsst4LCFVfpJc=
 github.com/frankban/quicktest v1.9.0 h1:jfEA+Psfr/pHsRJYPpHiNu7PGJnGctNxvTaM3K1EyXk=
 github.com/frankban/quicktest v1.9.0/go.mod h1:ui7WezCLWMWxVWr1GETZY3smRy0G4KWq9vcPtJmFl7Y=
-github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/ghodss/yaml v0.0.0-20150909031657-73d445a93680/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
@@ -317,7 +315,6 @@ github.com/opencontainers/runtime-spec v0.1.2-0.20190507144316-5b71a03e2700/go.m
 github.com/opencontainers/runtime-tools v0.0.0-20181011054405-1d69bd0f9c39/go.mod h1:r3f7wjNzSs2extwzU3Y+6pKfobzPh+kKFJ3ofN+3nfs=
 github.com/otiai10/copy v1.0.2 h1:DDNipYy6RkIkjMwy+AWzgKiNTyj2RUI9yEMeETEpVyc=
 github.com/otiai10/copy v1.0.2/go.mod h1:c7RpqBkwMom4bYTSkLSym4VSJz/XtncWRAj/J4PEIMY=
-github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95 h1:+OLn68pqasWca0z5ryit9KGfp3sUsW4Lqg32iRMJyzs=
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
 github.com/otiai10/mint v1.3.0 h1:Ady6MKVezQwHBkGzLFbrsywyp09Ah7rkmfjV3Bcr5uc=
 github.com/otiai10/mint v1.3.0/go.mod h1:F5AjcsTsWUqX+Na9fpHb52P8pcRX2CI6A3ctIT91xUo=
@@ -385,8 +382,8 @@ github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpP
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401 h1:h9FML1FUPWJgWXa5DxYYMgApb4UNYLw67/Qr0F7hdhY=
 github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401/go.mod h1:MT3F6oeXhaO0bwhclY7dbOxKVfuDuWuO9YHy+TZvgNc=
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
-github.com/testground/sdk-go v0.2.8-0.20210508064141-e912b4cd3792 h1:E7ddphZfIn276wpWwTWIzel7lzf59dIKYWtM0aX+LxE=
-github.com/testground/sdk-go v0.2.8-0.20210508064141-e912b4cd3792/go.mod h1:PArrs6WK+sfAI3Rm2gyrwbrPkacgqONs1TGnzWBu+vM=
+github.com/testground/sdk-go v0.2.8-0.20210629092055-d06f1ef3b297 h1:mz8JYl0ugyj6X4TqAmQWHfNS8FldL5rqUP0g4jB0M8k=
+github.com/testground/sdk-go v0.2.8-0.20210629092055-d06f1ef3b297/go.mod h1:PArrs6WK+sfAI3Rm2gyrwbrPkacgqONs1TGnzWBu+vM=
 github.com/testground/sync-service v0.0.0-20210508061333-7f525a82e254 h1:W6tGmbYjYSFCHWU+AmQFAr0xo8UVK6b6DWi0CsQ6lTI=
 github.com/testground/sync-service v0.0.0-20210508061333-7f525a82e254/go.mod h1:UxLxsGjkZPqY1TtlusUu8xO0CS97eQ2PfIVF5O9JETA=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=

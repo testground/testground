@@ -1,5 +1,5 @@
 module github.com/testground/testground/plans/network
 
-go 1.14
+go 1.16
 
-require github.com/testground/sdk-go v0.2.8-0.20210508064141-e912b4cd3792
+require github.com/testground/sdk-go v0.2.8-0.20210629092055-d06f1ef3b297
