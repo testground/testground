@@ -52,9 +52,6 @@ func NewDockerReactor() (Reactor, error) {
 		return nil, err
 	}
 
-	// sidecar nodes perform Redis GC.
-	client.EnableBackgroundGC(nil)
-
 	cache, _ := lru.New(32)
 
 	r := &DockerReactor{
@@ -77,7 +74,8 @@ func (d *DockerReactor) ResolveServices(runid string) {
 	}
 
 	wantedRoutes := []string{
-		os.Getenv(EnvRedisHost),
+		os.Getenv(EnvRedisHost), // NOTE: kept for backwards compatibility with older SDKs.
+		os.Getenv(EnvSyncServiceHost),
 		os.Getenv(EnvInfluxdbHost),
 	}
 
