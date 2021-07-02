@@ -19,9 +19,6 @@ spec:
         - name: testground-sync-service
           image: iptestground/sync-service:no-redis
           command: ["/service"]
-          env:
-            - name: REDIS_HOST
-              value: "172.18.0.1"
           ports:
             - name: syncservicehttp
               containerPort: 5050
