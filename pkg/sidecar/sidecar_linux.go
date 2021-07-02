@@ -10,6 +10,7 @@ import (
 )
 
 const (
+	EnvRedisHost       = "REDIS_HOST" // NOTE: kept for backwards compatibility with older SDKs.
 	EnvSyncServiceHost = "SYNC_SERVICE_HOST"
 	EnvInfluxdbHost    = "INFLUXDB_HOST"
 )
