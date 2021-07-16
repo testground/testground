@@ -50,10 +50,11 @@ import (
 )
 
 var (
-	_    api.Runner        = (*ClusterK8sRunner)(nil)
-	_    api.Terminatable  = (*ClusterK8sRunner)(nil)
-	_    api.Healthchecker = (*ClusterK8sRunner)(nil)
-	once                   = sync.Once{}
+	_             api.Runner        = (*ClusterK8sRunner)(nil)
+	_             api.Terminatable  = (*ClusterK8sRunner)(nil)
+	_             api.Healthchecker = (*ClusterK8sRunner)(nil)
+	mu                              = sync.Mutex{}
+	errSyncClient                   = errors.New("failed to start sync client")
 )
 
 const (
@@ -130,10 +131,11 @@ type ClusterK8sRunnerConfig struct {
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
 // many replicated instances of a container as the run job indicates.
 type ClusterK8sRunner struct {
-	config     KubernetesConfig
-	pool       *pool
-	imagesLRU  *lru.Cache
-	syncClient *ss.WatchClient
+	initialized bool
+	config      KubernetesConfig
+	pool        *pool
+	imagesLRU   *lru.Cache
+	syncClient  *ss.WatchClient
 }
 
 type Result struct {
@@ -193,7 +195,9 @@ func defaultKubernetesConfig() KubernetesConfig {
 }
 
 func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, runerr error) {
-	c.initPool()
+	if err := c.initPool(); err != nil {
+		return nil, fmt.Errorf("could not init pool: %w", err)
+	}
 
 	result := newResult()
 	runoutput = &api.RunOutput{
@@ -430,7 +434,10 @@ func (*ClusterK8sRunner) ID() string {
 }
 
 func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
-	c.initPool()
+	// Ignore sync client error as we may start the redis pod below.
+	if err := c.initPool(); err != nil && !errors.Is(err, errSyncClient) {
+		return nil, err
+	}
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
@@ -484,35 +491,42 @@ func (*ClusterK8sRunner) CompatibleBuilders() []string {
 }
 
 func (c *ClusterK8sRunner) Enabled() bool {
-	c.initPool()
-
+	_ = c.initPool()
 	return c.pool != nil
 }
 
-func (c *ClusterK8sRunner) initPool() {
-	once.Do(func() {
-		log := logging.S().With("runner", "cluster:k8s")
+func (c *ClusterK8sRunner) initPool() error {
+	mu.Lock()
+	defer mu.Unlock()
 
-		c.config = defaultKubernetesConfig()
+	if c.initialized {
+		return nil
+	}
 
-		var err error
-		workers := 20
-		c.pool, err = newPool(workers, c.config)
-		if err != nil {
-			log.Warn(err)
-		}
+	c.config = defaultKubernetesConfig()
+	c.imagesLRU, _ = lru.New(256)
 
-		c.imagesLRU, _ = lru.New(256)
+	var err error
+	workers := 20
 
-		c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-		if err != nil {
-			log.Error(err)
-		}
-	})
+	c.pool, err = newPool(workers, c.config)
+	if err != nil {
+		return err
+	}
+
+	c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+	if err != nil {
+		return fmt.Errorf("%w: %s", errSyncClient, err)
+	}
+
+	c.initialized = true
+	return nil
 }
 
 func (c *ClusterK8sRunner) CollectOutputs(ctx context.Context, input *api.CollectionInput, ow *rpc.OutputWriter) error {
-	c.initPool()
+	if err := c.initPool(); err != nil {
+		return fmt.Errorf("could not init pool: %w", err)
+	}
 
 	log := ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 	err := c.ensureCollectOutputsPod(ctx, input)
@@ -993,10 +1007,12 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 	return false, nil
 }
 
-// Terminates all pods for with the label testground.purpose: plan
+// TerminateAll terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
 func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter) error {
-	c.initPool()
+	if err := c.initPool(); err != nil {
+		return fmt.Errorf("could not init pool: %w", err)
+	}
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
@@ -1149,7 +1165,9 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 }
 
 func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
-	c.initPool()
+	if err := c.initPool(); err != nil {
+		return -1, -1, fmt.Errorf("could not init pool: %w", err)
+	}
 
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
