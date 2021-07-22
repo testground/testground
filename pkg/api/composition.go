@@ -74,6 +74,9 @@ type Global struct {
 	// test parameters or build artifacts. Groups can override these in their
 	// local run definition.
 	Run *Run `toml:"run" json:"run"`
+
+	// DisableInflux is used to disable InfluxDB batching.
+	DisableInflux bool `toml:"disable_influx" json:"disable_influx"`
 }
 
 type Metadata struct {
