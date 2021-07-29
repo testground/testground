@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	copy2 "github.com/otiai10/copy"
+	ignore "github.com/sabhiram/go-gitignore"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -93,7 +95,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 	// zip archive will contain /abc and /def.
 	// if toplevel=false, it will omit the toplevel directories and will place the contents of each
 	// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
-	writeZippedDirs := func(w io.Writer, toplevel bool, ignoredFiles []string, dirs ...string) error {
+	writeZippedDirs := func(w io.Writer, toplevel bool, dirs ...string) error {
 		// A temporary .zip file to deflate the directory into.
 		// archiver doesn't support archiving direcly into an io.Writer, so we
 		// need a file as a buffer.
@@ -126,9 +128,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 					return err
 				}
 				for _, fi := range fis {
-					if !isIn(fi.Name(), ignoredFiles) {
-						files = append(files, filepath.Join(dir, fi.Name()))
-					}
+					files = append(files, filepath.Join(dir, fi.Name()))
 				}
 			}
 		}
@@ -183,13 +183,18 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 		// Optional part 2: plan source directory.
 		if plandir != "" {
-			ignoredFiles := getIgnoredFiles(plandir)
+			plandir, temp, err := getFilteredDirectory(plandir)
+			if temp {
+				defer func() {
+					os.RemoveAll(plandir)
+				}()
+			}
 
 			w, err = mp.CreatePart(hplan)
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, ignoredFiles, plandir); err != nil {
+			if err = writeZippedDirs(w, false, plandir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -200,7 +205,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, nil, sdkdir); err != nil {
+			if err = writeZippedDirs(w, false, sdkdir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -210,7 +215,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, true, nil, extraSrcs...); err != nil {
+			if err = writeZippedDirs(w, true, extraSrcs...); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -225,31 +230,37 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
 }
 
-func isIn(str string, strs []string) bool {
-	if strs == nil {
-		return false
+// getFilteredDirectory filters the directory dir according to the
+// ignored files specified in $dir/.testgroundignore. Returns a new
+// directory and a boolean indicating if such directory is temporary
+// and should be cleaned by the caller.
+func getFilteredDirectory(dir string) (string, bool, error) {
+	ignoreFilePath := filepath.Join(dir, ".testgroundignore")
+	_, err := os.Stat(ignoreFilePath)
+
+	if os.IsNotExist(err) {
+		return dir, false, nil
+	} else if err != nil {
+		return "", false, err
 	}
 
-	for _, s := range strs {
-		if s == str {
-			return true
-		}
-	}
-
-	return false
-}
-
-func getIgnoredFiles(plandir string) []string {
-	i, err := ioutil.ReadFile(filepath.Join(plandir, ".testgroundignore"))
+	tgIgnore, err := ignore.CompileIgnoreFile(ignoreFilePath)
 	if err != nil {
-		return nil
+		return "", false, err
 	}
 
-	tgIgnore := string(i)
-	tgIgnore = strings.TrimSpace(tgIgnore)
+	tmp, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		return "", false, err
+	}
 
-	ignore := strings.Split(tgIgnore, "\n")
-	return ignore
+	err = copy2.Copy(dir, tmp, copy2.Options{
+		Skip: func(src string) (bool, error) {
+			return tgIgnore.MatchesPath(src), nil
+		},
+	})
+
+	return tmp, true, err
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
