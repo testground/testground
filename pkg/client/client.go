@@ -93,7 +93,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 	// zip archive will contain /abc and /def.
 	// if toplevel=false, it will omit the toplevel directories and will place the contents of each
 	// at the root of the zip, with overwrite=true. So /abc and /def are placed as /abc/* and /def/* at the root.
-	writeZippedDirs := func(w io.Writer, toplevel bool, dirs ...string) error {
+	writeZippedDirs := func(w io.Writer, toplevel bool, ignoredFiles []string, dirs ...string) error {
 		// A temporary .zip file to deflate the directory into.
 		// archiver doesn't support archiving direcly into an io.Writer, so we
 		// need a file as a buffer.
@@ -126,7 +126,9 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 					return err
 				}
 				for _, fi := range fis {
-					files = append(files, filepath.Join(dir, fi.Name()))
+					if !isIn(fi.Name(), ignoredFiles) {
+						files = append(files, filepath.Join(dir, fi.Name()))
+					}
 				}
 			}
 		}
@@ -181,11 +183,13 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 		// Optional part 2: plan source directory.
 		if plandir != "" {
+			ignoredFiles := getIgnoredFiles(plandir)
+
 			w, err = mp.CreatePart(hplan)
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, plandir); err != nil {
+			if err = writeZippedDirs(w, false, ignoredFiles, plandir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -196,7 +200,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, sdkdir); err != nil {
+			if err = writeZippedDirs(w, false, nil, sdkdir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -206,7 +210,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, true, extraSrcs...); err != nil {
+			if err = writeZippedDirs(w, true, nil, extraSrcs...); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -219,6 +223,33 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 	contentType := "multipart/related; boundary=" + mp.Boundary()
 	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
+}
+
+func isIn(str string, strs []string) bool {
+	if strs == nil {
+		return false
+	}
+
+	for _, s := range strs {
+		if s == str {
+			return true
+		}
+	}
+
+	return false
+}
+
+func getIgnoredFiles(plandir string) []string {
+	i, err := ioutil.ReadFile(filepath.Join(plandir, ".testgroundignore"))
+	if err != nil {
+		return nil
+	}
+
+	tgIgnore := string(i)
+	tgIgnore = strings.TrimSpace(tgIgnore)
+
+	ignore := strings.Split(tgIgnore, "\n")
+	return ignore
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
