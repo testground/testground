@@ -184,6 +184,10 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 		// Optional part 2: plan source directory.
 		if plandir != "" {
 			plandir, temp, err := getFilteredDirectory(plandir)
+			if err != nil {
+				return err
+			}
+
 			if temp {
 				defer func() {
 					os.RemoveAll(plandir)
