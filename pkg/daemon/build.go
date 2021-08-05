@@ -4,10 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mholt/archiver"
-	"github.com/testground/testground/pkg/api"
-	"github.com/testground/testground/pkg/logging"
-	"github.com/testground/testground/pkg/rpc"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -15,6 +11,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/mholt/archiver"
+	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/rpc"
 )
 
 func (d *Daemon) buildHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -149,6 +150,7 @@ Outer:
 			if err := os.Mkdir(destdir, 0755); err != nil {
 				return nil, fmt.Errorf("failed to create directory for sdk: %w", err)
 			}
+			logging.S().Infof("extracting %s to %s", filename, destdir)
 			if err := archiver.NewZip().Unarchive(targetzip.Name(), destdir); err != nil {
 				return nil, fmt.Errorf("failed to decompress sdk: %w", err)
 			}
