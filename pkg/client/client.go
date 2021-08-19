@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	copy2 "github.com/otiai10/copy"
+	ignore "github.com/sabhiram/go-gitignore"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -181,6 +183,17 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 		// Optional part 2: plan source directory.
 		if plandir != "" {
+			plandir, temp, err := getFilteredDirectory(plandir)
+			if err != nil {
+				return err
+			}
+
+			if temp {
+				defer func() {
+					os.RemoveAll(plandir)
+				}()
+			}
+
 			w, err = mp.CreatePart(hplan)
 			if err != nil {
 				return wr.CloseWithError(err)
@@ -219,6 +232,39 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 	contentType := "multipart/related; boundary=" + mp.Boundary()
 	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
+}
+
+// getFilteredDirectory filters the directory dir according to the
+// ignored files specified in $dir/.testgroundignore. Returns a new
+// directory and a boolean indicating if such directory is temporary
+// and should be cleaned by the caller.
+func getFilteredDirectory(dir string) (string, bool, error) {
+	ignoreFilePath := filepath.Join(dir, ".testgroundignore")
+	_, err := os.Stat(ignoreFilePath)
+
+	if os.IsNotExist(err) {
+		return dir, false, nil
+	} else if err != nil {
+		return "", false, err
+	}
+
+	tgIgnore, err := ignore.CompileIgnoreFile(ignoreFilePath)
+	if err != nil {
+		return "", false, err
+	}
+
+	tmp, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		return "", false, err
+	}
+
+	err = copy2.Copy(dir, tmp, copy2.Options{
+		Skip: func(src string) (bool, error) {
+			return tgIgnore.MatchesPath(src), nil
+		},
+	})
+
+	return tmp, true, err
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
