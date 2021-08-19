@@ -226,10 +226,9 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 			}
 			logging.S().Infof("linking with sdk at: %s", sdkDir)
 		}
-
 		// if there are extra sources to include for this builder, contextualize
 		// them to the plan's dir.
-		builder := comp.Global.Builder
+		builder := strings.Replace(comp.Global.Builder, ":", "_", -1)
 		extraSrcs = manifest.ExtraSources[builder]
 		for i, dir := range extraSrcs {
 			if !filepath.IsAbs(dir) {
