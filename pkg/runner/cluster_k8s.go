@@ -241,6 +241,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
+		TestDisableInflux: input.DisableInflux,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
 		TestStartTime:     time.Now(),

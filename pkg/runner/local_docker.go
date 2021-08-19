@@ -238,6 +238,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
+		TestDisableInflux: input.DisableInflux,
 		TestSidecar:       true,
 		TestOutputsPath:   "/outputs",
 		TestTempPath:      "/temp", // not using /tmp to avoid overriding linux standard paths.

@@ -84,6 +84,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
+		TestDisableInflux: input.DisableInflux,
 		TestSidecar:       false,
 		TestSubnet:        &ptypes.IPNet{IPNet: *localSubnet},
 	}
