@@ -355,7 +355,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				client := c.pool.Acquire()
 				defer c.pool.Release(client)
 				ow.Debugw("deleting pod", "pod", podName)
-				err = client.CoreV1().Pods(c.config.Namespace).Delete(podName, &metav1.DeleteOptions{})
+				err = client.CoreV1().Pods(c.config.Namespace).Delete(ctx, podName, metav1.DeleteOptions{})
 				if err != nil {
 					ow.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -443,7 +443,7 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 	defer c.pool.Release(client)
 
 	// How many plan worker nodes are there?
-	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+	res, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: "testground.node.role.plan=true",
 	})
 	if err != nil {
@@ -611,7 +611,7 @@ func (c *ClusterK8sRunner) waitForPod(ctx context.Context, podName string, phase
 			if p == phase {
 				return nil
 			}
-			res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+			res, err := client.CoreV1().Pods(c.config.Namespace).List(ctx, metav1.ListOptions{
 				FieldSelector: "metadata.name=" + podName,
 			})
 			if err != nil {
@@ -634,7 +634,7 @@ func (c *ClusterK8sRunner) ensureCollectOutputsPod(ctx context.Context, input *a
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	res, err := client.CoreV1().Pods(c.config.Namespace).List(metav1.ListOptions{
+	res, err := client.CoreV1().Pods(c.config.Namespace).List(ctx, metav1.ListOptions{
 		FieldSelector: "metadata.name=" + collectOutputsPodName,
 	})
 	if err != nil {
@@ -668,7 +668,7 @@ func (c *ClusterK8sRunner) getPodLogs(ow *rpc.OutputWriter, podName string) (str
 	var err error
 	err = retry(5, 5*time.Second, func() error {
 		req := client.CoreV1().Pods(c.config.Namespace).GetLogs(podName, &podLogOpts)
-		podLogs, err = req.Stream()
+		podLogs, err = req.Stream(context.TODO())
 		if err != nil {
 			ow.Warnw("got error when trying to fetch pod logs", "err", err.Error())
 		}
@@ -706,7 +706,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 	opts := metav1.ListOptions{
 		FieldSelector: fieldSelector,
 	}
-	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(opts)
+	eventsWatcher, err := client.CoreV1().Events(c.config.Namespace).Watch(ctx, opts)
 	if err != nil {
 		ow.Errorw("k8s client pods list error", "err", err.Error())
 		return err
@@ -753,7 +753,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 				LabelSelector: fmt.Sprintf("testground.run_id=%s", input.RunID),
 				FieldSelector: fieldSelector,
 			}
-			res, err := client.CoreV1().Pods(c.config.Namespace).List(opts)
+			res, err := client.CoreV1().Pods(c.config.Namespace).List(ctx, opts)
 			if err != nil {
 				ow.Warnw("k8s client pods list error", "err", err.Error())
 				return -1
@@ -816,7 +816,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 	}
 }
 
-func (c *ClusterK8sRunner) createTestplanPod(_ context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
+func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string, input *api.RunInput, runenv runtime.RunParams, env []v1.EnvVar, g *api.RunGroup, i int, podResourceMemory resource.Quantity, podResourceCPU resource.Quantity) error {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
@@ -938,7 +938,7 @@ func (c *ClusterK8sRunner) createTestplanPod(_ context.Context, podName string, 
 		},
 	}
 
-	_, err := client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
+	_, err := client.CoreV1().Pods(c.config.Namespace).Create(ctx, podRequest, metav1.CreateOptions{})
 	return err
 }
 
@@ -965,7 +965,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+	res, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "testground.node.role.plan=true",
 	})
 	if err != nil {
@@ -1009,7 +1009,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 // TerminateAll terminates all pods for with the label testground.purpose: plan
 // This command will remove all plan pods in the cluster.
-func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter) error {
+func (c *ClusterK8sRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {
 	if err := c.initPool(); err != nil {
 		return fmt.Errorf("could not init pool: %w", err)
 	}
@@ -1020,7 +1020,7 @@ func (c *ClusterK8sRunner) TerminateAll(_ context.Context, ow *rpc.OutputWriter)
 	planPods := metav1.ListOptions{
 		LabelSelector: "testground.purpose=plan",
 	}
-	err := client.CoreV1().Pods("default").DeleteCollection(&metav1.DeleteOptions{}, planPods)
+	err := client.CoreV1().Pods("default").DeleteCollection(ctx, metav1.DeleteOptions{}, planPods)
 	if err != nil {
 		ow.Errorw("could not terminate all pods", "err", err)
 		return err
@@ -1160,7 +1160,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 		},
 	}
 
-	_, err = client.CoreV1().Pods(c.config.Namespace).Create(podRequest)
+	_, err = client.CoreV1().Pods(c.config.Namespace).Create(ctx, podRequest, metav1.CreateOptions{})
 	return err
 }
 
@@ -1172,7 +1172,7 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	client := c.pool.Acquire()
 	defer c.pool.Release(client)
 
-	res, err := client.CoreV1().Nodes().List(metav1.ListOptions{
+	res, err := client.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "testground.node.role.plan=true",
 	})
 	if err != nil {
