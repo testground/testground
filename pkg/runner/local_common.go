@@ -82,7 +82,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-sync-service",
 			ContainerConfig: &container.Config{
-				Image:      "iptestground/sync-service:no-redis",
+				Image:      "iptestground/sync-service:latest",
 				Entrypoint: []string{"/service"},
 				Env:        []string{"REDIS_HOST=testground-redis"},
 			},

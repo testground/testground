@@ -17,7 +17,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: testground-sync-service
-          image: iptestground/sync-service:no-redis
+          image: iptestground/sync-service:latest
           command: ["/service"]
           ports:
             - name: syncservicehttp
