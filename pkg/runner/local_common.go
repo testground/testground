@@ -55,6 +55,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 				Cmd:   []string{"--save", "", "--appendonly", "no", "--maxclients", "120000", "--stop-writes-on-bgsave-error", "no"},
 			},
 			HostConfig: &container.HostConfig{
+				// NOTE: we expose this port for compatibility with older sdk versions.
 				PortBindings: exposed,
 				NetworkMode:  container.NetworkMode(controlNetworkID),
 				Resources: container.Resources{
@@ -70,6 +71,36 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 				},
 			},
 			ImageStrategy: docker.ImageStrategyPull,
+		}),
+	)
+
+	// sync service, which uses redis.
+	_, exposed, _ = nat.ParsePortSpecs([]string{"5050:5050"})
+	hh.Enlist("local-sync-service",
+		healthcheck.CheckContainerStarted(ctx, ow, cli, "testground-sync-service"),
+		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
+			ContainerName: "testground-sync-service",
+			ContainerConfig: &container.Config{
+				Image:      "iptestground/sync-service:latest",
+				Entrypoint: []string{"/service"},
+				Env:        []string{"REDIS_HOST=testground-redis"},
+			},
+			HostConfig: &container.HostConfig{
+				PortBindings: exposed,
+				NetworkMode:  container.NetworkMode(controlNetworkID),
+				Resources: container.Resources{
+					Ulimits: []*units.Ulimit{
+						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
+					},
+				},
+				Sysctls: map[string]string{
+					"net.core.somaxconn":             "150000",
+					"net.netfilter.nf_conntrack_max": "120000",
+				},
+				RestartPolicy: container.RestartPolicy{
+					Name: "unless-stopped",
+				},
+			},
 		}),
 	)
 

@@ -24,11 +24,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/testground/sdk-go/runtime"
 	ss "github.com/testground/sdk-go/sync"
-
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/aws"
 	"github.com/testground/testground/pkg/conv"
@@ -36,6 +33,7 @@ import (
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
+	"golang.org/x/sync/errgroup"
 
 	v1 "k8s.io/api/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -135,7 +133,7 @@ type ClusterK8sRunner struct {
 	config      KubernetesConfig
 	pool        *pool
 	imagesLRU   *lru.Cache
-	syncClient  *ss.WatchClient
+	syncClient  *ss.DefaultClient
 }
 
 type Result struct {
@@ -281,14 +279,22 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var eg errgroup.Group
 
 	eg.Go(func() error {
-		err := c.watchRunPods(ctx, ow, input, result, &template)
+		ctxContainers, cancel := context.WithCancel(ctx)
+		defer cancel()
 
-		erru := c.updateRunResult(&template, result)
-		if erru != nil {
-			ow.Errorw("could not update run result", "err", erru)
+		outcomesDoneCh, err := c.collectOutcomes(ctxContainers, result, &template)
+		if err != nil {
+			ow.Errorw("could not start collecting outcomes", "err", err)
 		}
 
-		return err
+		err = c.watchRunPods(ctx, ow, input, result, &template)
+		if err != nil {
+			return err
+		}
+
+		cancel()
+		<-outcomesDoneCh
+		return nil
 	})
 
 	sem := make(chan struct{}, 30) // limit the number of concurrent k8s api calls
@@ -306,6 +312,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis-headless"})
+		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service-headless"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
 
 		// Set the log level if provided in cfg.
@@ -463,6 +470,11 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 		healthcheck.NotImplemented(),
 	)
 
+	hh.Enlist("sync service pod",
+		healthcheck.CheckK8sPods(ctx, client, "name=testground-sync-service", c.config.Namespace, 1),
+		healthcheck.NotImplemented(),
+	)
+
 	hh.Enlist("prometheus pod",
 		healthcheck.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
@@ -514,7 +526,7 @@ func (c *ClusterK8sRunner) initPool() error {
 		return err
 	}
 
-	c.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
+	c.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
 	if err != nil {
 		return fmt.Errorf("%w: %s", errSyncClient, err)
 	}
@@ -1205,31 +1217,44 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 	return allocatableCPUs, allocatableMemory, nil
 }
 
-func (c *ClusterK8sRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	events, err := c.syncClient.FetchAllEvents(template)
+func (c *ClusterK8sRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) (chan bool, error) {
+	eventsCh, err := c.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, e := range events {
-		// for now we emit only outcome OK events, so no need for more checks
-		if e.SuccessEvent != nil {
-			se := e.SuccessEvent
-			o := result.Outcomes[se.TestGroupID]
-			o.Ok = o.Ok + 1
+	done := make(chan bool)
+
+	go func() {
+		running := true
+		for running {
+			select {
+			case <-ctx.Done():
+				running = false
+			case e := <-eventsCh:
+				// for now we emit only outcome OK events, so no need for more checks
+				if e.SuccessEvent != nil {
+					se := e.SuccessEvent
+					o := result.Outcomes[se.TestGroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
 		}
-	}
 
-	result.Outcome = task.OutcomeSuccess
-	if len(result.Outcomes) == 0 {
-		result.Outcome = task.OutcomeFailure
-	}
-	for g := range result.Outcomes {
-		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+		result.Outcome = task.OutcomeSuccess
+		if len(result.Outcomes) == 0 {
 			result.Outcome = task.OutcomeFailure
-			break
 		}
-	}
 
-	return nil
+		for g := range result.Outcomes {
+			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+				result.Outcome = task.OutcomeFailure
+				break
+			}
+		}
+
+		done <- true
+	}()
+
+	return done, nil
 }
