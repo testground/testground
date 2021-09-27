@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -207,8 +208,9 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
-	builder := comp.Global.Builder
+	builder := strings.Replace(comp.Global.Builder, ":", "_", -1)
 	extra := manifest.ExtraSources[builder]
+	logging.S().Infof("build %s extra %s", builder, extra)
 	for i, dir := range extra {
 		if !filepath.IsAbs(dir) {
 			// follow any symlinks in the plan dir.

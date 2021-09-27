@@ -365,7 +365,7 @@ func waitForPodRunningPhase(ctx context.Context, podName string) error {
 			if phase == "Running" {
 				return nil
 			}
-			pod, err := k8sClientset.CoreV1().Pods("default").Get(podName, metav1.GetOptions{})
+			pod, err := k8sClientset.CoreV1().Pods("default").Get(ctx, podName, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("error in wait for pod running phase: %v", err)
 			}
