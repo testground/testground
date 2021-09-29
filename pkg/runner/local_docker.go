@@ -270,15 +270,15 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	// Build a template runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan,
-		TestCase:          input.TestCase,
-		TestRun:           input.RunID,
-		TestInstanceCount: input.TotalInstances,
-		TestDisableInflux: input.DisableInflux,
-		TestSidecar:       true,
-		TestOutputsPath:   "/outputs",
-		TestTempPath:      "/temp", // not using /tmp to avoid overriding linux standard paths.
-		TestStartTime:     time.Now(),
+		TestPlan:           input.TestPlan,
+		TestCase:           input.TestCase,
+		TestRun:            input.RunID,
+		TestInstanceCount:  input.TotalInstances,
+		TestDisableMetrics: input.DisableMetrics,
+		TestSidecar:        true,
+		TestOutputsPath:    "/outputs",
+		TestTempPath:       "/temp", // not using /tmp to avoid overriding linux standard paths.
+		TestStartTime:      time.Now(),
 	}
 
 	// Create a data network.

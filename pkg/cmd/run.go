@@ -122,8 +122,8 @@ var RunCommand = cli.Command{
 					Usage: "commit that triggered this run",
 				},
 				&cli.BoolFlag{
-					Name:  "disable-influx",
-					Usage: "disable InfluxDB batching",
+					Name:  "disable-metrics",
+					Usage: "disable metrics batching",
 				},
 			),
 		},

@@ -55,8 +55,8 @@ type RunInput struct {
 	// TotalInstances is the total number of instances participating in this test case.
 	TotalInstances int
 
-	// DisableInflux disables InfluxDB batching.
-	DisableInflux bool
+	// DisableMetrics disables metrics batching.
+	DisableMetrics bool
 
 	// Groups enumerates the groups participating in this run.
 	Groups []*RunGroup
