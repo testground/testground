@@ -39,12 +39,12 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/kubernetes/client-go/tools/remotecommand"
 	"github.com/msoap/byline"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 var (
