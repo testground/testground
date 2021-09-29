@@ -64,7 +64,7 @@ commands:
 executors:
   linux:
     machine:
-      image: ubuntu-1604:201903-01
+      image: ubuntu-2004:202107-02
       docker_layer_caching: true
     resource_class: large
     working_directory: << pipeline.parameters.workspace-dir >>/project

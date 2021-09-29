@@ -6,12 +6,15 @@ define eachmod
 	@find . -type f -name go.mod -print0 | xargs -I '{}' -n1 -0 bash -c 'dir="$$(dirname {})" && echo "$${dir}" && cd "$${dir}" && $(1)'
 endef
 
-.PHONY: install goinstall pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
+.PHONY: install goinstall sync-install pre-commit tidy mod-download lint build-all docker docker-sidecar docker-testground test-go test-integration test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec kind-cluster
 
-install: goinstall docker
+install: goinstall docker sync-install
 
 goinstall:
 	go install -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
+
+sync-install:
+	docker pull iptestground/sync-service:latest
 
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
@@ -55,7 +58,7 @@ test-integ-local-docker:
 	./integration_tests/09_docker_splitbrain_accept.sh
 	./integration_tests/10_docker_splitbrain_reject.sh
 	./integration_tests/11_docker_splitbrain_drop.sh
-	./integration_tests/12_docker_example-js_pingpong.sh
+	# ./integration_tests/12_docker_example-js_pingpong.sh
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
@@ -67,3 +70,5 @@ kind-cluster:
 	kubectl label nodes kind-control-plane testground.node.role.infra=true
 	kind load docker-image iptestground/sidecar:edge
 	kubectl apply -f .circleci/sidecar.yaml
+	kind load docker-image iptestground/sync-service:latest
+	kubectl apply -f .circleci/sync-service.yaml

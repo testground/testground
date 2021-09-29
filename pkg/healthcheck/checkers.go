@@ -105,7 +105,7 @@ func CheckCommandStatus(ctx context.Context, cmd string, args ...string) Checker
 func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label string, namespace string, count int) Checker {
 	return func() (bool, string, error) {
 		listOpts := metav1.ListOptions{LabelSelector: label}
-		pods, err := client.CoreV1().Pods(namespace).List(listOpts)
+		pods, err := client.CoreV1().Pods(namespace).List(ctx, listOpts)
 		if err != nil {
 			return false, fmt.Sprintf("failed to list pods %s", label), err
 		}

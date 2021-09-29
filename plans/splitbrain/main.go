@@ -134,6 +134,7 @@ func routeFilter(action network.FilterAction) run.TestCaseFn {
 			netclient.MustConfigureNetwork(ctx, &cfg)
 		}
 
+		runenv.RecordMessage("waiting for all nodes to receive all addresses")
 		// Wait until *all* nodes have received all addresses.
 		_, err = client.SignalAndWait(ctx, "nodeRoundup", runenv.TestInstanceCount)
 		if err != nil {

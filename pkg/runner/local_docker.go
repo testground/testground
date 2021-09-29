@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"github.com/testground/testground/pkg/logging"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,11 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/testground/sdk-go/ptypes"
-	ss "github.com/testground/sdk-go/sync"
-
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/testground/sdk-go/runtime"
 
@@ -26,7 +25,6 @@ import (
 	"github.com/testground/testground/pkg/conv"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/healthcheck"
-	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/task"
 
@@ -40,6 +38,8 @@ import (
 
 	"github.com/imdario/mergo"
 	"golang.org/x/sync/errgroup"
+
+	ss "github.com/testground/sdk-go/sync"
 )
 
 const InfraMaxFilesUlimit int64 = 1048576
@@ -97,7 +97,7 @@ type LocalDockerRunner struct {
 	controlNetworkID string
 	outputsDir       string
 
-	syncClient *ss.WatchClient
+	syncClient *ss.DefaultClient
 }
 
 func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
@@ -131,7 +131,8 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Image:      "iptestground/sidecar:edge",
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
-			Env:        []string{"REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
+			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
+			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -171,36 +172,79 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	return hh.RunChecks(ctx, fix)
 }
 
-func (c *LocalDockerRunner) updateRunResult(template *runtime.RunParams, result *Result) error {
-	events, err := c.syncClient.FetchAllEvents(template)
+// setupSyncClient sets up the sync client if it is not set up already.
+func (r *LocalDockerRunner) setupSyncClient() error {
+	r.lk.Lock()
+	defer r.lk.Unlock()
+
+	if r.syncClient != nil {
+		return nil
+	}
+
+	err := os.Setenv(ss.EnvServiceHost, "127.0.0.1")
 	if err != nil {
 		return err
 	}
 
-	for _, e := range events {
-		// for now we emit only outcome OK events, so no need for more checks
-		if e.SuccessEvent != nil {
-			se := e.SuccessEvent
-			o := result.Outcomes[se.TestGroupID]
-			o.Ok = o.Ok + 1
-		}
-	}
-
-	result.Outcome = task.OutcomeSuccess
-	if len(result.Outcomes) == 0 {
-		result.Outcome = task.OutcomeFailure
-	}
-	for g := range result.Outcomes {
-		if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-			result.Outcome = task.OutcomeFailure
-			break
-		}
+	r.syncClient, err = ss.NewGenericClient(context.Background(), logging.S())
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
+func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) (chan bool, error) {
+	eventsCh, err := r.syncClient.SubscribeEvents(ctx, tpl)
+	if err != nil {
+		return nil, err
+	}
+
+	done := make(chan bool)
+
+	go func() {
+		running := true
+		for running {
+			select {
+			case <-ctx.Done():
+				running = false
+			case e := <-eventsCh:
+				// for now we emit only outcome OK events, so no need for more checks
+				if e.SuccessEvent != nil {
+					se := e.SuccessEvent
+					o := result.Outcomes[se.TestGroupID]
+					o.Ok = o.Ok + 1
+				}
+			}
+		}
+
+		result.Outcome = task.OutcomeSuccess
+		if len(result.Outcomes) == 0 {
+			result.Outcome = task.OutcomeFailure
+		}
+
+		for g := range result.Outcomes {
+			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
+				result.Outcome = task.OutcomeFailure
+				break
+			}
+		}
+
+		done <- true
+	}()
+
+	return done, nil
+}
+
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
+	log := ow.With("runner", "local:docker", "run_id", input.RunID)
+
+	err = r.setupSyncClient()
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
 	r.lk.RLock()
@@ -210,14 +254,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
 		Result: result,
-	}
-
-	log := ow.With("runner", "local:docker", "run_id", input.RunID)
-
-	r.syncClient, err = ss.NewWatchClient(context.Background(), logging.S())
-	if err != nil {
-		log.Error(err)
-		return
 	}
 
 	defer func() {
@@ -411,6 +447,13 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	ctxContainers, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// collect the outcomes in parallel while the process runs.
+	outcomesDoneCh, err := r.collectOutcomes(ctxContainers, result, &template)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
 	log.Infow("starting containers", "count", len(containers))
 
 	g, gctx := errgroup.WithContext(ctxContainers)
@@ -531,10 +574,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	select {
 	case err = <-doneCh:
-		erru := r.updateRunResult(&template, result)
-		if erru != nil {
-			ow.Errorw("could not update run result", "err", erru)
-		}
 	case <-ctx.Done():
 		err = ctx.Err()
 	}
@@ -544,6 +583,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		_ = os.RemoveAll(tmpdir)
 	}
 
+	cancel()
+	<-outcomesDoneCh
 	return
 }
 
