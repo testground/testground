@@ -94,8 +94,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 					},
 				},
 				Sysctls: map[string]string{
-					"net.core.somaxconn":             "150000",
-					"net.netfilter.nf_conntrack_max": "120000",
+					"net.core.somaxconn": "150000",
 				},
 				RestartPolicy: container.RestartPolicy{
 					Name: "unless-stopped",
