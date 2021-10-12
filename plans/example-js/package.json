@@ -7,7 +7,7 @@
   "author": "Henrique Dias <mail@hacdias.com>",
   "license": "MIT",
   "dependencies": {
-    "@testground/sdk": "git+https://github.com/testground/sdk-js.git#sync-service"
+    "@testground/sdk": "https://github.com/testground/sdk-js#sync-service"
   },
   "scripts": {
     "start": "node index.js"
