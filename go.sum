@@ -503,6 +503,8 @@ github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e40
 github.com/testground/sdk-go v0.2.4/go.mod h1:3ewI3dydDseP7eCO1MHGh+67simvbkcUnguPYssFqiA=
 github.com/testground/sdk-go v0.3.1-0.20210927133649-3b048a93c843 h1:dPmnaEpGVHT8Rm1rXR/m8/qWPNtAjGYz3nNEnpjcsVU=
 github.com/testground/sdk-go v0.3.1-0.20210927133649-3b048a93c843/go.mod h1:HsInXM/XsSAquixQBddQDJvLdxlwdZ5fmB5ulCGaLU0=
+github.com/testground/sdk-go v0.3.1-0.20211012114808-49c90fa75405 h1:POJQkeqOQDnNEMr4RsIYDi8EQCE2Q4Eh2Tw+DhNVY94=
+github.com/testground/sdk-go v0.3.1-0.20211012114808-49c90fa75405/go.mod h1:HsInXM/XsSAquixQBddQDJvLdxlwdZ5fmB5ulCGaLU0=
 github.com/testground/sync-service v0.1.0 h1:FmG5F426wyLufcFlBnV/qSDn0BvsqLCOm34wnAL0/Rg=
 github.com/testground/sync-service v0.1.0/go.mod h1:UxLxsGjkZPqY1TtlusUu8xO0CS97eQ2PfIVF5O9JETA=
 github.com/testground/testground v0.5.3/go.mod h1:o7jPX2o6B1HmK6UFvPfVcGypNjTZa4yUjfOVsQRtb5s=
