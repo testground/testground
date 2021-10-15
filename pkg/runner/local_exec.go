@@ -80,12 +80,13 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 	// Build a template runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan,
-		TestCase:          input.TestCase,
-		TestRun:           input.RunID,
-		TestInstanceCount: input.TotalInstances,
-		TestSidecar:       false,
-		TestSubnet:        &ptypes.IPNet{IPNet: *localSubnet},
+		TestPlan:           input.TestPlan,
+		TestCase:           input.TestCase,
+		TestRun:            input.RunID,
+		TestInstanceCount:  input.TotalInstances,
+		TestDisableMetrics: input.DisableMetrics,
+		TestSidecar:        false,
+		TestSubnet:         &ptypes.IPNet{IPNet: *localSubnet},
 	}
 
 	// Spawn as many instances as the input parameters require.

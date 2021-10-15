@@ -87,6 +87,7 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		TestCase:          input.TestCase,
 		TestRun:           input.RunID,
 		TestInstanceCount: input.TotalInstances,
+		TestDisableMetrics: input.DisableMetrics,
 		TestSidecar:       true,
 	}
 

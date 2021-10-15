@@ -121,6 +121,10 @@ var RunCommand = cli.Command{
 					Name:  "metadata-commit",
 					Usage: "commit that triggered this run",
 				},
+				&cli.BoolFlag{
+					Name:  "disable-metrics",
+					Usage: "disable metrics batching",
+				},
 			),
 		},
 	},

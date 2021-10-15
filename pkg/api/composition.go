@@ -74,6 +74,9 @@ type Global struct {
 	// test parameters or build artifacts. Groups can override these in their
 	// local run definition.
 	Run *Run `toml:"run" json:"run"`
+
+	// DisableMetrics is used to disable metrics batching.
+	DisableMetrics bool `toml:"disable_metrics" json:"disable_metrics"`
 }
 
 type Metadata struct {

@@ -36,13 +36,14 @@ func setupClient(c *cli.Context) (*client.Client, *config.EnvConfig, error) {
 func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	var (
 		// Global struct
-		plan      = c.String("plan")
-		testcase  = c.String("testcase")
-		instances = c.Uint("instances")
-		builder   = c.String("builder")
-		buildcfg  = c.StringSlice("build-cfg")
-		runner    = c.String("runner")
-		runcfg    = c.StringSlice("run-cfg")
+		plan           = c.String("plan")
+		testcase       = c.String("testcase")
+		instances      = c.Uint("instances")
+		builder        = c.String("builder")
+		buildcfg       = c.StringSlice("build-cfg")
+		runner         = c.String("runner")
+		runcfg         = c.StringSlice("run-cfg")
+		disableMetrics = c.Bool("disable-metrics")
 
 		// Build struct
 		dependencies = c.StringSlice("dep")
@@ -59,6 +60,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 			Builder:        builder,
 			Runner:         runner,
 			TotalInstances: instances,
+			DisableMetrics: disableMetrics,
 		},
 		Groups: []*api.Group{
 			{
