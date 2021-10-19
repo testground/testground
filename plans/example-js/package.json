@@ -2,17 +2,17 @@
   "name": "example",
   "private": true,
   "version": "1.0.0",
-  "description": "Example Testground Node test",
+  "description": "Example Testground Node Test",
   "main": "index.js",
   "author": "Henrique Dias <mail@hacdias.com>",
   "license": "MIT",
-  "dependencies": {
-    "@testground/sdk": "github:testground/sdk-js#ad2be811b8ba6533117dcccbbb60e5ca71bb80a9"
-  },
   "scripts": {
     "start": "node index.js"
   },
   "devDependencies": {
     "standard": "^14.3.4"
+  },
+  "dependencies": {
+    "@testground/sdk": "^0.1.0"
   }
 }
