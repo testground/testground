@@ -537,5 +537,14 @@ func (c *Client) request(ctx context.Context, method string, path string, body i
 	if err != nil {
 		return nil, err
 	}
+
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("unexpected status code received: %s", resp.Status)
+	}
+
+	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
+		return nil, fmt.Errorf("unexpected content-type received: %s", ct)
+	}
+
 	return resp.Body, nil
 }
