@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	DefaultNodeBuildBaseImage = "node:14.12.0-buster"
+	DefaultNodeBuildBaseImage = "node:16-buster"
 )
 
 var (
