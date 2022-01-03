@@ -142,7 +142,7 @@ jobs:
 
   build-macos:
     macos:
-      xcode: 13
+      xcode: 13.2.0
     steps:
       - setup-macos
       - run:
