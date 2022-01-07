@@ -606,7 +606,7 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && CGO_ENABLED=${CgoEnabled} GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && CGO_ENABLED=${CgoEnabled} GOOS=linux GOARCH=arm64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
