@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -77,6 +78,12 @@ func (d *DockerReactor) ResolveServices(runid string) {
 		os.Getenv(EnvRedisHost), // NOTE: kept for backwards compatibility with older SDKs.
 		os.Getenv(EnvSyncServiceHost),
 		os.Getenv(EnvInfluxdbHost),
+	}
+
+	additionalHosts := strings.Split(os.Getenv(EnvAdditionalHosts), ",")
+	logging.S().Infow("additional hosts", "hosts", os.Getenv(EnvAdditionalHosts))
+	if len(additionalHosts) != 1 || additionalHosts[0] != "" {
+		wantedRoutes = append(wantedRoutes, additionalHosts...)
 	}
 
 	var resolvedRoutes []net.IP

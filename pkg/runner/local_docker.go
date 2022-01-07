@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/testground/testground/pkg/logging"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"
@@ -70,6 +71,8 @@ type LocalDockerRunnerConfig struct {
 	Ulimits []string `toml:"ulimits"`
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
+
+	AdditionalHosts []string `toml:"additional_hosts"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -125,6 +128,16 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		ow.Warnf("guessing docker socket as %s", dockerSock)
 	}
 
+	additionalHosts := "ADDITIONAL_HOSTS="
+	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]interface{})
+	if hasHosts {
+		for i, host := range envHosts {
+			if i > 0 {
+				additionalHosts += ","
+			}
+			additionalHosts += host.(string)
+		}
+	}
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
@@ -132,7 +145,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
 			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
-			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
+			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1", additionalHosts},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -328,6 +341,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		env := conv.ToOptionsSlice(runenv.ToEnvVars())
 		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
 		env = append(env, "REDIS_HOST=testground-redis")
+		logging.S().Infow("additional hosts", "hosts", strings.Join(cfg.AdditionalHosts, ","))
+		env = append(env, fmt.Sprintf("ADDITIONAL_HOSTS=%s", strings.Join(cfg.AdditionalHosts, ",")))
 
 		// Inject exposed ports.
 		env = append(env, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
