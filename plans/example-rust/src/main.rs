@@ -2,7 +2,10 @@ use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
 const LISTENING_PORT: u16 = 1234;
 
-fn main() -> std::io::Result<()> {
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut sync_client = testground::sync::Client::new().await?;
+
     let local_addr = &if_addrs::get_if_addrs()
         .unwrap()
         .into_iter()
@@ -11,13 +14,13 @@ fn main() -> std::io::Result<()> {
         .addr
         .ip();
 
-    println!("Data network local_addr: {:?}", local_addr);
-
     match local_addr {
         std::net::IpAddr::V4(addr) if addr.octets()[3] == 2 => {
             println!("Test instance, listening for incoming connections.");
 
             let listener = TcpListener::bind((*addr, LISTENING_PORT))?;
+
+            sync_client.signal("listening".to_string()).await?;
 
             for _stream in listener.incoming() {
                 println!("Established inbound TCP connection.");
@@ -26,8 +29,9 @@ fn main() -> std::io::Result<()> {
         std::net::IpAddr::V4(addr) if addr.octets()[3] == 3 => {
             println!("Test instance, connecting to listening instance.");
 
-            // Wait for listening instance to bind to port.
-            std::thread::sleep(std::time::Duration::from_secs(2));
+            sync_client
+                .wait_for_barrier("listening".to_string(), 1)
+                .await?;
 
             let remote_addr: Ipv4Addr = {
                 let mut octets = addr.octets();
