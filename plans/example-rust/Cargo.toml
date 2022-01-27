@@ -1,0 +1,15 @@
+[package]
+name = "testplan"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+if-addrs = "0.7.0"
+soketto = "0.7.1"
+async-std = { version = "1.10", features = [ "attributes" ] }
+serde = { version = "1", features = [ "derive" ] }
+serde_json = "1"
+thiserror = "1"
+testground = "0.1"
