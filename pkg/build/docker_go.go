@@ -571,7 +571,7 @@ ARG GO_PROXY=direct
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
 
-# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build. 
+# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build.
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 
 # We explicitly set GOCACHE under the /go directory for more tidiness.
@@ -606,7 +606,7 @@ COPY . /
 
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
-    && CGO_ENABLED=${CgoEnabled} GOOS=linux GOARCH=amd64 go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
+    && CGO_ENABLED=${CgoEnabled} GOOS=linux go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
 
 {{.DockerfileExtensions.PostBuild}}
 
@@ -635,7 +635,7 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{ else }}
 
-## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache. 
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM builder AS runtime
 
 # PLAN_DIR is the location containing the plan source inside the build container.
