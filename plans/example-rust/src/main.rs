@@ -4,7 +4,7 @@ const LISTENING_PORT: u16 = 1234;
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut sync_client = testground::sync::Client::new().await?;
+    let (client, _run_parameters) = testground::client::Client::new().await?;
 
     let local_addr = &if_addrs::get_if_addrs()
         .unwrap()
@@ -20,16 +20,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let listener = TcpListener::bind((*addr, LISTENING_PORT))?;
 
-            sync_client.signal("listening".to_string()).await?;
+            client.signal("listening".to_string()).await?;
 
             for _stream in listener.incoming() {
                 println!("Established inbound TCP connection.");
+                break;
             }
         }
         std::net::IpAddr::V4(addr) if addr.octets()[3] == 3 => {
             println!("Test instance, connecting to listening instance.");
 
-            sync_client
+            client
                 .wait_for_barrier("listening".to_string(), 1)
                 .await?;
 
@@ -42,9 +43,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Established outbound TCP connection.");
         }
         addr => {
+            client.record_failure();
             panic!("Unexpected local IP address {:?}", addr);
         }
     }
 
+    client.record_success();
+    println!("Done!");
     Ok(())
 }
