@@ -4,14 +4,14 @@ const ipaddr = require('ipaddr.js')
 const { performance } = require('perf_hooks')
 const { sync, network } = require('@testground/sdk')
 
-async function pingpong (runenv) {
+
+async function pingpong (runenv, client) {
   runenv.recordMessage('before sync.newBoundClient')
 
   if (!runenv.testSidecar) {
-    return
+    throw new Error('this test requires a sidecar.')
   }
 
-  const client = await sync.newBoundClient(runenv)
   let server, socket
 
   try {
@@ -150,7 +150,6 @@ async function pingpong (runenv) {
     runenv.recordMessage('ping pong')
     await pingPong('10', 20, 35)
   } finally {
-    client.close()
     if (server) server.close()
     if (socket) socket.destroy()
   }
