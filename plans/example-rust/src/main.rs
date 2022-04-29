@@ -2,7 +2,7 @@ use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
 const LISTENING_PORT: u16 = 1234;
 
-#[async_std::main]
+#[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (client, _run_parameters) = testground::client::Client::new().await?;
 
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Test instance, connecting to listening instance.");
 
             client
-                .wait_for_barrier("listening".to_string(), 1)
+                .barrier("listening".to_string(), 1)
                 .await?;
 
             let remote_addr: Ipv4Addr = {
@@ -43,12 +43,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Established outbound TCP connection.");
         }
         addr => {
-            client.record_failure();
+            client.record_failure("Unexpected local IP address")
+                .await?;
             panic!("Unexpected local IP address {:?}", addr);
         }
     }
 
-    client.record_success();
+    client.record_success()
+        .await?;
     println!("Done!");
     Ok(())
 }
