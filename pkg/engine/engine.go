@@ -94,7 +94,7 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		return nil, fmt.Errorf("unknown task repo type: %s", trt)
 	}
 
-	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.Scheduler.QueueSize)
+	queue, err := task.NewQueue(store, cfg.EnvConfig.Daemon.Scheduler.QueueSize, UnmarshalTask)
 	if err != nil {
 		return nil, err
 	}
@@ -419,6 +419,36 @@ func (e *Engine) Kill(id string) error {
 	e.signalsLk.RUnlock()
 
 	return nil
+}
+
+// UnmarshalTask converts the given byte array into a valid task
+func UnmarshalTask(taskData []byte) (*task.Task, error) {
+	finalTask := &task.Task{}
+
+	// unmarshal task once, so we can read its type
+	unmarshaledValue := &task.Task{}
+	err := json.Unmarshal(taskData, unmarshaledValue)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// unmarshal task again, based on its type
+	switch unmarshaledValue.Type {
+	case task.TypeRun:
+		finalTask.Input = &RunInput{}
+		err = json.Unmarshal(taskData, finalTask)
+	case task.TypeBuild:
+		finalTask.Input = &BuildInput{}
+		err = json.Unmarshal(taskData, finalTask)
+	default:
+		err = fmt.Errorf("invalid task type: %s", unmarshaledValue.Type)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+	return finalTask, nil
 }
 
 // Logs writes the Testground daemon logs for a given task to the passed writer.
