@@ -2,7 +2,6 @@ package task
 
 import (
 	"container/heap"
-	"encoding/json"
 	"errors"
 	"sync"
 
@@ -15,14 +14,13 @@ var (
 	ErrQueueFull  = errors.New("queue full")
 )
 
-func NewQueue(ts *Storage, max int) (*Queue, error) {
+func NewQueue(ts *Storage, max int, converter func([]byte) (*Task, error)) (*Queue, error) {
 	tq := new(taskQueue)
 	for _, prefix := range []string{prefixScheduled, prefixProcessing} {
 		// read the active tasks into the queue
 		iter := ts.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
-			tsk := &Task{}
-			err := json.Unmarshal(iter.Value(), tsk)
+			tsk, err := converter(iter.Value())
 			if err != nil {
 				return nil, err
 			}
@@ -67,6 +65,7 @@ func (q *Queue) Push(tsk *Task) error {
 	}
 	// Push this task to the queue
 	heap.Push(q.tq, tsk)
+
 	return nil
 }
 

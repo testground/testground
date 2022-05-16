@@ -1,6 +1,7 @@
 package task
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ func TestQueueIsPersistent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	q, err := NewQueue(&Storage{db}, 1)
+	q, err := NewQueue(&Storage{db}, 1, convertTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +50,7 @@ func TestQueueReloads(t *testing.T) {
 	ts := &Storage{db}
 
 	// open q1 and push an item into the queue
-	q1, err := NewQueue(ts, 1)
+	q1, err := NewQueue(ts, 1, convertTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +62,7 @@ func TestQueueReloads(t *testing.T) {
 	}
 
 	// open q2 with the same storage
-	q2, err := NewQueue(ts, 1)
+	q2, err := NewQueue(ts, 1, convertTask)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,4 +76,13 @@ func TestQueueReloads(t *testing.T) {
 		t.Fail()
 	}
 	assert.Equal(t, id, tsk.ID)
+}
+
+func convertTask(taskData []byte) (*Task, error) {
+	tsk := &Task{}
+	err := json.Unmarshal(taskData, tsk)
+	if err != nil {
+		return nil, err
+	}
+	return tsk, nil
 }
