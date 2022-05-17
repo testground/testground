@@ -1,0 +1,31 @@
+[metadata]
+  name = "issue-1337-override-builder-configuration"
+
+[global]
+  plan = "integrations"
+  case = "issue-1337-override-builder-configuration"
+  total_instances = 2
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "v14"
+  instances = { count = 1 }
+
+  [groups.build_config]
+    docker_build_image  = 'golang:1.14-buster'
+    dockerfile_extension = { pre_mod_download = 'COPY /plan/go.v14.* ${PLAN_DIR}\n RUN export GOFLAG="-modfile ./go.v14.mod"' }
+
+  [groups.build]
+    selectors = ['v14']
+
+[[groups]]
+  id = "v16"
+  instances = { count = 1 }
+
+  [groups.build_config]
+    docker_build_image  = 'golang:1.16-buster'
+    dockerfile_extension = { pre_mod_download = 'COPY /plan/go.v16.* ${PLAN_DIR}\n RUN export GOFLAG="-modfile ./go.v16.mod"' }
+
+  [groups.build]
+    selectors = ['v16']

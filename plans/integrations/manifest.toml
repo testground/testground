@@ -1,0 +1,17 @@
+name = "integrations"
+
+[defaults]
+builder = "docker:go"
+runner = "local:docker"
+
+[builders."docker:go"]
+enabled = true
+docker_build_image = 'golang:1.v14-buster'
+dockerfile_extension = { pre_mod_download = 'COPY /plan/go.v14.* ${PLAN_DIR}\n RUN export GOFLAG="-modfile ./go.v14.mod"' }
+
+[[testcases]]
+name = "issue-1337-override-builder-configuration"
+instances = { min = 2, max = 2, default = 2 }
+
+[testcases.params]
+  expected_version = { type = "string", desc = "expected version" }
