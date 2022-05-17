@@ -571,16 +571,21 @@ ARG GO_PROXY=direct
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
 
-# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build. 
+# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build.
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 
 # We explicitly set GOCACHE under the /go directory for more tidiness.
 ENV GOCACHE /go/cache
 
+# We set go.mod and go.sum names as env so that they can be overriden
+ENV GOMOD go.mod
+ENV GOSUM go.sum
+
 {{.DockerfileExtensions.PreModDownload}}
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
-COPY /plan/go.mod ${PLAN_DIR}/go.mod
+COPY /plan/${GOMOD} ${PLAN_DIR}/go.mod
+COPY /plan/${GOSUM} ${PLAN_DIR}/go.sum
 
 {{if .WithSDK}}
 COPY /sdk/go.mod /sdk/go.mod
@@ -635,7 +640,7 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{ else }}
 
-## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache. 
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM builder AS runtime
 
 # PLAN_DIR is the location containing the plan source inside the build container.

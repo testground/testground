@@ -1,37 +1,40 @@
 [metadata]
-  name = "issue-1337-override-builder-configuration"
+name = "issue-1337-override-builder-configuration"
 
 [global]
-  plan = "integrations"
-  case = "issue-1337-override-builder-configuration"
-  total_instances = 2
-  builder = "docker:go"
-  runner = "local:docker"
+builder = "docker:go"
+case = "issue-1337-override-builder-configuration"
+plan = "integrations"
+runner = "local:docker"
+total_instances = 2
 
   [global.build_config]
-    docker_build_image = 'golang:1.16-buster'  
-    dockerfile_extension = { pre_mod_download = 'COPY /plan/go.v16.* ${PLAN_DIR}\n RUN export GOFLAG="-modfile ./go.v16.mod"' }
+  docker_build_image = "golang:1.16-buster"
+  dockerfile_extension = {pre_mod_download = "ENV GOMOD go.mod\nENV GOSUM go.sum"}
 
   [global.build]
-    selectors = ['v16']
+  selectors = ["v16"]
 
 [[groups]]
-  id = "v16"
-  instances = { count = 1 }
+id = "v16"
+instances = {count = 1}
+
+  [groups.build]
+  selectors = ["v16"]
 
   [groups.run.test_params]
   expected_version = "v16"
 
 [[groups]]
-  id = "v14"
-  instances = { count = 1 }
+id = "v14"
+instances = {count = 1}
 
   [groups.build_config]
-    docker_build_image  = 'golang:1.14-buster'
-    dockerfile_extension = { pre_mod_download = 'COPY /plan/go.v14.* ${PLAN_DIR}\n RUN export GOFLAG="-modfile ./go.v14.mod"' }
+  docker_build_image = "golang:1.14-buster"
+  dockerfile_extension = {pre_mod_download = "ENV GOMOD go.v14.mod\nENV GOSUM go.v14.sum"}
 
   [groups.build]
-    selectors = ['v14']
+  selectors = ["v14"]
 
   [groups.run.test_params]
   expected_version = "v14"
