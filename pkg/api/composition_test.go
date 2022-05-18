@@ -39,15 +39,31 @@ func TestValidateGroupBuildKey(t *testing.T) {
 		Groups: []*Group{
 			{ID: "repeated"},
 			{ID: "another-id"},
+			{
+				ID: "custom-selector",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+			},
+			{
+				ID: "duplicate-selector",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+			},
 		},
 	}
 
 	k1 := c.Groups[0].BuildKey()
 	k2 := c.Groups[1].BuildKey()
 
-	require.EqualValues(t, k1, k2)
-}
+	k3 := c.Groups[2].BuildKey()
+	k4 := c.Groups[3].BuildKey()
 
+	require.EqualValues(t, k1, k2)
+	require.EqualValues(t, k3, k4)
+	require.NotEqualValues(t, k1, k3)
+}
 
 func TestDefaultTestParamsApplied(t *testing.T) {
 	c := &Composition{

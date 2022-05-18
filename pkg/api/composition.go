@@ -151,7 +151,7 @@ type Build struct {
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
 func (g Group) BuildKey() string {
-	return "build-key"
+	return g.Build.BuildKey()
 }
 
 // BuildKey returns a composite key that identifies this build, suitable for
