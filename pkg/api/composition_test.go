@@ -202,3 +202,78 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 		{"dependency:c", "", "1.0.0.locally_set"},
 	}, ret.Groups[2].Build.Dependencies)
 }
+
+func TestDefaultBuildConfigTrickleDown(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 3,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "no_local_settings",
+			},
+			{
+				ID: "dockerfile_override",
+				BuildConfig: map[string]interface{}{
+					"dockerfile_extensions": map[string]string{
+						"pre_mod_download": "pre_mod_download_overriden",
+					},
+				},
+			},
+			{
+				ID: "build_base_image_override",
+				BuildConfig: map[string]interface{}{
+					"build_base_image": "base_image_overriden",
+				},
+			},
+		},
+	}
+
+	manifest := &TestPlanManifest{
+		Name: "foo_plan",
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {
+				"dockerfile_extensions": map[string]string{
+					"pre_mod_download": "base_pre_mod_download",
+				},
+			},
+		},
+		Runners: map[string]config.ConfigMap{
+			"local:docker": {},
+		},
+		TestCases: []*TestCase{
+			{
+				Name:      "foo_case",
+				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
+			},
+		},
+	}
+
+	ret, err := c.PrepareForBuild(manifest)
+	require.NoError(t, err)
+	require.NotNil(t, ret)
+
+	// trickle down global
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Global.BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Global.BuildConfig["build_base_image"])
+
+	// trickle down group no_local_settings.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[0].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Groups[0].BuildConfig["build_base_image"])
+
+	// trickle down group dockerfile_override.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "pre_mod_download_overriden"}, ret.Groups[1].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Groups[1].BuildConfig["build_base_image"])
+
+	// trickle down group build_base_image_override.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[2].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_overriden", ret.Groups[2].BuildConfig["build_base_image"])
+}
