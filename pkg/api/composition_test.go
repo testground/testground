@@ -51,18 +51,33 @@ func TestValidateGroupBuildKey(t *testing.T) {
 					Selectors: []string{"a", "b"},
 				},
 			},
+			{
+				ID: "duplicate-selector-with-different-build-config",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+				BuildConfig: map[string]interface{}{
+					"dockerfile_extensions": map[string]string{
+						"pre_mod_download": "pre_mod_download_overriden",
+					},
+				},
+			},
 		},
 	}
 
-	k1 := c.Groups[0].BuildKey()
-	k2 := c.Groups[1].BuildKey()
+	k0 := c.Groups[0].BuildKey() // repeated
+	k1 := c.Groups[1].BuildKey() // another-id
 
-	k3 := c.Groups[2].BuildKey()
-	k4 := c.Groups[3].BuildKey()
+	k2 := c.Groups[2].BuildKey() // custom-selector
+	k3 := c.Groups[3].BuildKey() // duplicate-selector
 
-	require.EqualValues(t, k1, k2)
-	require.EqualValues(t, k3, k4)
-	require.NotEqualValues(t, k1, k3)
+	k4 := c.Groups[4].BuildKey() // duplicate-selector-with-different-build-config
+
+	require.EqualValues(t, k0, k1)
+	require.EqualValues(t, k2, k3)
+	require.NotEqualValues(t, k0, k2)
+
+	require.NotEqualValues(t, k3, k4)
 }
 
 func TestDefaultTestParamsApplied(t *testing.T) {

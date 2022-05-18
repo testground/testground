@@ -151,7 +151,14 @@ type Build struct {
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
 func (g Group) BuildKey() string {
-	return g.Build.BuildKey()
+	// TODO: Find something nicer. + verify if result is deterministic (key ordering)
+	buildConfig, err := json.Marshal(g.BuildConfig)
+
+	if (err != nil) {
+		panic(err) // TODO: Handle better
+	}
+
+	return string(buildConfig) + g.Build.BuildKey()
 }
 
 // BuildKey returns a composite key that identifies this build, suitable for
