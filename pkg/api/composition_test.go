@@ -27,6 +27,28 @@ func TestValidateGroupsUnique(t *testing.T) {
 	require.Error(t, c.ValidateForRun())
 }
 
+func TestValidateGroupBuildKey(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "repeated"},
+			{ID: "another-id"},
+		},
+	}
+
+	k1 := c.Groups[0].BuildKey()
+	k2 := c.Groups[1].BuildKey()
+
+	require.EqualValues(t, k1, k2)
+}
+
+
 func TestDefaultTestParamsApplied(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
