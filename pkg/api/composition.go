@@ -151,14 +151,18 @@ type Build struct {
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
 func (g Group) BuildKey() string {
-	// TODO: Find something nicer. + verify if result is deterministic (key ordering)
-	buildConfig, err := json.Marshal(g.BuildConfig)
+	data := struct {
+		BuildConfig map[string]interface{} `json:"build_config"`
+		BuildAsKey  string                 `json:"build_as_key"`
+	}{BuildConfig: g.BuildConfig, BuildAsKey: g.Build.BuildKey()}
 
-	if (err != nil) {
+	j, err := json.Marshal(data)
+
+	if err != nil {
 		panic(err) // TODO: Handle better
 	}
 
-	return string(buildConfig) + g.Build.BuildKey()
+	return string(j)
 }
 
 // BuildKey returns a composite key that identifies this build, suitable for
@@ -166,12 +170,14 @@ func (g Group) BuildKey() string {
 func (b Build) BuildKey() string {
 	var sb strings.Builder
 
-	// canonicalise selectors.
+	// canonicalise selectors
+	// (it sorts them because when it comes to selectors [a, b] == [b, a])
 	selectors := append(b.Selectors[:0:0], b.Selectors...)
 	sort.Strings(selectors)
 	sb.WriteString(fmt.Sprintf("selectors=%s;", strings.Join(selectors, ",")))
 
 	// canonicalise dependencies.
+	// (similarly, it sorts the dependencies)
 	dependencies := append(b.Dependencies[:0:0], b.Dependencies...)
 	sort.SliceStable(dependencies, func(i, j int) bool {
 		return strings.Compare(dependencies[i].Module, dependencies[j].Module) < 0
