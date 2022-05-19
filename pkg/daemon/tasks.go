@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -16,6 +14,7 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
+	"github.com/testground/testground/tmpl"
 )
 
 func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -139,24 +138,11 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		t := template.New("tasks.html").Funcs(template.FuncMap{"unescape": unescape})
-
-		tmplDir := engine.EnvConfig().Daemon.TmplDir
-		if tmplDir == "" {
-			tmplDir = "tmpl"
-		}
-		// form path to template, check if it exists
-		tmplPath := filepath.Join(tmplDir, "/tasks.html")
-		_, err = os.Stat(tmplPath)
+		content, err := tmpl.HtmlTemplates.ReadFile("tasks.html")
 		if err != nil {
-			w.WriteHeader(500)
-			_, err = w.Write([]byte(fmt.Sprintf("Could not open template at %s", tmplPath)))
-			if err != nil {
-				panic(fmt.Sprintf("error writing response: %s", err))
-			}
-			return
+			panic(fmt.Sprintf("cannot find template file: %s", err))
 		}
-
-		t, err = t.ParseFiles(tmplPath)
+		t, err = t.Parse(string(content))
 		if err != nil {
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/tasks: %s", err))
 		}

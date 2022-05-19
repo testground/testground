@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/tmpl"
 )
 
 type Item struct {
@@ -55,22 +54,11 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 
 		t := template.New("measurements.html")
 
-		tmplDir := engine.EnvConfig().Daemon.TmplDir
-		if tmplDir == "" {
-			tmplDir = "tmpl"
-		}
-		// form path to template, check if it exists
-		tmplPath := filepath.Join(tmplDir, "measurements.html")
-		_, err = os.Stat(tmplPath)
+		content, err := tmpl.HtmlTemplates.ReadFile("measurements.html")
 		if err != nil {
-			w.WriteHeader(500)
-			_, err = w.Write([]byte(fmt.Sprintf("Could not open template at %s", tmplPath)))
-			if err != nil {
-				panic(fmt.Sprintf("error writing response: %s", err))
-			}
-			return
+			panic(fmt.Sprintf("cannot find template file: %s", err))
 		}
-		t, err = t.ParseFiles(tmplPath)
+		t, err = t.Parse(string(content))
 		if err != nil {
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/measurements: %s", err))
 		}

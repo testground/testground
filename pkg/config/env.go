@@ -43,7 +43,6 @@ type DaemonConfig struct {
 	GithubRepoStatusToken string          `toml:"github_repo_status_token"`
 	RootURL               string          `toml:"root_url"`
 	InfluxDBEndpoint      string          `toml:"influxdb_endpoint"`
-	TmplDir               string          `toml:"tmpl_dir"`
 }
 
 type SchedulerConfig struct {
