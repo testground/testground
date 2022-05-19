@@ -10,10 +10,11 @@ total_instances = 2
 
   [global.build_config]
   docker_build_image = "golang:1.16-buster"
-  dockerfile_extensions = {pre_mod_download = "ENV GOMOD go.mod\nENV GOSUM go.sum"}
+  modfile = "go.v16.mod"
 
   [global.build]
   selectors = ["v16"]
+
 
 [[groups]]
 id = "v16"
@@ -31,7 +32,7 @@ instances = {count = 1}
 
   [groups.build_config]
   docker_build_image = "golang:1.14-buster"
-  dockerfile_extensions = {pre_mod_download = "ENV GOMOD go.v14.mod\nENV GOSUM go.v14.sum"}
+  modfile = "go.v16.mod"
 
   [groups.build]
   selectors = ["v14"]

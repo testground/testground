@@ -60,6 +60,9 @@ type DockerGoBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
 
+	// Custom modfile
+	Modfile string `toml:"modfile"`
+
 	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
@@ -193,6 +196,16 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		cfg.BuildBaseImage = DefaultGoBuildBaseImage
 	}
 
+	modfile := "go.mod"
+	modfileSum := "go.sum"
+
+	if cfg.Modfile != "" {
+		modfile = cfg.Modfile
+
+		modfileName := strings.TrimSuffix(cfg.Modfile, filepath.Ext(cfg.Modfile))
+		modfileSum = modfileName + ".sum"
+	}
+
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
@@ -207,8 +220,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
+	// Write replace directives.
 	if len(replaces) > 0 {
-		// Write replace directives.
+		if cfg.Modfile != "" {
+			replaces = append(replaces, modfile)
+		}
+
 		cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 		cmd.Dir = plansrc
 		if err = cmd.Run(); err != nil {
@@ -219,7 +236,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// initial go build args.
 	var args = map[string]*string{
-		"GO_PROXY": &proxyURL,
+		"GO_PROXY":    &proxyURL,
+		"MODFILE":     &modfile,
+		"MODFILE_SUM": &modfileSum,
 	}
 
 	if cfg.ExecPkg != "" {
@@ -578,14 +597,15 @@ ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 ENV GOCACHE /go/cache
 
 # We set go.mod and go.sum names as env so that they can be overriden
-ENV GOMOD go.mod
-ENV GOSUM go.sum
+ARG MODFILE="go.mod"
+ARG MODFILE_SUM="go.sum"
 
 {{.DockerfileExtensions.PreModDownload}}
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
-COPY /plan/${GOMOD} ${PLAN_DIR}/go.mod
-COPY /plan/${GOSUM} ${PLAN_DIR}/go.sum
+# Note: we copy into the go.mod file, because using the -modfile option doesn't work consistently accross all the CLI
+COPY /plan/${MODFILE} ${PLAN_DIR}/go.mod
+COPY /plan/${MODFILE_SUM} ${PLAN_DIR}/go.sum
 
 {{if .WithSDK}}
 COPY /sdk/go.mod /sdk/go.mod
@@ -601,8 +621,14 @@ RUN echo "Using go proxy: ${GO_PROXY}" \
 
 {{.DockerfileExtensions.PreSourceCopy}}
 
-# Now copy the rest of the source and run the build.
+# Now copy the rest of the source and run the build. Make sure we backup modfiles first.
+RUN cp ${PLAN_DIR}/go.mod ${PLAN_DIR}/go.sum /tmp/
 COPY . /
+RUN cp /tmp/go.mod /tmp/go.sum ${PLAN_DIR}/
+
+# Copy again the modfiles in case there where overwritten.
+COPY /plan/${MODFILE} ${PLAN_DIR}/go.mod
+COPY /plan/${MODFILE_SUM} ${PLAN_DIR}/go.sum
 
 {{.DockerfileExtensions.PostSourceCopy}}
 
