@@ -28,7 +28,7 @@
 
   [groups.build_config]
     docker_build_image  = "golang:1.16-buster"
-    dockerfile_extension = { pre_mod_download = "ENV GOMOD go.mod\nENV GOSUM go.sum" }
+    dockerfile_extension = { pre_mod_download = "ENV GOMOD go.v16.mod\nENV GOSUM go.v16.sum" }
 
   [groups.build]
     selectors = ["v16"]
