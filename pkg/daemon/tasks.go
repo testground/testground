@@ -14,6 +14,7 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
+	"github.com/testground/testground/tmpl"
 )
 
 func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +138,11 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		t := template.New("tasks.html").Funcs(template.FuncMap{"unescape": unescape})
-		t, err = t.ParseFiles("tmpl/tasks.html")
+		content, err := tmpl.HtmlTemplates.ReadFile("tasks.html")
+		if err != nil {
+			panic(fmt.Sprintf("cannot find template file: %s", err))
+		}
+		t, err = t.Parse(string(content))
 		if err != nil {
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/tasks: %s", err))
 		}

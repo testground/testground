@@ -8,6 +8,7 @@ import (
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/tmpl"
 )
 
 type Item struct {
@@ -52,7 +53,12 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		t := template.New("measurements.html")
-		t, err = t.ParseFiles("tmpl/measurements.html")
+
+		content, err := tmpl.HtmlTemplates.ReadFile("measurements.html")
+		if err != nil {
+			panic(fmt.Sprintf("cannot find template file: %s", err))
+		}
+		t, err = t.Parse(string(content))
 		if err != nil {
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/measurements: %s", err))
 		}
