@@ -64,7 +64,10 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		_, err = os.Stat(tmplPath)
 		if err != nil {
 			w.WriteHeader(500)
-			w.Write([]byte(fmt.Sprintf("Could not open template at %s", tmplPath)))
+			_, err = w.Write([]byte(fmt.Sprintf("Could not open template at %s", tmplPath)))
+			if err != nil {
+				panic(fmt.Sprintf("error writing response: %s", err))
+			}
 			return
 		}
 		t, err = t.ParseFiles(tmplPath)
