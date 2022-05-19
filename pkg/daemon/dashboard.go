@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/testground/testground/pkg/api"
@@ -52,7 +54,20 @@ func (d *Daemon) dashboardHandler(engine api.Engine) func(w http.ResponseWriter,
 		}
 
 		t := template.New("measurements.html")
-		t, err = t.ParseFiles("tmpl/measurements.html")
+
+		tmplDir := engine.EnvConfig().Daemon.TmplDir
+		if tmplDir == "" {
+			tmplDir = "tmpl"
+		}
+		// form path to template, check if it exists
+		tmplPath := filepath.Join(tmplDir, "measurements.html")
+		_, err = os.Stat(tmplPath)
+		if err != nil {
+			w.WriteHeader(500)
+			w.Write([]byte(fmt.Sprintf("Could not open template at %s", tmplPath)))
+			return
+		}
+		t, err = t.ParseFiles(tmplPath)
 		if err != nil {
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/measurements: %s", err))
 		}

@@ -40,6 +40,8 @@ ulimits = [
 
 [daemon]
 listen                    = ":8080"
+# Path to the testground `tmpl` directory (can be ignored if you run testground from its root directory)
+tmpl_dir                  = "my/testground/dir/tmpl"
 
 [daemon.scheduler]
 task_timeout_min          = 20
