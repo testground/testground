@@ -11,7 +11,7 @@ testground plan import --from ./plans/_integrations --name integrations
 pushd $TEMPDIR
 
 testground healthcheck --runner local:docker --fix
-testground run composition -f ${__dir}/../plans/_integrations/_compositions/issue-1337-groups-builder-configuration.toml --collect --wait | tee stdout.out
+testground run composition -f ${__dir}/../plans/_integrations/_compositions/issue-1337-groups-builder-configuration-global-override.toml --collect --wait | tee stdout.out
 
 RUNID=$(awk '/finished run with ID/ { print $9 }' stdout.out)
 echo "checking run $RUNID"

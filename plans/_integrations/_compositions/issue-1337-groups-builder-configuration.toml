@@ -1,3 +1,7 @@
+# Test for https://github.com/testground/testground/issues/1337
+# Introduces:
+#  - `modfile' build config option
+#  - `groups.build_config` option that lets a user customize build configuration per group.
 [metadata]
   name = "issue-1337-override-builder-configuration"
 
