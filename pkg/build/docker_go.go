@@ -172,6 +172,21 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, fmt.Errorf("failed to execute Dockerfile template and/or write into file %s: %w", dockerfileDst, err)
 	}
 
+	// Custom Go modfiles configuration.
+	modfile := "go.mod"
+	modfileSum := "go.sum"
+
+	if cfg.Modfile != "" {
+		if cfg.FreshGomod {
+			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used.")
+		}
+
+		modfile = cfg.Modfile
+
+		modfileName := strings.TrimSuffix(cfg.Modfile, filepath.Ext(cfg.Modfile))
+		modfileSum = modfileName + ".sum"
+	}
+
 	if cfg.FreshGomod {
 		for _, f := range []string{"go.mod", "go.sum"} {
 			file := filepath.Join(plansrc, f)
@@ -194,16 +209,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	// fall back to default build base image, if one is not configured explicitly.
 	if cfg.BuildBaseImage == "" {
 		cfg.BuildBaseImage = DefaultGoBuildBaseImage
-	}
-
-	modfile := "go.mod"
-	modfileSum := "go.sum"
-
-	if cfg.Modfile != "" {
-		modfile = cfg.Modfile
-
-		modfileName := strings.TrimSuffix(cfg.Modfile, filepath.Ext(cfg.Modfile))
-		modfileSum = modfileName + ".sum"
 	}
 
 	// If we have version overrides, apply them.
