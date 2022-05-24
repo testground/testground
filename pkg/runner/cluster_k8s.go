@@ -220,6 +220,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			runerr = fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
 			return
 		}
+		ow.Debugf("Successfully pushed images to registry")
 	}
 
 	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
@@ -275,7 +276,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
 
-	ow.Infow("deploying testground testplan run on k8s", "job-name", jobName)
+	ow.Infow("cluster.Run: deploying testground testplan run on k8s", "job-name", jobName)
 
 	var eg errgroup.Group
 
@@ -293,8 +294,12 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			return err
 		}
 
+		ow.Debugf("cluster.Run: Collecting outcomes and watching pods...")
+
 		cancel()
+		ow.Debugf("cluster.Run: Called cancel function")
 		<-outcomesDoneCh
+		ow.Debugf("cluster.Run: Outcomes chan done")
 		return nil
 	})
 
@@ -380,6 +385,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
+				ow.Debugf("cluster.Run: Creating testplanPod %s", podName)
 				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 			})
 		}
@@ -1012,7 +1018,9 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 		neededCPUs += podCPU * float64(g.Instances)
 	}
 
-	if (availableCPUs * utilisation) > neededCPUs {
+	// skip CPU check (EKS info does not appear to be correct)
+	// if (availableCPUs * utilisation) > neededCPUs {
+	if true {
 		return true, nil
 	}
 
