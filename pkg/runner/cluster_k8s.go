@@ -388,7 +388,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				ow.Debugf("cluster.Run: Creating testplanPod %s", podName)
 				createErr := c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 				if createErr != nil {
-					ow.Debugf("cluster.Run: Received error when creating testplanPod %s", err)
+					ow.Debugf("cluster.Run: Received error when creating testplanPod %s", createErr)
 				}
 				ow.Debugf("cluster.Run: testplanPod created")
 				return createErr
