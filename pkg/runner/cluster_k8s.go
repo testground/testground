@@ -317,8 +317,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
-		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis-headless"})
-		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service-headless"})
+		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis"})
+		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
 
 		// Set the log level if provided in cfg.
