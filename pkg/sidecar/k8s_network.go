@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -189,11 +190,11 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "ipvlan",
 		"plugins": [
 				{
-						"name": "weave",
-						"type": "weave-net",
+						"name": "ipvlan",
+						"type": "ipvlan",
 						"ipam": {
 								"subnet": "` + addr + `"
 						},
@@ -208,11 +209,11 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "ipvlan",
 		"plugins": [
 				{
-						"name": "weave",
-						"type": "weave-net",
+						"name": "ipvlan",
+						"type": "ipvlan",
 						"ipam": {
 								"ips": [
 								  {

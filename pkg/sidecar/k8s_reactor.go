@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -32,12 +33,12 @@ import (
 const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
-	podCIDR              = "100.96.0.0/11"
-	servicesCIDR         = "100.64.0.0/10"
+	podCIDR              = "10.0.2.0/24"
+	servicesCIDR         = "10.0.4.0/24"
 )
 
 var (
-	kubeDnsClusterIP = net.IPv4(100, 64, 0, 10)
+	kubeDnsClusterIP = net.IPv4(10, 0, 4, 24)
 )
 
 type K8sReactor struct {
