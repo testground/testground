@@ -891,9 +891,9 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
-			SecurityContext: &v1.PodSecurityContext{
-				Sysctls: sysctls,
-			},
+			// SecurityContext: &v1.PodSecurityContext{
+			// 	Sysctls: sysctls,
+			// },
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
 				{
