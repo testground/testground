@@ -56,7 +56,7 @@ var (
 )
 
 const (
-	defaultK8sNetworkAnnotation = "flannel"
+	defaultK8sNetworkAnnotation = "aws-cni"
 	// collect-outputs pod is used to compress outputs at the end of a testplan run
 	// as well as to copy archives from it, since it has EFS attached to it
 	collectOutputsPodName = "collect-outputs"
@@ -877,6 +877,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
 				"testground.purpose":  "plan",
+				"http://k8s.v1.cni.cncf.io/networks": "ipvlan-multus",
 			},
 			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
 		},
