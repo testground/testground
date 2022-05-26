@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -53,5 +54,8 @@ func Run(runnerName string) error {
 
 	// this call blocks.
 	err = reactor.Handle(globalctx, handler)
+	if err != nil {
+		logging.S().Error("Reactor: error handling %s", err)
+	}
 	return err
 }

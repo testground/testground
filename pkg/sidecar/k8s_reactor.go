@@ -114,6 +114,7 @@ func (d *K8sReactor) ResolveServices(runid string) {
 }
 
 func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error {
+	logging.S().Debug("Reactor: starting watch over docker manager")
 	return d.manager.Watch(ctx, func(cctx context.Context, container *docker.ContainerRef) error {
 		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(cctx, container)
