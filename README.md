@@ -37,7 +37,7 @@ from 2 to 10k instances, only when needed.
 
 _NOTE: currently, we don't distribute binaries, so you will have to build from source._
 
-***Prerequisites: Go 1.16+, Docker daemon running.***
+***Prerequisites: Go 1.18+, Docker daemon running.***
 
 ```shell script
 $ git clone https://github.com/testground/testground.git

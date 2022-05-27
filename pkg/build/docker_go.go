@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DefaultGoBuildBaseImage = "golang:1.16-buster"
+	DefaultGoBuildBaseImage = "golang:1.18-buster"
 
 	buildNetworkName = "testground-build"
 )
@@ -81,7 +81,7 @@ type DockerGoBuilderConfig struct {
 	RuntimeImage string `toml:"runtime_image"`
 
 	// BuildBaseImage is the base build image that the test plan binary will be
-	// built from. Defaults to golang:1.16-buster
+	// built from. Defaults to golang:1.18-buster
 	BuildBaseImage string `toml:"build_base_image"`
 
 	// SkipRuntimeImage allows you to skip putting the build output in a
