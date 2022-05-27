@@ -85,10 +85,12 @@ func init() {
 }
 
 func nextK8sSubnet() (*net.IPNet, error) {
+	fmt.Println("Getting next K8s subnet...")
 	subnet, _, err := nextDataNetwork(int(atomic.AddUint64(&k8sSubnetIdx, 1) % 4096))
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("Got subnet: ", subnet)
 	return subnet, err
 }
 
@@ -320,6 +322,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis"})
 		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
+		env = append(env, v1.EnvVar{Name: "TEST_SUBNET", Value: "10.0.4.0/24"})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {

@@ -38,6 +38,7 @@ func handler(ctx context.Context, instance *Instance) error {
 	instance.S().Infof("waiting for all networks to be ready")
 
 	const netInitState = "network-initialized"
+	instance.S().Infof("Waiting for", instance.RunEnv.TestInstanceCount, " on network ", instance.Network, " sidecar ", instance.RunEnv.TestSidecar)
 	total := instance.RunEnv.TestInstanceCount
 	if _, err := instance.Client.SignalAndWait(ctx, netInitState, total); err != nil {
 		return fmt.Errorf("failed to signal network ready: %w", err)
