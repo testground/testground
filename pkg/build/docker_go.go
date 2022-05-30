@@ -631,10 +631,6 @@ RUN cp ${PLAN_DIR}/go.mod ${PLAN_DIR}/go.sum /tmp/
 COPY . /
 RUN cp /tmp/go.mod /tmp/go.sum ${PLAN_DIR}/
 
-# Copy again the modfiles in case there where overwritten.
-COPY /plan/${MODFILE} ${PLAN_DIR}/go.mod
-COPY /plan/${MODFILE_SUM} ${PLAN_DIR}/go.sum
-
 {{.DockerfileExtensions.PostSourceCopy}}
 
 {{.DockerfileExtensions.PreBuild}}
