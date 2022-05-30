@@ -191,11 +191,11 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "weave-net",
 		"plugins": [
 				{
-						"name": "weave",
-						"type": "weave",
+						"name": "weave-net",
+						"type": "weave-net",
 						"ipam": {
 								"subnet": "` + addr + `"
 						},
@@ -210,11 +210,11 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "weave-net",
 		"plugins": [
 				{
-						"name": "weave",
-						"type": "weave",
+						"name": "weave-net",
+						"type": "weave-net",
 						"ipam": {
 								"ips": [
 								  {
