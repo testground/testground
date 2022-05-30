@@ -185,6 +185,7 @@ func (n *K8sNetwork) ListActive() []string {
 }
 
 func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, error) {
+	logging.S().Debugw("New network config list", t, addr)
 	switch t {
 	case "net":
 		bytes := []byte(`
@@ -195,6 +196,7 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 				{
 						"name": "ipvlan",
 						"type": "ipvlan",
+						"master":"net1",
 						"ipam": {
 								"subnet": "` + addr + `"
 						},
@@ -214,6 +216,7 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 				{
 						"name": "ipvlan",
 						"type": "ipvlan",
+						"master":"net1",
 						"ipam": {
 								"ips": [
 								  {
