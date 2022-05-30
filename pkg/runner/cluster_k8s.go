@@ -880,9 +880,8 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				"testground.run_id":   input.RunID,
 				"testground.groupid":  g.ID,
 				"testground.purpose":  "plan",
-				"k8s.v1.cni.cncf.io/networks": "ipvlan-multus",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "ipvlan-multus"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
@@ -1146,7 +1145,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 			Labels: map[string]string{
 				"testground.purpose": "outputs",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "ipvlan-multus"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
