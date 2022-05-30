@@ -33,12 +33,12 @@ import (
 const (
 	controlNetworkIfname = "eth0"
 	dataNetworkIfname    = "eth1"
-	podCIDR              = "10.0.2.0/24"
-	servicesCIDR         = "10.0.4.0/24"
+	podCIDR              = "10.32.0.0/12"
+	servicesCIDR         = "10.32.0.0/12"
 )
 
 var (
-	kubeDnsClusterIP = net.IPv4(10, 0, 4, 24)
+	kubeDnsClusterIP = net.IPv4(10, 32, 0, 0)
 )
 
 type K8sReactor struct {
@@ -115,6 +115,9 @@ func (d *K8sReactor) ResolveServices(runid string) {
 
 func (d *K8sReactor) Handle(ctx context.Context, handler InstanceHandler) error {
 	logging.S().Debug("Reactor: starting watch over docker manager")
+
+	// k8s.manager.watch
+
 	return d.manager.Watch(ctx, func(cctx context.Context, container *docker.ContainerRef) error {
 		logging.S().Debugw("got container", "container", container.ID)
 		inst, err := d.manageContainer(cctx, container)
