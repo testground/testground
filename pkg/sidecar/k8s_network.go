@@ -46,6 +46,8 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
+	logging.S().Debugw("Configuring network", cfg.Network)
+
 	link, online := n.activeLinks[cfg.Network]
 
 	// Are we _disabling_ the network?
@@ -73,6 +75,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("when 5: %w", err)
 		}
 		delete(n.activeLinks, cfg.Network)
+		for k, v := range n.activeLinks {
+			logging.S().Debugw("Deleting link", k, v.IPv4)
+		}
 	}
 
 	// Are we _connected_ to the network.
