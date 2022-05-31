@@ -153,6 +153,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
 		if len(v4addrs) != 1 {
+			for _, v4addr := range v4addrs {
+				logging.S().Debugw("V4 addr", v4addr)
+			}
 			return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
 		}
 
