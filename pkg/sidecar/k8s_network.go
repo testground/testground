@@ -46,7 +46,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
-	logging.S().Debugw("Configuring network", cfg.Network)
+	logging.S().Debugw("Configuring network", "network", cfg.Network)
 
 	link, online := n.activeLinks[cfg.Network]
 
@@ -114,24 +114,24 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			CapabilityArgs: capabilityArgs,
 		}
 
-		errc := make(chan error)
+		// errc := make(chan error)
 
-		go func() {
-			err = retry(3, 2*time.Second, func() error {
-				_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
-				return err
-			})
-			errc <- err
-		}()
+		// go func() {
+		// 	err = retry(3, 2*time.Second, func() error {
+		// 		_, err = n.cninet.AddNetworkList(ctx, netconf, rt)
+		// 		return err
+		// 	})
+		// 	errc <- err
+		// }()
 
-		select {
-		case err := <-errc:
-			if err != nil {
-				return fmt.Errorf("failed to add network through cni plugin: %w", err)
-			}
-		case <-time.After(30 * time.Second):
-			return fmt.Errorf("timeout waiting on cninet.AddNetworkList")
-		}
+		// select {
+		// case err := <-errc:
+		// 	if err != nil {
+		// 		return fmt.Errorf("failed to add network through cni plugin: %w", err)
+		// 	}
+		// case <-time.After(30 * time.Second):
+		// 	return fmt.Errorf("timeout waiting on cninet.AddNetworkList")
+		// }
 
 		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
 		if err != nil {
@@ -154,7 +154,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		}
 		if len(v4addrs) != 1 {
 			for _, v4addr := range v4addrs {
-				logging.S().Debugw("V4 addr", v4addr)
+				logging.S().Debugw("V4 addr", "address", v4addr)
 			}
 			return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
 		}
