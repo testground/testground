@@ -102,6 +102,9 @@ type Group struct {
 	// Instances defines the number of instances that belong to this group.
 	Instances Instances `toml:"instances" json:"instances"`
 
+	// BuildConfig specifies the build configuration for this run.
+	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
+
 	// Build specifies the build configuration for this group.
 	Build Build `toml:"build" json:"build"`
 
@@ -147,15 +150,34 @@ type Build struct {
 
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
+func (g Group) BuildKey() string {
+	data := struct {
+		BuildConfig map[string]interface{} `json:"build_config"`
+		BuildAsKey  string                 `json:"build_as_key"`
+	}{BuildConfig: g.BuildConfig, BuildAsKey: g.Build.BuildKey()}
+
+	j, err := json.Marshal(data)
+
+	if err != nil {
+		panic(err) // TODO: Handle better
+	}
+
+	return string(j)
+}
+
+// BuildKey returns a composite key that identifies this build, suitable for
+// deduplication.
 func (b Build) BuildKey() string {
 	var sb strings.Builder
 
-	// canonicalise selectors.
+	// canonicalise selectors
+	// (it sorts them because when it comes to selectors [a, b] == [b, a])
 	selectors := append(b.Selectors[:0:0], b.Selectors...)
 	sort.Strings(selectors)
 	sb.WriteString(fmt.Sprintf("selectors=%s;", strings.Join(selectors, ",")))
 
 	// canonicalise dependencies.
+	// (similarly, it sorts the dependencies)
 	dependencies := append(b.Dependencies[:0:0], b.Dependencies...)
 	sort.SliceStable(dependencies, func(i, j int) bool {
 		return strings.Compare(dependencies[i].Module, dependencies[j].Module) < 0
@@ -312,6 +334,22 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 			grp.Build.Dependencies = grp.Build.Dependencies.ApplyDefaults(def.Dependencies)
 			if len(grp.Build.Selectors) == 0 {
 				grp.Build.Selectors = def.Selectors
+			}
+		}
+	}
+
+	// Trickle global build config to groups, if any.
+	if len(c.Global.BuildConfig) > 0 {
+		for _, grp := range c.Groups {
+			if grp.BuildConfig == nil {
+				grp.BuildConfig = make(map[string]interface{})
+			}
+
+			for k, v := range c.Global.BuildConfig {
+				// Note: we only merge root values.
+				if _, ok := grp.BuildConfig[k]; !ok {
+					grp.BuildConfig[k] = v
+				}
 			}
 		}
 	}

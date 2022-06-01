@@ -1,0 +1,40 @@
+# Test for https://github.com/testground/testground/issues/1337
+# This test verifies that the override trickle down from global to groups.
+[metadata]
+name = "issue-1337-override-builder-configuration"
+
+[global]
+  builder = "docker:go"
+  case = "issue-1337-override-builder-configuration"
+  plan = "integrations"
+  runner = "local:docker"
+  total_instances = 2
+
+  [global.build_config]
+    docker_build_image = "golang:1.16-buster"
+    modfile = "go.v16.mod"
+
+  [global.build]
+    selectors = ["v16"]
+
+
+[[groups]]
+  id = "v16"
+  instances = {count = 1}
+
+  [groups.run.test_params]
+    expected_version = "v16"
+
+[[groups]]
+  id = "v14"
+  instances = {count = 1}
+
+  [groups.build_config]
+    docker_build_image = "golang:1.14-buster"
+    modfile = "go.v16.mod"
+
+  [groups.build]
+    selectors = ["v14"]
+
+  [groups.run.test_params]
+    expected_version = "v14"

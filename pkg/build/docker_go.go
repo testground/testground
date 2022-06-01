@@ -60,6 +60,9 @@ type DockerGoBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
 
+	// Custom modfile
+	Modfile string `toml:"modfile"`
+
 	// GoProxyMode specifies one of "local", "direct", "remote".
 	//
 	//   * The "local" mode (default) will start a proxy container (if one
@@ -169,6 +172,21 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		return nil, fmt.Errorf("failed to execute Dockerfile template and/or write into file %s: %w", dockerfileDst, err)
 	}
 
+	// Custom Go modfiles configuration.
+	modfile := "go.mod"
+	modfileSum := "go.sum"
+
+	if cfg.Modfile != "" {
+		if cfg.FreshGomod {
+			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used.")
+		}
+
+		modfile = cfg.Modfile
+
+		modfileName := strings.TrimSuffix(cfg.Modfile, filepath.Ext(cfg.Modfile))
+		modfileSum = modfileName + ".sum"
+	}
+
 	if cfg.FreshGomod {
 		for _, f := range []string{"go.mod", "go.sum"} {
 			file := filepath.Join(plansrc, f)
@@ -207,8 +225,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
+	// Write replace directives.
 	if len(replaces) > 0 {
-		// Write replace directives.
+		if cfg.Modfile != "" {
+			replaces = append(replaces, modfile)
+		}
+
 		cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
 		cmd.Dir = plansrc
 		if err = cmd.Run(); err != nil {
@@ -219,7 +241,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	// initial go build args.
 	var args = map[string]*string{
-		"GO_PROXY": &proxyURL,
+		"GO_PROXY":    &proxyURL,
+		"MODFILE":     &modfile,
+		"MODFILE_SUM": &modfileSum,
 	}
 
 	if cfg.ExecPkg != "" {
@@ -571,16 +595,22 @@ ARG GO_PROXY=direct
 # BUILD_TAGS is either nothing, or when expanded, it expands to "-tags <comma-separated build tags>"
 ARG BUILD_TAGS
 
-# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build. 
+# TESTPLAN_EXEC_PKG is the executable package within this test plan we want to build.
 ENV TESTPLAN_EXEC_PKG ${TESTPLAN_EXEC_PKG}
 
 # We explicitly set GOCACHE under the /go directory for more tidiness.
 ENV GOCACHE /go/cache
 
+# We set go.mod and go.sum names as env so that they can be overriden
+ARG MODFILE="go.mod"
+ARG MODFILE_SUM="go.sum"
+
 {{.DockerfileExtensions.PreModDownload}}
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
-COPY /plan/go.mod ${PLAN_DIR}/go.mod
+# Note: we copy into the go.mod file, because using the -modfile option doesn't work consistently accross all the CLI
+COPY /plan/${MODFILE} ${PLAN_DIR}/go.mod
+COPY /plan/${MODFILE_SUM} ${PLAN_DIR}/go.sum
 
 {{if .WithSDK}}
 COPY /sdk/go.mod /sdk/go.mod
@@ -596,8 +626,10 @@ RUN echo "Using go proxy: ${GO_PROXY}" \
 
 {{.DockerfileExtensions.PreSourceCopy}}
 
-# Now copy the rest of the source and run the build.
+# Now copy the rest of the source and run the build. Make sure we backup modfiles first.
+RUN cp ${PLAN_DIR}/go.mod ${PLAN_DIR}/go.sum /tmp/
 COPY . /
+RUN cp /tmp/go.mod /tmp/go.sum ${PLAN_DIR}/
 
 {{.DockerfileExtensions.PostSourceCopy}}
 
@@ -635,7 +667,7 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{ else }}
 
-## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache. 
+## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM builder AS runtime
 
 # PLAN_DIR is the location containing the plan source inside the build container.

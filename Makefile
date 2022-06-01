@@ -46,9 +46,11 @@ test-go:
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
 
 test-integration: test-integ-cluster-k8s test-integ-local-docker test-integ-local-exec
+
 test-integ-cluster-k8s:
 	./integration_tests/01_k8s_kind_placebo_ok.sh
 	./integration_tests/02_k8s_kind_placebo_stall.sh
+
 test-integ-local-docker:
 	./integration_tests/04_docker_placebo_ok.sh
 	./integration_tests/05_docker_placebo_stall.sh
@@ -59,6 +61,9 @@ test-integ-local-docker:
 	./integration_tests/10_docker_splitbrain_reject.sh
 	./integration_tests/11_docker_splitbrain_drop.sh
 	./integration_tests/12_docker_example-js_pingpong.sh
+	./integration_tests/13_docker_builder_configuration.sh
+	./integration_tests/13_02_docker_builder_configuration.sh
+
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
