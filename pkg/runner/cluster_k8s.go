@@ -159,8 +159,9 @@ func newResult() *Result {
 }
 
 func (r *Result) String() string {
-	s := fmt.Sprintf("%v", r.Outcomes)
-	return s[4 : len(s)-1]
+	groups := fmt.Sprintf("%v", r.Outcomes) // map[name => outcome]
+	groups = groups[4 : len(groups)-1]      // remove the `map[` and `]` parts
+	return fmt.Sprintf("outcome = %s (%s)", r.Outcome, groups)
 }
 
 type GroupOutcome struct {

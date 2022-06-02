@@ -500,13 +500,13 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	var (
-		plan   = comp.Global.Plan
-		tcase  = comp.Global.Case
-		runner = comp.Global.Runner
+		plan    = comp.Global.Plan
+		tcase   = comp.Global.Case
+		trunner = comp.Global.Runner
 	)
 
 	// Get the runner.
-	run := e.runners[runner]
+	run := e.runners[trunner]
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := run.(api.Healthchecker); ok {
@@ -534,7 +534,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	var cfg config.CoalescedConfig
 
 	// 2. Get the env config for the runner.
-	cfg = cfg.Append(e.envcfg.Runners[runner])
+	cfg = cfg.Append(e.envcfg.Runners[trunner])
 
 	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)
@@ -571,14 +571,21 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		in.Groups = append(in.Groups, g)
 	}
 
-	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", runner, "instances", in.TotalInstances)
+	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", trunner, "instances", in.TotalInstances)
 	out, err := run.Run(ctx, &in, ow)
+
+	outcome := "unknown"
+	if out.Result != nil {
+		outcome = fmt.Sprintf("%v", out.Result)
+	}
+
 	if err == nil {
-		ow.Infow("run finished successfully", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		message := fmt.Sprintf("run finished with %v", outcome)
+		ow.Infow(message, "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		ow.Infow("run canceled", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run canceled", "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
 	} else {
-		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances, "error", err)
 	}
 
 	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check
