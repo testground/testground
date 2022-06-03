@@ -74,10 +74,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
 			return fmt.Errorf("when 5: %w", err)
 		}
-		delete(n.activeLinks, cfg.Network)
 		for k, v := range n.activeLinks {
 			logging.S().Debugw("Deleting link", k, v.IPv4)
 		}
+		delete(n.activeLinks, cfg.Network)
 	}
 
 	// Are we _connected_ to the network.
