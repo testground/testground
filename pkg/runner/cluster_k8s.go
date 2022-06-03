@@ -163,7 +163,7 @@ func (r *Result) String() string {
 }
 
 func (r *Result) StringOutcomes() string {
-	groups := fmt.Sprintf("%v", r.Outcomes) // map[name => outcome]
+	groups := fmt.Sprintf("%v", r.Outcomes) // map[k:v, x:y]
 	return groups[4 : len(groups)-1]        // remove the `map[` and `]` parts
 }
 
