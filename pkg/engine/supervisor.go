@@ -337,16 +337,6 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	// 2. Get the env config for the builder.
 	cfg = cfg.Append(e.envcfg.Builders[builder])
 
-	// 1. Get overrides from the CLI.
-	cfg = cfg.Append(comp.Global.BuildConfig)
-
-	// Coalesce all configurations and deserialize into the config type
-	// mandated by the builder.
-	obj, err := cfg.CoalesceIntoType(bm.ConfigType())
-	if err != nil {
-		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
-	}
-
 	var (
 		// no need to synchronise access, as each goroutine will write its
 		// response in its index.
@@ -363,7 +353,8 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	// traverse groups, indexing them by the unique build key and remembering their position.
 	uniq := make(map[string][]int, len(comp.Groups))
 	for idx, g := range comp.Groups {
-		k := g.Build.BuildKey()
+		// NOTE: why do we even need this and don't rely on docker layer caching?
+		k := g.BuildKey()
 		uniq[k] = append(uniq[k], idx)
 	}
 
@@ -422,6 +413,17 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 					Target:  dep.Target,
 					Version: dep.Version,
 				}
+			}
+
+			// Get overrides from the Global + Group.
+			cfg = cfg.Append(grp.BuildConfig)
+			
+			// Coalesce all configurations and deserialize into the config type
+			// mandated by the builder.
+			obj, err := cfg.CoalesceIntoType(bm.ConfigType())
+
+			if err != nil {
+				return fmt.Errorf("error while coalescing configuration values: %w", err)
 			}
 
 			in := &api.BuildInput{

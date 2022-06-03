@@ -27,6 +27,59 @@ func TestValidateGroupsUnique(t *testing.T) {
 	require.Error(t, c.ValidateForRun())
 }
 
+func TestValidateGroupBuildKey(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "repeated"},
+			{ID: "another-id"},
+			{
+				ID: "custom-selector",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+			},
+			{
+				ID: "duplicate-selector",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+			},
+			{
+				ID: "duplicate-selector-with-different-build-config",
+				Build: Build{
+					Selectors: []string{"a", "b"},
+				},
+				BuildConfig: map[string]interface{}{
+					"dockerfile_extensions": map[string]string{
+						"pre_mod_download": "pre_mod_download_overriden",
+					},
+				},
+			},
+		},
+	}
+
+	k0 := c.Groups[0].BuildKey() // repeated
+	k1 := c.Groups[1].BuildKey() // another-id
+
+	k2 := c.Groups[2].BuildKey() // custom-selector
+	k3 := c.Groups[3].BuildKey() // duplicate-selector
+
+	k4 := c.Groups[4].BuildKey() // duplicate-selector-with-different-build-config
+
+	require.EqualValues(t, k0, k1)
+	require.EqualValues(t, k2, k3)
+	require.NotEqualValues(t, k0, k2)
+
+	require.NotEqualValues(t, k3, k4)
+}
+
 func TestDefaultTestParamsApplied(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
@@ -201,4 +254,79 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 		{"dependency:b", "", "2.0.0.default"},
 		{"dependency:c", "", "1.0.0.locally_set"},
 	}, ret.Groups[2].Build.Dependencies)
+}
+
+func TestDefaultBuildConfigTrickleDown(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 3,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "no_local_settings",
+			},
+			{
+				ID: "dockerfile_override",
+				BuildConfig: map[string]interface{}{
+					"dockerfile_extensions": map[string]string{
+						"pre_mod_download": "pre_mod_download_overriden",
+					},
+				},
+			},
+			{
+				ID: "build_base_image_override",
+				BuildConfig: map[string]interface{}{
+					"build_base_image": "base_image_overriden",
+				},
+			},
+		},
+	}
+
+	manifest := &TestPlanManifest{
+		Name: "foo_plan",
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {
+				"dockerfile_extensions": map[string]string{
+					"pre_mod_download": "base_pre_mod_download",
+				},
+			},
+		},
+		Runners: map[string]config.ConfigMap{
+			"local:docker": {},
+		},
+		TestCases: []*TestCase{
+			{
+				Name:      "foo_case",
+				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
+			},
+		},
+	}
+
+	ret, err := c.PrepareForBuild(manifest)
+	require.NoError(t, err)
+	require.NotNil(t, ret)
+
+	// trickle down global
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Global.BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Global.BuildConfig["build_base_image"])
+
+	// trickle down group no_local_settings.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[0].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Groups[0].BuildConfig["build_base_image"])
+
+	// trickle down group dockerfile_override.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "pre_mod_download_overriden"}, ret.Groups[1].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_global", ret.Groups[1].BuildConfig["build_base_image"])
+
+	// trickle down group build_base_image_override.
+	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[2].BuildConfig["dockerfile_extensions"])
+	require.EqualValues(t, "base_image_overriden", ret.Groups[2].BuildConfig["build_base_image"])
 }

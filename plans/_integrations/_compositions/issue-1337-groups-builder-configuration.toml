@@ -1,0 +1,41 @@
+# Test for https://github.com/testground/testground/issues/1337
+# Introduces:
+#  - `modfile' build config option
+#  - `groups.build_config` option that lets a user customize build configuration per group.
+[metadata]
+  name = "issue-1337-override-builder-configuration"
+
+[global]
+  plan = "integrations"
+  case = "issue-1337-override-builder-configuration"
+  total_instances = 2
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "v14"
+  instances = { count = 1 }
+
+  [groups.build_config]
+    docker_build_image  = "golang:1.14-buster"
+    modfile = "go.v14.mod"
+
+  [groups.build]
+    selectors = ["v14"]
+
+  [groups.run.test_params]
+    expected_version = "v14"
+
+[[groups]]
+  id = "v16"
+  instances = { count = 1 }
+
+  [groups.build_config]
+    docker_build_image  = "golang:1.16-buster"
+    modfile = "go.v16.mod"
+
+  [groups.build]
+    selectors = ["v16"]
+
+  [groups.run.test_params]
+    expected_version = "v16"
