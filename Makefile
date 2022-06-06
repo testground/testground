@@ -63,6 +63,7 @@ test-integ-local-docker:
 	./integration_tests/12_docker_example-js_pingpong.sh
 	./integration_tests/13_docker_builder_configuration.sh
 	./integration_tests/13_02_docker_builder_configuration.sh
+	./integration_tests/14_silent_test_failure.sh
 
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
