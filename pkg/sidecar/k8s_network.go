@@ -46,6 +46,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
+	var skipConfig = true
+	if skipConfig {
+		logging.S().Debug("Skipping network configuration completely!")
+	}
+
 	logging.S().Debugw("============ Configuring network START ==============", "network", cfg.Network)
 
 	for k, v := range n.activeLinks {
