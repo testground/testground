@@ -10,6 +10,7 @@ import (
 
 var testcases = map[string]interface{}{
 	"issue-1337-override-builder-configuration": run.InitializedTestCaseFn(overrideBuilderConfiguration),
+	"issue-1349-silent-failure":                 silentFailure,
 }
 
 func main() {
@@ -25,5 +26,10 @@ func overrideBuilderConfiguration(runenv *runtime.RunEnv, initCtx *run.InitConte
 		return errors.New("expected version does not match")
 	}
 
+	return nil
+}
+
+func silentFailure(runenv *runtime.RunEnv) error {
+	runenv.RecordMessage("This fails by NOT returning an error and NOT sending a test success status.")
 	return nil
 }
