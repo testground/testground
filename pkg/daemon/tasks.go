@@ -110,7 +110,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 				t.RenderCreatedBy(),
 			}
 
-			currentTask.Outcomes = result.String()
+			currentTask.Outcomes = result.StringOutcomes()
 			currentTask.Error = t.Error
 
 			switch t.State().State {
