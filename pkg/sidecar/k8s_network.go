@@ -48,6 +48,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 	logging.S().Debugw("Configuring network", "network", cfg.Network)
 
+	for k, v := range n.activeLinks {
+		logging.S().Debugf("Active link %s: %s (ipv4)\n", k, v.IPv4)
+	}
+
 	link, online := n.activeLinks[cfg.Network]
 
 	// Are we _disabling_ the network?
@@ -73,9 +77,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		online = false
 		if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
 			return fmt.Errorf("when 5: %w", err)
-		}
-		for k, v := range n.activeLinks {
-			logging.S().Debugw("Deleting link", k, v.IPv4)
 		}
 		delete(n.activeLinks, cfg.Network)
 	}
@@ -135,7 +136,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
 		if err != nil {
-			return fmt.Errorf("failed to get link by name: %w", err)
+			return fmt.Errorf("failed to get link by name %s: %w", dataNetworkIfname, err)
 		}
 
 		n.externalRouting[dataNetworkIfname], err = getK8sRoutes(netlinkByName, n.nl)
