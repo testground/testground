@@ -46,10 +46,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
-	logging.S().Debugw("Configuring network", "network", cfg.Network)
+	logging.S().Debugw("============ Configuring network START ==============", "network", cfg.Network)
 
 	for k, v := range n.activeLinks {
-		logging.S().Debugf("Active link %s: %s (ipv4)\n", k, v.IPv4)
+		logging.S().Debugf("Active link %s: %s (ipv4) %s (link.Type) %s (rt.IfName) %s (rt.NetNS) %s (netconf.Name)\n",
+			k, v.IPv4, v.Link.Type(), v.rt.IfName, v.rt.NetNS, v.netconf.Name)
 	}
 
 	link, online := n.activeLinks[cfg.Network]
@@ -139,7 +140,13 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("failed to get link by name %s: %w", dataNetworkIfname, err)
 		}
 
-		n.externalRouting[dataNetworkIfname], err = getK8sRoutes(netlinkByName, n.nl)
+		routes, err := getK8sRoutes(netlinkByName, n.nl)
+		for _, route := range routes.routes {
+			logging.S().Debugw("Route in network:", "route", route)
+
+		}
+		logging.S().Debugf("External routing for network %s set to the routes logged above\n", dataNetworkIfname)
+		n.externalRouting[dataNetworkIfname] = routes
 		if err != nil {
 			return err
 		}
@@ -153,11 +160,14 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		if err != nil {
 			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
+
+		logging.S().Debugf("Addresses in network %s are as follows:\n", dataNetworkIfname)
+		for _, v4addr := range v4addrs {
+			logging.S().Debugw("V4 addr", "address", v4addr)
+		}
+
 		if len(v4addrs) != 1 {
 			logging.S().Warnf("Found %d v4 addresses, expected just 1", len(v4addrs))
-			for _, v4addr := range v4addrs {
-				logging.S().Debugw("V4 addr", "address", v4addr)
-			}
 			// return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
 		}
 
@@ -183,6 +193,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 	if err := handleRoutingPolicy(n.externalRouting, cfg.RoutingPolicy, n.nl); err != nil {
 		return err
 	}
+	logging.S().Debugw("============ Configuring network END ==============", "network", cfg.Network)
 	return nil
 }
 
