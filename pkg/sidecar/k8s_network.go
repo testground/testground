@@ -49,6 +49,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 	var skipConfig = true
 	if skipConfig {
 		logging.S().Debug("Skipping network configuration completely!")
+		return nil
 	}
 
 	logging.S().Debugw("============ Configuring network START ==============", "network", cfg.Network)
