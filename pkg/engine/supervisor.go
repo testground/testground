@@ -418,7 +418,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 
 			// Get overrides from the Global + Group.
 			cfg = cfg.Append(grp.BuildConfig)
-			
+
 			// Coalesce all configurations and deserialize into the config type
 			// mandated by the builder.
 			obj, err := cfg.CoalesceIntoType(bm.ConfigType())
@@ -574,13 +574,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", trunner, "instances", in.TotalInstances)
 	out, err := run.Run(ctx, &in, ow)
 
-	outcome := "unknown"
-	if out.Result != nil {
-		outcome = fmt.Sprintf("%v", out.Result)
-	}
-
 	if err == nil {
-		message := fmt.Sprintf("run finished with %v", outcome)
+		message := "run finished with outcome unknown"
+		if out.Result != nil {
+			message = fmt.Sprintf("run finished with %v", out.Result)
+		}
+
 		ow.Infow(message, "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
 		ow.Infow("run canceled", "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
