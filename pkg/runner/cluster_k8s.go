@@ -322,7 +322,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis"})
 		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
-		env = append(env, v1.EnvVar{Name: "TEST_SUBNET", Value: "10.32.0.0/12"})
+		env = append(env, v1.EnvVar{Name: "TEST_SUBNET", Value: "10.0.4.0/24"})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
