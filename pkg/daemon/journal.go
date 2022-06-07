@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -29,7 +30,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		result := decodeResult(tsk.Result)
+		result := data.DecodeResult(tsk.Result)
 		if result == nil || result.Journal == nil {
 			_, _ = w.Write([]byte("No events or statuses captured for this run.\n"))
 			return
