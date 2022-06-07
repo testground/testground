@@ -49,3 +49,17 @@ func DecodeTaskOutcome(t *task.Task) (task.Outcome, error) {
 		return "", fmt.Errorf("unexpected task type: %s", t.Type)
 	}
 }
+
+func IsTaskOutcomeInError(t *task.Task) error {
+	outcome, err := DecodeTaskOutcome(t)
+
+	if err != nil {
+		return err
+	}
+
+	if outcome != task.OutcomeSuccess {
+		return fmt.Errorf("run outcome: %s", outcome)
+	}
+
+	return nil
+}
