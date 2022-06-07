@@ -136,26 +136,9 @@ type ClusterK8sRunner struct {
 	syncClient  *ss.DefaultClient
 }
 
-type Result struct {
-	Outcome  task.Outcome             `json:"outcome"`
-	Outcomes map[string]*GroupOutcome `json:"outcomes"`
-	Journal  *Journal                 `json:"journal"`
-}
-
 type Journal struct {
 	Events       map[string]string   `json:"events"`
 	PodsStatuses map[string]struct{} `json:"pods_statuses"`
-}
-
-func newResult() *Result {
-	return &Result{
-		Outcome:  task.OutcomeUnknown,
-		Outcomes: make(map[string]*GroupOutcome),
-		Journal: &Journal{
-			Events:       make(map[string]string),
-			PodsStatuses: make(map[string]struct{}),
-		},
-	}
 }
 
 func (r *Result) String() string {
