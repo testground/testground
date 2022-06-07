@@ -30,7 +30,7 @@ func (d *Daemon) getJournalHandler(engine api.Engine) func(w http.ResponseWriter
 			return
 		}
 
-		result := data.DecodeResult(tsk.Result)
+		result := data.DecodeRunnerResult(tsk.Result)
 		if result == nil || result.Journal == nil {
 			_, _ = w.Write([]byte("No events or statuses captured for this run.\n"))
 			return

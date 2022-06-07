@@ -84,7 +84,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		tf := "Mon Jan _2 15:04:05"
 
 		for _, t := range tasks {
-			result := data.DecodeResult(t.Result)
+			result := data.DecodeRunnerResult(t.Result)
 
 			currentTask := struct {
 				ID        string

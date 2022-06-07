@@ -8,7 +8,7 @@ import (
 	"github.com/testground/testground/pkg/runner"
 )
 
-func DecodeResult(result interface{}) *runner.Result {
+func DecodeRunnerResult(result interface{}) *runner.Result {
 	r := &runner.Result{}
 	err := mapstructure.Decode(result, r)
 	if err != nil {
