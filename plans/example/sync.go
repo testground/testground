@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -17,7 +17,7 @@ import (
 //
 // The leader waits until all the followers have reached the state "ready"
 // then, the followers wait for a signal from the leader to be released.
-func ExampleSync(runenv *runtime.RunEnv) error {
+func ExampleSync(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		enrolledState = sync.State("enrolled")
 		readyState    = sync.State("ready")
@@ -26,17 +26,8 @@ func ExampleSync(runenv *runtime.RunEnv) error {
 		ctx = context.Background()
 	)
 
-	// instantiate a sync service client, binding it to the RunEnv.
-	client := sync.MustBoundClient(ctx, runenv)
-	defer client.Close()
-
-	// instantiate a network client; see 'Traffic shaping' in the docs.
-	netclient := network.NewClient(client, runenv)
-	runenv.RecordMessage("waiting for network initialization")
-
-	// wait for the network to initialize; this should be pretty fast.
-	netclient.MustWaitNetworkInitialized(ctx)
-	runenv.RecordMessage("network initilization complete")
+	// retrieve the sync service client, it has been initialized by the SDK.
+	client := initCtx.SyncClient
 
 	// signal entry in the 'enrolled' state, and obtain a sequence number.
 	seq := client.MustSignalEntry(ctx, enrolledState)
