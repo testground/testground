@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/dustin/go-humanize"
-	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
@@ -69,7 +69,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 			allocatableCPUs, allocatableMemory, _ = rr.GetClusterCapacity()
 		}
 
-		data := struct {
+		tdata := struct {
 			Tasks          []interface{}
 			ClusterEnabled bool
 			CPUs           string
@@ -84,7 +84,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		tf := "Mon Jan _2 15:04:05"
 
 		for _, t := range tasks {
-			result := decodeResult(t.Result)
+			result := data.DecodeResult(t.Result)
 
 			currentTask := struct {
 				ID        string
@@ -134,7 +134,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 				currentTask.Took = ""
 			}
 
-			data.Tasks = append(data.Tasks, currentTask)
+			tdata.Tasks = append(tdata.Tasks, currentTask)
 		}
 
 		t := template.New("tasks.html").Funcs(template.FuncMap{"unescape": unescape})
@@ -147,7 +147,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 			panic(fmt.Sprintf("cannot ParseFiles with tmpl/tasks: %s", err))
 		}
 
-		err = t.Execute(w, data)
+		err = t.Execute(w, tdata)
 		if err != nil {
 			panic(fmt.Sprintf("cannot execute template: %s", err))
 		}
@@ -158,15 +158,6 @@ func (d *Daemon) redirect() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/tasks", 301)
 	}
-}
-
-func decodeResult(result interface{}) *runner.Result {
-	r := &runner.Result{}
-	err := mapstructure.Decode(result, r)
-	if err != nil {
-		logging.S().Errorw("error while decoding result", "err", err)
-	}
-	return r
 }
 
 func unescape(s string) template.HTML {
