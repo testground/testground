@@ -52,13 +52,19 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return fmt.Errorf("interfaces changed")
 	}
 
-	runenv.RecordMessage("I am %d", seq)
-
-	ipC := byte((seq >> 8) + 1)
+	ipC := byte(4)
 	ipD := byte(seq)
 
+	runenv.RecordMessage("I am %d | Ipc: %b, Ipd: %b\n", seq, ipC, ipD)
+
 	config.IPv4 = runenv.TestSubnet
-	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
+
+	fmt.Printf("Start IP: %s   |    ", config.IPv4.IP)
+	var newIp = append(config.IPv4.IP[0:2:2], ipC, ipD)
+
+	fmt.Printf("New IP: %s\n", newIp)
+
+	config.IPv4.IP = newIp
 	config.IPv4.Mask = []byte{255, 255, 255, 0}
 	config.CallbackState = "ip-changed"
 
@@ -82,8 +88,10 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	case 1:
 		conn, err = listener.AcceptTCP()
 	case 2:
+		var targetIp = append(config.IPv4.IP[:3:3], 1)
+		fmt.Printf("Attempting to dial %s\n", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-			IP:   append(config.IPv4.IP[:3:3], 1),
+			IP:   targetIp,
 			Port: 1234,
 		})
 	default:
