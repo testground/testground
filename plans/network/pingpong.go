@@ -55,14 +55,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ipC := byte(4)
 	ipD := byte(seq)
 
-	runenv.RecordMessage("I am %d | Ipc: %b, Ipd: %b\n", seq, ipC, ipD)
+	runenv.RecordMessage("I am %d\n", seq)
 
 	config.IPv4 = runenv.TestSubnet
 
-	fmt.Printf("Start IP: %s   |    ", config.IPv4.IP)
+	// fmt.Printf("Start IP: %s   |    ", config.IPv4.IP)
 	var newIp = append(config.IPv4.IP[0:2:2], ipC, ipD)
 
-	fmt.Printf("New IP: %s\n", newIp)
+	// fmt.Printf("New IP: %s\n", newIp)
 
 	config.IPv4.IP = newIp
 	config.IPv4.Mask = []byte{255, 255, 255, 0}
@@ -81,14 +81,26 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	runenv.RecordMessage("before reconfiguring network")
-	netclient.MustConfigureNetwork(ctx, config)
+	// runenv.RecordMessage("before reconfiguring network")
+	// netclient.MustConfigureNetwork(ctx, config)
 
 	switch seq {
 	case 1:
+		fmt.Println("This container is listening!")
 		conn, err = listener.AcceptTCP()
 	case 2:
-		var targetIp = append(config.IPv4.IP[:3:3], 1)
+		var targetIp = append(config.IPv4.IP[:3:3], 2)
+		fmt.Printf("Attempting to dial %s\n", targetIp)
+		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
+			IP:   targetIp,
+			Port: 1234,
+		})
+
+		if err != nil {
+			fmt.Printf("Received an error attempting to dial %s, switching to different IP\n", targetIp)
+		}
+
+		targetIp = append(config.IPv4.IP[:3:3], 4)
 		fmt.Printf("Attempting to dial %s\n", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
@@ -177,17 +189,17 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 		return nil
 	}
-	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
+	err = pingPong("200", 0, 21500*time.Millisecond)
 	if err != nil {
 		return err
 	}
 
-	config.Default.Latency = 10 * time.Millisecond
-	config.CallbackState = "latency-reduced"
-	netclient.MustConfigureNetwork(ctx, config)
+	// config.Default.Latency = 10 * time.Millisecond
+	// config.CallbackState = "latency-reduced"
+	// netclient.MustConfigureNetwork(ctx, config)
 
 	runenv.RecordMessage("ping pong")
-	err = pingPong("10", 20*time.Millisecond, 35*time.Millisecond)
+	err = pingPong("10", 0, 3500000*time.Millisecond)
 	if err != nil {
 		return err
 	}
