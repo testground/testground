@@ -6,6 +6,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/logging"
 	"github.com/testground/testground/pkg/runner"
+	"github.com/testground/testground/pkg/task"
 )
 
 func DecodeRunnerResult(result interface{}) *runner.Result {
@@ -15,4 +16,8 @@ func DecodeRunnerResult(result interface{}) *runner.Result {
 		logging.S().Errorw("error while decoding result", "err", err)
 	}
 	return r
+}
+
+func DecodeTaskOutcome(t *task.Task) task.Outcome {
+	return task.OutcomeSuccess
 }
