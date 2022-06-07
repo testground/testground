@@ -298,7 +298,15 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return nil
 	}
 
-	tsk, err := gatherLogs(ctx, cl, c.Duration("timeout"), id)
+	timeout := c.Duration("timeout")
+	should_retry := timeout != 0
+
+	if should_retry {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	}
+	defer cancel()
+
+	tsk, err := gatherLogs(ctx, cl, id, should_retry)
 
 	if err != nil {
 		return err
@@ -347,17 +355,47 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	return data.IsTaskOutcomeInError(tsk)
 }
 
-func gatherLogs(ctx context.Context, cl *client.Client, duration time.Duration, id string) (*task.Task, error) {
-	r, err := cl.Logs(ctx, &api.LogsRequest{
-		TaskID:            id,
-		Follow:            true,
-		CancelWithContext: true,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer r.Close()
+func gatherLogs(ctx context.Context, cl *client.Client, id string, retry bool) (*task.Task, error) {
+	// If we don't have a timeout, never retry.
+	if !retry {
+		r, err := cl.Logs(ctx, &api.LogsRequest{
+			TaskID:            id,
+			Follow:            true,
+			CancelWithContext: true,
+		})
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(os.Stdout, r)
-	return &tsk, err
+		tsk, err := client.ParseLogsRequest(os.Stdout, r)
+		return &tsk, err
+	}
+
+	// If we have a timeout, retry until the timeout is expired.
+	taskChan := make(chan *task.Task, 1)
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				t, err := gatherLogs(ctx, cl, id, false)
+				// TODO: filter depending errors we should retry.
+				if err == nil {
+					taskChan <- t
+					return
+				}
+				time.Sleep(time.Second)
+			}
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case task := <-taskChan:
+		return task, nil
+	}
 }
