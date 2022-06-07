@@ -340,7 +340,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	err = collect(ctx, cl, comp.Global.Runner, id, collectFile)
 
 	if err != nil {
-		return err
+		return cli.Exit(err.Error(), 3)
 	}
 
 	return data.IsTaskOutcomeInError(&tsk)
