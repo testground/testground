@@ -2,6 +2,7 @@ package data
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/testground/testground/pkg/runner"
@@ -26,11 +27,89 @@ func TestDecodeResult(t *testing.T) {
 }
 
 func TestDecodeTaskOutcome(t *testing.T) {
-	task1 := &task.Task{
-		Type:   task.TypeBuild,
-		Result: [2]string{"artfact", "artifact2"},
+	success_state := []task.DatedState{
+		{
+			State:   task.StateComplete,
+			Created: time.Now(),
+		},
 	}
 
-	r1 := DecodeTaskOutcome(task1)
-	assert.Equal(t, task.OutcomeSuccess, r1)
+	// Run with generic runner and unknown => unknown outcome
+	tested := &task.Task{
+		Type:   task.TypeRun,
+		States: success_state,
+		Result: &runner.Result{
+			Outcome: task.OutcomeUnknown,
+		},
+	}
+	r, e := DecodeTaskOutcome(tested)
+	assert.Equal(t, task.OutcomeUnknown, r)
+	assert.Nil(t, e)
+
+	// Run with generic runner and success => success outcome
+	tested = &task.Task{
+		Type:   task.TypeRun,
+		States: success_state,
+		Result: &runner.Result{
+			Outcome: task.OutcomeSuccess,
+		},
+	}
+	r, e = DecodeTaskOutcome(tested)
+	assert.Equal(t, task.OutcomeSuccess, r)
+	assert.Nil(t, e)
+
+	// Run with builder type => always a success
+	tested = &task.Task{
+		Type:   task.TypeBuild,
+		States: success_state,
+		Result: []string{"artfact", "artifact2"},
+	}
+
+	r, e = DecodeTaskOutcome(tested)
+	assert.Equal(t, task.OutcomeSuccess, r)
+	assert.Nil(t, e)
+
+	// Run with unknown builder => failure
+	tested = &task.Task{
+		Type:   "some-name",
+		States: success_state,
+	}
+
+	_, e = DecodeTaskOutcome(tested)
+	assert.NotNil(t, e)
+
+	// Run with state cancelled => cancelled outcome
+	tested = &task.Task{
+		Type: task.TypeRun,
+		States: []task.DatedState{
+			{
+				State:   task.StateCanceled,
+				Created: time.Now(),
+			},
+		},
+		Result: &runner.Result{
+			Outcome: task.OutcomeSuccess,
+		},
+	}
+
+	r, e = DecodeTaskOutcome(tested)
+	assert.Equal(t, task.OutcomeCanceled, r)
+	assert.Nil(t, e)
+
+	// Run with local exec runner => the result is nil, we assume outcome is unknown.
+	tested = &task.Task{
+		Type: task.TypeRun,
+		States: []task.DatedState{
+			{
+				State:   task.StateCanceled,
+				Created: time.Now(),
+			},
+		},
+		// runner outputs something like: `&api.RunOutput{RunID: input.RunID}`
+		Result: nil,
+	}
+
+	r, e = DecodeTaskOutcome(tested)
+	assert.Equal(t, task.OutcomeCanceled, r)
+	assert.Nil(t, e)
 }
