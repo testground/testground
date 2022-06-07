@@ -14,6 +14,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
@@ -325,10 +326,10 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 
 	logging.S().Infof("finished run with ID: %s", id)
 
-	// if the `collect` flag is not set, we are done, just return
+	// if the `collect` flag is not set, we are done
 	collectOpt := c.Bool("collect")
 	if !collectOpt {
-		return nil
+		return data.IsTaskOutcomeInError(&tsk)
 	}
 
 	collectFile := c.String("collect-file")
@@ -336,5 +337,11 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		collectFile = fmt.Sprintf("%s.tgz", id)
 	}
 
-	return collect(ctx, cl, comp.Global.Runner, id, collectFile)
+	err = collect(ctx, cl, comp.Global.Runner, id, collectFile)
+
+	if err != nil {
+		return err
+	}
+
+	return data.IsTaskOutcomeInError(&tsk)
 }
