@@ -10,12 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/task"
 
 	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
@@ -58,6 +60,10 @@ var RunCommand = cli.Command{
 				&cli.StringFlag{
 					Name:  "metadata-commit",
 					Usage: "commit that triggered this run",
+				},
+				&cli.DurationFlag{
+					Name:  "timeout",
+					Usage: "timeout for the run phase.",
 				},
 			),
 		},
@@ -125,6 +131,10 @@ var RunCommand = cli.Command{
 				&cli.BoolFlag{
 					Name:  "disable-metrics",
 					Usage: "disable metrics batching",
+				},
+				&cli.DurationFlag{
+					Name:  "timeout",
+					Usage: "timeout for the run phase.",
 				},
 			),
 		},
@@ -288,17 +298,8 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return nil
 	}
 
-	r, err := cl.Logs(ctx, &api.LogsRequest{
-		TaskID:            id,
-		Follow:            true,
-		CancelWithContext: true,
-	})
-	if err != nil {
-		return err
-	}
-	defer r.Close()
+	tsk, err := gatherLogs(ctx, cl, c.Duration("timeout"), id)
 
-	tsk, err := client.ParseLogsRequest(os.Stdout, r)
 	if err != nil {
 		return err
 	}
@@ -329,7 +330,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	// if the `collect` flag is not set, we are done
 	collectOpt := c.Bool("collect")
 	if !collectOpt {
-		return data.IsTaskOutcomeInError(&tsk)
+		return data.IsTaskOutcomeInError(tsk)
 	}
 
 	collectFile := c.String("collect-file")
@@ -343,5 +344,20 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return cli.Exit(err.Error(), 2)
 	}
 
-	return data.IsTaskOutcomeInError(&tsk)
+	return data.IsTaskOutcomeInError(tsk)
+}
+
+func gatherLogs(ctx context.Context, cl *client.Client, duration time.Duration, id string) (*task.Task, error) {
+	r, err := cl.Logs(ctx, &api.LogsRequest{
+		TaskID:            id,
+		Follow:            true,
+		CancelWithContext: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+
+	tsk, err := client.ParseLogsRequest(os.Stdout, r)
+	return &tsk, err
 }
