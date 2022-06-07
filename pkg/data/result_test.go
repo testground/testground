@@ -96,20 +96,15 @@ func TestDecodeTaskOutcome(t *testing.T) {
 	assert.Equal(t, task.OutcomeCanceled, r)
 	assert.Nil(t, e)
 
-	// Run with local exec runner => the result is nil, we assume outcome is unknown.
+	// Run with local exec runner => the result is nil, we assume outcome is Success if the task suceeded.
 	tested = &task.Task{
-		Type: task.TypeRun,
-		States: []task.DatedState{
-			{
-				State:   task.StateCanceled,
-				Created: time.Now(),
-			},
-		},
+		Type:   task.TypeRun,
+		States: success_state,
 		// runner outputs something like: `&api.RunOutput{RunID: input.RunID}`
 		Result: nil,
 	}
 
 	r, e = DecodeTaskOutcome(tested)
-	assert.Equal(t, task.OutcomeCanceled, r)
+	assert.Equal(t, task.OutcomeSuccess, r)
 	assert.Nil(t, e)
 }
