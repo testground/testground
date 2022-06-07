@@ -16,7 +16,7 @@ import (
 
 func DecodeRunnerResult(result interface{}) *runner.Result {
 	r := &runner.Result{
-		Outcome: task.OutcomeUnknown,
+		Outcome: task.OutcomeSuccess,
 	}
 	err := mapstructure.Decode(result, r)
 	if err != nil {
