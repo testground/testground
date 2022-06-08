@@ -80,5 +80,8 @@ kind-cluster:
 	kubectl label nodes kind-control-plane testground.node.role.infra=true
 	kind load docker-image iptestground/sidecar:edge
 	kubectl apply -f .circleci/sidecar.yaml
+
 	kind load docker-image iptestground/sync-service:latest
 	kubectl apply -f .circleci/sync-service.yaml
+	kubectl expose deployment/testground-sync-service
+	kubectl port-forward deployment/testground-sync-service 5050:5050 &
