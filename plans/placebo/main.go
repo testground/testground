@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/testground/sdk-go/run"
@@ -10,21 +9,25 @@ import (
 )
 
 func main() {
-	run.Invoke(runf)
+	run.InvokeMap(testcases)
 }
 
-func runf(runenv *runtime.RunEnv) error {
-	switch c := runenv.TestCase; c {
-	case "ok":
-		return nil
-	case "panic":
-		// panic
-		panic(errors.New("this is an intentional panic"))
-	case "stall":
-		// stall
-		time.Sleep(24 * time.Hour)
-		return nil
-	default:
-		return fmt.Errorf("aborting")
-	}
+var testcases = map[string]interface{}{
+	"ok":    run.InitializedTestCaseFn(ok),
+	"panic": run.InitializedTestCaseFn(panickingTest),
+	"stall": run.InitializedTestCaseFn(stall),
+}
+
+func ok(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	return nil
+}
+
+func panickingTest(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	panic(errors.New("this is an intentional panic"))
+}
+
+func stall(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	runenv.RecordMessage("Now stalling for 24 hours")
+	time.Sleep(24 * time.Hour)
+	return nil
 }
