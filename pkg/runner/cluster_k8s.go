@@ -733,9 +733,9 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 
 	go func() {
 		for ge := range eventsChan {
-			e := ge.Object.(*v1.Event)
+			e, ok := ge.Object.(*v1.Event)
 
-			if strings.Contains(e.InvolvedObject.Name, input.RunID) {
+			if ok && strings.Contains(e.InvolvedObject.Name, input.RunID) {
 				id := e.ObjectMeta.Name
 
 				event := fmt.Sprintf("obj<%s> type<%s> reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.InvolvedObject.Name, ge.Type, e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)
