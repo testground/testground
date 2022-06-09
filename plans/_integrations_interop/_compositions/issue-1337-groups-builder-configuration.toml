@@ -6,7 +6,7 @@
   name = "issue-1337-override-builder-configuration"
 
 [global]
-  plan = "integrations"
+  plan = "integrations_interop"
   case = "issue-1337-override-builder-configuration"
   total_instances = 2
   builder = "docker:go"

@@ -3,7 +3,7 @@
 my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$my_dir/header.sh"
 
-testground plan import --from ./plans/_integrations --name integrations
+testground plan import --from ./plans/_integrations_interop --name integrations_interop
 
 pushd $TEMPDIR
 
