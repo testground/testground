@@ -16,8 +16,9 @@ function finish {
 trap finish EXIT
 
 TEMPDIR=`mktemp -d`
-mkdir -p /home/circleci/testground
-cp env-kind.toml /home/circleci/testground/.env.toml
+mkdir -p ${HOME}/testground
+cp env-kind.toml ${HOME}/testground/.env.toml
+echo Starting daemon and logging outputs to $TEMPDIR
 testground daemon > $TEMPDIR/daemon.out 2>&1 &
 DAEMONPID=$!
 
