@@ -67,6 +67,9 @@ test-integ-local-docker:
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 
+test-integ-examples:
+	./integration_tests/example_01_rust.sh
+
 kind-cluster:
 	kind create cluster --wait 90s
 	kubectl apply -f .circleci/pv.yaml

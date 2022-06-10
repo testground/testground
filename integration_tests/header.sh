@@ -24,8 +24,8 @@ DAEMONPID=$!
 
 sleep 2
 
-echo "Waiting for Testground to launch on 8080..."
-while ! nc -z localhost 8080; do
+echo "Waiting for Testground to launch on 8040..."
+while ! nc -z localhost 8040; do
   sleep 1
 done
 echo "Testground launched"
