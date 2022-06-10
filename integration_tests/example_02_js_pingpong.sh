@@ -6,12 +6,20 @@ testground plan import --from ./plans --name testground
 
 pushd $TEMPDIR
 
+testground build single \
+    --plan testground/example-js \
+    --builder docker:node \
+    --wait | tee build.out
+export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
+docker tag $ARTIFACT testplan:example-js
+
 testground healthcheck --runner local:docker --fix
 
 testground run single \
-    --plan=testground/example-rust \
-    --testcase=tcp-connect \
-    --builder=docker:generic \
+    --plan=testground/example-js \
+    --testcase=pingpong \
+    --builder=docker:node \
+    --use-build=testplan:example-js \
     --runner=local:docker \
     --instances=2 \
     --collect \

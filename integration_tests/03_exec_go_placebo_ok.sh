@@ -1,21 +1,22 @@
 #!/bin/bash
-
 my_dir="$(dirname "$0")"
 source "$my_dir/header.sh"
 
+testground plan import --from ./plans --name testground
+
 pushd $TEMPDIR
-testground plan import --from plans/placebo
-testground run single --runner local:exec --builder exec:go --instances 2 --plan placebo --testcase ok --collect --wait | tee run.out
-RUNID=$(awk '/finished run with ID/ { print $9 }' run.out)
-echo "checking run $RUNID"
-file $RUNID.tgz
-LENGTH=${#RUNID}
-test $LENGTH -eq 20
-tar -xzvvf $RUNID.tgz
-SIZEOUT=$(cat ./"$RUNID"/single/0/run.out | wc -c)
-echo "run.out is $SIZEOUT bytes."
-SIZEERR=$(cat ./"$RUNID"/single/0/run.err | wc -c)
-test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
+
+testground run single \
+    --plan=testground/placebo \
+    --testcase=ok \
+    --builder=exec:go \
+    --runner=local:exec \
+    --instances=2 \
+    --collect \
+    --wait | tee run.out
+
+assert_run_output_is_correct run.out
+
 popd
 
 echo "terminating remaining containers"
