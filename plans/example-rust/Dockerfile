@@ -6,7 +6,7 @@ WORKDIR /usr/src/testplan
 # And https://github.com/rust-lang/cargo/issues/2644
 
 RUN mkdir -p ./plan/src/
-COPY ./plan/empty.rs ./plan/src/main.rs
+RUN echo "fn main() {}" > ./plan/src/main.rs
 COPY ./plan/Cargo.lock ./plan/
 COPY ./plan/Cargo.toml ./plan/
 RUN cd ./plan/ && cargo build --release
