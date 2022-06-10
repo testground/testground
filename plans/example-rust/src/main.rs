@@ -5,6 +5,7 @@ const LISTENING_PORT: u16 = 1234;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (client, _run_parameters) = testground::client::Client::new().await?;
+    client.wait_network_initialized().await?;
 
     let local_addr = &if_addrs::get_if_addrs()
         .unwrap()
