@@ -1,0 +1,23 @@
+# Test for 1357
+# Introduces:
+#  - `plan`, `case`, `builder` option per group
+[metadata]
+name = "issue-1357"
+
+[global]
+builder = "docker:generic"
+case = "tcp-connect"
+plan = "example-rust"
+runner = "local:docker"
+total_instances = 2
+
+[[groups]]
+id = "go"
+instances = {count = 1}
+case = "basic-tcp-connect" # note tests cases have different name on purpose
+plan = "example-go"
+builder = "docker:go"
+
+[[groups]]
+id = "rust"
+instances = {count = 1}
