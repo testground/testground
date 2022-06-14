@@ -317,7 +317,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
 		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis-headless"})
-		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service-headless"})
+		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
 
 		// Set the log level if provided in cfg.
@@ -733,9 +733,9 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 
 	go func() {
 		for ge := range eventsChan {
-			e := ge.Object.(*v1.Event)
+			e, ok := ge.Object.(*v1.Event)
 
-			if strings.Contains(e.InvolvedObject.Name, input.RunID) {
+			if ok && strings.Contains(e.InvolvedObject.Name, input.RunID) {
 				id := e.ObjectMeta.Name
 
 				event := fmt.Sprintf("obj<%s> type<%s> reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.InvolvedObject.Name, ge.Type, e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)
