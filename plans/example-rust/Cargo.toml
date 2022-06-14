@@ -3,6 +3,10 @@ name = "testplan"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "testplan"
+path = "src/main.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -12,4 +16,5 @@ async-std = { version = "1.10", features = [ "attributes" ] }
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 thiserror = "1"
-testground = "0.1"
+tokio = { version = "1", default-features = false, features = ["sync", "rt-multi-thread", "macros", "net"] }
+testground = "0.2.0"
