@@ -2,6 +2,7 @@
 my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$my_dir/header.sh"
 
+docker pull rust:1.59-bullseye # preloading image prevents context deadline issues
 testground plan import --from ./plans --name testground
 
 pushd $TEMPDIR
