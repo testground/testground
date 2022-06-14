@@ -26,6 +26,10 @@ function assert_run_output_is_correct {
 
   tar -xzvvf ${RUN_ID}.tgz
 
+  if [ SKIP_LOG_PARSING ]; then
+    return
+  fi
+
   SIZEOUT=$(cat ./"${RUN_ID}/single/0/run.out" | wc -c)
   echo "run.out is $SIZEOUT bytes."
   SIZEERR=$(cat ./"${RUN_ID}/single/0/run.err" | wc -c)
