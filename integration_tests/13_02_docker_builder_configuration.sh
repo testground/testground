@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test for https://github.com/testground/testground/issues/1337
-my_dir="$(dirname "$0")"
+my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$my_dir/header.sh"
 
 testground plan import --from ./plans/_integrations --name integrations
