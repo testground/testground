@@ -55,9 +55,11 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 
 	comp := &api.Composition{
 		Global: api.Global{
-			Plan:           plan,
-			Case:           testcase,
-			Builder:        builder,
+			BuildableComposition: api.BuildableComposition{
+				Plan:    plan,
+				Case:    testcase,
+				Builder: builder,
+			},
 			Runner:         runner,
 			TotalInstances: instances,
 			DisableMetrics: disableMetrics,
@@ -100,7 +102,11 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	if err != nil {
 		return nil, err
 	}
-	comp.Groups[0].Build.Dependencies = make([]api.Dependency, 0, len(dependencies))
+
+	comp.Groups[0].Build = &api.Build{
+		Dependencies: make([]api.Dependency, 0, len(dependencies)),
+		Selectors:    []string{},
+	}
 
 	for name, target := range deps {
 		parts := strings.Split(target, "@")

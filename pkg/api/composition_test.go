@@ -12,10 +12,12 @@ func TestValidateGroupsUnique(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
-			Plan:    "foo_plan",
-			Case:    "foo_case",
-			Builder: "docker:go",
-			Runner:  "local:docker",
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
 		},
 		Groups: []*Group{
 			{ID: "repeated"},
@@ -31,34 +33,43 @@ func TestValidateGroupBuildKey(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
-			Plan:    "foo_plan",
-			Case:    "foo_case",
-			Builder: "docker:go",
-			Runner:  "local:docker",
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
 		},
 		Groups: []*Group{
 			{ID: "repeated"},
 			{ID: "another-id"},
 			{
 				ID: "custom-selector",
-				Build: Build{
-					Selectors: []string{"a", "b"},
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Selectors: []string{"a", "b"},
+					},
 				},
 			},
 			{
 				ID: "duplicate-selector",
-				Build: Build{
-					Selectors: []string{"a", "b"},
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Selectors: []string{"a", "b"},
+					},
 				},
 			},
 			{
 				ID: "duplicate-selector-with-different-build-config",
-				Build: Build{
-					Selectors: []string{"a", "b"},
-				},
-				BuildConfig: map[string]interface{}{
-					"dockerfile_extensions": map[string]string{
-						"pre_mod_download": "pre_mod_download_overriden",
+
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Selectors: []string{"a", "b"},
+					},
+					BuildConfig: map[string]interface{}{
+						"dockerfile_extensions": map[string]string{
+							"pre_mod_download": "pre_mod_download_overriden",
+						},
 					},
 				},
 			},
@@ -84,10 +95,12 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
-			Plan:           "foo_plan",
-			Case:           "foo_case",
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
 			TotalInstances: 3,
-			Builder:        "docker:go",
 			Runner:         "local:docker",
 			Run: &Run{
 				TestParams: map[string]string{
@@ -174,18 +187,20 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
-			Plan:           "foo_plan",
-			Case:           "foo_case",
-			TotalInstances: 3,
-			Builder:        "docker:go",
-			Runner:         "local:docker",
-			Build: &Build{
-				Selectors: []string{"default_selector_1", "default_selector_2"},
-				Dependencies: []Dependency{
-					{"dependency:a", "", "1.0.0.default"},
-					{"dependency:b", "", "2.0.0.default"},
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+				Build: &Build{
+					Selectors: []string{"default_selector_1", "default_selector_2"},
+					Dependencies: []Dependency{
+						{"dependency:a", "", "1.0.0.default"},
+						{"dependency:b", "", "2.0.0.default"},
+					},
 				},
 			},
+			TotalInstances: 3,
+			Runner:         "local:docker",
 		},
 		Groups: []*Group{
 			{
@@ -193,21 +208,26 @@ func TestDefaultBuildParamsApplied(t *testing.T) {
 			},
 			{
 				ID: "dep_override",
-				Build: Build{
-					Dependencies: []Dependency{
-						{"dependency:a", "", "1.0.0.overridden"},
-						{"dependency:c", "", "1.0.0.locally_set"},
-						{"dependency:d", "remote/fork", "1.0.0.locally_set"},
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Dependencies: []Dependency{
+							{"dependency:a", "", "1.0.0.overridden"},
+							{"dependency:c", "", "1.0.0.locally_set"},
+							{"dependency:d", "remote/fork", "1.0.0.locally_set"},
+						},
 					},
 				},
 			},
 			{
 				ID: "selector_and_dep_override",
-				Build: Build{
-					Selectors: []string{"overridden"},
-					Dependencies: []Dependency{
-						{"dependency:a", "", "1.0.0.overridden"},
-						{"dependency:c", "", "1.0.0.locally_set"},
+
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Selectors: []string{"overridden"},
+						Dependencies: []Dependency{
+							{"dependency:a", "", "1.0.0.overridden"},
+							{"dependency:c", "", "1.0.0.locally_set"},
+						},
 					},
 				},
 			},
@@ -260,14 +280,16 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
-			Plan:           "foo_plan",
-			Case:           "foo_case",
-			TotalInstances: 3,
-			Builder:        "docker:go",
-			Runner:         "local:docker",
-			BuildConfig: map[string]interface{}{
-				"build_base_image": "base_image_global",
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+				BuildConfig: map[string]interface{}{
+					"build_base_image": "base_image_global",
+				},
 			},
+			TotalInstances: 3,
+			Runner:         "local:docker",
 		},
 		Groups: []*Group{
 			{
@@ -275,16 +297,20 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 			},
 			{
 				ID: "dockerfile_override",
-				BuildConfig: map[string]interface{}{
-					"dockerfile_extensions": map[string]string{
-						"pre_mod_download": "pre_mod_download_overriden",
+				BuildableComposition: BuildableComposition{
+					BuildConfig: map[string]interface{}{
+						"dockerfile_extensions": map[string]string{
+							"pre_mod_download": "pre_mod_download_overriden",
+						},
 					},
 				},
 			},
 			{
 				ID: "build_base_image_override",
-				BuildConfig: map[string]interface{}{
-					"build_base_image": "base_image_overriden",
+				BuildableComposition: BuildableComposition{
+					BuildConfig: map[string]interface{}{
+						"build_base_image": "base_image_overriden",
+					},
 				},
 			},
 		},

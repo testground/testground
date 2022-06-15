@@ -62,18 +62,22 @@ func TestBuildSelector(t *testing.T) {
 		return func(t *testing.T) {
 			comp := &api.Composition{
 				Global: api.Global{
-					Builder:        builder,
-					Plan:           "placebo",
-					Case:           "ok",
-					TotalInstances: 1,
-					BuildConfig: map[string]interface{}{
-						"go_proxy_mode": "direct",
+					BuildableComposition: api.BuildableComposition{
+						Builder: builder,
+						Plan:    "placebo",
+						Case:    "ok",
+						BuildConfig: map[string]interface{}{
+							"go_proxy_mode": "direct",
+						},
 					},
+					TotalInstances: 1,
 				},
 				Groups: []*api.Group{
 					{
+						BuildableComposition: api.BuildableComposition{
+							Build: &api.Build{Selectors: selectors},
+						},
 						ID:        "test",
-						Build:     api.Build{Selectors: selectors},
 						Instances: api.Instances{Count: 1},
 					},
 				},

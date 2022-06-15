@@ -42,19 +42,16 @@ type Composition struct {
 	Groups Groups `toml:"groups" json:"groups" validate:"required,gt=0"`
 }
 
-type Global struct {
+// TODO: find a better name
+type BuildableComposition struct {
 	// Plan is the test plan we want to run.
-	Plan string `toml:"plan" json:"plan" validate:"required"`
+	Plan string `toml:"plan" json:"plan"`
 
 	// Case is the test case we want to run.
-	Case string `toml:"case" json:"case" validate:"required"`
-
-	// TotalInstances defines the total number of instances that participate in
-	// this composition; it is the sum of all instances in all groups.
-	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"required,gte=0"`
+	Case string `toml:"case" json:"case"`
 
 	// Builder is the builder we're using.
-	Builder string `toml:"builder" json:"builder" validate:"required"`
+	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
 	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
@@ -63,6 +60,14 @@ type Global struct {
 	// as selectors or dependencies. Groups can override these in their local
 	// build definition.
 	Build *Build `toml:"build" json:"build"`
+}
+
+type Global struct {
+	BuildableComposition
+
+	// TotalInstances defines the total number of instances that participate in
+	// this composition; it is the sum of all instances in all groups.
+	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"required,gte=0"`
 
 	// Runner is the runner we're using.
 	Runner string `toml:"runner" json:"runner" validate:"required"`
@@ -96,17 +101,13 @@ type Group struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
 
+	BuildableComposition
+
 	// Resources requested for each pod from the Kubernetes cluster
 	Resources Resources `toml:"resources" json:"resources"`
 
 	// Instances defines the number of instances that belong to this group.
 	Instances Instances `toml:"instances" json:"instances"`
-
-	// BuildConfig specifies the build configuration for this run.
-	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
-
-	// Build specifies the build configuration for this group.
-	Build Build `toml:"build" json:"build"`
 
 	// Run specifies the run configuration for this group.
 	Run Run `toml:"run" json:"run"`
@@ -151,10 +152,14 @@ type Build struct {
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
 func (g Group) BuildKey() string {
+	return g.BuildableComposition.BuildKey()
+}
+
+func (b BuildableComposition) BuildKey() string {
 	data := struct {
 		BuildConfig map[string]interface{} `json:"build_config"`
 		BuildAsKey  string                 `json:"build_as_key"`
-	}{BuildConfig: g.BuildConfig, BuildAsKey: g.Build.BuildKey()}
+	}{BuildConfig: b.BuildConfig, BuildAsKey: b.Build.BuildKey()}
 
 	j, err := json.Marshal(data)
 
@@ -167,7 +172,11 @@ func (g Group) BuildKey() string {
 
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
-func (b Build) BuildKey() string {
+func (b *Build) BuildKey() string {
+	if b == nil {
+		return ""
+	}
+
 	var sb strings.Builder
 
 	// canonicalise selectors
@@ -331,6 +340,12 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 	// Trickle global build defaults to groups, if any.
 	if def := c.Global.Build; def != nil {
 		for _, grp := range c.Groups {
+			if grp.Build == nil {
+				grp.Build = &Build{
+					Selectors:    []string{},
+					Dependencies: []Dependency{},
+				}
+			}
 			grp.Build.Dependencies = grp.Build.Dependencies.ApplyDefaults(def.Dependencies)
 			if len(grp.Build.Selectors) == 0 {
 				grp.Build.Selectors = def.Selectors
