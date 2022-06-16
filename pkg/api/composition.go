@@ -270,6 +270,22 @@ func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Gro
 	bc := mergeBuildConfigs(manifestBuildConfig, global.BuildConfig, g.BuildConfig)
 	g.BuildConfig = bc
 
+	// Trickle down build, (manifest, global, group)
+	build := g.Build
+	if build == nil {
+		build = &Build{
+			Selectors:    []string{},
+			Dependencies: []Dependency{},
+		}
+	}
+	if buildDefaults := global.Build; buildDefaults != nil {
+		build.Dependencies = build.Dependencies.ApplyDefaults(buildDefaults.Dependencies)
+		if len(build.Selectors) == 0 {
+			build.Selectors = buildDefaults.Selectors
+		}
+	}
+	g.Build = build
+
 	return &g, nil
 }
 

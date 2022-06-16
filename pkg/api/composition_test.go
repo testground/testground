@@ -544,3 +544,84 @@ func TestPrepareForBuildOnGroupAppliesBuildConfigurationWithNilValue(t *testing.
 	require.EqualValues(t, "value1", g1.BuildConfig["global_build_config"])
 	require.EqualValues(t, "value2", g1.BuildConfig["group_build_config"])
 }
+
+func TestPrepareForBuildOnGroupAppliesBuild(t *testing.T) {
+	manifest := &TestPlanManifest{}
+
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+				Build: &Build{
+					Selectors: []string{"foo", "bar"},
+					Dependencies: []Dependency{
+						{
+							Module:  "baz",
+							Version: "1",
+						},
+						{
+							Module:  "qux",
+							Version: "11",
+						},
+					},
+				},
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "first-group"},
+			{
+				ID: "custom-build",
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Selectors: []string{"overwritten"},
+					},
+				},
+			},
+			{
+				ID: "third-group",
+				BuildableComposition: BuildableComposition{
+					Build: &Build{
+						Dependencies: []Dependency{
+							{
+								Module:  "baz",
+								Version: "2",
+							},
+							{
+								Module:  "pok",
+								Version: "9",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest)
+	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest)
+	g3, err3 := c.Groups[2].PrepareForBuild(&c.Global, manifest)
+
+	require.Nil(t, err1)
+	require.Nil(t, err2)
+	require.Nil(t, err3)
+
+	require.EqualValues(t, c.Global.Build.Selectors, g1.Build.Selectors)
+	require.EqualValues(t, c.Global.Build.Dependencies, g1.Build.Dependencies)
+
+	require.EqualValues(t, c.Groups[1].Build.Selectors, g2.Build.Selectors)
+	require.EqualValues(t, c.Global.Build.Dependencies, g2.Build.Dependencies)
+
+	require.EqualValues(t, c.Global.Build.Selectors, g3.Build.Selectors)
+
+	expectedVersions := map[string]string{
+		"baz": "2",
+		"qux": "11",
+		"pok": "9",
+	}
+
+	require.EqualValues(t, expectedVersions, g3.Build.Dependencies.AsMap())
+}
