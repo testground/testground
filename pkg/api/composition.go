@@ -265,6 +265,12 @@ func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Gro
 		g.Case = global.Case
 	}
 
+	// Validate the Builder
+	// TODO: extract? Validate all the fields?
+	if _, has := manifest.Builders[g.Builder]; !has {
+		return nil, fmt.Errorf("group(%s): manifest %s does not support builder %s (support %v)", g.ID, manifest.Name, g.Builder, manifest.BuildersList())
+	}
+
 	// Trickle down build config, manifest build config -> global build config -> group build config.
 	manifestBuildConfig := manifest.Builders[g.Builder]
 	bc := mergeBuildConfigs(manifestBuildConfig, global.BuildConfig, g.BuildConfig)
@@ -289,6 +295,15 @@ func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Gro
 	return &g, nil
 }
 
+func (m *TestPlanManifest) BuildersList() []string {
+	builders := make([]string, 0, len(m.Builders))
+	for k := range m.Builders {
+		builders = append(builders, k)
+	}
+	sort.Strings(builders)
+	return builders
+}
+
 // PrepareForBuild verifies that this composition is compatible with
 // the provided manifest for the purposes of a build, and applies any manifest-
 // mandated defaults for the builder configuration.
@@ -302,14 +317,11 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 	c.Global.Plan = manifest.Name
 
 	// Is the builder supported?
-	if manifest.Builders == nil || len(manifest.Builders) == 0 {
+	builders := manifest.BuildersList()
+
+	if len(builders) == 0 {
 		return nil, fmt.Errorf("plan supports no builders; review the manifest")
 	}
-	builders := make([]string, 0, len(manifest.Builders))
-	for k := range manifest.Builders {
-		builders = append(builders, k)
-	}
-	sort.Strings(builders)
 	if sort.SearchStrings(builders, c.Global.Builder) == len(builders) {
 		return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
 	}

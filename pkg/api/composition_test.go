@@ -362,8 +362,16 @@ func TestPrepareForBuildOnGroupTrickleConfigurationFromGlobal(t *testing.T) {
 		},
 	}
 
-	manifest1 := &TestPlanManifest{}
-	manifest2 := &TestPlanManifest{}
+	manifest1 := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
+	manifest2 := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:generic": {},
+		},
+	}
 
 	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest1)
 	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest2)
@@ -416,8 +424,16 @@ func TestPrepareForBuildOnGroup(t *testing.T) {
 		},
 	}
 
-	manifest1 := &TestPlanManifest{}
-	manifest2 := &TestPlanManifest{}
+	manifest1 := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
+	manifest2 := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:generic": {},
+		},
+	}
 
 	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest1)
 	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest2)
@@ -542,7 +558,11 @@ func TestPrepareForBuildOnGroupAppliesBuildConfigurationWithNilValue(t *testing.
 }
 
 func TestPrepareForBuildOnGroupAppliesBuild(t *testing.T) {
-	manifest := &TestPlanManifest{}
+	manifest := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
 
 	c := &Composition{
 		Metadata: Metadata{},
@@ -620,4 +640,83 @@ func TestPrepareForBuildOnGroupAppliesBuild(t *testing.T) {
 	}
 
 	require.EqualValues(t, expectedVersions, g3.Build.Dependencies.AsMap())
+}
+
+func TestPrepareForBuildVerifiesSupportedBuilders(t *testing.T) {
+	global := Global{
+		BuildableComposition: BuildableComposition{
+			Plan: "foo_plan",
+			Case: "foo_case",
+		},
+		Runner: "local:docker",
+	}
+
+	manifestGo := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
+
+	manifestGeneric := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:generic": {},
+		},
+	}
+
+	groupGo := Group{
+		ID: "using-builder-go",
+		BuildableComposition: BuildableComposition{
+			Builder: "docker:go",
+		},
+	}
+
+	groupGeneric := Group{
+		ID: "using-builder-generic",
+		BuildableComposition: BuildableComposition{
+			Builder: "docker:generic",
+		},
+	}
+
+	// Compatible Manifest
+	_, err := groupGo.PrepareForBuild(&global, manifestGo)
+	require.Nil(t, err)
+	_, err = groupGeneric.PrepareForBuild(&global, manifestGeneric)
+	require.Nil(t, err)
+
+	// Incompatible Manifest
+	_, err = groupGo.PrepareForBuild(&global, manifestGeneric)
+	require.NotNil(t, err)
+	_, err = groupGeneric.PrepareForBuild(&global, manifestGo)
+	require.NotNil(t, err)
+}
+
+func TestBuildersList(t *testing.T) {
+	m := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
+	require.EqualValues(t, []string{"docker:go"}, m.BuildersList())
+
+	// Empty list
+	m = &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{},
+	}
+	require.EqualValues(t, []string{}, m.BuildersList())
+
+	// Nil builders
+	m = &TestPlanManifest{
+		Builders: nil,
+	}
+	require.EqualValues(t, []string{}, m.BuildersList())
+
+	// Sorted builders
+	m = &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go":      {},
+			"exec:go":        {},
+			"docker:generic": {},
+		},
+	}
+	require.EqualValues(t, []string{"docker:generic", "docker:go", "exec:go"}, m.BuildersList())
 }
