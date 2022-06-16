@@ -254,6 +254,26 @@ func mergeBuildConfigs(configs ...map[string]interface{}) map[string]interface{}
 	return result
 }
 
+func (c *Composition) ListPlans() []string {
+	plans := map[string]bool{}
+
+	for _, g := range c.Groups {
+		if g.Plan == "" {
+			// TODO: When we validate the composition, make sure that if a group has no plan, there is a global plan.
+			plans[c.Global.Plan] = true
+		} else {
+			plans[g.Plan] = true
+		}
+	}
+
+	result := make([]string, 0, len(plans))
+	for k := range plans {
+		result = append(result, k)
+	}
+	sort.Strings(result)
+	return result
+}
+
 // This method doesn't modify the group, it returns a new one.
 // TODO: it assumes the configuration is correct (manifest is supported, etc). Create a ValidComposition type to be explicit about it.
 // TODO: the build configuration merge is not recursive for simplicity, which means that if you change docker_extension.something, it'll overwrite all docker_extension. Maybe eventually revisit and implement per-builder merge.

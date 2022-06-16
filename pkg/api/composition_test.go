@@ -766,3 +766,65 @@ func TestBuildersList(t *testing.T) {
 	}
 	require.EqualValues(t, []string{"docker:generic", "docker:go", "exec:go"}, m.BuildersList())
 }
+
+func TestCompositionListPlans(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "first-group"},
+			{
+				ID: "baz-plan",
+				BuildableComposition: BuildableComposition{
+					Plan: "baz_plan",
+				},
+			},
+			{
+				ID: "baz-plan-bis",
+				BuildableComposition: BuildableComposition{
+					Plan: "baz_plan",
+				},
+			},
+		},
+	}
+
+	plans := c.ListPlans()
+	require.EqualValues(t, []string{"baz_plan", "foo_plan"}, plans)
+
+	// Don't keep the default plan if it is not used.
+	c = &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID: "baz-plan",
+				BuildableComposition: BuildableComposition{
+					Plan: "baz_plan",
+				},
+			},
+			{
+				ID: "baz-plan-bis",
+				BuildableComposition: BuildableComposition{
+					Plan: "baz_plan",
+				},
+			},
+		},
+	}
+
+	plans = c.ListPlans()
+	require.EqualValues(t, []string{"baz_plan"}, plans)
+}
