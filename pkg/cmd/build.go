@@ -156,10 +156,9 @@ func buildSingleCmd(c *cli.Context) (err error) {
 
 func doBuild(c *cli.Context, comp *api.Composition) error {
 	var (
-		plan    = comp.Global.Plan
-		wait    = c.Bool("wait")
-		planDir string
-		sdkDir  string
+		plan   = comp.Global.Plan
+		wait   = c.Bool("wait")
+		sdkDir string
 	)
 
 	ctx, cancel := context.WithCancel(ProcessContext())
@@ -181,22 +180,21 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 	}
 
 	// Resolve the test plan and its manifest.
-	var manifest *api.TestPlanManifest
-	planDir, manifest, err = resolveTestPlan(cfg, plan)
+	resolvedPlan, err := resolveTestPlan(cfg, plan)
 	if err != nil {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
-	logging.S().Infof("test plan source at: %s", planDir)
+	logging.S().Infof("test plan source at: %s", resolvedPlan.RootDirectory)
 
-	comp, err = comp.PrepareForBuild(manifest)
+	comp, err = comp.PrepareForBuild(resolvedPlan.Manifest)
 	if err != nil {
 		return err
 	}
 
 	req := &api.BuildRequest{
 		Composition: *comp,
-		Manifest:    *manifest,
+		Manifest:    *resolvedPlan.Manifest,
 		CreatedBy: api.CreatedBy{
 			User: cfg.Client.User,
 		},
@@ -209,12 +207,12 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
 	builder := strings.Replace(comp.Global.Builder, ":", "_", -1)
-	extra := manifest.ExtraSources[builder]
+	extra := resolvedPlan.Manifest.ExtraSources[builder]
 	logging.S().Infof("build %s extra %s", builder, extra)
 	for i, dir := range extra {
 		if !filepath.IsAbs(dir) {
 			// follow any symlinks in the plan dir.
-			evalPlanDir, err := filepath.EvalSymlinks(planDir)
+			evalPlanDir, err := filepath.EvalSymlinks(resolvedPlan.RootDirectory)
 			if err != nil {
 				return fmt.Errorf("failed to follow symlinks in plan dir: %w", err)
 			}
@@ -222,7 +220,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		}
 	}
 
-	resp, err := cl.Build(ctx, req, planDir, sdkDir, extra)
+	resp, err := cl.Build(ctx, req, resolvedPlan.RootDirectory, sdkDir, extra)
 	if err != nil {
 		return err
 	}

@@ -136,31 +136,41 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 	return comp, err
 }
 
+type ResolvedPlan struct {
+	Name          string
+	RootDirectory string
+	Manifest      *api.TestPlanManifest
+}
+
 // resolveTestPlan resolves a test plan, returning its root directory and its
 // parsed manifest.
-func resolveTestPlan(cfg *config.EnvConfig, name string) (string, *api.TestPlanManifest, error) {
+func resolveTestPlan(cfg *config.EnvConfig, name string) (*ResolvedPlan, error) {
 	baseDir := cfg.Dirs().Plans()
 
 	// Resolve the test plan directory.
 	path := filepath.Join(baseDir, filepath.FromSlash(name))
 	if !isDirectory(path) {
-		return "", nil, fmt.Errorf("failed to locate plan in directory: %s", path)
+		return nil, fmt.Errorf("failed to locate plan in directory: %s", path)
 	}
 
 	manifest := filepath.Join(path, "manifest.toml")
 	switch fi, err := os.Stat(manifest); {
 	case err != nil:
-		return "", nil, fmt.Errorf("failed to access plan manifest at %s: %w", manifest, err)
+		return nil, fmt.Errorf("failed to access plan manifest at %s: %w", manifest, err)
 	case fi.IsDir():
-		return "", nil, fmt.Errorf("failed to access plan manifest at %s: not a file", manifest)
+		return nil, fmt.Errorf("failed to access plan manifest at %s: not a file", manifest)
 	}
 
 	plan := new(api.TestPlanManifest)
 	if _, err := toml.DecodeFile(manifest, plan); err != nil {
-		return "", nil, fmt.Errorf("failed to parse manifest file at %s: %w", manifest, err)
+		return nil, fmt.Errorf("failed to parse manifest file at %s: %w", manifest, err)
 	}
 
-	return path, plan, nil
+	return &ResolvedPlan{
+		Name:          name,
+		RootDirectory: path,
+		Manifest:      plan,
+	}, nil
 }
 
 // resolveSDK resolves the root directory of an SDK.
