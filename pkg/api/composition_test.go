@@ -443,3 +443,104 @@ func TestPrepareForBuildOnGroup(t *testing.T) {
 	require.EqualValues(t, g3.Case, "foo_case")
 	require.EqualValues(t, g3.Builder, "docker:go")
 }
+
+func TestPrepareForBuildOnGroupAppliesBuildConfiguration(t *testing.T) {
+	manifest := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {
+				"manifest_build_config": "value0",
+			},
+		},
+	}
+
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+				BuildConfig: map[string]interface{}{
+					"global_build_config": "value1",
+				},
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "first-group"},
+			{
+				ID: "custom-build",
+				BuildableComposition: BuildableComposition{
+					BuildConfig: map[string]interface{}{
+						"group_build_config": "value2",
+					},
+				},
+			},
+			{
+				ID:                   "third-group",
+				BuildableComposition: BuildableComposition{},
+			},
+		},
+	}
+
+	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest)
+	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest)
+	g3, err3 := c.Groups[2].PrepareForBuild(&c.Global, manifest)
+
+	require.Nil(t, err1)
+	require.Nil(t, err2)
+	require.Nil(t, err3)
+
+	require.EqualValues(t, "value0", g1.BuildConfig["manifest_build_config"])
+	require.EqualValues(t, "value1", g1.BuildConfig["global_build_config"])
+	require.EqualValues(t, nil, g1.BuildConfig["group_build_config"])
+
+	require.EqualValues(t, "value0", g2.BuildConfig["manifest_build_config"])
+	require.EqualValues(t, "value1", g2.BuildConfig["global_build_config"])
+	require.EqualValues(t, "value2", g2.BuildConfig["group_build_config"])
+
+	require.EqualValues(t, "value0", g3.BuildConfig["manifest_build_config"])
+	require.EqualValues(t, "value1", g3.BuildConfig["global_build_config"])
+	require.EqualValues(t, nil, g3.BuildConfig["group_build_config"])
+}
+
+func TestPrepareForBuildOnGroupAppliesBuildConfigurationWithNilValue(t *testing.T) {
+	manifest := &TestPlanManifest{
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {},
+		},
+	}
+
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+				BuildConfig: map[string]interface{}{
+					"global_build_config": "value1",
+				},
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID: "custom-build",
+				BuildableComposition: BuildableComposition{
+					BuildConfig: map[string]interface{}{
+						"group_build_config": "value2",
+					},
+				},
+			},
+		},
+	}
+
+	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest)
+
+	require.Nil(t, err1)
+
+	require.EqualValues(t, nil, g1.BuildConfig["manifest_build_config"])
+	require.EqualValues(t, "value1", g1.BuildConfig["global_build_config"])
+	require.EqualValues(t, "value2", g1.BuildConfig["group_build_config"])
+}

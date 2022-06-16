@@ -239,7 +239,21 @@ type Dependency struct {
 	Version string `toml:"version" json:"version" validate:"required"`
 }
 
+func mergeBuildConfigs(configs ...map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+
+	for _, config := range configs {
+		for k, v := range config {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
 // This method doesn't modify the group, it returns a new one.
+// TODO: it assumes the configuration is correct (manifest is supported, etc). Create a ValidComposition type to be explicit about it.
+// TODO: the build configuration merge is not recursive for simplicity, which means that if you change docker_extension.something, it'll overwrite all docker_extension. Maybe eventually revisit and implement per-builder merge.
 func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Group, error) {
 	if g.Builder == "" {
 		g.Builder = global.Builder
@@ -250,6 +264,11 @@ func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Gro
 	if g.Case == "" {
 		g.Case = global.Case
 	}
+
+	// Trickle down build config, manifest build config -> global build config -> group build config.
+	manifestBuildConfig := manifest.Builders[g.Builder]
+	bc := mergeBuildConfigs(manifestBuildConfig, global.BuildConfig, g.BuildConfig)
+	g.BuildConfig = bc
 
 	return &g, nil
 }
