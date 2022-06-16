@@ -335,3 +335,111 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[2].BuildConfig["dockerfile_extensions"])
 	require.EqualValues(t, "base_image_overriden", ret.Groups[2].BuildConfig["build_base_image"])
 }
+
+func TestPrepareForBuildOnGroupTrickleConfigurationFromGlobal(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "first-group"},
+			{
+				ID: "custom-build",
+				BuildableComposition: BuildableComposition{
+					Plan:    "another_plan",
+					Case:    "another_case",
+					Builder: "docker:generic",
+				},
+			},
+			{
+				ID: "third-group",
+				BuildableComposition: BuildableComposition{
+					Plan: "alternative_plan",
+				},
+			},
+		},
+	}
+
+	manifest1 := &TestPlanManifest{}
+	manifest2 := &TestPlanManifest{}
+
+	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest1)
+	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest2)
+	g3, err3 := c.Groups[2].PrepareForBuild(&c.Global, manifest1)
+
+	require.Nil(t, err1)
+	require.Nil(t, err2)
+	require.Nil(t, err3)
+
+	require.EqualValues(t, g1.Plan, "foo_plan")
+	require.EqualValues(t, g1.Case, "foo_case")
+	require.EqualValues(t, g1.Builder, "docker:go")
+
+	require.EqualValues(t, g2.Plan, "another_plan")
+	require.EqualValues(t, g2.Case, "another_case")
+	require.EqualValues(t, g2.Builder, "docker:generic")
+
+	require.EqualValues(t, g3.Plan, "alternative_plan")
+	require.EqualValues(t, g3.Case, "foo_case")
+	require.EqualValues(t, g3.Builder, "docker:go")
+}
+
+func TestPrepareForBuildOnGroup(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "first-group"},
+			{
+				ID: "custom-build",
+				BuildableComposition: BuildableComposition{
+					Plan:    "another_plan",
+					Case:    "another_case",
+					Builder: "docker:generic",
+				},
+			},
+			{
+				ID: "third-group",
+				BuildableComposition: BuildableComposition{
+					Plan: "alternative_plan",
+				},
+			},
+		},
+	}
+
+	manifest1 := &TestPlanManifest{}
+	manifest2 := &TestPlanManifest{}
+
+	g1, err1 := c.Groups[0].PrepareForBuild(&c.Global, manifest1)
+	g2, err2 := c.Groups[1].PrepareForBuild(&c.Global, manifest2)
+	g3, err3 := c.Groups[2].PrepareForBuild(&c.Global, manifest1)
+
+	require.Nil(t, err1)
+	require.Nil(t, err2)
+	require.Nil(t, err3)
+
+	require.EqualValues(t, g1.Plan, "foo_plan")
+	require.EqualValues(t, g1.Case, "foo_case")
+	require.EqualValues(t, g1.Builder, "docker:go")
+
+	require.EqualValues(t, g2.Plan, "another_plan")
+	require.EqualValues(t, g2.Case, "another_case")
+	require.EqualValues(t, g2.Builder, "docker:generic")
+
+	require.EqualValues(t, g3.Plan, "alternative_plan")
+	require.EqualValues(t, g3.Case, "foo_case")
+	require.EqualValues(t, g3.Builder, "docker:go")
+}

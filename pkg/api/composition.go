@@ -239,6 +239,21 @@ type Dependency struct {
 	Version string `toml:"version" json:"version" validate:"required"`
 }
 
+// This method doesn't modify the group, it returns a new one.
+func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Group, error) {
+	if g.Builder == "" {
+		g.Builder = global.Builder
+	}
+	if g.Plan == "" {
+		g.Plan = global.Plan
+	}
+	if g.Case == "" {
+		g.Case = global.Case
+	}
+
+	return &g, nil
+}
+
 // PrepareForBuild verifies that this composition is compatible with
 // the provided manifest for the purposes of a build, and applies any manifest-
 // mandated defaults for the builder configuration.
