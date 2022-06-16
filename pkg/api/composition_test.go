@@ -319,10 +319,6 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, ret)
 
-	// trickle down global
-	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Global.BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_global", ret.Global.BuildConfig["build_base_image"])
-
 	// trickle down group no_local_settings.
 	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[0].BuildConfig["dockerfile_extensions"])
 	require.EqualValues(t, "base_image_global", ret.Groups[0].BuildConfig["build_base_image"])

@@ -314,49 +314,13 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 		return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
 	}
 
-	// Apply manifest-mandated build configuration.
-	if bcfg, ok := manifest.Builders[c.Global.Builder]; ok {
-		if c.Global.BuildConfig == nil {
-			c.Global.BuildConfig = make(map[string]interface{})
+	// Recursive prepare for groups
+	for i, g := range c.Groups {
+		prepared, err := g.PrepareForBuild(&c.Global, manifest)
+		if err != nil {
+			return nil, err
 		}
-		for k, v := range bcfg {
-			// Apply parameters that are not explicitly set in the Composition.
-			if _, ok := c.Global.BuildConfig[k]; !ok {
-				c.Global.BuildConfig[k] = v
-			}
-		}
-	}
-
-	// Trickle global build defaults to groups, if any.
-	if def := c.Global.Build; def != nil {
-		for _, grp := range c.Groups {
-			if grp.Build == nil {
-				grp.Build = &Build{
-					Selectors:    []string{},
-					Dependencies: []Dependency{},
-				}
-			}
-			grp.Build.Dependencies = grp.Build.Dependencies.ApplyDefaults(def.Dependencies)
-			if len(grp.Build.Selectors) == 0 {
-				grp.Build.Selectors = def.Selectors
-			}
-		}
-	}
-
-	// Trickle global build config to groups, if any.
-	if len(c.Global.BuildConfig) > 0 {
-		for _, grp := range c.Groups {
-			if grp.BuildConfig == nil {
-				grp.BuildConfig = make(map[string]interface{})
-			}
-
-			for k, v := range c.Global.BuildConfig {
-				// Note: we only merge root values.
-				if _, ok := grp.BuildConfig[k]; !ok {
-					grp.BuildConfig[k] = v
-				}
-			}
-		}
+		c.Groups[i] = prepared
 	}
 
 	return &c, nil
