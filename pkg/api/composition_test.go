@@ -363,11 +363,13 @@ func TestPrepareForBuildOnGroupTrickleConfigurationFromGlobal(t *testing.T) {
 	}
 
 	manifest1 := &TestPlanManifest{
+		Name: "foo_plan:go",
 		Builders: map[string]config.ConfigMap{
 			"docker:go": {},
 		},
 	}
 	manifest2 := &TestPlanManifest{
+		Name: "foo_plan:generic",
 		Builders: map[string]config.ConfigMap{
 			"docker:generic": {},
 		},
@@ -381,17 +383,17 @@ func TestPrepareForBuildOnGroupTrickleConfigurationFromGlobal(t *testing.T) {
 	require.Nil(t, err2)
 	require.Nil(t, err3)
 
-	require.EqualValues(t, g1.Plan, "foo_plan")
-	require.EqualValues(t, g1.Case, "foo_case")
-	require.EqualValues(t, g1.Builder, "docker:go")
+	require.EqualValues(t, "foo_plan:go", g1.Plan)
+	require.EqualValues(t, "foo_case", g1.Case)
+	require.EqualValues(t, "docker:go", g1.Builder)
 
-	require.EqualValues(t, g2.Plan, "another_plan")
-	require.EqualValues(t, g2.Case, "another_case")
-	require.EqualValues(t, g2.Builder, "docker:generic")
+	require.EqualValues(t, "foo_plan:generic", g2.Plan)
+	require.EqualValues(t, "another_case", g2.Case)
+	require.EqualValues(t, "docker:generic", g2.Builder)
 
-	require.EqualValues(t, g3.Plan, "alternative_plan")
-	require.EqualValues(t, g3.Case, "foo_case")
-	require.EqualValues(t, g3.Builder, "docker:go")
+	require.EqualValues(t, "foo_plan:go", g3.Plan)
+	require.EqualValues(t, "foo_case", g3.Case)
+	require.EqualValues(t, "docker:go", g3.Builder)
 }
 
 func TestPrepareForBuildOnGroup(t *testing.T) {
@@ -425,11 +427,13 @@ func TestPrepareForBuildOnGroup(t *testing.T) {
 	}
 
 	manifest1 := &TestPlanManifest{
+		Name: "foo_plan::manifest",
 		Builders: map[string]config.ConfigMap{
 			"docker:go": {},
 		},
 	}
 	manifest2 := &TestPlanManifest{
+		Name: "another_plan::manifest",
 		Builders: map[string]config.ConfigMap{
 			"docker:generic": {},
 		},
@@ -443,17 +447,17 @@ func TestPrepareForBuildOnGroup(t *testing.T) {
 	require.Nil(t, err2)
 	require.Nil(t, err3)
 
-	require.EqualValues(t, g1.Plan, "foo_plan")
-	require.EqualValues(t, g1.Case, "foo_case")
-	require.EqualValues(t, g1.Builder, "docker:go")
+	require.EqualValues(t, "foo_plan::manifest", g1.Plan)
+	require.EqualValues(t, "foo_case", g1.Case)
+	require.EqualValues(t, "docker:go", g1.Builder)
 
-	require.EqualValues(t, g2.Plan, "another_plan")
-	require.EqualValues(t, g2.Case, "another_case")
-	require.EqualValues(t, g2.Builder, "docker:generic")
+	require.EqualValues(t, "another_plan::manifest", g2.Plan)
+	require.EqualValues(t, "another_case", g2.Case)
+	require.EqualValues(t, "docker:generic", g2.Builder)
 
-	require.EqualValues(t, g3.Plan, "alternative_plan")
-	require.EqualValues(t, g3.Case, "foo_case")
-	require.EqualValues(t, g3.Builder, "docker:go")
+	require.EqualValues(t, "foo_plan::manifest", g3.Plan)
+	require.EqualValues(t, "foo_case", g3.Case)
+	require.EqualValues(t, "docker:go", g3.Builder)
 }
 
 func TestPrepareForBuildOnGroupAppliesBuildConfiguration(t *testing.T) {

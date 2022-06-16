@@ -255,11 +255,14 @@ func mergeBuildConfigs(configs ...map[string]interface{}) map[string]interface{}
 // TODO: it assumes the configuration is correct (manifest is supported, etc). Create a ValidComposition type to be explicit about it.
 // TODO: the build configuration merge is not recursive for simplicity, which means that if you change docker_extension.something, it'll overwrite all docker_extension. Maybe eventually revisit and implement per-builder merge.
 func (g Group) PrepareForBuild(global *Global, manifest *TestPlanManifest) (*Group, error) {
+	// override the composition plan name with what's in the manifest
+	// rationale: composition.Global.Plan will be a path relative to
+	// $TESTGROUND_HOME/plans; the server doesn't care about our local
+	// paths.
+	g.Plan = manifest.Name
+
 	if g.Builder == "" {
 		g.Builder = global.Builder
-	}
-	if g.Plan == "" {
-		g.Plan = global.Plan
 	}
 	if g.Case == "" {
 		g.Case = global.Case
