@@ -70,6 +70,48 @@ func TestGroupBuildKey(t *testing.T) {
 	require.NotEqualValues(t, k3, k4)
 }
 
+func TestGroupBuildKeyWithCustomPlanAndBuilder(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			BuildableComposition: BuildableComposition{
+				Plan:    "foo_plan",
+				Case:    "foo_case",
+				Builder: "docker:go",
+			},
+			Runner: "local:docker",
+		},
+		Groups: []*Group{
+			{ID: "repeated"},
+			{ID: "another-id"},
+			{
+				ID: "custom-plan",
+				BuildableComposition: BuildableComposition{
+					Plan: "another_plan",
+				},
+			},
+			{
+				ID: "custom-builder",
+				BuildableComposition: BuildableComposition{
+					Case:    "foo_case",
+					Builder: "docker:generic",
+				},
+			},
+		},
+	}
+
+	k0 := c.Groups[0].BuildKey() // repeated
+	k1 := c.Groups[1].BuildKey() // another-id
+
+	k2 := c.Groups[2].BuildKey() // custom-plan
+	k3 := c.Groups[3].BuildKey() // custom-builder
+
+	require.EqualValues(t, k0, k1)
+	require.NotEqualValues(t, k0, k2)
+	require.NotEqualValues(t, k2, k3)
+	require.NotEqualValues(t, k0, k3)
+}
+
 func TestDefaultTestParamsApplied(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},

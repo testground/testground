@@ -135,10 +135,13 @@ func (g Group) BuildKey() string {
 }
 
 func (b BuildableComposition) BuildKey() string {
+	planKey := fmt.Sprintf("plan=%s;case=%s;builder=%s", b.Plan, b.Case, b.Builder)
+
 	data := struct {
+		PlanKey     string                 `json:"plan_key"`
 		BuildConfig map[string]interface{} `json:"build_config"`
 		BuildAsKey  string                 `json:"build_as_key"`
-	}{BuildConfig: b.BuildConfig, BuildAsKey: b.Build.BuildKey()}
+	}{PlanKey: planKey, BuildConfig: b.BuildConfig, BuildAsKey: b.Build.BuildKey()}
 
 	j, err := json.Marshal(data)
 
