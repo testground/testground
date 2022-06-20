@@ -178,7 +178,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	if cfg.Modfile != "" {
 		if cfg.FreshGomod {
-			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used.")
+			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used")
 		}
 
 		modfile = cfg.Modfile
