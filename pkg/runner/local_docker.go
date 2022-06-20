@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/testground/testground/pkg/logging"
 	"io"
 	"io/ioutil"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/testground/testground/pkg/logging"
 
 	"github.com/docker/go-connections/nat"
 	"github.com/docker/go-units"

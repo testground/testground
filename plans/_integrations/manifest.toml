@@ -11,8 +11,5 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name = "issue-1337-override-builder-configuration"
-instances = { min = 2, max = 2, default = 2 }
-
-[testcases.params]
-  expected_version = { type = "string", desc = "expected version" }
+name = "issue-1349-silent-failure"
+instances = { min = 1, max = 1, default = 1 }

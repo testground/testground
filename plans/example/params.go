@@ -1,11 +1,12 @@
 package main
 
 import (
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 )
 
 // ExampleParams prints out the params passed to it.
-func ExampleParams(runenv *runtime.RunEnv) error {
+func ExampleParams(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("Params are defined in toml manifest")
 	runenv.RecordMessage("Params can be overridden by the commandline!")
 	for k, v := range runenv.TestInstanceParams {

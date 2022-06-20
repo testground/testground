@@ -5,8 +5,8 @@ name = "issue-1337-override-builder-configuration"
 
 [global]
   builder = "docker:go"
+  plan = "integrations_interop"
   case = "issue-1337-override-builder-configuration"
-  plan = "integrations"
   runner = "local:docker"
   total_instances = 2
 
@@ -23,7 +23,8 @@ name = "issue-1337-override-builder-configuration"
   instances = {count = 1}
 
   [groups.run.test_params]
-    expected_version = "v16"
+    # expect a version that trickles down from the selector set in global.build_config
+    expected_version = "v16" 
 
 [[groups]]
   id = "v14"

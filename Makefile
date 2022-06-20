@@ -67,6 +67,7 @@ test-integ-local-docker:
 	./integration_tests/11_docker_splitbrain_drop.sh
 	./integration_tests/13_docker_builder_configuration.sh
 	./integration_tests/13_02_docker_builder_configuration.sh
+	./integration_tests/14_docker_silent_test_failure.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh
