@@ -9,6 +9,15 @@ import (
 	"github.com/testground/testground/pkg/task"
 )
 
+func successState() []task.DatedState {
+	return []task.DatedState{
+		{
+			State:   task.StateComplete,
+			Created: time.Now(),
+		},
+	}
+}
+
 func TestDecodeResult(t *testing.T) {
 	result1 := &runner.Result{
 		Outcome:  task.OutcomeUnknown,
@@ -26,18 +35,10 @@ func TestDecodeResult(t *testing.T) {
 	assert.NotNil(t, r2)
 }
 
-func TestDecodeTaskOutcome(t *testing.T) {
-	success_state := []task.DatedState{
-		{
-			State:   task.StateComplete,
-			Created: time.Now(),
-		},
-	}
-
-	// Run with generic runner and unknown => unknown outcome
+func TestDecodeTaskOutcomeWithGenericRunerAndUnknownOutcome(t *testing.T) {
 	tested := &task.Task{
 		Type:   task.TypeRun,
-		States: success_state,
+		States: successState(),
 		Result: &runner.Result{
 			Outcome: task.OutcomeUnknown,
 		},
@@ -45,41 +46,49 @@ func TestDecodeTaskOutcome(t *testing.T) {
 	r, e := DecodeTaskOutcome(tested)
 	assert.Equal(t, task.OutcomeUnknown, r)
 	assert.Nil(t, e)
+}
 
-	// Run with generic runner and success => success outcome
-	tested = &task.Task{
+func TestDecodeTaskOutcomeWithGenericRunerAndSuccessOutcome(t *testing.T) {
+
+	tested := &task.Task{
 		Type:   task.TypeRun,
-		States: success_state,
+		States: successState(),
 		Result: &runner.Result{
 			Outcome: task.OutcomeSuccess,
 		},
 	}
-	r, e = DecodeTaskOutcome(tested)
+	r, e := DecodeTaskOutcome(tested)
 	assert.Equal(t, task.OutcomeSuccess, r)
 	assert.Nil(t, e)
+}
 
+func TestDecodeTaskOutcomeWithBuilder(t *testing.T) {
 	// Run with builder type => always a success
-	tested = &task.Task{
+	tested := &task.Task{
 		Type:   task.TypeBuild,
-		States: success_state,
+		States: successState(),
 		Result: []string{"artfact", "artifact2"},
 	}
 
-	r, e = DecodeTaskOutcome(tested)
+	r, e := DecodeTaskOutcome(tested)
 	assert.Equal(t, task.OutcomeSuccess, r)
 	assert.Nil(t, e)
+}
 
+func TestDecodeTaskOutcomeWithUnknownBuilder(t *testing.T) {
 	// Run with unknown builder => failure
-	tested = &task.Task{
+	tested := &task.Task{
 		Type:   "some-name",
-		States: success_state,
+		States: successState(),
 	}
 
-	_, e = DecodeTaskOutcome(tested)
+	_, e := DecodeTaskOutcome(tested)
 	assert.NotNil(t, e)
+}
 
-	// Run with state cancelled => cancelled outcome
-	tested = &task.Task{
+func TestDecodeTaskOutcomeWithCanceledState(t *testing.T) {
+	// Run with state canceled => canceled outcome
+	tested := &task.Task{
 		Type: task.TypeRun,
 		States: []task.DatedState{
 			{
@@ -92,19 +101,21 @@ func TestDecodeTaskOutcome(t *testing.T) {
 		},
 	}
 
-	r, e = DecodeTaskOutcome(tested)
+	r, e := DecodeTaskOutcome(tested)
 	assert.Equal(t, task.OutcomeCanceled, r)
 	assert.Nil(t, e)
+}
 
+func TestDecodeTaskOutcomeWithLocalExecRunner(t *testing.T) {
 	// Run with local exec runner => the result is nil, we assume outcome is Success if the task suceeded.
-	tested = &task.Task{
+	tested := &task.Task{
 		Type:   task.TypeRun,
-		States: success_state,
+		States: successState(),
 		// runner outputs something like: `&api.RunOutput{RunID: input.RunID}`
 		Result: nil,
 	}
 
-	r, e = DecodeTaskOutcome(tested)
+	r, e := DecodeTaskOutcome(tested)
 	assert.Equal(t, task.OutcomeSuccess, r)
 	assert.Nil(t, e)
 }
