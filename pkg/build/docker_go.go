@@ -257,6 +257,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	baseImage := cfg.BuildBaseImage
 	alreadyCached := false
 
+	if cfg.EnableGoBuildCache && baseImage != DefaultGoBuildBaseImage {
+		return nil, fmt.Errorf("unable to use go build cache with a custom build image")
+	}
+
 	if cfg.EnableGoBuildCache {
 		alreadyCached, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheImage)
 		if err != nil {
