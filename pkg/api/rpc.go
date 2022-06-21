@@ -17,10 +17,11 @@ type DescribeRequest struct {
 
 // BuildRequest is the request struct for the `build` function.
 type BuildRequest struct {
-	Priority    int              `json:"priority"`
-	Composition Composition      `json:"composition"`
-	Manifest    TestPlanManifest `json:"manifest"`
-	CreatedBy   CreatedBy        `json:"created_by"`
+	Priority    int                `json:"priority"`
+	Composition Composition        `json:"composition"`
+	Manifest    TestPlanManifest   `json:"manifest"`
+	Manifests   []TestPlanManifest `json:"manifests"`
+	CreatedBy   CreatedBy          `json:"created_by"`
 }
 
 // RunRequest is the request struct for the `run` function.
