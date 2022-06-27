@@ -18,8 +18,8 @@ var compositionValidator = func() *validator.Validate {
 
 type Groups []*Group
 
-func (gs Groups) Validate() error {
-	// validate group IDs are unique
+func (gs Groups) Validate(c *Composition) error {
+	// Validate group IDs are unique
 	m := make(map[string]struct{}, len(gs))
 	for _, g := range gs {
 		if _, ok := m[g.ID]; ok {
@@ -27,6 +27,14 @@ func (gs Groups) Validate() error {
 		}
 		m[g.ID] = struct{}{}
 	}
+
+	// Validate every group has a builder or there is a global
+	for _, g := range gs {
+		if g.Builder == "" && c.Global.Builder == "" {
+			return fmt.Errorf("group %s is missing a builder", g.ID)
+		}
+	}
+
 	return nil
 }
 
@@ -54,7 +62,7 @@ type Global struct {
 	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"required,gte=0"`
 
 	// Builder is the builder we're using.
-	Builder string `toml:"builder" json:"builder" validate:"required"`
+	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
 	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
@@ -101,6 +109,9 @@ type Group struct {
 
 	// Instances defines the number of instances that belong to this group.
 	Instances Instances `toml:"instances" json:"instances"`
+
+	// Builder is the builder we're using.
+	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
 	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
@@ -262,7 +273,7 @@ func (c *Composition) ValidateForBuild() error {
 		return err
 	}
 
-	return c.Groups.Validate()
+	return c.Groups.Validate(c)
 }
 
 // ValidateForRun validates that this Composition is correct for a run.
@@ -287,7 +298,7 @@ func (c *Composition) ValidateForRun() error {
 		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", total, cum)
 	}
 
-	return c.Groups.Validate()
+	return c.Groups.Validate(c)
 }
 
 // PrepareForBuild verifies that this composition is compatible with
@@ -305,14 +316,6 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 	// Is the builder supported?
 	if manifest.Builders == nil || len(manifest.Builders) == 0 {
 		return nil, fmt.Errorf("plan supports no builders; review the manifest")
-	}
-	builders := make([]string, 0, len(manifest.Builders))
-	for k := range manifest.Builders {
-		builders = append(builders, k)
-	}
-	sort.Strings(builders)
-	if sort.SearchStrings(builders, c.Global.Builder) == len(builders) {
-		return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, builders)
 	}
 
 	// Apply manifest-mandated build configuration.
@@ -351,6 +354,20 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 					grp.BuildConfig[k] = v
 				}
 			}
+		}
+	}
+
+	// Trickle builder configuration
+	for _, grp := range c.Groups {
+		if grp.Builder == "" {
+			if c.Global.Builder == "" {
+				return nil, fmt.Errorf("no builder configured for group %s", grp.ID)
+			}
+			grp.Builder = c.Global.Builder
+		}
+
+		if !manifest.HasBuilder(grp.Builder) {
+			return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, manifest.SupportedBuilders())
 		}
 	}
 

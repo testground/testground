@@ -57,6 +57,23 @@ func (tp *TestPlanManifest) TestCaseByName(name string) (idx int, tc *TestCase, 
 	return -1, nil, false
 }
 
+func (tp *TestPlanManifest) HasBuilder(name string) bool {
+	for k := range tp.Builders {
+		if k == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (tp *TestPlanManifest) SupportedBuilders() []string {
+	builders := make([]string, 0, len(tp.Builders))
+	for k := range tp.Builders {
+		builders = append(builders, k)
+	}
+	return builders
+}
+
 func (tp *TestPlanManifest) Describe(w io.Writer) {
 	p := func(w io.Writer, f string, a ...interface{}) {
 		s := wordwrap.WrapString(fmt.Sprintf(f, a...), 120)
