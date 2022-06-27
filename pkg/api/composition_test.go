@@ -37,22 +37,31 @@ func TestValidateGroupBuildKey(t *testing.T) {
 			Runner:  "local:docker",
 		},
 		Groups: []*Group{
-			{ID: "repeated"},
-			{ID: "another-id"},
 			{
-				ID: "custom-selector",
+				ID:      "repeated",
+				Builder: "docker:go",
+			},
+			{
+				ID:      "another-id",
+				Builder: "docker:go",
+			},
+			{
+				ID:      "custom-selector",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
 			},
 			{
-				ID: "duplicate-selector",
+				ID:      "duplicate-selector",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
 			},
 			{
-				ID: "duplicate-selector-with-different-build-config",
+				ID:      "duplicate-selector-with-different-build-config",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
@@ -78,6 +87,34 @@ func TestValidateGroupBuildKey(t *testing.T) {
 	require.NotEqualValues(t, k0, k2)
 
 	require.NotEqualValues(t, k3, k4)
+}
+
+func TestBuildKeyWithoutGroupPanics(t *testing.T) {
+	defer func() { _ = recover() }()
+
+	g := &Group{
+		ID: "no-info-should-throw",
+	}
+
+	g.BuildKey()
+	t.Errorf("did not panic")
+}
+
+func TestBuildKeyDependsOnBuilder(t *testing.T) {
+	g1 := &Group{
+		ID:      "with-generic",
+		Builder: "docker:generic",
+	}
+
+	g2 := &Group{
+		ID:      "with-go",
+		Builder: "docker:go",
+	}
+
+	k1 := g1.BuildKey()
+	k2 := g2.BuildKey()
+
+	require.NotEqualValues(t, k1, k2)
 }
 
 func TestDefaultTestParamsApplied(t *testing.T) {

@@ -162,10 +162,17 @@ type Build struct {
 // BuildKey returns a composite key that identifies this build, suitable for
 // deduplication.
 func (g Group) BuildKey() string {
+	if g.Builder == "" {
+		// NOTE: A composition can be unprepared or prepared. We assume the composition has
+		// been prepared when we reach this code.
+		panic("group must have a builder")
+	}
+
 	data := struct {
+		Builder     string                 `json:"builder"`
 		BuildConfig map[string]interface{} `json:"build_config"`
 		BuildAsKey  string                 `json:"build_as_key"`
-	}{BuildConfig: g.BuildConfig, BuildAsKey: g.Build.BuildKey()}
+	}{Builder: g.Builder, BuildConfig: g.BuildConfig, BuildAsKey: g.Build.BuildKey()}
 
 	j, err := json.Marshal(data)
 
