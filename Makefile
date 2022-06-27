@@ -68,6 +68,7 @@ test-integ-local-docker:
 	./integration_tests/13_docker_builder_configuration.sh
 	./integration_tests/13_02_docker_builder_configuration.sh
 	./integration_tests/14_docker_silent_test_failure.sh
+	./integration_tests/15_docker_mixed_builders_configuration.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
 
 test-integ-examples:

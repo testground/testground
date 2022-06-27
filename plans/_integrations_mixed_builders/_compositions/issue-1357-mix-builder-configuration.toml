@@ -1,0 +1,36 @@
+# Test for https://github.com/testground/testground/issues/1357
+# Introduces:
+#  - `builder' option per group
+#  - `path` option for generic and docker builders
+[metadata]
+  name = "issue-1357-mix-builder-configuration"
+
+[global]
+  plan = "integrations_mixed_builders"
+  case = "issue-1357-mix-builder-configuration"
+  total_instances = 2
+  runner = "local:docker"
+
+[[groups]]
+  id = "go"
+  instances = { count = 1 }
+  builder = "docker:go"
+
+  [groups.build_config]
+    path = "go/"
+
+  [groups.run.test_params]
+    expected_implementation = "go"
+
+[[groups]]
+  id = "generic"
+  instances = { count = 1 }
+  builder = "docker:generic"
+
+  [groups.build_config]
+    path = "generic/"
+    build_args = { image = "golang:1.16-buster", plan_path = "generic/" }
+
+  [groups.run.test_params]
+    expected_implementation = "generic"
+    
