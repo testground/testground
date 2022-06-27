@@ -3,6 +3,8 @@ package build
 import (
 	"context"
 	"fmt"
+	"path"
+	"path/filepath"
 	"reflect"
 	"time"
 
@@ -23,6 +25,8 @@ type DockerGenericBuilder struct {
 }
 
 type DockerGenericBuilderConfig struct {
+	// Custom base path where we find the test source
+	Path      string             `toml:"path" default:"./"`
 	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
 }
 
@@ -46,11 +50,14 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
+	planPath := cfg.Path
+	basePathForPlan := path.Join("/plan", planPath)
+
 	opts := types.ImageBuildOptions{
 		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
-		Dockerfile:  "/plan/Dockerfile",
+		Dockerfile:  filepath.Join(basePathForPlan, "Dockerfile"),
 	}
 
 	imageOpts := docker.BuildImageOpts{

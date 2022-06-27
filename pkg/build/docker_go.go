@@ -60,6 +60,9 @@ type DockerGoBuilderConfig struct {
 	ExecPkg    string `toml:"exec_pkg"`
 	FreshGomod bool   `toml:"fresh_gomod"`
 
+	// Custom base path where we find the test source
+	Path string `toml:"path" default:"./"`
+
 	// Custom modfile
 	Modfile string `toml:"modfile"`
 
@@ -244,6 +247,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		"GO_PROXY":    &proxyURL,
 		"MODFILE":     &modfile,
 		"MODFILE_SUM": &modfileSum,
+		"PLAN_PATH":   &cfg.Path,
 	}
 
 	if cfg.ExecPkg != "" {
@@ -578,8 +582,11 @@ ARG RUNTIME_IMAGE=busybox:1.31.1-glibc
 #:::
 FROM ${BUILD_BASE_IMAGE} AS builder
 
+# PLAN_PATH is the path of our test's source code.
+ARG PLAN_PATH
+
 # PLAN_DIR is the location containing the plan source inside the container.
-ENV PLAN_DIR /plan
+ENV PLAN_DIR /plan/${PLAN_PATH}
 
 # SDK_DIR is the location containing the (optional) sdk source inside the container.
 ENV SDK_DIR /sdk
@@ -611,8 +618,8 @@ ARG MODFILE_SUM="go.sum"
 
 # Copy only go.mod files and download deps, in order to leverage Docker caching.
 # Note: we copy into the go.mod file, because using the -modfile option doesn't work consistently accross all the CLI
-COPY /plan/${MODFILE} ${PLAN_DIR}/go.mod
-COPY /plan/${MODFILE_SUM} ${PLAN_DIR}/go.sum
+COPY /plan/${PLAN_PATH}/${MODFILE} ${PLAN_DIR}/go.mod
+COPY /plan/${PLAN_PATH}/${MODFILE_SUM} ${PLAN_DIR}/go.sum
 
 {{if .WithSDK}}
 COPY /sdk/go.mod /sdk/go.mod
@@ -657,8 +664,11 @@ RUN cd ${PLAN_DIR} \
 ## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM ${RUNTIME_IMAGE} AS runtime
 
-# PLAN_DIR is the location containing the plan source inside the build container.
-ENV PLAN_DIR /plan
+# PLAN_PATH is the path of our test's source code.
+ARG PLAN_PATH
+
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan/${PLAN_PATH}
 
 {{.DockerfileExtensions.PreRuntimeCopy}}
 
@@ -672,8 +682,11 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 ## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM builder AS runtime
 
-# PLAN_DIR is the location containing the plan source inside the build container.
-ENV PLAN_DIR /plan
+# PLAN_PATH is the path of our test's source code.
+ARG PLAN_PATH
+
+# PLAN_DIR is the location containing the plan source inside the container.
+ENV PLAN_DIR /plan/${PLAN_PATH}
 
 RUN mv ${PLAN_DIR}/testplan.bin /testplan
 
