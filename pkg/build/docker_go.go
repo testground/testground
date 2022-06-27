@@ -178,7 +178,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	if cfg.Modfile != "" {
 		if cfg.FreshGomod {
-			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used.")
+			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used")
 		}
 
 		modfile = cfg.Modfile
@@ -257,8 +257,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	baseImage := cfg.BuildBaseImage
 	alreadyCached := false
 
+	if cfg.EnableGoBuildCache && baseImage != DefaultGoBuildBaseImage {
+		return nil, fmt.Errorf("unable to use go build cache with a custom build image")
+	}
+
 	if cfg.EnableGoBuildCache {
-		alreadyCached, err = b.resolveBuildCacheImage(ctx, cli, cfg, ow, cacheImage)
+		alreadyCached, err = b.hasBuildCacheImage(ctx, cli, cfg, ow, cacheImage)
 		if err != nil {
 			return nil, err
 		}
@@ -466,10 +470,9 @@ func (b *DockerGoBuilder) setupGoProxy(ctx context.Context, ow *rpc.OutputWriter
 	return proxyURL, buildNetworkID, warn
 }
 
-// resolveBuildCacheImage resolves the image `cacheImage`.
-//	1. If the image exists, returns true and a nil-error.
-//	2. If the image does not exist, returns false and a nil-error.
-func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *client.Client, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter, cacheImage string) (bool, error) {
+// hasBuildCacheImage resolves the image `cacheImage`,
+// Return an error if the processus of finding the image had an error.
+func (b *DockerGoBuilder) hasBuildCacheImage(ctx context.Context, cli *client.Client, cfg *DockerGoBuilderConfig, ow *rpc.OutputWriter, cacheImage string) (bool, error) {
 	ow.Infow("go build cache enabled; checking if build cache image exists", "cache_image", cacheImage)
 	info, ok, err := docker.FindImage(ctx, ow, cli, cacheImage)
 	switch {
@@ -486,7 +489,6 @@ func (b *DockerGoBuilder) resolveBuildCacheImage(ctx context.Context, cli *clien
 }
 
 func (b *DockerGoBuilder) removeBuildCacheImage(ctx context.Context, cli *client.Client, cacheimage string) error {
-	// release the old tag first.
 	_, err := cli.ImageRemove(ctx, cacheimage, types.ImageRemoveOptions{Force: true})
 	if err != nil && !strings.Contains(err.Error(), "No such image") {
 		return fmt.Errorf("failed to untag build cache image with name: %w", err)

@@ -417,11 +417,11 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 			}
 
 			// Get overrides from the Global + Group.
-			cfg = cfg.Append(grp.BuildConfig)
+			groupCfg := cfg.Append(grp.BuildConfig)
 
 			// Coalesce all configurations and deserialize into the config type
 			// mandated by the builder.
-			obj, err := cfg.CoalesceIntoType(bm.ConfigType())
+			obj, err := groupCfg.CoalesceIntoType(bm.ConfigType())
 
 			if err != nil {
 				return fmt.Errorf("error while coalescing configuration values: %w", err)
