@@ -89,6 +89,29 @@ func TestValidateGroupBuildKey(t *testing.T) {
 	require.NotEqualValues(t, k3, k4)
 }
 
+func TestListBuilders(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID:      "repeated",
+				Builder: "docker:generic",
+			},
+			{
+				ID: "another-id",
+			},
+		},
+	}
+
+	require.EqualValues(t, []string{"docker:generic", "docker:go"}, c.ListBuilders())
+}
+
 func TestBuildKeyWithoutGroupPanics(t *testing.T) {
 	defer func() { _ = recover() }()
 

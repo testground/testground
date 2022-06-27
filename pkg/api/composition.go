@@ -381,6 +381,27 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 	return &c, nil
 }
 
+func (c *Composition) ListBuilders() []string {
+	builders := make(map[string]bool)
+
+	for _, grp := range c.Groups {
+		if grp.Builder == "" {
+			builders[c.Global.Builder] = true
+		} else {
+			builders[grp.Builder] = true
+		}
+	}
+
+	result := make([]string, 0, len(builders))
+	for k := range builders {
+		result = append(result, k)
+	}
+
+	sort.Strings(result)
+
+	return result
+}
+
 // PrepareForRun verifies that this composition is compatible with the
 // provided manifest for the purposes of a run, verifies the instance count is
 // within bounds, applies any manifest-mandated defaults for the runner
