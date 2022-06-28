@@ -53,6 +53,14 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	planPath := cfg.Path
 	basePathForPlan := path.Join("/plan", planPath)
 
+	if cfg.BuildArgs == nil {
+		cfg.BuildArgs = make(map[string]*string)
+	}
+
+	if _, ok = cfg.BuildArgs["PLAN_PATH"]; !ok {
+		cfg.BuildArgs["PLAN_PATH"] = &cfg.Path
+	}
+
 	opts := types.ImageBuildOptions{
 		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,

@@ -28,8 +28,8 @@
   builder = "docker:generic"
 
   [groups.build_config]
-    path = "generic/"
-    build_args = { image = "golang:1.16-buster", plan_path = "generic/" }
+    path = "generic/" # this will be passed to the builder as `ARG PLAN_PATH`
+    build_args = { image = "golang:1.16-buster" }
 
   [groups.run.test_params]
     expected_implementation = "generic"
