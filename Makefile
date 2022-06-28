@@ -74,6 +74,7 @@ test-integ-local-docker:
 test-integ-examples:
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
+	./integration_tests/example_03_generic_artifact.sh
 
 kind-cluster:
 	kind create cluster --wait 90s
