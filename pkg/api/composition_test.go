@@ -112,7 +112,7 @@ func TestListBuilders(t *testing.T) {
 	require.EqualValues(t, []string{"docker:generic", "docker:go"}, c.ListBuilders())
 }
 
-func TestBuildKeyWithoutGroupPanics(t *testing.T) {
+func TestBuildKeyWithoutBuilderPanics(t *testing.T) {
 	defer func() { _ = recover() }()
 
 	g := &Group{
