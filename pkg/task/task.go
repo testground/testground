@@ -85,7 +85,14 @@ func (t *Task) IsCanceled() bool {
 }
 
 func (t *Task) Name() string {
-	return t.Plan + ":" + t.Case
+	switch t.Type {
+	case TypeBuild:
+		return "build"
+	case TypeRun:
+		return fmt.Sprintf("%s:%s", t.Plan, t.Case)
+	default:
+		return "not supported"
+	}
 }
 
 func (t *Task) Took() time.Duration {
