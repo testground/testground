@@ -14,6 +14,31 @@ function finish {
 }
 trap finish EXIT
 
+# Assert the status of a testground run ("failure", "success")
+#
+# Usage:
+#   assert_run_outcome_is "./testground-run-logs.out" "failed"
+function assert_run_outcome_is {
+  RUN_OUT_FILEPATH="$1"
+  EXPECTED_OUTCOME="$2"
+
+  RUN_ID=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
+  echo "checking run ${RUN_ID}"
+
+  OUTCOME=$(testground status -t "${RUN_ID}" | awk '/Outcome:/{ print $2 }')
+  echo "found outcome ${OUTCOME}"
+
+  if [ "${OUTCOME}" != "${EXPECTED_OUTCOME}" ]; then
+      exit 1;
+  fi
+}
+
+# Assert that a testground run has no errors and some logs.
+# use `SKIP_LOG_PARSING` to check for errors only (required when working with SDKs that don't output logs).
+#
+# Usage:
+#   assert_run_output_is_correct "./testground-run-logs.out"
+#   SKIP_LOG_PARSING=1 assert_run_output_is_correct "./testground-run-logs.out"
 function assert_run_output_is_correct {
   RUN_OUT_FILEPATH="$1"
 

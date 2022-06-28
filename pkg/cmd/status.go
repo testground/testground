@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/task"
 	"github.com/urfave/cli/v2"
 )
@@ -72,10 +74,18 @@ func statusCommand(c *cli.Context) error {
 }
 
 func printTask(tsk task.Task) {
+	outcome, err := data.DecodeTaskOutcome(&tsk)
+	outcomeStr := string(outcome)
+
+	if err != nil {
+		outcomeStr = fmt.Sprintf("failed to decode task outcome: %v", err)
+	}
+
 	fmt.Printf("ID:\t\t%s\n", tsk.ID)
 	fmt.Printf("Priority:\t%d\n", tsk.Priority)
 	fmt.Printf("Created:\t%s\n", tsk.Created())
 	fmt.Printf("Type:\t\t%s\n", tsk.Type)
 	fmt.Printf("Status:\t\t%s\n", tsk.State().State)
+	fmt.Printf("Outcome:\t%s\n", outcomeStr)
 	fmt.Printf("Last update:\t%s\n", tsk.State().Created)
 }
