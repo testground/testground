@@ -134,10 +134,17 @@ func TestBuildKeyDependsOnBuilder(t *testing.T) {
 		Builder: "docker:go",
 	}
 
+	g3 := &Group{
+		ID:      "another-with-go",
+		Builder: "docker:go",
+	}
+
 	k1 := g1.BuildKey()
 	k2 := g2.BuildKey()
+	k3 := g3.BuildKey()
 
 	require.NotEqualValues(t, k1, k2)
+	require.EqualValues(t, k2, k3)
 }
 
 func TestDefaultTestParamsApplied(t *testing.T) {
