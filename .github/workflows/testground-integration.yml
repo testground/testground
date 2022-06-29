@@ -1,0 +1,32 @@
+on: [push, pull_request]
+name: Testground Integration Test
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ "ubuntu" ]
+        go: [ "1.18.x" ]
+        suite: [ "test-integ-cluster-k8s", "test-integ-local-exec", "test-integ-local-docker" ]
+    env:
+      COVERAGES: ""
+    runs-on: ${{ format('{0}-latest', matrix.os) }}
+    name: ${{matrix.suite}} on ${{ matrix.os }} (go ${{ matrix.go }})
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Go information
+        run: |
+          go version
+          go env
+      - name: Run repo-specific setup
+        uses: ./.github/actions/go-test-setup
+        if: hashFiles('./.github/actions/go-test-setup') != ''
+      - name: Run tests
+        shell: bash
+        run: make ${{ matrix.suite }}

@@ -49,14 +49,14 @@ test-integration: test-integ-cluster-k8s test-integ-local-exec test-integ-local-
 
 # Note that in these tests, we override the SYNC_SERVICE env var,
 # so that testground connects to the instance exposed with `make kind-cluster`
-test-integ-cluster-k8s:
+test-integ-cluster-k8s: install kind-cluster
 	SYNC_SERVICE_HOST=localhost ./integration_tests/01_k8s_kind_placebo_ok.sh
 	SYNC_SERVICE_HOST=localhost ./integration_tests/02_k8s_kind_placebo_stall.sh
 
-test-integ-local-exec:
+test-integ-local-exec: install
 	./integration_tests/03_exec_go_placebo_ok.sh
 
-test-integ-local-docker:
+test-integ-local-docker: install
 	./integration_tests/04_docker_placebo_ok.sh
 	./integration_tests/05_docker_placebo_stall.sh
 	./integration_tests/06_docker_network_ping-pong.sh
@@ -72,7 +72,7 @@ test-integ-local-docker:
 	./integration_tests/15_02_docker_mixed_builders_and_custom_go_deps.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
 
-test-integ-examples:
+test-integ-examples: install
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
