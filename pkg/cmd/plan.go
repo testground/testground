@@ -266,6 +266,7 @@ this is the error message I received:
 
 %v
 `
+		//lint:ignore ST1005 This message might be useful for users.
 		return fmt.Errorf(msg, cloneOpts.URL, err)
 	}
 	fmt.Printf("cloned plan %s -> %s\n", dst, src)

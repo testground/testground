@@ -166,7 +166,7 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 
 func (d *Daemon) redirect() func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/tasks", 301)
+		http.Redirect(w, r, "/tasks", http.StatusMovedPermanently)
 	}
 }
 

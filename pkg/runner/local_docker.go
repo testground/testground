@@ -731,7 +731,7 @@ func attachContainerToNetwork(ctx context.Context, cli *client.Client, container
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
-//nolint this function is unused, but it may come in handy.
+//lint:ignore U1000 this function is unused, but it may come in handy.
 func detachContainerFromNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

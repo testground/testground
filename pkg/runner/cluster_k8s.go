@@ -743,7 +743,7 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 		}
 
 		if time.Since(start) > runTimeout {
-			return fmt.Errorf("run timeout reached. make sure your plan execution completes within %s.", runTimeout)
+			return fmt.Errorf("run timeout reached. make sure your plan execution completes within %s", runTimeout)
 		}
 		time.Sleep(2000 * time.Millisecond)
 

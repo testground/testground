@@ -100,7 +100,7 @@ func (m *MockNetwork) Close() error {
 
 func (m *MockNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) error {
 	if m.Closed {
-		return errors.New("mock network is closed.")
+		return errors.New("mock network is closed")
 	}
 	m.L.Lock()
 	defer m.L.Unlock()
