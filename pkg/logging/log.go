@@ -8,8 +8,6 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var ()
-
 var (
 	encConfig zapcore.EncoderConfig
 	encoder   zapcore.Encoder
