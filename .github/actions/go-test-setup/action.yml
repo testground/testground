@@ -1,0 +1,6 @@
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare tests
+      shell: bash
+      run: make install prepare-tests

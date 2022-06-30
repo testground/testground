@@ -40,9 +40,11 @@ docker-sidecar:
 docker-testground:
 	docker build --build-arg TG_VERSION=`git rev-list -1 HEAD` -t iptestground/testground:edge -f Dockerfile.testground .
 
-test-go:
+prepare-tests:
 	testground plan import --from ./plans/placebo
 	testground plan import --from ./plans/example
+
+test-go: prepare-tests
 	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
 
 test-integration: test-integ-cluster-k8s test-integ-local-exec test-integ-local-docker test-integ-examples
