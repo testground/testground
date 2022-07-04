@@ -2,5 +2,14 @@ runs:
   using: "composite"
   steps:
     - name: Prepare tests
-      shell: bash
+      if: ${{ runner.os == 'Linux' }}
       run: make install prepare-tests
+      shell: bash
+    - name: Prepare tests
+      if: ${{ runner.os == 'Windows' }}
+      run: make goinstall prepare-tests
+      shell: bash
+    - name: Prepare tests
+      if: ${{ runner.os == 'macOS' }}
+      run: rm -rf ./plans/dockercustomize && make goinstall prepare-tests
+      shell: bash
