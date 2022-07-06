@@ -11,5 +11,5 @@ runs:
       shell: bash
     - name: Prepare tests
       if: ${{ runner.os == 'macOS' }}
-      run: rm -rf ./plans/dockercustomize && make goinstall prepare-tests
+      run: make goinstall prepare-tests && rm -rf ./plans/
       shell: bash
