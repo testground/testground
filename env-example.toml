@@ -45,7 +45,7 @@ listen                    = ":8080"
 task_timeout_min          = 20
 task_repo_type            = "disk"
 
-# instead of using a LB to connect to the tg-daemon, for testing purposes you can do port forward and then point the endpoint in .env.toml to the port of your choice on your laptop/PC
+# The endpoint refers to the `testground-daemon` service, so depending on your setup, this could be, for example, a Load Balancer fronting the kubernetes cluster and forwarding proper requests to the `tg-daemon` service, or a simple port forward to your local workstation:
 # kubectl port-forward service/testground-daemon 8080:8042, where 8042 is the port on which the tg-daemon is listening, and 8080 is a port on your local workstation
 [client]
 endpoint = "http://localhost:8080"
