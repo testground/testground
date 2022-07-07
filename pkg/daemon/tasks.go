@@ -17,6 +17,14 @@ import (
 	"github.com/testground/testground/tmpl"
 )
 
+const (
+	EmojiSuccess    string = "&#9989;"
+	EmojiCanceled   string = "&#9898;"
+	EmojiFailure    string = "&#10060;"
+	EmojiInProgress string = "&#9203;"
+	EmojiScheduled  string = "&#128338;"
+)
+
 func (d *Daemon) tasksHandler(engine api.Engine) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tgw := rpc.NewOutputWriter(w, r)
@@ -84,7 +92,12 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 		tf := "Mon Jan _2 15:04:05"
 
 		for _, t := range tasks {
-			result := data.DecodeRunnerResult(t.Result) // TODO: update with a smarter decode that deals with build results too.
+			outcome, err := data.DecodeTaskOutcome(&t)
+			if err != nil {
+				panic(fmt.Sprintf("cannot decode task outcome %s: %s", t.ID, err.Error()))
+			}
+
+			result := data.DecodeRunnerResult(t.Result)
 
 			currentTask := struct {
 				ID        string
@@ -103,34 +116,31 @@ func (d *Daemon) listTasksHandler(engine api.Engine) func(w http.ResponseWriter,
 				t.Created().Format(tf),
 				t.State().Created.Format(tf),
 				t.Took().String(),
+				result.StringOutcomes(),
 				"",
-				"",
-				"",
+				t.Error,
 				"",
 				t.RenderCreatedBy(),
 			}
 
-			currentTask.Outcomes = result.StringOutcomes()
-			currentTask.Error = t.Error
-
 			switch t.State().State {
 			case task.StateComplete:
-				switch result.Outcome {
+				switch outcome {
 				case task.OutcomeSuccess:
-					currentTask.Status = "&#9989;"
+					currentTask.Status = EmojiSuccess
 				case task.OutcomeFailure:
-					currentTask.Status = "&#10060;"
+					currentTask.Status = EmojiFailure
 				default:
-					currentTask.Status = "&#10060;"
+					currentTask.Status = EmojiFailure
 				}
 			case task.StateCanceled:
-				currentTask.Status = "&#9898;"
+				currentTask.Status = EmojiCanceled
 			case task.StateProcessing:
-				currentTask.Status = "&#9203;"
+				currentTask.Status = EmojiInProgress
 				currentTask.Actions = fmt.Sprintf(`<a href=/kill?task_id=%s>kill</a><br/><a onclick="return confirm('Are you sure?');" href=/delete?task_id=%s>delete</a>`, t.ID, t.ID)
 				currentTask.Took = ""
 			case task.StateScheduled:
-				currentTask.Status = "&#128338;"
+				currentTask.Status = EmojiScheduled
 				currentTask.Took = ""
 			}
 
