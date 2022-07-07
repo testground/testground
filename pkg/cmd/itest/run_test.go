@@ -2,6 +2,8 @@ package cmd_test
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestAbortedTestShouldFailLocal(t *testing.T) {
@@ -25,9 +27,7 @@ func TestAbortedTestShouldFailLocal(t *testing.T) {
 		"--wait",
 	)
 
-	if err == nil {
-		t.Fatalf("should exit with an error")
-	}
+	require.Error(t, err)
 }
 
 func TestAbortedTestShouldFailDocker(t *testing.T) {
@@ -48,9 +48,7 @@ func TestAbortedTestShouldFailDocker(t *testing.T) {
 		"--wait",
 	)
 
-	if err == nil {
-		t.Fatalf("should exit with an error")
-	}
+	require.Error(t, err)
 }
 
 func TestIncompatibleRun(t *testing.T) {
@@ -74,9 +72,7 @@ func TestIncompatibleRun(t *testing.T) {
 		"--wait",
 	)
 
-	if err == nil {
-		t.Fatalf("should exit with an error")
-	}
+	require.Error(t, err)
 }
 
 func TestCompatibleRunLocal(t *testing.T) {
@@ -97,58 +93,6 @@ func TestCompatibleRunLocal(t *testing.T) {
 		"placebo",
 		"--testcase",
 		"ok",
-		"--wait",
-	)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestCompatibleRunDocker(t *testing.T) {
-	err := runSingle(t,
-		&terminateOpts{
-			runner:  "local:docker",
-			builder: "docker:go",
-		},
-		"run",
-		"single",
-		"--builder",
-		"docker:go",
-		"--runner",
-		"local:docker",
-		"--instances",
-		"1",
-		"--plan",
-		"placebo",
-		"--testcase",
-		"ok",
-		"--wait",
-	)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// example:artifact *only* works with docker:generic
-func TestDockerGenericCustomizesImage(t *testing.T) {
-	err := runSingle(t,
-		&terminateOpts{
-			runner: "local:docker",
-		},
-		"run",
-		"single",
-		"--builder",
-		"docker:generic",
-		"--runner",
-		"local:docker",
-		"--instances",
-		"1",
-		"--plan",
-		"example",
-		"--testcase",
-		"artifact",
 		"--wait",
 	)
 

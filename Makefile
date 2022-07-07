@@ -68,11 +68,13 @@ test-integ-local-docker:
 	./integration_tests/13_docker_builder_configuration.sh
 	./integration_tests/13_02_docker_builder_configuration.sh
 	./integration_tests/14_docker_silent_test_failure.sh
+	./integration_tests/15_docker_mixed_builders_configuration.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
+	./integration_tests/example_03_generic_artifact.sh
 
 kind-cluster:
 	kind create cluster --wait 90s

@@ -37,22 +37,31 @@ func TestValidateGroupBuildKey(t *testing.T) {
 			Runner:  "local:docker",
 		},
 		Groups: []*Group{
-			{ID: "repeated"},
-			{ID: "another-id"},
 			{
-				ID: "custom-selector",
+				ID:      "repeated",
+				Builder: "docker:go",
+			},
+			{
+				ID:      "another-id",
+				Builder: "docker:go",
+			},
+			{
+				ID:      "custom-selector",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
 			},
 			{
-				ID: "duplicate-selector",
+				ID:      "duplicate-selector",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
 			},
 			{
-				ID: "duplicate-selector-with-different-build-config",
+				ID:      "duplicate-selector-with-different-build-config",
+				Builder: "docker:go",
 				Build: Build{
 					Selectors: []string{"a", "b"},
 				},
@@ -78,6 +87,64 @@ func TestValidateGroupBuildKey(t *testing.T) {
 	require.NotEqualValues(t, k0, k2)
 
 	require.NotEqualValues(t, k3, k4)
+}
+
+func TestListBuilders(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID:      "repeated",
+				Builder: "docker:generic",
+			},
+			{
+				ID: "another-id",
+			},
+		},
+	}
+
+	require.EqualValues(t, []string{"docker:generic", "docker:go"}, c.ListBuilders())
+}
+
+func TestBuildKeyWithoutBuilderPanics(t *testing.T) {
+	defer func() { _ = recover() }()
+
+	g := &Group{
+		ID: "no-info-should-throw",
+	}
+
+	g.BuildKey()
+	t.Errorf("did not panic")
+}
+
+func TestBuildKeyDependsOnBuilder(t *testing.T) {
+	g1 := &Group{
+		ID:      "with-generic",
+		Builder: "docker:generic",
+	}
+
+	g2 := &Group{
+		ID:      "with-go",
+		Builder: "docker:go",
+	}
+
+	g3 := &Group{
+		ID:      "another-with-go",
+		Builder: "docker:go",
+	}
+
+	k1 := g1.BuildKey()
+	k2 := g2.BuildKey()
+	k3 := g3.BuildKey()
+
+	require.NotEqualValues(t, k1, k2)
+	require.EqualValues(t, k2, k3)
 }
 
 func TestDefaultTestParamsApplied(t *testing.T) {
@@ -262,7 +329,7 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 		Global: Global{
 			Plan:           "foo_plan",
 			Case:           "foo_case",
-			TotalInstances: 3,
+			TotalInstances: 4,
 			Builder:        "docker:go",
 			Runner:         "local:docker",
 			BuildConfig: map[string]interface{}{
@@ -287,6 +354,10 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 					"build_base_image": "base_image_overriden",
 				},
 			},
+			{
+				ID:      "builder_override",
+				Builder: "docker:generic",
+			},
 		},
 	}
 
@@ -298,6 +369,7 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 					"pre_mod_download": "base_pre_mod_download",
 				},
 			},
+			"docker:generic": {},
 		},
 		Runners: map[string]config.ConfigMap{
 			"local:docker": {},
@@ -329,4 +401,105 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 	// trickle down group build_base_image_override.
 	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[2].BuildConfig["dockerfile_extensions"])
 	require.EqualValues(t, "base_image_overriden", ret.Groups[2].BuildConfig["build_base_image"])
+
+	// trickle down builder override.
+	require.EqualValues(t, "docker:go", ret.Groups[0].Builder)
+	require.EqualValues(t, "docker:go", ret.Groups[1].Builder)
+	require.EqualValues(t, "docker:generic", ret.Groups[3].Builder)
+}
+
+func TestGroupsMayDefineBuilder(t *testing.T) {
+	g := &Group{
+		ID:      "foo",
+		Builder: "docker:generic",
+	}
+
+	require.NotNil(t, g)
+}
+
+func TestValidateForBuildVerifiesThatBuildersAreDefined(t *testing.T) {
+	manifest := &TestPlanManifest{
+		Name: "foo_plan",
+		Builders: map[string]config.ConfigMap{
+			"docker:go":      {},
+			"docker:generic": {},
+		},
+	}
+
+	// Composition with global builder and group builder.
+	globalWithBuilder := Global{
+		Plan:           "foo_plan",
+		Case:           "foo_case",
+		Builder:        "docker:go",
+		Runner:         "local:docker",
+		TotalInstances: 3,
+	}
+
+	groupWithoutBuilder := &Group{
+		ID: "foo",
+	}
+
+	validComposition := &Composition{
+		Metadata: Metadata{},
+		Global:   globalWithBuilder,
+		Groups:   []*Group{groupWithoutBuilder},
+	}
+
+	err := validComposition.ValidateForBuild()
+	require.Nil(t, err)
+
+	ret, err := validComposition.PrepareForBuild(manifest)
+	require.NoError(t, err)
+	require.NotNil(t, ret)
+
+	// Composition without global builder but with group builder.
+	globalWithoutBuilder := Global{
+		Plan:           "foo_plan",
+		Case:           "foo_case",
+		Runner:         "local:docker",
+		TotalInstances: 3,
+	}
+
+	groupWithBuilder := &Group{
+		ID:      "foo",
+		Builder: "docker:generic",
+	}
+
+	validComposition2 := &Composition{
+		Metadata: Metadata{},
+		Global:   globalWithoutBuilder,
+		Groups:   []*Group{groupWithBuilder},
+	}
+
+	err = validComposition2.ValidateForBuild()
+	require.Nil(t, err)
+
+	ret, err = validComposition2.PrepareForBuild(manifest)
+	require.NoError(t, err)
+	require.NotNil(t, ret)
+
+	// Composition without global builder and without group builder.
+	globalWithoutBuilder = Global{
+		Plan:           "foo_plan",
+		Case:           "foo_case",
+		Runner:         "local:docker",
+		TotalInstances: 3,
+	}
+
+	groupWithoutBuilder = &Group{
+		ID: "foo",
+	}
+
+	invalidComposition := &Composition{
+		Metadata: Metadata{},
+		Global:   globalWithoutBuilder,
+		Groups:   []*Group{groupWithoutBuilder},
+	}
+
+	err = invalidComposition.ValidateForBuild()
+	require.Error(t, err)
+
+	ret, err = invalidComposition.PrepareForBuild(manifest)
+	require.Error(t, err)
+	require.Nil(t, ret)
 }
