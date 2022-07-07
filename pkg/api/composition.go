@@ -367,14 +367,11 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 	// Trickle builder configuration
 	for _, grp := range c.Groups {
 		if grp.Builder == "" {
-			if c.Global.Builder == "" {
-				return nil, fmt.Errorf("no builder configured for group %s", grp.ID)
-			}
 			grp.Builder = c.Global.Builder
 		}
 
 		if !manifest.HasBuilder(grp.Builder) {
-			return nil, fmt.Errorf("plan does not support builder %s; supported: %v", c.Global.Builder, manifest.SupportedBuilders())
+			return nil, fmt.Errorf("plan does not support builder '%s'; supported: %v", c.Global.Builder, manifest.SupportedBuilders())
 		}
 	}
 
