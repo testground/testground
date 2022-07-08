@@ -77,8 +77,8 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		})
 	})
 
-	staticDir := "/static/"
-	r.PathPrefix(staticDir).Handler(http.StripPrefix(staticDir, http.FileServer(http.Dir("."+staticDir))))
+	staticPrefix := "/static/"
+	r.PathPrefix(staticPrefix).Handler(http.StripPrefix(staticPrefix, http.FileServer(http.Dir("./static"))))
 
 	r.HandleFunc("/data", srv.dataHandler(engine)).Methods("GET")
 	r.HandleFunc("/dashboard", srv.dashboardHandler(engine)).Methods("GET")
