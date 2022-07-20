@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -16,7 +17,7 @@ import (
 // StartTimeBench does nothing but start up and report the time it took to start.
 // This relies on the testground daemon to inject the time when the plan is scheduled
 // into the runtime environment
-func StartTimeBench(runenv *runtime.RunEnv) error {
+func StartTimeBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	elapsed := time.Since(runenv.TestStartTime)
 	runenv.R().RecordPoint("time_to_start_secs", elapsed.Seconds())
 	return nil
@@ -25,7 +26,7 @@ func StartTimeBench(runenv *runtime.RunEnv) error {
 // NetworkInitBench starts and waits for the network to initialize
 // The metric it emits represents the time between plan start and when the network initialization
 // is completed.
-func NetworkInitBench(runenv *runtime.RunEnv) error {
+func NetworkInitBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	// FIX(cory/raulk) this test will yield a false zero value on local:exec,
 	// because it doesn't support the sidecar yet. We should probably skip it
 	// conditionally, based on the runner. We might want to inject the runner
@@ -43,11 +44,12 @@ func NetworkInitBench(runenv *runtime.RunEnv) error {
 
 	elapsed := time.Since(startupTime)
 	runenv.R().RecordPoint("time_to_network_init_secs", elapsed.Seconds())
+	// runenv.RecordMessage("We gucci")
 	return nil
 }
 
 // NetworkLinkShapeBench benchmarks the time required to change the link shape
-func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
+func NetworkLinkShapeBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	// FIX(cory/raulk) this test will not work with local:exec, because it
 	// doesn't support the sidecar yet. We should probably skip it
 	// conditionally, based on the runner. We might want to inject the runner
@@ -86,7 +88,7 @@ func NetworkLinkShapeBench(runenv *runtime.RunEnv) error {
 
 // BarrierBench tests the time it takes to wait on Barriers, waiting on a
 // different number of instances in each loop.
-func BarrierBench(runenv *runtime.RunEnv) error {
+func BarrierBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	iterations := runenv.IntParam("barrier_iterations")
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(runenv.IntParam("barrier_test_timeout_secs"))*time.Second)
@@ -144,7 +146,7 @@ func BarrierBench(runenv *runtime.RunEnv) error {
 }
 
 // SubtreeBench benchmarks publish and subsciptions to a subtree
-func SubtreeBench(runenv *runtime.RunEnv) error {
+func SubtreeBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	rand.Seed(time.Now().UnixNano())
 
 	iterations := runenv.IntParam("subtree_iterations")
