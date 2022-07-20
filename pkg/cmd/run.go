@@ -155,8 +155,14 @@ func runCompositionCmd(c *cli.Context) (err error) {
 		data.Env[s[0]] = s[1]
 	}
 
+	f := template.FuncMap{
+		"split": func(xs string) []string {
+			return strings.Split(xs, ",")
+		},
+	}
+
 	// Parse and run the composition as a template
-	tpl, err := template.New("tpl").Parse(string(fdata))
+	tpl, err := template.New("tpl").Funcs(f).Parse(string(fdata))
 	if err != nil {
 		return err
 	}
