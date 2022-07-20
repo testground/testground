@@ -138,31 +138,18 @@ type ClusterK8sRunner struct {
 	syncClient  *ss.DefaultClient
 }
 
-type Result struct {
-	Outcome  task.Outcome             `json:"outcome"`
-	Outcomes map[string]*GroupOutcome `json:"outcomes"`
-	Journal  *Journal                 `json:"journal"`
-}
-
 type Journal struct {
 	Events       map[string]string   `json:"events"`
 	PodsStatuses map[string]struct{} `json:"pods_statuses"`
 }
 
-func newResult() *Result {
-	return &Result{
-		Outcome:  task.OutcomeUnknown,
-		Outcomes: make(map[string]*GroupOutcome),
-		Journal: &Journal{
-			Events:       make(map[string]string),
-			PodsStatuses: make(map[string]struct{}),
-		},
-	}
+func (r *Result) String() string {
+	return fmt.Sprintf("outcome = %s (%s)", r.Outcome, r.StringOutcomes())
 }
 
-func (r *Result) String() string {
-	s := fmt.Sprintf("%v", r.Outcomes)
-	return s[4 : len(s)-1]
+func (r *Result) StringOutcomes() string {
+	groups := fmt.Sprintf("%v", r.Outcomes) // map[k:v, x:y]
+	return groups[4 : len(groups)-1]        // remove the `map[` and `]` parts
 }
 
 type GroupOutcome struct {
@@ -743,9 +730,9 @@ func (c *ClusterK8sRunner) watchRunPods(ctx context.Context, ow *rpc.OutputWrite
 
 	go func() {
 		for ge := range eventsChan {
-			e := ge.Object.(*v1.Event)
+			e, ok := ge.Object.(*v1.Event)
 
-			if strings.Contains(e.InvolvedObject.Name, input.RunID) {
+			if ok && strings.Contains(e.InvolvedObject.Name, input.RunID) {
 				id := e.ObjectMeta.Name
 
 				event := fmt.Sprintf("obj<%s> type<%s> reason<%s> message<%s> type<%s> count<%d> lastTimestamp<%s>", e.InvolvedObject.Name, ge.Type, e.Reason, e.Message, e.Type, e.Count, e.LastTimestamp)

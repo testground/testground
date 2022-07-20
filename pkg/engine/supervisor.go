@@ -290,6 +290,7 @@ func (e *Engine) postStatusToSlack(tsk *task.Task) error {
 func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputWriter) ([]*api.BuildOutput, error) {
 	sources := input.Sources
 	comp, err := input.Composition.PrepareForBuild(&input.Manifest)
+
 	if err != nil {
 		return nil, err
 	}
@@ -299,44 +300,41 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	}
 
 	var (
-		plan    = clean(comp.Global.Plan)
-		builder = comp.Global.Builder
+		plan = clean(comp.Global.Plan)
 	)
 
-	// Find the builder.
-	bm, ok := e.builders[builder]
-	if !ok {
-		return nil, fmt.Errorf("unrecognized builder: %s", builder)
-	}
+	// Validate builders we use
+	usedBuilders := comp.ListBuilders()
 
-	// Call the healthcheck routine if the runner supports it, with fix=true.
-	if hc, ok := bm.(api.Healthchecker); ok {
-		ow.Info("performing healthcheck on builder")
+	for _, b := range usedBuilders {
+		_, ok := e.builders[b]
 
-		if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
-			return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
-		} else if !rep.FixesSucceeded() {
-			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
-		} else if !rep.ChecksSucceeded() {
-			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
-		} else {
-			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
+		if !ok {
+			return nil, fmt.Errorf("unrecognized builder: %s", b)
 		}
 	}
 
-	// This var compiles all configurations to coalesce.
-	//
-	// Precedence (highest to lowest):
-	//
-	//  1. CLI --run-param, --build-param flags.
-	//  2. .env.toml.
-	//  3. Builder defaults (applied by the builder itself, nothing to do here).
-	//
-	var cfg config.CoalescedConfig
+	// Call healthcheck on the builders
+	for _, b := range usedBuilders {
+		bm := e.builders[b]
 
-	// 2. Get the env config for the builder.
-	cfg = cfg.Append(e.envcfg.Builders[builder])
+		// Call the healthcheck routine if the runner supports it, with fix=true.
+		if hc, ok := bm.(api.Healthchecker); ok {
+			ow.Info("performing healthcheck on builder")
 
+			if rep, err := hc.Healthcheck(ctx, e, ow, true); err != nil {
+				return nil, fmt.Errorf("healthcheck and fix errored: %w", err)
+			} else if !rep.FixesSucceeded() {
+				return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
+			} else if !rep.ChecksSucceeded() {
+				ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
+			} else {
+				ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
+			}
+		}
+	}
+
+	// Builders are ready, let's go.
 	var (
 		// no need to synchronise access, as each goroutine will write its
 		// response in its index.
@@ -358,6 +356,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		uniq[k] = append(uniq[k], idx)
 	}
 
+	// prepare sources
 	var finalSources []*api.UnpackedSources
 	if uniqcnt := len(uniq); uniqcnt == 1 {
 		finalSources = []*api.UnpackedSources{sources}
@@ -395,7 +394,8 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		cnt++
 
 		errgrp.Go(func() (err error) {
-			// All groups are identical for the sake of building, so pick the first one.
+			// Every Group in `idxs`` have the same build key. They are identitical when it comes to build,
+			// so it's safe to use the first one to build them all.
 			grp := comp.Groups[idxs[0]]
 
 			// Pluck all IDs from the groups this build artifact is for.
@@ -403,6 +403,10 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 			for _, idx := range idxs {
 				grpids = append(grpids, comp.Groups[idx].ID)
 			}
+
+			// get the builder
+			builder := grp.Builder
+			bm := e.builders[builder]
 
 			ow.Infow("performing build for groups", "plan", plan, "groups", grpids, "builder", builder)
 
@@ -415,12 +419,21 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 				}
 			}
 
-			// Get overrides from the Global + Group.
-			cfg = cfg.Append(grp.BuildConfig)
-			
+			// This var compiles all configurations to coalesce.
+			//
+			// Precedence (highest to lowest):
+			//
+			//  1. CLI --run-param, --build-param flags.
+			//  2. .env.toml.
+			//  3. Builder defaults (applied by the builder itself, nothing to do here).
+			//
+			var cfg config.CoalescedConfig
+			cfg = cfg.Append(e.envcfg.Builders[builder]) // env config for the builder
+			groupCfg := cfg.Append(grp.BuildConfig)      // add the group config
+
 			// Coalesce all configurations and deserialize into the config type
 			// mandated by the builder.
-			obj, err := cfg.CoalesceIntoType(bm.ConfigType())
+			obj, err := groupCfg.CoalesceIntoType(bm.ConfigType())
 
 			if err != nil {
 				return fmt.Errorf("error while coalescing configuration values: %w", err)
@@ -499,13 +512,13 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	var (
-		plan   = comp.Global.Plan
-		tcase  = comp.Global.Case
-		runner = comp.Global.Runner
+		plan    = comp.Global.Plan
+		tcase   = comp.Global.Case
+		trunner = comp.Global.Runner
 	)
 
 	// Get the runner.
-	run := e.runners[runner]
+	run := e.runners[trunner]
 
 	// Call the healthcheck routine if the runner supports it, with fix=true.
 	if hc, ok := run.(api.Healthchecker); ok {
@@ -534,7 +547,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	var cfg config.CoalescedConfig
 
 	// 2. Get the env config for the runner.
-	cfg = cfg.Append(e.envcfg.Runners[runner])
+	cfg = cfg.Append(e.envcfg.Runners[trunner])
 
 	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)
@@ -571,14 +584,20 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		in.Groups = append(in.Groups, g)
 	}
 
-	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", runner, "instances", in.TotalInstances)
+	ow.Infow("starting run", "run_id", id, "plan", in.TestPlan, "case", in.TestCase, "runner", trunner, "instances", in.TotalInstances)
 	out, err := run.Run(ctx, &in, ow)
+
 	if err == nil {
-		ow.Infow("run finished successfully", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		message := "run finished with outcome unknown"
+		if out.Result != nil {
+			message = fmt.Sprintf("run finished with %v", out.Result)
+		}
+
+		ow.Infow(message, "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
 	} else if errors.Is(err, context.Canceled) {
-		ow.Infow("run canceled", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances)
+		ow.Infow("run canceled", "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances)
 	} else {
-		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", runner, "instances", in.TotalInstances, "error", err)
+		ow.Warnw("run finished in error", "run_id", id, "plan", plan, "case", tcase, "runner", trunner, "instances", in.TotalInstances, "error", err)
 	}
 
 	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check

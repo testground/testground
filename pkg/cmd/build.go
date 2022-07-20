@@ -12,6 +12,7 @@ import (
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 
 	"github.com/BurntSushi/toml"
@@ -274,7 +275,7 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		g.Run.Artifact = ap
 	}
 
-	return nil
+	return data.IsTaskOutcomeInError(&tsk)
 }
 
 func runBuildPurgeCmd(c *cli.Context) (err error) {

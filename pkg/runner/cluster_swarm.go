@@ -5,10 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/testground/sdk-go/ptypes"
 	"io"
 	"reflect"
 	"time"
+
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/testground/pkg/api"
@@ -83,12 +84,12 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	// Build a runenv.
 	template := runtime.RunParams{
-		TestPlan:          input.TestPlan,
-		TestCase:          input.TestCase,
-		TestRun:           input.RunID,
-		TestInstanceCount: input.TotalInstances,
+		TestPlan:           input.TestPlan,
+		TestCase:           input.TestCase,
+		TestRun:            input.RunID,
+		TestInstanceCount:  input.TotalInstances,
 		TestDisableMetrics: input.DisableMetrics,
-		TestSidecar:       true,
+		TestSidecar:        true,
 	}
 
 	// Create a docker client.

@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: testground-sync-service
 spec:
+  replicas: 1
   selector:
     matchLabels:
       name: testground-sync-service

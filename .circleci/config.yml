@@ -81,7 +81,19 @@ workflows:
       - lint:
           requires:
             - prepare-tidy
-      - build-test-linux:
+      - build-test-linux-test-go:
+          requires:
+            - prepare-tidy
+      - build-test-linux-k8s:
+          requires:
+            - prepare-tidy
+      - build-test-linux-docker:
+          requires:
+            - prepare-tidy
+      - build-test-linux-local:
+          requires:
+            - prepare-tidy
+      - build-test-linux-examples:
           requires:
             - prepare-tidy
       - build-macos:
@@ -115,7 +127,7 @@ jobs:
           name: "make lint"
           command: make lint
 
-  build-test-linux:
+  build-test-linux-test-go:
     executor: linux
     steps:
       - setup-install-bins
@@ -127,18 +139,53 @@ jobs:
           command: |
             cd $HOME/project
             make test-go
+
+  build-test-linux-k8s:
+    executor: linux
+    steps:
+      - setup-install-bins
+      - run:
+          name: "build testground"
+          command: make install
       - run:
           name: "create kind cluster"
           command: make kind-cluster
       - run:
           name: "run cluster:k8s integration tests"
           command: make test-integ-cluster-k8s
+
+  build-test-linux-docker:
+    executor: linux
+    steps:
+      - setup-install-bins
+      - run:
+          name: "build testground"
+          command: make install
       - run:
           name: "run local:docker integration tests"
           command: make test-integ-local-docker
+
+  build-test-linux-local:
+    executor: linux
+    steps:
+      - setup-install-bins
+      - run:
+          name: "build testground"
+          command: make install
       - run:
           name: "run local:exec integration tests"
           command: make test-integ-local-exec
+
+  build-test-linux-examples:
+    executor: linux
+    steps:
+      - setup-install-bins
+      - run:
+          name: "build testground"
+          command: make install
+      - run:
+          name: "run examples integration tests"
+          command: make test-integ-examples
 
   build-macos:
     macos:
