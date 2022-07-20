@@ -44,7 +44,6 @@ func NetworkInitBench(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	elapsed := time.Since(startupTime)
 	runenv.R().RecordPoint("time_to_network_init_secs", elapsed.Seconds())
-	// runenv.RecordMessage("We gucci")
 	return nil
 }
 

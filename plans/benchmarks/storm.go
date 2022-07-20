@@ -190,8 +190,6 @@ func Storm(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	_ = client.MustSignalAndWait(ctx, sync.State("done writing"), runenv.TestInstanceCount)
 	runenv.RecordMessage("done writing after barrier")
 
-	// runenv.RecordSuccess()
-
 	time.Sleep(10 * time.Second) // wait for the last set of metrics to be emitted
 
 	runenv.RecordMessage("Done")
