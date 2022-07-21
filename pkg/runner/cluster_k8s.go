@@ -868,7 +868,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				"testground.groupid":  g.ID,
 				"testground.purpose":  "plan",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "ipvlan-multus"},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "weave"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
