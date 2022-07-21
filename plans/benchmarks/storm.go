@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/ptypes"
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
@@ -27,7 +28,7 @@ type ListenAddrs struct {
 
 var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
 
-func Storm(runenv *runtime.RunEnv) error {
+func Storm(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3000*time.Second)
 	defer cancel()
 
@@ -189,10 +190,9 @@ func Storm(runenv *runtime.RunEnv) error {
 	_ = client.MustSignalAndWait(ctx, sync.State("done writing"), runenv.TestInstanceCount)
 	runenv.RecordMessage("done writing after barrier")
 
-	runenv.RecordSuccess()
-
 	time.Sleep(10 * time.Second) // wait for the last set of metrics to be emitted
 
+	runenv.RecordMessage("Done")
 	return nil
 }
 
