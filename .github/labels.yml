@@ -225,27 +225,6 @@
 ###
 ### Statuses
 ###
-- name: status/changes-requested
-  color: edb3a6
-  description: "Status: Changes Requested in Review"
-- name: status/awaiting-review
-  color: edb3a6
-  description: "Status: Waiting for Review"
-- name: status/deferred
-  color: edb3a6
-  description: "Status: Deferred"
-- name: status/in-progress
-  color: edb3a6
-  description: "Status: In Progress"
 - name: status/blocked
   color: edb3a6
   description: "Status: Blocked"
-- name: status/inactive
-  color: edb3a6
-  description: "Status: Inactive"
-- name: status/waiting
-  color: edb3a6
-  description: "Status: Waiting"
-- name: status/discarded
-  color: a0aec0
-  description: "Status: Discarded / Won't fix"  
