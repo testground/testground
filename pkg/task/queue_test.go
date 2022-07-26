@@ -78,6 +78,22 @@ func TestQueueReloads(t *testing.T) {
 	assert.Equal(t, id, tsk.ID)
 }
 
+func TestQueueKeepsOneTaskPerBranch(t *testing.T) {
+	/// Both queues will use the same storage
+	inmem := storage.NewMemStorage()
+	db, err := leveldb.Open(inmem, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := &Storage{db}
+
+	// open q1 and push an item into the queue
+	q1, err := NewQueue(ts, 1, convertTask)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func convertTask(taskData []byte) (*Task, error) {
 	tsk := &Task{}
 	err := json.Unmarshal(taskData, tsk)

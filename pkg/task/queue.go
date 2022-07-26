@@ -3,6 +3,7 @@ package task
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -88,6 +89,30 @@ func (q *Queue) Pop() (*Task, error) {
 		return nil, err
 	}
 	return tsk, nil
+}
+
+// Remove all existing tasks from the queue that match the given branch/string
+func (q *Queue) RemoveExisting(branch string, repo string) error {
+	q.Lock()
+	defer q.Unlock()
+
+	keep_indexes := make([]int, 0)
+	for index, task := range *q.tq {
+		if task.CreatedBy.Branch != branch && task.CreatedBy.Repo != repo {
+			keep_indexes = append(keep_indexes, index)
+		} else {
+			q.ts.Delete(task.ID)
+		}
+	}
+	keep_tasks := make([]*Task, len(keep_indexes))
+	for index, value := range keep_indexes {
+		fmt.Println(value)
+		keep_tasks[index] = (*q.tq)[value]
+	}
+
+	*q.tq = keep_tasks
+
+	return nil
 }
 
 // This is a priority queue which implements container/heap.Interface

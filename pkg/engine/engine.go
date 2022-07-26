@@ -220,7 +220,12 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	}
 
 	id := xid.New().String()
-	err := e.queue.Push(&task.Task{
+	if request.CreatedBy.Branch == "" {
+		request.CreatedBy.Branch = "branch"
+		request.CreatedBy.Repo = "repo"
+	}
+	cby := task.CreatedBy(request.CreatedBy)
+	newTask := &task.Task{
 		Version:     0,
 		Priority:    request.Priority,
 		Plan:        request.Composition.Global.Plan,
@@ -239,8 +244,16 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 				Created: time.Now().UTC(),
 			},
 		},
-		CreatedBy: task.CreatedBy(request.CreatedBy),
-	})
+		CreatedBy: cby,
+	}
+
+	err := e.queue.RemoveExisting(newTask.CreatedBy.Branch, newTask.CreatedBy.Repo)
+
+	if err != nil {
+		return "", err
+	}
+
+	err = e.queue.Push(newTask)
 
 	return id, err
 }

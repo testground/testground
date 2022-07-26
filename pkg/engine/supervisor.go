@@ -53,6 +53,7 @@ func (e *Engine) worker(n int) {
 	}
 
 	for {
+		time.Sleep(time.Second * 20)
 		tsk, err := e.queue.Pop()
 		if err == task.ErrQueueEmpty {
 			time.Sleep(time.Second)
