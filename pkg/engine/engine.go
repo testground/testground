@@ -220,10 +220,6 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	}
 
 	id := xid.New().String()
-	if request.CreatedBy.Branch == "" {
-		request.CreatedBy.Branch = "branch"
-		request.CreatedBy.Repo = "repo"
-	}
 	cby := task.CreatedBy(request.CreatedBy)
 	newTask := &task.Task{
 		Version:     0,
@@ -247,6 +243,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		CreatedBy: cby,
 	}
 
+	// Remove existing tasks from same branch end repo before pushing a new task
 	err := e.queue.RemoveExisting(newTask.CreatedBy.Branch, newTask.CreatedBy.Repo)
 
 	if err != nil {

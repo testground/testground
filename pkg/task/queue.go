@@ -3,7 +3,6 @@ package task
 import (
 	"container/heap"
 	"errors"
-	"fmt"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -98,15 +97,15 @@ func (q *Queue) RemoveExisting(branch string, repo string) error {
 
 	keep_indexes := make([]int, 0)
 	for index, task := range *q.tq {
-		if task.CreatedBy.Branch != branch && task.CreatedBy.Repo != repo {
-			keep_indexes = append(keep_indexes, index)
-		} else {
+		// if task matches both branch and repo, delete it
+		if task.CreatedBy.Repo == repo && task.CreatedBy.Branch == branch {
 			q.ts.Delete(task.ID)
+		} else {
+			keep_indexes = append(keep_indexes, index)
 		}
 	}
 	keep_tasks := make([]*Task, len(keep_indexes))
 	for index, value := range keep_indexes {
-		fmt.Println(value)
 		keep_tasks[index] = (*q.tq)[value]
 	}
 

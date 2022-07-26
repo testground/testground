@@ -3,6 +3,7 @@ package task
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -78,7 +79,7 @@ func TestQueueReloads(t *testing.T) {
 	assert.Equal(t, id, tsk.ID)
 }
 
-func TestQueueKeepsOneTaskPerBranch(t *testing.T) {
+func TestQueueRemovesTasksPerBranch(t *testing.T) {
 	/// Both queues will use the same storage
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
@@ -88,10 +89,59 @@ func TestQueueKeepsOneTaskPerBranch(t *testing.T) {
 	ts := &Storage{db}
 
 	// open q1 and push an item into the queue
-	q1, err := NewQueue(ts, 1, convertTask)
+	q1, err := NewQueue(ts, 100, convertTask)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	id := "bt4brhjpc98qra498sg0"
+	branch := "test_branch"
+	repo := "test_repo"
+	states := []DatedState{{State: StateScheduled, Created: time.Now()}}
+	err = q1.Push(&Task{
+		ID: id,
+		CreatedBy: CreatedBy{
+			Branch: branch,
+			Repo:   repo,
+		},
+		States: states,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// task with same branch, but different repo
+	id2 := "bt4brhjpc98qra498sg1"
+	repo2 := "another_repo"
+	err = q1.Push(&Task{
+		ID: id2,
+		CreatedBy: CreatedBy{
+			Branch: branch,
+			Repo:   repo2,
+		},
+		States: states,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// task with same repo, but different branch
+	id3 := "bt4brhjpc98qra498sg2"
+	branch2 := "another_branch"
+	err = q1.Push(&Task{
+		ID: id3,
+		CreatedBy: CreatedBy{
+			Branch: branch2,
+			Repo:   repo2,
+		},
+		States: states,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	q1.RemoveExisting(branch, repo)
+	assert.Equal(t, 2, q1.tq.Len())
 }
 
 func convertTask(taskData []byte) (*Task, error) {
