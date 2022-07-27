@@ -30,3 +30,30 @@ func newResult(input *api.RunInput) *Result {
 
 	return result
 }
+
+func (r *Result) addOutcome(groupID string, outcome task.Outcome) {
+	switch outcome {
+	case task.OutcomeSuccess:
+		r.Outcomes[groupID].Ok++
+	default:
+		// skip
+	}
+}
+func (r *Result) countTotalInstances() int {
+	count := 0
+	for _, g := range r.Outcomes {
+		count += g.Total
+	}
+	return count
+}
+
+// TODO: this should be a getter instead of a mutation
+func (r *Result) updateOutcome() {
+	for _, g := range r.Outcomes {
+		if g.Total != g.Ok {
+			r.Outcome = task.OutcomeFailure
+			return
+		}
+	}
+	r.Outcome = task.OutcomeSuccess
+}
