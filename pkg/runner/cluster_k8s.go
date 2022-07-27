@@ -124,6 +124,8 @@ type ClusterK8sRunnerConfig struct {
 	RunTimeoutMin int `toml:"run_timeout_min"`
 
 	Sysctls []string `toml:"sysctls"`
+
+	Disabled bool `toml:"disabled"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -200,6 +202,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
+	if cfg.Disabled {
+		runerr = ErrRunnerDisabled
+		return
+	}
+
 	// if `provider` is set, we have to push to a docker registry
 	if cfg.Provider != "" {
 		err := c.pushImagesToDockerRegistry(ctx, ow, input)
@@ -253,9 +260,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	if !enoughResources {
 		if cfg.AutoscalerEnabled {
-			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in.")
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
 		} else {
-			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity.")
+			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity")
 			return
 		}
 	}

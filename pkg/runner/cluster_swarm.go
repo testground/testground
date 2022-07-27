@@ -62,6 +62,8 @@ type ClusterSwarmRunnerConfig struct {
 	// all logs have been piped. Only used when running in foreground mode
 	// (default is background mode).
 	KeepService bool `toml:"keep_service"`
+
+	Disabled bool `toml:"disabled"`
 }
 
 // ClusterSwarmRunner is a runner that creates a Docker service to launch as
@@ -96,6 +98,10 @@ func (*ClusterSwarmRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	var opts []client.Opt
 	if cfg.DockerTLS {
 		opts = append(opts, client.WithTLSClientConfig(cfg.DockerTLSCACertPath, cfg.DockerTLSCertPath, cfg.DockerTLSKeyPath))
+	}
+
+	if cfg.Disabled {
+		return nil, ErrRunnerDisabled
 	}
 
 	opts = append(opts, client.WithHost(cfg.DockerEndpoint), client.WithAPIVersionNegotiation())

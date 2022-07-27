@@ -23,6 +23,8 @@ var (
 	controlGateway = "192.18.0.1"
 )
 
+var ErrRunnerDisabled = fmt.Errorf("runner is disabled by config")
+
 func nextDataNetwork(lenNetworks int) (*net.IPNet, string, error) {
 	if lenNetworks > 4095 {
 		return nil, "", errors.New("space exhausted")

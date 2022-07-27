@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/testground/sdk-go/ptypes"
 	"io/ioutil"
 	"net"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/testground/sdk-go/runtime"
 
@@ -43,7 +44,9 @@ type LocalExecutableRunner struct {
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
-type LocalExecutableRunnerCfg struct{}
+type LocalExecutableRunnerCfg struct {
+	Disabled bool `toml:"disabled"`
+}
 
 func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
@@ -77,6 +80,12 @@ func (r *LocalExecutableRunner) Close() error {
 func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
+
+	var cfg = *input.RunnerConfig.(*LocalExecutableRunnerCfg)
+
+	if cfg.Disabled {
+		return nil, ErrRunnerDisabled
+	}
 
 	// Build a template runenv.
 	template := runtime.RunParams{
