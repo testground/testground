@@ -243,8 +243,52 @@ func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result,
 	return done, nil
 }
 
+func (r *LocalDockerRunner) prepareOutputDirectory(instance_id int, runenv *runtime.RunParams) (string, error) {
+	// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
+	odir := filepath.Join(r.outputsDir, runenv.TestPlan, runenv.TestRun, runenv.TestGroupID, strconv.Itoa(instance_id))
+
+	err := os.MkdirAll(odir, 0777)
+	if err != nil {
+		return "", fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
+	}
+
+	return odir, nil
+}
+
+func (r *LocalDockerRunner) prepareTemporaryDirectory(instance_id int, runenv *runtime.RunParams) (string, error) {
+	var tmpdir string
+	tmpdir, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
+	}
+
+	return tmpdir, nil
+}
+
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
 	log := ow.With("runner", "local:docker", "run_id", input.RunID)
+
+	result := newResult(input)
+	runoutput = &api.RunOutput{
+		RunID:  input.RunID,
+		Result: result,
+	}
+
+	// Grab a read lock. This will allow many runs to run simultaneously, but
+	// they will be exclusive of state-altering healthchecks.
+	// TODO: I'm not sure this is true anymore.
+	r.lk.RLock()
+	defer r.lk.RUnlock()
+
+	defer func() {
+		if err != nil {
+			// TODO: maybe replace only if the outcome is a default value.
+			result.Outcome = task.OutcomeFailure
+		}
+		if ctx.Err() == context.Canceled {
+			result.Outcome = task.OutcomeCanceled
+		}
+	}()
 
 	err = r.setupSyncClient()
 	if err != nil {
@@ -252,22 +296,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return
 	}
 
-	// Grab a read lock. This will allow many runs to run simultaneously, but
-	// they will be exclusive of state-altering healthchecks.
-	r.lk.RLock()
-	defer r.lk.RUnlock()
-
-	result := newResult()
-	runoutput = &api.RunOutput{
-		RunID:  input.RunID,
-		Result: result,
-	}
-
-	defer func() {
-		if ctx.Err() == context.Canceled {
-			result.Outcome = task.OutcomeCanceled
-		}
-	}()
+	// ## Prepare Execution Context
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -276,12 +305,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	// Create a data network.
-	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &input, "default")
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, input, "default")
 	if err != nil {
 		return
 	}
 
-	// Build a template runenv.
+	// Prepare the Run Environment template.
 	template := runtime.RunParams{
 		TestPlan:           input.TestPlan,
 		TestCase:           input.TestCase,
@@ -295,70 +324,73 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestSubnet:         &ptypes.IPNet{IPNet: *subnet},
 	}
 
-	// Merge the incoming configuration with the default configuration.
+	// Prepare the Runner Configuration.
 	cfg := defaultConfig
 	if err = mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
 		err = fmt.Errorf("error while merging configurations: %w", err)
 		return
 	}
 
+	// Prepare the ports mapping.
 	ports := make(nat.PortSet)
 	for _, p := range cfg.ExposedPorts {
 		ports[nat.Port(p)] = struct{}{}
 	}
 
+	// Prepare environment variables.
+	sharedEnv := make([]string, 0, 3)
+	sharedEnv = append(sharedEnv, "INFLUXDB_URL=http://testground-influxdb:8086")
+	sharedEnv = append(sharedEnv, "REDIS_HOST=testground-redis")
+	// Inject exposed ports.
+	sharedEnv = append(sharedEnv, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		sharedEnv = append(sharedEnv, "LOG_LEVEL="+cfg.LogLevel)
+	}
+
+	// ## Create the containers
 	var (
 		containers []testContainerInstance
 		tmpdirs    []string
 	)
 
+	defer func() {
+		// remove all temporary directories.
+		for _, tmpdir := range tmpdirs {
+			_ = os.RemoveAll(tmpdir)
+		}
+	}()
+
 	for _, g := range input.Groups {
+		reviewResources(g, ow)
+
 		runenv := template
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
 		runenv.TestCaptureProfiles = g.Profiles
 
-		result.Outcomes[g.ID] = &GroupOutcome{
-			Total: g.Instances,
-		}
-
-		reviewResources(g, ow)
-
-		// Serialize the runenv into env variables to pass to docker.
-		env := conv.ToOptionsSlice(runenv.ToEnvVars())
-		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
-		env = append(env, "REDIS_HOST=testground-redis")
-
-		// Inject exposed ports.
-		env = append(env, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
-
-		// Set the log level if provided in cfg.
-		if cfg.LogLevel != "" {
-			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-		}
+		// Prepare the group's environment variables.
+		env := make([]string, 0, len(sharedEnv)+len(runenv.ToEnvVars()))
+		env = append(env, sharedEnv...)
+		env = append(env, conv.ToOptionsSlice(runenv.ToEnvVars())...)
 
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
-			// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
-			odir := filepath.Join(r.outputsDir, input.TestPlan, input.RunID, g.ID, strconv.Itoa(i))
-			err = os.MkdirAll(odir, 0777)
+			// TODO: We should set the instance id in runenv and make this whole operation self contained around a local runenv.
+			tmpdir, err := r.prepareTemporaryDirectory(i, &runenv)
 			if err != nil {
-				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
-				break
+				return nil, fmt.Errorf("failed to prepare temporary directory: %w", err)
 			}
-
-			// temporary directory.
-			var tmpdir string
-			tmpdir, err = ioutil.TempDir("", "testground")
-			if err != nil {
-				err = fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
-				break
-			}
-
 			tmpdirs = append(tmpdirs, tmpdir)
 
-			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan, input.TestCase, input.RunID, g.ID, i)
+			odir, err := r.prepareOutputDirectory(i, &runenv)
+			if err != nil {
+				return nil, fmt.Errorf("failed to prepare output directory: %w", err)
+			}
+
+			// TODO: runenv.TestRun == input.RunID. Refactor into a single name.
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", runenv.TestPlan, runenv.TestCase, runenv.TestRun, runenv.TestGroupID, i)
 			log.Infow("creating container", "name", name)
 
 			ccfg := &container.Config{
@@ -367,10 +399,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				Env:          env,
 				Labels: map[string]string{
 					"testground.purpose":  "plan",
-					"testground.plan":     input.TestPlan,
-					"testground.testcase": input.TestCase,
-					"testground.run_id":   input.RunID,
-					"testground.group_id": g.ID,
+					"testground.plan":     runenv.TestPlan,
+					"testground.testcase": runenv.TestCase,
+					"testground.run_id":   runenv.TestRun,
+					"testground.group_id": runenv.TestGroupID,
 				},
 			}
 
@@ -404,7 +436,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				break
 			}
 
-			containers = append(containers, testContainerInstance{res.ID, g.ID, i})
+			container := testContainerInstance{
+				containerID: res.ID,
+				groupID:     g.ID,
+				groupIdx:    i,
+			}
+			containers = append(containers, container)
 
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
@@ -579,11 +616,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	case err = <-doneCh:
 	case <-ctx.Done():
 		err = ctx.Err()
-	}
-
-	// remove all temporary directories.
-	for _, tmpdir := range tmpdirs {
-		_ = os.RemoveAll(tmpdir)
 	}
 
 	cancel()

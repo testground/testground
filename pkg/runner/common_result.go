@@ -1,6 +1,7 @@
 package runner
 
 import (
+	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/task"
 )
 
@@ -10,8 +11,8 @@ type Result struct {
 	Journal  *Journal                 `json:"journal"`
 }
 
-func newResult() *Result {
-	return &Result{
+func newResult(input *api.RunInput) *Result {
+	result := &Result{
 		Outcome:  task.OutcomeUnknown,
 		Outcomes: make(map[string]*GroupOutcome),
 		Journal: &Journal{
@@ -19,4 +20,13 @@ func newResult() *Result {
 			PodsStatuses: make(map[string]struct{}),
 		},
 	}
+
+	for _, g := range input.Groups {
+		result.Outcomes[g.ID] = &GroupOutcome{
+			Total: g.Instances,
+			Ok:    0,
+		}
+	}
+
+	return result
 }
