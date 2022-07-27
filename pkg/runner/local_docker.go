@@ -73,6 +73,12 @@ type LocalDockerRunnerConfig struct {
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 }
 
+type testContainerInstance struct {
+	containerID string
+	groupID     string
+	groupIdx    int
+}
+
 // defaultConfig is the default configuration. Incoming configurations will be
 // merged with this object.
 var defaultConfig = LocalDockerRunnerConfig{
@@ -301,16 +307,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		ports[nat.Port(p)] = struct{}{}
 	}
 
-	type testContainer struct {
-		containerID string
-		groupID     string
-		groupIdx    int
-	}
-
 	var (
-		containers []testContainer
+		containers []testContainerInstance
 		tmpdirs    []string
 	)
+
 	for _, g := range input.Groups {
 		runenv := template
 		runenv.TestGroupInstanceCount = g.Instances
@@ -403,7 +404,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				break
 			}
 
-			containers = append(containers, testContainer{res.ID, g.ID, i})
+			containers = append(containers, testContainerInstance{res.ID, g.ID, i})
 
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
@@ -442,7 +443,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	var (
 		doneCh    = make(chan error, 2)
-		started   = make(chan testContainer, len(containers))
+		started   = make(chan testContainerInstance, len(containers))
 		ratelimit = make(chan struct{}, 16)
 	)
 
