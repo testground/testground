@@ -269,6 +269,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return
 	}
 
+	// Create a data network.
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &input, "default")
+	if err != nil {
+		return
+	}
+
 	// Build a template runenv.
 	template := runtime.RunParams{
 		TestPlan:           input.TestPlan,
@@ -280,15 +286,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestOutputsPath:    "/outputs",
 		TestTempPath:       "/temp", // not using /tmp to avoid overriding linux standard paths.
 		TestStartTime:      time.Now(),
+		TestSubnet:         &ptypes.IPNet{IPNet: *subnet},
 	}
-
-	// Create a data network.
-	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &template, "default")
-	if err != nil {
-		return
-	}
-
-	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
 
 	// Merge the incoming configuration with the default configuration.
 	cfg := defaultConfig
@@ -587,11 +586,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	cancel()
+
+	// NOTE: we wait for the outcome done channel here,
+	// but it doesn't really wait for our containers results.
 	<-outcomesDoneCh
 	return
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *api.RunInput, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -613,12 +615,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 	id, err = docker.NewBridgeNetwork(
 		ctx,
 		cli,
-		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
+		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.RunID, name),
 		true,
 		map[string]string{
 			"testground.plan":     env.TestPlan,
 			"testground.testcase": env.TestCase,
-			"testground.run_id":   env.TestRun,
+			"testground.run_id":   env.RunID,
 			"testground.name":     name,
 		},
 		network.IPAMConfig{
@@ -626,6 +628,7 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 			Gateway: gateway,
 		},
 	)
+
 	return id, subnet, err
 }
 
