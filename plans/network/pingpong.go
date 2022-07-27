@@ -52,17 +52,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return fmt.Errorf("interfaces changed")
 	}
 
-	ipC := byte(4)
+	ipC := byte((seq >> 8) + 1)
 	ipD := byte(seq)
-
-	runenv.RecordMessage("I am %d\n", seq)
 
 	config.IPv4 = runenv.TestSubnet
 
-	// fmt.Printf("Start IP: %s   |    ", config.IPv4.IP)
 	var newIp = append(config.IPv4.IP[0:2:2], ipC, ipD)
 
-	// fmt.Printf("New IP: %s\n", newIp)
+	runenv.RecordMessage("I am %d, and my desired IP is %s\n", seq, newIp)
 
 	config.IPv4.IP = newIp
 	config.IPv4.Mask = []byte{255, 255, 255, 0}
@@ -81,15 +78,15 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	// runenv.RecordMessage("before reconfiguring network")
-	// netclient.MustConfigureNetwork(ctx, config)
+	runenv.RecordMessage("before reconfiguring network")
+	netclient.MustConfigureNetwork(ctx, config)
 
 	switch seq {
 	case 1:
 		fmt.Println("This container is listening!")
 		conn, err = listener.AcceptTCP()
 	case 2:
-		var targetIp = append(config.IPv4.IP[:3:3], 2)
+		var targetIp = append(config.IPv4.IP[:3:3], 1)
 		fmt.Printf("Attempting to dial %s\n", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
@@ -97,15 +94,9 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		})
 
 		if err != nil {
-			fmt.Printf("Received an error attempting to dial %s, switching to different IP\n", targetIp)
+			fmt.Printf("Received an error attempting to dial %s \n", targetIp)
+			return err
 		}
-
-		targetIp = append(config.IPv4.IP[:3:3], 4)
-		fmt.Printf("Attempting to dial %s\n", targetIp)
-		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-			IP:   targetIp,
-			Port: 1234,
-		})
 	default:
 		return fmt.Errorf("expected at most two test instances")
 	}
