@@ -420,7 +420,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			for _, c := range containers {
 				ids = append(ids, c.containerID)
 			}
-			_ = docker.DeleteContainers(cli, log, ids)
+			if err := docker.DeleteContainers(cli, log, ids); err != nil {
+				log.Errorw("failed to delete containers", "err", err)
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -557,7 +559,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					pretty.Manage(tag, rstdout, rstderr)
 
 				case <-ctx.Done():
-					// yield if we're been cancelled.
+					// yield if we've been cancelled.
 					doneCh <- ctx.Err()
 					return
 				}
