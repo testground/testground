@@ -71,6 +71,9 @@ type LocalDockerRunnerConfig struct {
 	Ulimits []string `toml:"ulimits"`
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
+	// Collection timeout is the time we wait for the sync service to send us the test outcomes after
+	// all instances have finished.
+	OutcomesCollectionTimeout time.Duration `toml:"outcomes_collection_timeout"`
 }
 
 type testContainerInstance struct {
@@ -82,10 +85,11 @@ type testContainerInstance struct {
 // defaultConfig is the default configuration. Incoming configurations will be
 // merged with this object.
 var defaultConfig = LocalDockerRunnerConfig{
-	KeepContainers: false,
-	Unstarted:      false,
-	Background:     false,
-	Ulimits:        []string{"nofile=1048576:1048576"},
+	KeepContainers:            false,
+	Unstarted:                 false,
+	Background:                false,
+	Ulimits:                   []string{"nofile=1048576:1048576"},
+	OutcomesCollectionTimeout: time.Second * 45,
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -480,9 +484,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	// ## Start the containers & log their outputs.
+	collectCtx, cancelCollect := context.WithCancel(ctx)
+
+	defer func() {
+		cancelCollect()
+	}()
 
 	// First we collect every container outcomes.
-	outcomesCollectIsCompleteCh, err := r.collectOutcomes(ctx, result, &template)
+	outcomesCollectIsCompleteCh, err := r.collectOutcomes(collectCtx, result, &template)
 	if err != nil {
 		log.Error(err)
 		return
@@ -633,12 +642,18 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	// - we reach a timeout.
 
 	containersAreCompleteCh := make(chan bool)
+	outcomesCollectTimeout := make(chan bool)
 
 	// Wait for the containers
 	go func() {
 		err = runGroup.Wait()
 		containersAreCompleteCh <- true
 	}()
+
+	startOutcomesCollectTimeout := func() {
+		time.Sleep(cfg.OutcomesCollectionTimeout)
+		outcomesCollectTimeout <- true
+	}
 
 	waitingForContainers := true
 	waitingForOutcomes := true
@@ -649,8 +664,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		case <-containersAreCompleteCh:
 			log.Infow("all containers are complete")
 			waitingForContainers = false
+			go startOutcomesCollectTimeout()
 		case <-outcomesCollectIsCompleteCh:
 			log.Infow("all outcomes are complete")
+			waitingForOutcomes = false
+		case <-outcomesCollectTimeout:
+			log.Infow("we timeout'd waiting for outcomes")
 			waitingForOutcomes = false
 		case <-ctx.Done():
 			log.Infow("test run is canceled")
