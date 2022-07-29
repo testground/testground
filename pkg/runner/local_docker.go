@@ -71,8 +71,6 @@ type LocalDockerRunnerConfig struct {
 	Ulimits []string `toml:"ulimits"`
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
-
-	Disabled bool `toml:"disabled"`
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
@@ -296,11 +294,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	cfg := defaultConfig
 	if err = mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
 		err = fmt.Errorf("error while merging configurations: %w", err)
-		return
-	}
-
-	if cfg.Disabled {
-		err = ErrRunnerDisabled
 		return
 	}
 

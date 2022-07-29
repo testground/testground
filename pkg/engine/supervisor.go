@@ -549,6 +549,11 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	// 2. Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.Runners[trunner])
 
+	var flag = cfg[0][config.RunnerDisabledFlag]
+	if flag == true {
+		return nil, runner.ErrRunnerDisabled
+	}
+
 	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)
 

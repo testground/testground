@@ -124,8 +124,6 @@ type ClusterK8sRunnerConfig struct {
 	RunTimeoutMin int `toml:"run_timeout_min"`
 
 	Sysctls []string `toml:"sysctls"`
-
-	Disabled bool `toml:"disabled"`
 }
 
 // ClusterK8sRunner is a runner that creates a Docker service to launch as
@@ -201,11 +199,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
-
-	if cfg.Disabled {
-		runerr = ErrRunnerDisabled
-		return
-	}
 
 	// if `provider` is set, we have to push to a docker registry
 	if cfg.Provider != "" {
