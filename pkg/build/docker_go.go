@@ -134,7 +134,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 	var (
 		basesrc = in.UnpackedSources.BaseDir
-		plansrc = in.UnpackedSources.PlanDir
+		planDir = in.UnpackedSources.PlanDir
 		sdksrc  = in.UnpackedSources.SDKDir
 
 		cli, err = client.NewClientWithOpts(cliopts...)
@@ -143,6 +143,8 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	if err != nil {
 		return nil, err
 	}
+
+	plansrc := filepath.Join(planDir, cfg.Path)
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
@@ -183,6 +185,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		if cfg.FreshGomod {
 			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used")
 		}
+		if cfg.Path != "" {
+			return nil, fmt.Errorf("custom path option is not supported when a custom modfile is used")
+		}
 
 		modfile = cfg.Modfile
 
@@ -191,6 +196,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	if cfg.FreshGomod {
+		if cfg.Path != "" {
+			return nil, fmt.Errorf("custom path option is not supported when a fresh go mod is requested")
+		}
+
 		for _, f := range []string{"go.mod", "go.sum"} {
 			file := filepath.Join(plansrc, f)
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
