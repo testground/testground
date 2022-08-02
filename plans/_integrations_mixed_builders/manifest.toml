@@ -19,3 +19,7 @@ instances = { min = 2, max = 2, default = 2 }
 
 [testcases.params]
   expected_implementation = { type = "string", desc = "expected implementation" }
+
+[[testcases]]
+name = "issue-1412-path-and-go-dependencies"
+instances = { min = 1, max = 1, default = 1 }
