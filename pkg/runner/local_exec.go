@@ -44,8 +44,7 @@ type LocalExecutableRunner struct {
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
-type LocalExecutableRunnerCfg struct {
-}
+type LocalExecutableRunnerCfg struct{}
 
 func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
