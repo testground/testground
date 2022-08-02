@@ -140,7 +140,11 @@ func TestQueueRemovesTasksPerBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	q1.RemoveExisting(branch, repo)
+	err = q1.RemoveExisting(branch, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	assert.Equal(t, 2, q1.tq.Len())
 }
 

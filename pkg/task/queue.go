@@ -95,11 +95,15 @@ func (q *Queue) RemoveExisting(branch string, repo string) error {
 	q.Lock()
 	defer q.Unlock()
 
+	var err error
 	keep_indexes := make([]int, 0)
 	for index, task := range *q.tq {
 		// if task matches both branch and repo, delete it
 		if task.CreatedBy.Repo == repo && task.CreatedBy.Branch == branch {
-			q.ts.Delete(task.ID)
+			err = q.ts.Delete(task.ID)
+			if err != nil {
+				return err
+			}
 		} else {
 			keep_indexes = append(keep_indexes, index)
 		}
