@@ -516,7 +516,6 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			if err == nil {
 				log.Debugw("started container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
 				select {
-				// TODO: this is a cancel signal. We should race it with the ContainerStart operation.
 				case <-startGroupCtx.Done():
 				default:
 					started <- c
