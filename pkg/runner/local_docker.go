@@ -280,8 +280,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	defer func() {
-		if err != nil {
-			// TODO: maybe replace only if the outcome is a default value.
+		if err != nil && result.Outcome == "" {
 			result.Outcome = task.OutcomeFailure
 		}
 		if ctx.Err() == context.Canceled {
