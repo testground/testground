@@ -633,7 +633,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	// When we're here, our containers are started, the outcomes are being collected.
-	// We waint until either:
+	// We wait until either:
 	// - all container are done and outcome have been received
 	// - we reach a timeout.
 
