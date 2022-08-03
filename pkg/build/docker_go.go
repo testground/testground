@@ -185,10 +185,6 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		if cfg.FreshGomod {
 			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used")
 		}
-		if cfg.Path != "" {
-			return nil, fmt.Errorf("custom path option is not supported when a custom modfile is used")
-		}
-
 		modfile = cfg.Modfile
 
 		modfileName := strings.TrimSuffix(cfg.Modfile, filepath.Ext(cfg.Modfile))
