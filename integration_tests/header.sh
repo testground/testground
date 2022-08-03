@@ -63,18 +63,31 @@ function assert_run_output_is_correct {
   test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 }
 
+# Start the testground daemon, loading the .env file from the first parameter
+function start_daemon {
+  env_file=$1
+
+  mkdir -p ${HOME}/testground
+
+  cp $env_file ${HOME}/testground/.env.toml
+
+  echo "Starting daemon and logging outputs to $TEMPDIR"
+  testground daemon > $TEMPDIR/daemon.out 2>&1 &
+  DAEMONPID=$!
+
+  sleep 2
+
+  echo "Waiting for Testground to launch on 8040..."
+  while ! nc -z localhost 8040; do
+    sleep 1
+  done
+  echo "Testground launched"
+}
+
 TEMPDIR=`mktemp -d`
-mkdir -p ${HOME}/testground
-cp env-kind.toml ${HOME}/testground/.env.toml
 
-echo "Starting daemon and logging outputs to $TEMPDIR"
-testground daemon > $TEMPDIR/daemon.out 2>&1 &
-DAEMONPID=$!
-
-sleep 2
-
-echo "Waiting for Testground to launch on 8040..."
-while ! nc -z localhost 8040; do
-  sleep 1
-done
-echo "Testground launched"
+# if the AUTO_START flag is unset or set to 0, start the daemon immediately
+if [[ ! -n "$AUTO_START" || $AUTO_START -eq 0 ]]; then
+  echo "Starting daemon automatically"
+  start_daemon 'env-kind.toml'
+fi
