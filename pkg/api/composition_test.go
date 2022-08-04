@@ -89,6 +89,132 @@ func TestValidateGroupBuildKey(t *testing.T) {
 	require.NotEqualValues(t, k3, k4)
 }
 
+func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
+	// when all groups have a fixed number of instances, the total is computed
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
+			},
+			{
+				ID:        "b",
+				Instances: Instances{Count: 2},
+			},
+			{
+				ID:        "c",
+				Instances: Instances{Count: 1},
+			},
+		},
+	}
+
+	err := c.ValidateForBuild()
+	require.NoError(t, err)
+
+	err = c.ValidateForRun()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 6, c.Global.TotalInstances)
+
+	// when some groups have a percentage, the total can't be computed
+	c = &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:    "foo_plan",
+			Case:    "foo_case",
+			Builder: "docker:go",
+			Runner:  "local:docker",
+		},
+		Groups: []*Group{
+			{
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
+			},
+			{
+				ID:        "b",
+				Instances: Instances{Percentage: 50},
+			},
+		},
+	}
+
+	err = c.ValidateForBuild()
+	require.NoError(t, err)
+
+	err = c.ValidateForRun()
+	require.Error(t, err)
+
+	require.EqualValues(t, 0, c.Global.TotalInstances)
+
+	// when groups mix percentages and fixed numbers, the total is verified
+	c = &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			TotalInstances: 6,
+		},
+		Groups: []*Group{
+			{
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
+			},
+			{
+				ID:        "b",
+				Instances: Instances{Percentage: 0.5},
+			},
+		},
+	}
+
+	err = c.ValidateForBuild()
+	require.NoError(t, err)
+
+	err = c.ValidateForRun()
+	require.NoError(t, err)
+
+	require.EqualValues(t, 6, c.Global.TotalInstances)
+
+	// when groups uses percentages that don't work with the total, the total is verified
+	c = &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			TotalInstances: 6,
+		},
+		Groups: []*Group{
+			{
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
+			},
+			{
+				ID:        "b",
+				Instances: Instances{Percentage: 1.2},
+			},
+		},
+	}
+
+	err = c.ValidateForBuild()
+	require.NoError(t, err)
+
+	err = c.ValidateForRun()
+	require.Error(t, err)
+}
+
 func TestListBuilders(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
