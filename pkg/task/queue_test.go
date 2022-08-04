@@ -181,6 +181,14 @@ func TestQueueRemovesTasksPerBranch(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, id4, qt3.ID)
+
+	// The first task should be canceled (removed from queue)
+	tsk, err := ts.Get(id1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, tsk.State().State, StateCanceled)
+
 }
 
 func TestQueueDoesNotRemoveTasksWithoutBranchOrRepo(t *testing.T) {

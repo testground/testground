@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/testground/testground/pkg/logging"
@@ -120,13 +121,14 @@ func (q *Queue) Pop() (*Task, error) {
 func (q *Queue) RemoveExisting(branch string, repo string) error {
 	var err error
 	keep_indexes := make([]int, 0)
-	for index, task := range *q.tq {
-		// if task matches both branch and repo, delete it
-		if task.CreatedBy.Repo == repo && task.CreatedBy.Branch == branch {
-			err = q.ts.Delete(task.ID)
+	for index, qTask := range *q.tq {
+		// if task matches both branch and repo, cancel it
+		if qTask.CreatedBy.Repo == repo && qTask.CreatedBy.Branch == branch {
+			err = q.cancelTask(qTask)
 			if err != nil {
 				return err
 			}
+
 		} else {
 			keep_indexes = append(keep_indexes, index)
 		}
@@ -139,6 +141,25 @@ func (q *Queue) RemoveExisting(branch string, repo string) error {
 	*q.tq = keep_tasks
 
 	return nil
+}
+
+// Cancels the given task:
+// 1. Changes the state to Canceled
+// 2. Persists changes to the queue storage
+func (q *Queue) cancelTask(tsk *Task) error {
+	var err error
+	newState := DatedState{
+		Created: time.Now().UTC(),
+		State:   StateCanceled,
+	}
+	tsk.States = append(tsk.States, newState)
+	err = q.ts.PersistProcessing(tsk)
+	if err != nil {
+		return err
+	}
+
+	err = q.ts.ArchiveTask(tsk)
+	return err
 }
 
 // This is a priority queue which implements container/heap.Interface
