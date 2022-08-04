@@ -53,12 +53,18 @@ func (q *Queue) Push(tsk *Task) error {
 	q.Lock()
 	defer q.Unlock()
 
+	return q.pushLocked(tsk)
+}
+
+// Pushes an item to the priority queue, without acquiring a lock
+func (q *Queue) pushLocked(tsk *Task) error {
 	// there are too many items enqueued already. can't push; try again later.
 	if q.tq.Len() >= q.max {
 		return ErrQueueFull
 	}
 
 	// Persist this task to the database
+	logging.S().Debugw("queue.push.got-task", "id", tsk.ID, "taskname", tsk.Name())
 	err := q.ts.PersistScheduled(tsk)
 	if err != nil {
 		return err
@@ -67,6 +73,26 @@ func (q *Queue) Push(tsk *Task) error {
 	heap.Push(q.tq, tsk)
 
 	return nil
+}
+
+// Pushes a task to the queue, and removes any tasks with matching repo/branch from the queue
+func (q *Queue) PushUniqueByBranch(tsk *Task) error {
+	q.Lock()
+	defer q.Unlock()
+
+	// Remove existing tasks from same branch end repo before pushing a new task
+	var err error
+	if tsk.CreatedBy.Repo != "" && tsk.CreatedBy.Branch != "" {
+		err = q.RemoveExisting(tsk.CreatedBy.Branch, tsk.CreatedBy.Repo)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	err = q.pushLocked(tsk)
+
+	return err
 }
 
 // get the next item from the priority queue
@@ -82,7 +108,7 @@ func (q *Queue) Pop() (*Task, error) {
 	logging.S().Debugw("queue.pop", "len", q.tq.Len())
 	tsk := heap.Pop(q.tq).(*Task)
 
-	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
+	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "taskname", tsk.Name())
 	err := q.ts.ProcessTask(tsk)
 	if err != nil {
 		return nil, err
@@ -92,9 +118,6 @@ func (q *Queue) Pop() (*Task, error) {
 
 // Remove all existing tasks from the queue that match the given branch/string
 func (q *Queue) RemoveExisting(branch string, repo string) error {
-	q.Lock()
-	defer q.Unlock()
-
 	var err error
 	keep_indexes := make([]int, 0)
 	for index, task := range *q.tq {

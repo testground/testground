@@ -243,14 +243,7 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 		CreatedBy: cby,
 	}
 
-	// Remove existing tasks from same branch end repo before pushing a new task
-	err := e.queue.RemoveExisting(newTask.CreatedBy.Branch, newTask.CreatedBy.Repo)
-
-	if err != nil {
-		return "", err
-	}
-
-	err = e.queue.Push(newTask)
+	err := e.queue.PushUniqueByBranch(newTask)
 
 	return id, err
 }
