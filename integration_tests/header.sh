@@ -25,8 +25,18 @@ function assert_run_outcome_is {
   RUN_ID=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
   echo "checking run ${RUN_ID}"
 
+  check_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
+}
+
+# Assert the status of a testground task, as provided by the CLI output
+#
+# Usage:
+#   check_testground_task_status "###run_id123###" "success"
+function check_testground_task_status { 
+  RUN_ID="$1"
+  EXPECTED_OUTCOME="$2"
+
   OUTCOME=$(testground status -t "${RUN_ID}" | awk '/Outcome:/{ print $2 }')
-  echo "found outcome ${OUTCOME}"
 
   if [ "${OUTCOME}" != "${EXPECTED_OUTCOME}" ]; then
       exit 1;
