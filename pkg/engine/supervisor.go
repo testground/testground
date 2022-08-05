@@ -340,7 +340,6 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		// no need to synchronise access, as each goroutine will write its
 		// response in its index.
 		ress   = make([]*api.BuildOutput, len(comp.Groups))
-		errgrp = errgroup.Group{}
 		cancel context.CancelFunc
 	)
 
@@ -386,6 +385,14 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	// Trigger a build job for each unique build, and wait until all of them are
 	// done, mapping the build artifacts back to the original group positions in
 	// the response.
+	errGroup, errGroupCtx := errgroup.WithContext(ctx)
+
+	concurrentBuilds := comp.Global.ConcurrentBuilds
+	if concurrentBuilds == 0 {
+		concurrentBuilds = -1
+	}
+	errGroup.SetLimit(concurrentBuilds)
+
 	var cnt int
 	for key, idxs := range uniq {
 		idxs := idxs
@@ -394,7 +401,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		src := finalSources[cnt]
 		cnt++
 
-		errgrp.Go(func() (err error) {
+		errGroup.Go(func() (err error) {
 			// Every Group in `idxs`` have the same build key. They are identitical when it comes to build,
 			// so it's safe to use the first one to build them all.
 			grp := comp.Groups[idxs[0]]
@@ -450,7 +457,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 				UnpackedSources: src,
 			}
 
-			res, err := bm.Build(ctx, in, ow)
+			res, err := bm.Build(errGroupCtx, in, ow)
 			if err != nil {
 				ow.Infow("build failed", "plan", plan, "groups", grpids, "builder", builder, "error", err)
 				return err
@@ -470,7 +477,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	}
 
 	// Wait until all goroutines are done. If any failed, return the error.
-	if err := errgrp.Wait(); err != nil {
+	if err := errGroup.Wait(); err != nil {
 		return nil, err
 	}
 

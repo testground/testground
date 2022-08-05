@@ -61,6 +61,10 @@ type Global struct {
 	// this composition; it is the sum of all instances in all groups.
 	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
 
+	// ConcurrentBuilds defines the maximum number of concurrent builds that are
+	// scheduled for this test.
+	ConcurrentBuilds int `toml:"concurrent_builds" json:"concurrent_builds"`
+
 	// Builder is the builder we're using.
 	Builder string `toml:"builder" json:"builder"`
 

@@ -36,7 +36,7 @@ require (
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f
 	github.com/whilp/git-urls v1.0.0
 	go.uber.org/zap v1.19.0
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
 	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
