@@ -135,16 +135,10 @@ type compositionData struct {
 	Env map[string]string
 }
 
-func runCompositionCmd(c *cli.Context) (err error) {
-	comp := new(api.Composition)
-	file := c.String("file")
-	if file == "" {
-		return fmt.Errorf("no composition file supplied")
-	}
-
+func loadComposition(file string) (*api.Composition, error) {
 	fdata, err := ioutil.ReadFile(file)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	data := &compositionData{Env: map[string]string{}}
@@ -164,16 +158,33 @@ func runCompositionCmd(c *cli.Context) (err error) {
 	// Parse and run the composition as a template
 	tpl, err := template.New("tpl").Funcs(f).Parse(string(fdata))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	buff := &bytes.Buffer{}
 	err = tpl.Execute(buff, data)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	comp := new(api.Composition)
+
 	if _, err = toml.Decode(buff.String(), comp); err != nil {
-		return fmt.Errorf("failed to process composition file: %w", err)
+		return nil, fmt.Errorf("failed to process composition file: %w", err)
+	}
+
+	return comp, nil
+}
+
+func runCompositionCmd(c *cli.Context) (err error) {
+	file := c.String("file")
+	if file == "" {
+		return fmt.Errorf("no composition file supplied")
+	}
+
+	comp, err := loadComposition(file)
+
+	if err != nil {
+		return fmt.Errorf("failed to load composition file: %w", err)
 	}
 
 	if err = comp.ValidateForRun(); err != nil {

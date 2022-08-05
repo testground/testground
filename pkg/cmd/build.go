@@ -114,15 +114,17 @@ var BuildCommand = cli.Command{
 }
 
 func buildCompositionCmd(c *cli.Context) (err error) {
-	comp := new(api.Composition)
 	file := c.String("file")
 	if file == "" {
 		return fmt.Errorf("no composition file supplied")
 	}
 
-	if _, err = toml.DecodeFile(file, comp); err != nil {
-		return fmt.Errorf("failed to process composition file: %w", err)
+	comp, err := loadComposition(file)
+
+	if err != nil {
+		return fmt.Errorf("failed to load composition file: %w", err)
 	}
+
 	if err = comp.ValidateForBuild(); err != nil {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
