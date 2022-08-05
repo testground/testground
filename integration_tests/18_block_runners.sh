@@ -3,7 +3,7 @@
 my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # block the daemon from starting automatically
-AUTO_START=1
+SKIP_AUTO_START=1
 source "$my_dir/header.sh"
 
 # start it manually with the preset env file, where the local:docker runner is blocked
