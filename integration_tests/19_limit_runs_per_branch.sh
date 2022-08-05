@@ -47,8 +47,8 @@ t2=$(testground run single \
 run_id2=$(echo $t2 | awk '/run is queued with ID: / {print $59}')
 
 # First run must be canceled
-check_testground_task_status "$run_id1" 'canceled'
+assert_testground_task_status "$run_id1" 'canceled'
 # Second must succeed
-check_testground_task_status "$run_id2" 'success'
+assert_testground_task_status "$run_id2" 'success'
 
 popd

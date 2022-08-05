@@ -54,11 +54,11 @@ func (q *Queue) Push(tsk *Task) error {
 	q.Lock()
 	defer q.Unlock()
 
-	return q.pushLocked(tsk)
+	return q.pushUnsafe(tsk)
 }
 
 // Pushes an item to the priority queue, without acquiring a lock
-func (q *Queue) pushLocked(tsk *Task) error {
+func (q *Queue) pushUnsafe(tsk *Task) error {
 	// there are too many items enqueued already. can't push; try again later.
 	if q.tq.Len() >= q.max {
 		return ErrQueueFull
@@ -84,14 +84,14 @@ func (q *Queue) PushUniqueByBranch(tsk *Task) error {
 	// Remove existing tasks from same branch end repo before pushing a new task
 	var err error
 	if tsk.CreatedBy.Repo != "" && tsk.CreatedBy.Branch != "" {
-		err = q.RemoveExisting(tsk.CreatedBy.Branch, tsk.CreatedBy.Repo)
+		err = q.removeExisting(tsk.CreatedBy.Branch, tsk.CreatedBy.Repo)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	err = q.pushLocked(tsk)
+	err = q.pushUnsafe(tsk)
 
 	return err
 }
@@ -118,7 +118,7 @@ func (q *Queue) Pop() (*Task, error) {
 }
 
 // Remove all existing tasks from the queue that match the given branch/string
-func (q *Queue) RemoveExisting(branch string, repo string) error {
+func (q *Queue) removeExisting(branch string, repo string) error {
 	var err error
 	keep_indexes := make([]int, 0)
 	for index, qTask := range *q.tq {
