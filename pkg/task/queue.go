@@ -147,9 +147,14 @@ func (q *Queue) RemoveExisting(branch string, repo string) error {
 // 1. Changes the state to Canceled
 // 2. Persists changes to the queue storage
 func (q *Queue) cancelTask(tsk *Task) error {
-	// Move task to "processing" state
-	q.ts.ProcessTask(tsk)
 	var err error
+
+	// Move task to "processing" state
+	err = q.ts.ProcessTask(tsk)
+	if err != nil {
+		return err
+	}
+
 	newState := DatedState{
 		Created: time.Now().UTC(),
 		State:   StateCanceled,
