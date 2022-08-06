@@ -1,11 +1,19 @@
 #!/bin/bash
-test_start_time="$(date -u +%s)"
 # Run many testground runs, one by one, and print stats
 #
 # Usage:
 # ./perf_test.sh <run_count> <plan> <case> <instance_count> <builder> <runner>
 # e.g.
 # ./perf_test.sh 50 benchmarks storm 5 docker:go local:docker
+
+### Information gathering 
+test_start_time="$(date -u +%s)"
+
+### Reports
+
+report_file=$2-$3-$test_start_time
+mkdir -p ~/testground-reports
+
 
 function assert_run_output_is_correct {
 
@@ -49,13 +57,15 @@ function perform_runs {
     # calculate stats and exit
     success=$(($runs - $failed))
     success_rate=$(bc <<< "scale=2; ($success/$runs)*100")
-    echo "==========================="
-    echo "Finished $1 runs"
-    echo "Total succeeded: $(($success))"
-    echo "Total failed: $failed"
-    echo "Success rate: $success_rate%"
-    echo "Total test time: $total_test_time seconds"
-    echo "==========================="
+    echo "===========================" >> ~/testground-reports/$report_file
+    echo "Finished $1 runs" >> ~/testground-reports/$report_file
+    echo "Total succeeded: $(($success))" >> ~/testground-reports/$report_file
+    echo "Total failed: $failed" >> ~/testground-reports/$report_file
+    echo "Success rate: $success_rate%" >> ~/testground-reports/$report_file
+    echo "Total test time: $total_test_time seconds" >> ~/testground-reports/$report_file
+    echo "Report file path: ~/testground-reports/$report_file "
+    echo "===========================" >> ~/testground-reports/$report_file
+    rm out.txt
 }
 
 # sanity check: arguments
