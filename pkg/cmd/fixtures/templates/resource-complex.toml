@@ -1,0 +1,23 @@
+# this is a list of instances we can load from a composition.
+[master]
+go_version = '1.18'
+modfile = "go.v0.21.mod"
+selector = 'v0.21'
+
+[custom]
+id = "custom"
+go_version = '1.18'
+modfile = "go.v0.21.mod"
+selector = 'v0.21'
+
+[[groups]]
+id = "v0.11"
+go_version = '1.14'
+modfile = "go.v0.11.mod"
+selector = 'v0.11'
+
+[[groups]]
+id = "v0.17"
+go_version = '1.16'
+modfile = "go.v0.17.mod"
+selector = 'v0.17'
