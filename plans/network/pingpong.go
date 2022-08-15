@@ -10,6 +10,10 @@ import (
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
@@ -80,6 +84,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
+
+	getPodInfo()
 
 	switch seq {
 	case 1:
@@ -196,6 +202,48 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 
 	return nil
+}
+
+func getPodInfo() {
+	// creates the in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+	for {
+		// get pods in all the namespaces by omitting namespace
+		// Or specify namespace to get pods in particular namespace
+		pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+
+		// Examples for error handling:
+		// - Use helper functions e.g. errors.IsNotFound()
+		// - And/or cast to StatusError and use its properties like e.g. ErrStatus.Message
+		pod, err := clientset.CoreV1().Pods("default").Get(context.TODO(), "example-xxxxx", metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			fmt.Printf("Pod example-xxxxx not found in default namespace\n")
+		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+			fmt.Printf("Error getting pod %v\n", statusError.ErrStatus.Message)
+		} else if err != nil {
+			panic(err.Error())
+		} else {
+			fmt.Printf("Found example-xxxxx pod in default namespace\n")
+			fmt.Printf("Pod name: %s  | Annotations: \n", pod.Name)
+			for k, v := range pod.GetAnnotations() {
+				fmt.Printf("%s->%s \n", k, v)
+			}
+		}
+
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func sameAddrs(a, b []net.Addr) bool {
