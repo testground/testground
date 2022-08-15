@@ -9,6 +9,7 @@ import (
 
 var testcases = map[string]interface{}{
 	"issue-1357-mix-builder-configuration": run.InitializedTestCaseFn(overrideBuilderConfiguration),
+	"issue-1412-path-and-go-dependencies":  run.InitializedTestCaseFn(noop),
 }
 
 func main() {
@@ -24,5 +25,9 @@ func overrideBuilderConfiguration(runenv *runtime.RunEnv, initCtx *run.InitConte
 		return errors.New("expected version does not match")
 	}
 
+	return nil
+}
+
+func noop(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }

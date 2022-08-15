@@ -133,9 +133,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
 	var (
-		basesrc = in.UnpackedSources.BaseDir
-		plansrc = in.UnpackedSources.PlanDir
-		sdksrc  = in.UnpackedSources.SDKDir
+		baseSrc = in.UnpackedSources.BaseDir
+		planDir = in.UnpackedSources.PlanDir
+		sdkSrc  = in.UnpackedSources.SDKDir
 
 		cli, err = client.NewClientWithOpts(cliopts...)
 	)
@@ -143,6 +143,8 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	if err != nil {
 		return nil, err
 	}
+
+	planSrc := filepath.Join(planDir, cfg.Path)
 
 	// Set up the go proxy wiring. This will start a goproxy container if
 	// necessary, attaching it to the testground-build network.
@@ -152,7 +154,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	// Write the Dockerfile.
-	dockerfileDst := filepath.Join(basesrc, "Dockerfile")
+	dockerfileDst := filepath.Join(baseSrc, "Dockerfile")
 	f, err := os.Create(dockerfileDst)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Dockerfile at %s: %w", dockerfileDst, err)
@@ -164,7 +166,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	vars := &DockerfileTemplateVars{
-		WithSDK:              sdksrc != "",
+		WithSDK:              sdkSrc != "",
 		RuntimeImage:         cfg.RuntimeImage,
 		DockerfileExtensions: cfg.DockerfileExtensions,
 		SkipRuntimeImage:     cfg.SkipRuntimeImage,
@@ -183,6 +185,9 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		if cfg.FreshGomod {
 			return nil, fmt.Errorf("fresh_gomod option is not supported when a custom modfile is used")
 		}
+		if cfg.Path != "" {
+			return nil, fmt.Errorf("custom path option is not supported when a custom modfile is used")
+		}
 
 		modfile = cfg.Modfile
 
@@ -191,8 +196,12 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	if cfg.FreshGomod {
+		if cfg.Path != "" {
+			return nil, fmt.Errorf("custom path option is not supported when a fresh go mod is requested")
+		}
+
 		for _, f := range []string{"go.mod", "go.sum"} {
-			file := filepath.Join(plansrc, f)
+			file := filepath.Join(planSrc, f)
 			if _, err := os.Stat(file); !os.IsNotExist(err) {
 				if err := os.Remove(file); err != nil {
 					return nil, fmt.Errorf("cleanup failed; %w", err)
@@ -202,7 +211,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 
 		// Initialize a fresh go.mod file.
 		cmd := exec.CommandContext(ctx, "go", "mod", "init", cfg.ModulePath)
-		cmd.Dir = plansrc
+		cmd.Dir = planSrc
 		out, _ := cmd.CombinedOutput()
 		if !strings.Contains(string(out), "creating new go.mod") {
 			return nil, fmt.Errorf("unable to create go.mod; %s", out)
@@ -224,7 +233,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	// Inject replace directives for the SDK modules.
-	if sdksrc != "" {
+	if sdkSrc != "" {
 		replaces = append(replaces, "-replace=github.com/testground/sdk-go=../sdk")
 	}
 
@@ -235,7 +244,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		}
 
 		cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "edit"}, replaces...)...)
-		cmd.Dir = plansrc
+		cmd.Dir = planSrc
 		if err = cmd.Run(); err != nil {
 			out, _ := cmd.CombinedOutput()
 			return nil, fmt.Errorf("unable to add replace directives to go.mod; %w; output: %s", err, string(out))
@@ -297,7 +306,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	imageOpts := docker.BuildImageOpts{
-		BuildCtx:  basesrc,
+		BuildCtx:  baseSrc,
 		BuildOpts: &opts,
 	}
 
