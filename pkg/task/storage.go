@@ -10,7 +10,6 @@ import (
 
 	"github.com/rs/xid"
 	"github.com/syndtr/goleveldb/leveldb/storage"
-	"github.com/testground/testground/pkg/logging"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
@@ -170,19 +169,16 @@ func (s *Storage) changePrefix(dst string, src string, id string) error {
 	}
 	val, err := trans.Get(oldkey, nil)
 	if err != nil {
-		logging.S().Errorf("error when trying to get the old key: '%s', err: %v", oldkey, err)
 		trans.Discard()
 		return err
 	}
 	err = trans.Put(newkey, val, &opt.WriteOptions{Sync: true})
 	if err != nil {
-		logging.S().Errorf("error when trying to put the new key: '%s', err: %v", newkey, err)
 		trans.Discard()
 		return err
 	}
 	err = trans.Delete(oldkey, &opt.WriteOptions{Sync: true})
 	if err != nil {
-		logging.S().Errorf("error when trying to drop the old key: '%s', err: %v", oldkey, err)
 		trans.Discard()
 		return err
 	}
