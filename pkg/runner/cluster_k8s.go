@@ -184,7 +184,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, fmt.Errorf("could not init pool: %w", err)
 	}
 
-	result := newResult()
+	result := newResult(input)
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
 		Result: result,
