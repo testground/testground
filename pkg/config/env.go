@@ -57,3 +57,8 @@ type ClientConfig struct {
 	Token    string `toml:"token"`
 	User     string `toml:"user"`
 }
+
+// Common config flags kept here to avoid magic strings
+
+// Indicates whether a runner is disabled
+const RunnerDisabledFlag = "disabled"
