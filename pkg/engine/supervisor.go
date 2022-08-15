@@ -113,7 +113,9 @@ func (e *Engine) worker(n int) {
 			case task.TypeRun:
 				var res *api.RunOutput
 				res, errTask = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+
 				if errTask != nil {
+					errTask = &TaskExecutionError{TaskType: string(tsk.Type), WrappedErr: errTask}
 					logging.S().Errorw("doRun returned err", "err", errTask)
 				}
 
@@ -124,6 +126,7 @@ func (e *Engine) worker(n int) {
 				var res []*api.BuildOutput
 				res, errTask = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
 				if errTask != nil {
+					errTask = &TaskExecutionError{TaskType: string(tsk.Type), WrappedErr: errTask}
 					logging.S().Errorw("doBuild returned err", "err", errTask)
 				}
 
@@ -147,8 +150,12 @@ func (e *Engine) worker(n int) {
 			if errTask != nil {
 				tsk.Error = errTask.Error()
 
-				if errors.Is(errTask, context.Canceled) {
+				var e *TaskExecutionError
+				if errors.As(errTask, &e) || errors.Is(errTask, context.Canceled) {
 					newState.State = task.StateCanceled
+					logging.S().Errorw("task cancelled due to error", "err", errTask)
+				} else {
+					logging.S().Infow("Task encountered error, but was not canceled.")
 				}
 			}
 
@@ -548,6 +555,11 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 
 	// 2. Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.Runners[trunner])
+
+	var flag = e.envcfg.Runners[trunner][config.RunnerDisabledFlag]
+	if flag == true {
+		return nil, runner.ErrRunnerDisabled
+	}
 
 	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)
