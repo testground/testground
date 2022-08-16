@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
@@ -85,14 +86,20 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	getPodInfo(runenv.TestRun)
+	podTarget, err := getPodInfo(runenv.TestRun)
+	// podTarget, err := getTargetIp(TEST_STRING)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Attempting to connect to ", podTarget)
 
 	switch seq {
 	case 1:
 		fmt.Println("This container is listening!")
 		conn, err = listener.AcceptTCP()
 	case 2:
-		var targetIp = append(config.IPv4.IP[:3:3], 1)
+		// var targetIp = append(config.IPv4.IP[:3:3], 1)
+		var targetIp = net.ParseIP(podTarget)
 		fmt.Printf("Attempting to dial %s\n", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
@@ -204,7 +211,28 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-func getPodInfo(runId string) {
+const TEST_STRING = `[{
+    "name": "aws-cni",
+    "interface": "eth0",
+    "ips": [
+        "192.168.58.177"
+    ],
+    "default": true,
+    "dns": {}
+},{
+    "name": "default/weave",
+    "ips": [
+        "10.43.128.3"
+    ],
+    "dns": {}
+}]`
+
+type K8sPodNetworkInfo struct {
+	Name string   `json:"name"`
+	Ips  []string `json:"ips"`
+}
+
+func getPodInfo(runId string) (string, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -224,18 +252,55 @@ func getPodInfo(runId string) {
 	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
 
 	for _, aPod := range pods.Items {
-		if strings.Contains(aPod.Name, runId) {
+		// look for the pod with runId in the name and 0 as the suffix - that is the listening pod
+		if strings.Contains(aPod.Name, runId) && strings.HasSuffix(aPod.Name, "0") {
 			fmt.Printf("Found pod belonging to run: %s", aPod.Name)
 			networkAnnKey := "k8s.v1.cni.cncf.io/network-status"
 			networkAnnotations := aPod.GetAnnotations()[networkAnnKey]
 			fmt.Printf("Network annotations: %s", networkAnnotations)
 			if networkAnnotations != "" {
-				// etc
+				return getTargetIp(networkAnnotations)
 			}
 		} else {
-			fmt.Printf("Skipping pod %s\n", aPod.Name)
+			// fmt.Printf("Skipping pod %s\n", aPod.Name)
 		}
 	}
+	return "", fmt.Errorf("error retrieving k8s pod info")
+}
+
+func getTargetIp(networkAnnotations string) (string, error) {
+	networkBody, err := decodePodInfoString(networkAnnotations)
+
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(networkBody)
+
+	fmt.Printf("Found a total of %d CNIs \n", len(networkBody))
+	for _, cni := range networkBody {
+		if cni.Name == "default/weave" {
+			targetIp := cni.Ips[0]
+			return targetIp, nil
+		}
+	}
+	return "", fmt.Errorf("could not get target IP")
+
+}
+
+func decodePodInfoString(payload string) ([]K8sPodNetworkInfo, error) {
+	var networkBody []K8sPodNetworkInfo
+	err := json.Unmarshal([]byte(payload), &networkBody)
+	if err != nil {
+		return nil, err
+	}
+
+	// we expect a list of network interfaces
+	if len(networkBody) == 0 {
+		return nil, fmt.Errorf("error decoding network annotations into a list")
+	}
+
+	return networkBody, nil
 }
 
 func sameAddrs(a, b []net.Addr) bool {
