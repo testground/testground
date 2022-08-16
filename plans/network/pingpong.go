@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
@@ -84,7 +85,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	getPodInfo()
+	getPodInfo(runenv.TestRun)
 
 	switch seq {
 	case 1:
@@ -203,7 +204,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-func getPodInfo() {
+func getPodInfo(runId string) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -214,37 +215,26 @@ func getPodInfo() {
 	if err != nil {
 		panic(err.Error())
 	}
-	for {
-		// get pods in all the namespaces by omitting namespace
-		// Or specify namespace to get pods in particular namespace
-		pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			panic(err.Error())
-		}
-		fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
+	// get pods in all the namespaces by omitting namespace
+	// Or specify namespace to get pods in particular namespace
+	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		panic(err.Error())
+	}
+	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
 
-		for _, aPod := range pods.Items {
-			fmt.Printf("Pod name: %s  | Annotations: \n", aPod.Name)
-			for k, v := range aPod.GetAnnotations() {
-				fmt.Printf("%s->%s \n", k, v)
+	for _, aPod := range pods.Items {
+		if strings.Contains(aPod.Name, runId) {
+			fmt.Printf("Found pod belonging to run: %s", aPod.Name)
+			networkAnnKey := "k8s.v1.cni.cncf.io/network-status"
+			networkAnnotations := aPod.GetAnnotations()[networkAnnKey]
+			fmt.Printf("Network annotations: %s", networkAnnotations)
+			if networkAnnotations != "" {
+				// etc
 			}
+		} else {
+			fmt.Printf("Skipping pod %s\n", aPod.Name)
 		}
-
-		// Examples for error handling:
-		// - Use helper functions e.g. errors.IsNotFound()
-		// - And/or cast to StatusError and use its properties like e.g. ErrStatus.Message
-		// pod, err := clientset.CoreV1().Pods("default").Get(context.TODO(), "example-xxxxx", metav1.GetOptions{})
-		// if errors.IsNotFound(err) {
-		// 	fmt.Printf("Pod example-xxxxx not found in default namespace\n")
-		// } else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-		// 	fmt.Printf("Error getting pod %v\n", statusError.ErrStatus.Message)
-		// } else if err != nil {
-		// 	panic(err.Error())
-		// } else {
-		// 	fmt.Printf("Found example-xxxxx pod in default namespace\n")
-		// }
-
-		time.Sleep(10 * time.Second)
 	}
 }
 
