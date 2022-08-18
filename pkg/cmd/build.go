@@ -38,10 +38,10 @@ var BuildCommand = cli.Command{
 					Usage:    "path to a `COMPOSITION`",
 					Required: true,
 				},
-				&cli.BoolFlag{
-					Name:    "write-artifacts",
-					Aliases: []string{"w"},
-					Usage:   "write the resulting build artifacts to the composition file",
+				&cli.StringFlag{
+					Name:    "output-composition",
+					Aliases: []string{"c"},
+					Usage:   "path to the computed `COMPOSITION` file, with artifacts",
 				},
 				&cli.StringFlag{
 					Name:  "link-sdk",
@@ -134,8 +134,8 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 		return err
 	}
 
-	if c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+	if output := c.String("output-composition"); output != "" {
+		f, err := os.Create(output)
 		if err != nil {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}

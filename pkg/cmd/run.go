@@ -41,7 +41,7 @@ var RunCommand = cli.Command{
 				},
 				&cli.StringFlag{
 					Name:    "collect-file",
-					Aliases: []string{"o"},
+					Aliases: []string{"c"},
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
 				&cli.StringFlag{
@@ -71,7 +71,7 @@ var RunCommand = cli.Command{
 				},
 				&cli.StringFlag{
 					Name:    "collect-file",
-					Aliases: []string{"o"},
+					Aliases: []string{"c"},
 					Usage:   "destination for the assets if --collect is set",
 				},
 				&cli.UintFlag{
@@ -283,8 +283,8 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return err
 	}
 
-	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+	if output := c.String("output-composition"); output != "" {
+		f, err := os.Create(output)
 		if err != nil {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}

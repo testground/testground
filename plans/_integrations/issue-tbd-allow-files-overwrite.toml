@@ -1,0 +1,13 @@
+[metadata]
+name = "issue-tbd-override-builder-configuration"
+
+[global]
+builder = "docker:go"
+case = "ok"
+plan = "testground/placebo"
+runner = "local:docker"
+total_instances = 1
+
+[[groups]]
+id = "base"
+instances = {count = 1}
