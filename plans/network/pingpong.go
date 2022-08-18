@@ -86,28 +86,36 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	podTarget, err := getPodInfo(runenv.TestRun)
+	podTargets, err := getTargetPods(runenv.TestRun)
 	// podTarget, err := getTargetIp(TEST_STRING)
+
 	if err != nil {
 		return err
 	}
-	fmt.Println("Attempting to connect to ", podTarget)
+	fmt.Println("Attempting to connect to ", podTargets)
 
 	switch seq {
 	case 1:
 		fmt.Println("This container is listening!")
 		conn, err = listener.AcceptTCP()
 	case 2:
-		// var targetIp = append(config.IPv4.IP[:3:3], 1)
-		var targetIp = net.ParseIP(podTarget)
-		fmt.Printf("Attempting to dial %s\n", targetIp)
-		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-			IP:   targetIp,
-			Port: 1234,
-		})
-
-		if err != nil {
-			fmt.Printf("Received an error attempting to dial %s \n", targetIp)
+		connected := false
+		for _, podTarget := range podTargets {
+			var targetIp = net.ParseIP(podTarget)
+			fmt.Printf("Attempting to dial %s\n", targetIp)
+			conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
+				IP:   targetIp,
+				Port: 1234,
+			})
+			if err != nil {
+				connected = true
+				break
+			} else {
+				fmt.Printf("Error connecting to %s, continuing \n", targetIp)
+			}
+		}
+		if !connected {
+			fmt.Printf("Could not connect to any pod target in list %s \n", podTargets)
 			return err
 		}
 	default:
@@ -232,7 +240,7 @@ type K8sPodNetworkInfo struct {
 	Ips  []string `json:"ips"`
 }
 
-func getPodInfo(runId string) (string, error) {
+func getTargetPods(runId string) ([]string, error) {
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -251,21 +259,27 @@ func getPodInfo(runId string) (string, error) {
 	}
 	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
 
+	targetIps := make([]string, 0)
+
 	for _, aPod := range pods.Items {
 		// look for the pod with runId in the name and 0 as the suffix - that is the listening pod
-		if strings.Contains(aPod.Name, runId) && strings.HasSuffix(aPod.Name, "0") {
+		if strings.Contains(aPod.Name, runId) {
 			fmt.Printf("Found pod belonging to run: %s", aPod.Name)
 			networkAnnKey := "k8s.v1.cni.cncf.io/network-status"
 			networkAnnotations := aPod.GetAnnotations()[networkAnnKey]
 			fmt.Printf("Network annotations: %s", networkAnnotations)
 			if networkAnnotations != "" {
-				return getTargetIp(networkAnnotations)
+				targetIp, err := getTargetIp(networkAnnotations)
+				if err != nil {
+					return nil, err
+				}
+				targetIps = append(targetIps, targetIp)
 			}
 		} else {
 			// fmt.Printf("Skipping pod %s\n", aPod.Name)
 		}
 	}
-	return "", fmt.Errorf("error retrieving k8s pod info")
+	return targetIps, nil
 }
 
 func getTargetIp(networkAnnotations string) (string, error) {
@@ -275,9 +289,6 @@ func getTargetIp(networkAnnotations string) (string, error) {
 		return "", err
 	}
 
-	fmt.Println(networkBody)
-
-	fmt.Printf("Found a total of %d CNIs \n", len(networkBody))
 	for _, cni := range networkBody {
 		if cni.Name == "default/weave" {
 			targetIp := cni.Ips[0]
