@@ -1,0 +1,18 @@
+[metadata]
+name    = "remote-runner"
+author  = "@marcopolo"
+
+[global]
+plan    = "remote-runner"
+case    = "server-client"
+builder = "nix:generic"
+runner = "local:exec"
+
+total_instances = 2
+
+[[groups]]
+id = "group1"
+instances = { count = 2 }
+  [groups.run]
+  profiles = { cpu = "true", heap = "5s", allocs = "10s" }
+  test_params = { server_ip = "192.168.195.204", libp2p_test = "true"}

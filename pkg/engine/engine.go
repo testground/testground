@@ -25,6 +25,7 @@ import (
 var AllBuilders = []api.Builder{
 	&build.DockerGoBuilder{},
 	&build.ExecGoBuilder{},
+	&build.NixBuilder{},
 	&build.DockerGenericBuilder{},
 	&build.DockerNodeBuilder{},
 }

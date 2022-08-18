@@ -35,3 +35,6 @@ node_modules
 .history
 
 # End of https://www.gitignore.io/api/go,visualstudiocode
+
+# Nix result symlink
+result

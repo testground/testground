@@ -4,6 +4,9 @@ name = "placebo"
 builder = "exec:go"
 runner = "local:exec"
 
+[builders."nix:generic"]
+enabled = true
+
 [builders."docker:go"]
 enabled = true
 

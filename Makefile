@@ -52,11 +52,12 @@ test-integration: test-integ-cluster-k8s test-integ-local-exec test-integ-local-
 test-integ-cluster-k8s:
 	# SYNC_SERVICE_HOST=localhost ./integration_tests/01_k8s_kind_placebo_ok.sh
 	# SYNC_SERVICE_HOST=localhost ./integration_tests/02_k8s_kind_placebo_stall.sh
-	echo these tests where disabled temporarily (https://github.com/testground/testground/pull/1515)	
+	echo these tests where disabled temporarily (https://github.com/testground/testground/pull/1515)
 
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
 	./integration_tests/20_exec_go_mod_rewrites.sh
+	./integration_tests/1425_build_with_nix.sh
 
 test-integ-local-docker:
 	./integration_tests/04_docker_placebo_ok.sh

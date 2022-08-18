@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -44,7 +45,11 @@ type LocalExecutableRunner struct {
 }
 
 // LocalExecutableRunnerCfg is the configuration struct for this runner.
-type LocalExecutableRunnerCfg struct{}
+type LocalExecutableRunnerCfg struct {
+	// BinPath is the path of the binary relative to the artifact path. Use this
+	// if the builder doesn't put the binary as the artifact path
+	BinPath string `toml:"bin_path"`
+}
 
 func (r *LocalExecutableRunner) Healthcheck(ctx context.Context, engine api.Engine, ow *rpc.OutputWriter, fix bool) (*api.HealthcheckReport, error) {
 	r.lk.Lock()
@@ -78,6 +83,8 @@ func (r *LocalExecutableRunner) Close() error {
 func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
 	r.lk.RLock()
 	defer r.lk.RUnlock()
+
+	cfg := input.RunnerConfig.(*LocalExecutableRunnerCfg)
 
 	// Build a template runenv.
 	template := runtime.RunParams{
@@ -148,7 +155,12 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 
 			ow.Infow("starting test case instance", "plan", input.TestPlan, "group", g.ID, "number", i, "total", total)
 
-			cmd := exec.CommandContext(ctx, g.ArtifactPath)
+			binPath := g.ArtifactPath
+			if cfg.BinPath != "" {
+				binPath = path.Join(g.ArtifactPath, cfg.BinPath)
+			}
+
+			cmd := exec.CommandContext(ctx, binPath)
 			stdout, _ := cmd.StdoutPipe()
 			stderr, _ := cmd.StderrPipe()
 			cmd.Env = env
@@ -194,7 +206,7 @@ func (*LocalExecutableRunner) ConfigType() reflect.Type {
 }
 
 func (*LocalExecutableRunner) CompatibleBuilders() []string {
-	return []string{"exec:go"}
+	return []string{"exec:go", "nix:generic"}
 }
 
 func (*LocalExecutableRunner) TerminateAll(ctx context.Context, ow *rpc.OutputWriter) error {

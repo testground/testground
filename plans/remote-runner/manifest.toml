@@ -1,0 +1,32 @@
+name = "remote-runner"
+
+[defaults]
+builder = "nix:generic"
+runner = "local:exec"
+
+[builders."nix:generic"]
+enabled = true
+attr = "remote-runner"
+
+[runners."local:exec"]
+enabled = true
+bin_path = "bin/remote-runner"
+
+[[testcases]]
+name = "server-client"
+instances = { min = 2, max = 2, default = 2 }
+
+  [testcases.params.remote-runners]
+  type = "json"
+  desc = "Array of Remote runner configs"
+  unit = "remote-runners schema"
+
+  [[testcases.params.remote-runners.default]]
+  # Run this locally. No arch needed in this case.
+  name = "localhost"
+
+  [[testcases.params.remote-runners.default]]
+  # The ssh host name. You should be able to run `ssh <name>`.
+  name = "dex"
+  # The arch of the remote runner
+  arch = "x86_64-linux"

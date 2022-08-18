@@ -4,6 +4,12 @@ name = "example"
 builder = "exec:go"
 runner = "local:exec"
 
+[builders."nix:generic"]
+enabled = true
+
+[builders."nix:generic".build_args]
+attr = "example-go-bin"
+
 [builders."docker:generic"]
   enabled = true
   
