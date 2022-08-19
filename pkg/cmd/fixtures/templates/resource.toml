@@ -1,0 +1,3 @@
+go_version = '1.18'
+modfile = "go.v0.21.mod"
+selector = 'v0.21'

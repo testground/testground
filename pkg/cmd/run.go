@@ -1,15 +1,12 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"text/template"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
@@ -131,43 +128,16 @@ var RunCommand = cli.Command{
 	},
 }
 
-type compositionData struct {
-	Env map[string]string
-}
-
 func runCompositionCmd(c *cli.Context) (err error) {
-	comp := new(api.Composition)
 	file := c.String("file")
 	if file == "" {
 		return fmt.Errorf("no composition file supplied")
 	}
 
-	fdata, err := ioutil.ReadFile(file)
+	comp, err := loadComposition(file)
+
 	if err != nil {
-		return err
-	}
-
-	data := &compositionData{Env: map[string]string{}}
-
-	// Build a map of environment variables
-	for _, v := range os.Environ() {
-		s := strings.SplitN(v, "=", 2)
-		data.Env[s[0]] = s[1]
-	}
-
-	// Parse and run the composition as a template
-	tpl, err := template.New("tpl").Parse(string(fdata))
-	if err != nil {
-		return err
-	}
-	buff := &bytes.Buffer{}
-	err = tpl.Execute(buff, data)
-	if err != nil {
-		return err
-	}
-
-	if _, err = toml.Decode(buff.String(), comp); err != nil {
-		return fmt.Errorf("failed to process composition file: %w", err)
+		return fmt.Errorf("failed to load composition file: %w", err)
 	}
 
 	if err = comp.ValidateForRun(); err != nil {

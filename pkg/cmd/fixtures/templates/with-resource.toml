@@ -1,0 +1,21 @@
+[metadata]
+  name = "experiment"
+
+[global]
+  plan = "plan"
+  case = "case"
+  builder = "docker:go"
+  runner = "local:docker"
+
+{{ with (load_resource "./resource.toml" ) -}}
+[[groups]]
+  id = "simple"
+  instances = { count = 1 }
+
+  [groups.build]
+    selectors = ['{{ .selector }}']
+
+  [groups.build_config]
+    build_base_image = 'golang:{{ .go_version }}-buster'
+    modfile = "{{ .modfile }}"
+{{- end -}}

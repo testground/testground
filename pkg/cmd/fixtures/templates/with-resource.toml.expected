@@ -1,0 +1,19 @@
+[metadata]
+  name = "experiment"
+
+[global]
+  plan = "plan"
+  case = "case"
+  builder = "docker:go"
+  runner = "local:docker"
+
+[[groups]]
+  id = "simple"
+  instances = { count = 1 }
+
+  [groups.build]
+    selectors = ['v0.21']
+
+  [groups.build_config]
+    build_base_image = 'golang:1.18-buster'
+    modfile = "go.v0.21.mod"
