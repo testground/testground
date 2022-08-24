@@ -1,6 +1,6 @@
 module github.com/testground/testground/plans/dockercustomize
 
-go 1.17
+go 1.18
 
 require github.com/testground/sdk-go v0.2.6-0.20201013134246-8d8414e32da5
 
