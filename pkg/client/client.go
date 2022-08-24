@@ -94,9 +94,9 @@ func readDir(dirname string) ([]fs.FileInfo, error) {
 //
 // A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): the request json, usually composition.
-//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
-//  * Part 3 (optional, Content-Type: application/zip): linked sdk.
+//   - Part 1 (Content-Type: application/json): the request json, usually composition.
+//   - Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
+//   - Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
 // caller to close it.
