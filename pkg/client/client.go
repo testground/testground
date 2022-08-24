@@ -8,13 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"io/fs"
 	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -68,6 +69,27 @@ func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdk
 	return c.runBuild(ctx, r, "/run", plandir, sdkdir, extraSrcs)
 }
 
+// ReadDir reads the directory named by dirname and returns
+// a list of fs.FileInfo for the directory's contents,
+// sorted by filename. If an error occurs reading the directory,
+// ReadDir returns no directory entries along with the error.
+//
+// Note this was copied from the ioutil.ReadDir function after it's been
+// deprecated.
+func readDir(dirname string) ([]fs.FileInfo, error) {
+	f, err := os.Open(dirname)
+	if err != nil {
+		return nil, err
+	}
+	list, err := f.Readdir(-1)
+	f.Close()
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(list, func(i, j int) bool { return list[i].Name() < list[j].Name() })
+	return list, nil
+}
+
 // runBuild sends a multipart request to the daemon on a certain path.
 //
 // A build (or run) request comprises the following parts:
@@ -97,7 +119,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 		// A temporary .zip file to deflate the directory into.
 		// archiver doesn't support archiving direcly into an io.Writer, so we
 		// need a file as a buffer.
-		tmp, err := ioutil.TempFile("", "*.zip")
+		tmp, err := os.CreateTemp("", "*.zip")
 		if err != nil {
 			return err
 		}
@@ -121,7 +143,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			for _, dir := range dirs {
 				// Fetch all files in the dir to pass them to archiver; otherwise we'll
 				// end up with a top-level directory inside the zip.
-				fis, err := ioutil.ReadDir(dir)
+				fis, err := readDir(dir)
 				if err != nil {
 					return err
 				}

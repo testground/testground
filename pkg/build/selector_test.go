@@ -6,7 +6,7 @@ package build_test
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +25,7 @@ import (
 func TestBuildSelector(t *testing.T) {
 	require := require.New(t)
 
-	basedir, err := ioutil.TempDir("", "")
+	basedir, err := os.MkdirTemp("", "")
 	require.NoError(err)
 
 	plandir := filepath.Join(basedir, "plan")
@@ -96,7 +96,7 @@ func TestBuildSelector(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			tsk, err := engine.Logs(context.Background(), id, true, false, ioutil.Discard)
+			tsk, err := engine.Logs(context.Background(), id, true, false, io.Discard)
 			if err != nil {
 				t.Fatal(err)
 			}

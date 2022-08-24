@@ -2,7 +2,6 @@ package build
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -56,7 +55,7 @@ func parseDependenciesFromDocker(ctx context.Context, ow *rpc.OutputWriter, cli 
 		return nil, err
 	}
 
-	dir, err := ioutil.TempDir("", res.ID)
+	dir, err := os.MkdirTemp("", res.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +66,7 @@ func parseDependenciesFromDocker(ctx context.Context, ow *rpc.OutputWriter, cli 
 		return nil, err
 	}
 
-	deps, err := ioutil.ReadFile(path.Join(dir, "testground_dep_list"))
+	deps, err := os.ReadFile(path.Join(dir, "testground_dep_list"))
 	if err != nil {
 		return nil, err
 	}

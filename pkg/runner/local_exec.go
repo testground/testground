@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -121,7 +120,7 @@ func (r *LocalExecutableRunner) Run(ctx context.Context, input *api.RunInput, ow
 				continue
 			}
 
-			tmpdir, err := ioutil.TempDir("", "testground")
+			tmpdir, err := os.MkdirTemp("", "testground")
 			if err != nil {
 				err = fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
 				pretty.FailStart(tag, err)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -262,7 +261,7 @@ func (r *LocalDockerRunner) prepareOutputDirectory(instance_id int, runenv *runt
 
 func (r *LocalDockerRunner) prepareTemporaryDirectory(instance_id int, runenv *runtime.RunParams) (string, error) {
 	var tmpdir string
-	tmpdir, err := ioutil.TempDir("", "testground")
+	tmpdir, err := os.MkdirTemp("", "testground")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
 	}

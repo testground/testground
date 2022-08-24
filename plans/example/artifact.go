@@ -1,7 +1,7 @@
 package main
 
 import (
-	"io/ioutil"
+	"os"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
@@ -9,7 +9,7 @@ import (
 
 // This only works when docker:generic builder is used.
 func ExampleArtifact(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
-	a, err := ioutil.ReadFile("/artifact.txt")
+	a, err := os.ReadFile("/artifact.txt")
 	if err != nil {
 		runenv.RecordFailure(err)
 		return err
