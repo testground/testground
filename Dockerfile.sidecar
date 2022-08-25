@@ -21,6 +21,10 @@ ARG TG_VERSION
 
 RUN cd / && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=${TG_VERSION}" -o testground
 
+LABEL testground.image.type="system"
+LABEL testground.system.type="build"
+LABEL testground.system.version="${TG_VERSION}"
+
 #:::
 #::: RUNTIME CONTAINER
 #:::
@@ -35,3 +39,7 @@ ENV PATH="/usr/local/bin:${PATH}"
 EXPOSE 6060
 
 ENTRYPOINT [ "/usr/local/bin/testground" ]
+
+LABEL testground.image.type="system"
+LABEL testground.system.type="run"
+LABEL testground.system.version="${TG_VERSION}"
