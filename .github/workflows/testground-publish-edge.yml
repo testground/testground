@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - master
+  schedule:
+    # we release the `edge` binary as an output artifact (see below).
+    # Because these artifacts have a 90 days maximum retention period,
+    # this cron makes sure we always have an `:edge` artifact available.
+    - cron: "0 0 1 * *"
 
 jobs:
   binaries:
