@@ -5,6 +5,26 @@ on:
       - master
 
 jobs:
+  binaries:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: "1.16.x"
+        cache: true
+    - name: Build Testground
+      run: go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
+      shell: bash
+    - uses: actions/upload-artifact@v3
+      with:
+        name: testground-release
+        path: |
+          ./testground
+          ./static
+
   docker:
     runs-on: ubuntu-latest
     env:
