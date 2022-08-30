@@ -21,7 +21,7 @@ jobs:
         go-version: "1.16.x"
         cache: true
     - name: Build Testground
-      run: go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
+      run: go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=${GITHUB_SHA}" .
       shell: bash
     - uses: actions/upload-artifact@v3
       with:
