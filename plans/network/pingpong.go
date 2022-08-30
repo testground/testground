@@ -2,20 +2,23 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
+
+type ListenAddrs struct {
+	Addrs []string
+}
+
+var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
 
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
@@ -57,16 +60,13 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return fmt.Errorf("interfaces changed")
 	}
 
+	runenv.RecordMessage("I am %d", seq)
+
 	ipC := byte((seq >> 8) + 1)
 	ipD := byte(seq)
 
 	config.IPv4 = runenv.TestSubnet
-
-	var newIp = append(config.IPv4.IP[0:2:2], ipC, ipD)
-
-	runenv.RecordMessage("I am %d, and my desired IP is %s\n", seq, newIp)
-
-	config.IPv4.IP = newIp
+	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
 	config.IPv4.Mask = []byte{255, 255, 255, 0}
 	config.CallbackState = "ip-changed"
 
@@ -86,38 +86,24 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	podTargets, err := getTargetPods(runenv.TestRun)
-	// podTarget, err := getTargetIp(TEST_STRING)
-
+	addrs, err := handleAddresses(ctx, runenv, client)
 	if err != nil {
 		return err
 	}
-	fmt.Println("Attempting to connect to ", podTargets)
+	_ = addrs
 
 	switch seq {
 	case 1:
-		fmt.Println("This container is listening!")
+		fmt.Println("Listening at  ", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
-		connected := false
-		for _, podTarget := range podTargets {
-			var targetIp = net.ParseIP(podTarget)
-			fmt.Printf("Attempting to dial %s\n", targetIp)
-			conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-				IP:   targetIp,
-				Port: 1234,
-			})
-			if err != nil {
-				connected = true
-				break
-			} else {
-				fmt.Printf("Error connecting to %s, continuing \n", targetIp)
-			}
-		}
-		if !connected {
-			fmt.Printf("Could not connect to any pod target in list %s \n", podTargets)
-			return err
-		}
+		addr := strings.Split(addrs.Addrs[0], ":")[0]
+		var targetIp = net.ParseIP(addr)
+		fmt.Println("Attempting to connect to ", targetIp)
+		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
+			IP:   targetIp,
+			Port: 1234,
+		})
 	default:
 		return fmt.Errorf("expected at most two test instances")
 	}
@@ -201,17 +187,17 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 		return nil
 	}
-	err = pingPong("200", 0, 21500*time.Millisecond)
+	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
 	if err != nil {
 		return err
 	}
 
-	// config.Default.Latency = 10 * time.Millisecond
-	// config.CallbackState = "latency-reduced"
-	// netclient.MustConfigureNetwork(ctx, config)
+	config.Default.Latency = 10 * time.Millisecond
+	config.CallbackState = "latency-reduced"
+	netclient.MustConfigureNetwork(ctx, config)
 
 	runenv.RecordMessage("ping pong")
-	err = pingPong("10", 0, 3500000*time.Millisecond)
+	err = pingPong("10", 20*time.Millisecond, 35*time.Millisecond)
 	if err != nil {
 		return err
 	}
@@ -219,99 +205,88 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-const TEST_STRING = `[{
-    "name": "aws-cni",
-    "interface": "eth0",
-    "ips": [
-        "192.168.58.177"
-    ],
-    "default": true,
-    "dns": {}
-},{
-    "name": "default/weave",
-    "ips": [
-        "10.43.128.3"
-    ],
-    "dns": {}
-}]`
+func handleAddresses(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (*ListenAddrs, error) {
 
-type K8sPodNetworkInfo struct {
-	Name string   `json:"name"`
-	Ips  []string `json:"ips"`
-}
-
-func getTargetPods(runId string) ([]string, error) {
-	// creates the in-cluster config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err.Error())
-	}
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		panic(err.Error())
-	}
-	// get pods in all the namespaces by omitting namespace
-	// Or specify namespace to get pods in particular namespace
-	pods, err := clientset.CoreV1().Pods("").List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		panic(err.Error())
-	}
-	fmt.Printf("There are %d pods in the cluster\n", len(pods.Items))
-
-	targetIps := make([]string, 0)
-
-	for _, aPod := range pods.Items {
-		// look for the pod with runId in the name and 0 as the suffix - that is the listening pod
-		if strings.Contains(aPod.Name, runId) {
-			fmt.Printf("Found pod belonging to run: %s", aPod.Name)
-			networkAnnKey := "k8s.v1.cni.cncf.io/network-status"
-			networkAnnotations := aPod.GetAnnotations()[networkAnnKey]
-			fmt.Printf("Network annotations: %s", networkAnnotations)
-			if networkAnnotations != "" {
-				targetIp, err := getTargetIp(networkAnnotations)
-				if err != nil {
-					return nil, err
-				}
-				targetIps = append(targetIps, targetIp)
-			}
-		} else {
-			// fmt.Printf("Skipping pod %s\n", aPod.Name)
-		}
-	}
-	return targetIps, nil
-}
-
-func getTargetIp(networkAnnotations string) (string, error) {
-	networkBody, err := decodePodInfoString(networkAnnotations)
-
-	if err != nil {
-		return "", err
-	}
-
-	for _, cni := range networkBody {
-		if cni.Name == "default/weave" {
-			targetIp := cni.Ips[0]
-			return targetIp, nil
-		}
-	}
-	return "", fmt.Errorf("could not get target IP")
-
-}
-
-func decodePodInfoString(payload string) ([]K8sPodNetworkInfo, error) {
-	var networkBody []K8sPodNetworkInfo
-	err := json.Unmarshal([]byte(payload), &networkBody)
+	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
 	if err != nil {
 		return nil, err
 	}
 
-	// we expect a list of network interfaces
-	if len(networkBody) == 0 {
-		return nil, fmt.Errorf("error decoding network annotations into a list")
+	mynode := &ListenAddrs{}
+	mine := map[string]struct{}{}
+
+	mynode.Addrs = append(mynode.Addrs, tcpAddr.String())
+	for _, l := range mynode.Addrs {
+		mine[l] = struct{}{}
+	}
+	runenv.RecordMessage("my node info: %s", mynode.Addrs)
+
+	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
+
+	allAddrs, err := shareAddresses(ctx, client, runenv, mynode)
+	if err != nil {
+		return nil, err
 	}
 
-	return networkBody, nil
+	otherAddrs := []string{}
+	// filter addresses to remove any own address
+	for _, addr := range allAddrs {
+		if _, ok := mine[addr]; ok {
+			continue
+		}
+		otherAddrs = append(otherAddrs, addr)
+	}
+
+	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
+
+	retVal := &ListenAddrs{}
+	retVal.Addrs = otherAddrs
+	return retVal, nil
+}
+
+func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		if ip, ok := addr.(*net.IPNet); ok {
+			if subnet.Contains(ip.IP) {
+				tcpAddr := &net.TCPAddr{IP: ip.IP}
+				return tcpAddr, nil
+			} else {
+				fmt.Printf("%s does not contain %s\n", subnet, ip.IP)
+			}
+		} else {
+			panic(fmt.Sprintf("%T", addr))
+		}
+	}
+	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
+}
+
+func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ch := make(chan *ListenAddrs)
+	if _, _, err := client.PublishSubscribe(subCtx, PeerTopic, mynodeInfo, ch); err != nil {
+		return nil, fmt.Errorf("error with pub/sub")
+	}
+
+	res := []string{}
+
+	for i := 0; i < runenv.TestInstanceCount; i++ {
+		select {
+		case info := <-ch:
+			runenv.RecordMessage("got info: %d: %s", i, info.Addrs)
+			res = append(res, info.Addrs...)
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		runenv.D().Counter("got.info").Inc(1)
+	}
+
+	return res, nil
 }
 
 func sameAddrs(a, b []net.Addr) bool {
