@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -424,6 +425,40 @@ func (e *Engine) Kill(id string) error {
 	e.signalsLk.RUnlock()
 
 	return nil
+}
+
+// CleanUpTasks deletes all tasks in the store that are currently being processed
+func (e *Engine) CleanUpTasks() error {
+
+	allTasks, err := e.store.AllTasks()
+	if err != nil {
+		return err
+	}
+
+	deleted := 0
+	for _, aTask := range allTasks {
+		if aTask.State().State == task.StateProcessing {
+			// If the engine has a signal for the task, that means it's being tracked actively
+			if e.hasSignal(aTask.ID) {
+				logging.S().Debugw("Skipping cleanup of task, as it is still active", "task", aTask.ID, "state", aTask.State())
+				continue
+			}
+
+			logging.S().Infow("Cleaning up inactive task", "task", aTask.ID, "type", aTask.Name())
+			err = e.store.Delete(aTask.ID)
+			if err != nil {
+				return errors.New("error cleaning up task in progress")
+			}
+			deleted++
+		}
+	}
+
+	if deleted > 0 {
+		logging.S().Infof("Cleaned up %d inactive (in progress) tasks", deleted)
+	}
+
+	return nil
+
 }
 
 // UnmarshalTask converts the given byte array into a valid task

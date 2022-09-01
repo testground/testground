@@ -39,6 +39,12 @@ func New(cfg *config.EnvConfig) (srv *Daemon, err error) {
 		return nil, err
 	}
 
+	// cleanup tasks on startup
+	err = engine.CleanUpTasks()
+	if err != nil {
+		return nil, err
+	}
+
 	mv, err := metrics.NewViewer(cfg)
 	if err != nil {
 		return nil, err

@@ -44,6 +44,11 @@ func (e *Engine) deleteSignal(id string) {
 	e.signalsLk.Unlock()
 }
 
+func (e *Engine) hasSignal(id string) bool {
+	_, hasKey := e.signals[id]
+	return hasKey
+}
+
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
 

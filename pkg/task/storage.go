@@ -230,6 +230,29 @@ func (s *Storage) rangeIter(prefix string, start time.Time, end time.Time) (task
 	return tasks, nil
 }
 
+// AllTasks returns all tasks in the store
+func (s *Storage) AllTasks() (tasks []*Task, err error) {
+	rng := util.Range{
+		Start: nil, Limit: nil,
+	}
+
+	tasks = make([]*Task, 0)
+
+	iter := s.db.NewIterator(&rng, nil)
+	defer iter.Release()
+
+	for iter.Next() {
+		tsk := &Task{}
+
+		err := json.Unmarshal(iter.Value(), tsk)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, tsk)
+	}
+	return tasks, nil
+}
+
 func NewMemoryTaskStorage() (*Storage, error) {
 	inmem := storage.NewMemStorage()
 	db, err := leveldb.Open(inmem, nil)
