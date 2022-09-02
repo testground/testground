@@ -67,7 +67,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 255, 255, 0}
+	config.IPv4.Mask = []byte{255, 244, 0, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
@@ -83,14 +83,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	fmt.Println("Changing own IP to ", config.IPv4)
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	addrs, err := handleAddresses(ctx, runenv, client, config)
+	addrs, err := handleAddresses(ctx, runenv, client)
 	if err != nil {
 		return err
 	}
+	_ = addrs
 
 	switch seq {
 	case 1:
@@ -205,11 +205,9 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-func handleAddresses(ctx context.Context, runenv *runtime.RunEnv, client sync.Client, config *network.Config) (*ListenAddrs, error) {
+func handleAddresses(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (*ListenAddrs, error) {
 
-	targetSubnet := config.IPv4
-	fmt.Println("Looking for IP in subnet ", targetSubnet)
-	tcpAddr, err := getSubnetAddr(targetSubnet)
+	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
 	if err != nil {
 		return nil, err
 	}
