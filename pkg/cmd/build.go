@@ -39,9 +39,8 @@ var BuildCommand = cli.Command{
 					Required: true,
 				},
 				&cli.StringFlag{
-					Name:    "output-composition",
-					Aliases: []string{"c"},
-					Usage:   "path to the computed `COMPOSITION` file, with artifacts",
+					Name:  "output-composition",
+					Usage: "path to the computed `COMPOSITION` file, with artifacts",
 				},
 				&cli.StringFlag{
 					Name:  "link-sdk",
