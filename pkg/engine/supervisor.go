@@ -70,13 +70,41 @@ func (e *Engine) worker(n int) {
 
 			ch := make(chan int)
 			e.addSignal(tsk.ID, ch)
-
 			go func() {
 				select {
 				case <-ch:
 					e.deleteSignal(tsk.ID)
 					cancel()
 				case <-ctx.Done():
+					// Timeout reached,
+					// 1. Remove timeouted tasks from the queue -- It is going to be removed anyway, since we are popping from the queue.
+					// 2. Stop timeouted task execution (e.g. stopping the docker container)
+					e.deleteSignal(tsk.ID)
+					// 3.  Update the state of the task in the database
+
+					// get the current state of the task from DB.
+					tsk, err := e.store.Get(tsk.ID)
+					if err != nil {
+						return
+					}
+					// if task is still in processing state, mark it as canceled in DB
+					if tsk.State().State == task.StateProcessing {
+						canceledState := task.DatedState{
+							Created: time.Now().UTC(),
+							State:   task.StateCanceled,
+						}
+						tsk.States = append(tsk.States, canceledState)
+
+						err = e.store.PersistProcessing(tsk)
+						if err != nil {
+							logging.S().Errorw("could not persist task", "err", err)
+							return
+						}
+
+						if tsk.IsCanceled() {
+							logging.S().Infow("Task reached timeout", "task_id", tsk.ID)
+						}
+					}
 					return
 				}
 			}()
@@ -149,6 +177,7 @@ func (e *Engine) worker(n int) {
 
 				if errors.Is(errTask, context.Canceled) {
 					newState.State = task.StateCanceled
+					logging.S().Errorw("Context has been canceled", "err", err)
 				}
 			}
 
