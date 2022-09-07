@@ -87,6 +87,8 @@ type DockerGoBuilderConfig struct {
 	// built from. Defaults to golang:1.16-buster
 	BuildBaseImage string `toml:"build_base_image"`
 
+	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
+
 	// SkipRuntimeImage allows you to skip putting the build output in a
 	// slimmed-down runtime image. The build image will be emitted instead.
 	SkipRuntimeImage bool `toml:"skip_runtime_image"`
@@ -248,7 +250,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	// initial go build args.
-	var args = map[string]*string{
+	var buildArgs = map[string]*string{
 		"GO_PROXY":    &proxyURL,
 		"MODFILE":     &modfile,
 		"MODFILE_SUM": &modfileSum,
@@ -256,10 +258,10 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 	}
 
 	if cfg.ExecPkg != "" {
-		args["TESTPLAN_EXEC_PKG"] = &cfg.ExecPkg
+		buildArgs["TESTPLAN_EXEC_PKG"] = &cfg.ExecPkg
 	}
 	if cfg.RuntimeImage != "" {
-		args["RUNTIME_IMAGE"] = &cfg.RuntimeImage
+		buildArgs["RUNTIME_IMAGE"] = &cfg.RuntimeImage
 	}
 
 	cacheImage := fmt.Sprintf("tg-gobuildcache-%s", in.TestPlan)
@@ -280,19 +282,24 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		}
 	}
 
-	args["BUILD_BASE_IMAGE"] = &baseImage
+	buildArgs["BUILD_BASE_IMAGE"] = &baseImage
 
 	// set BUILD_TAGS arg if the user has provided selectors.
 	if len(in.Selectors) > 0 {
 		s := "-tags " + strings.Join(in.Selectors, ",")
-		args["BUILD_TAGS"] = &s
+		buildArgs["BUILD_TAGS"] = &s
+	}
+
+	// Add any custom build args.
+	for k, v := range cfg.BuildArgs {
+		buildArgs[k] = v
 	}
 
 	// Make sure we are attached to the testground-build network
 	// so the builder can make use of the goproxy container.
 	opts := types.ImageBuildOptions{
 		Tags:        []string{in.BuildID},
-		BuildArgs:   args,
+		BuildArgs:   buildArgs,
 		NetworkMode: "host",
 	}
 
