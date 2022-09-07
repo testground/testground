@@ -67,7 +67,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 244, 0, 0}
+	config.IPv4.Mask = []byte{255, 255, 255, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
@@ -83,13 +83,17 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	runenv.RecordMessage("before reconfiguring network")
+	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
+
+	newIp, err := netclient.GetDataNetworkIP()
+	runenv.RecordMessage("My data network IP is %s", newIp)
 
 	addrs, err := handleAddresses(ctx, runenv, client)
 	if err != nil {
 		return err
 	}
+	fmt.Printf("Received %d addresses \n", len(addrs.Addrs))
 	_ = addrs
 
 	switch seq {
