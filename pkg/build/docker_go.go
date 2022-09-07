@@ -225,7 +225,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		if ver.Target == "" {
 			ver.Target = mod
 		}
-		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, ver.Target, ver.Version))
+		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s", mod, ver))
 	}
 
 	// Inject replace directives for the SDK modules.
