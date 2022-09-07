@@ -7,8 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	copy2 "github.com/otiai10/copy"
-	ignore "github.com/sabhiram/go-gitignore"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -19,6 +17,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	copy2 "github.com/otiai10/copy"
+	ignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/logrusorgru/aurora"
 	"github.com/testground/testground/pkg/task"
@@ -74,9 +75,9 @@ func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdk
 //
 // A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): the request json, usually composition.
-//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
-//  * Part 3 (optional, Content-Type: application/zip): linked sdk.
+//   - Part 1 (Content-Type: application/json): the request json, usually composition.
+//   - Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
+//   - Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
 // caller to close it.
@@ -260,7 +261,13 @@ func getFilteredDirectory(dir string) (string, bool, error) {
 
 	err = copy2.Copy(dir, tmp, copy2.Options{
 		Skip: func(src string) (bool, error) {
-			return tgIgnore.MatchesPath(src), nil
+			rel, err := filepath.Rel(dir, src)
+
+			if err != nil {
+				return false, err
+			}
+
+			return tgIgnore.MatchesPath(rel), nil
 		},
 	})
 
