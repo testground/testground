@@ -27,7 +27,7 @@ require (
 	github.com/otiai10/copy v1.7.0
 	github.com/pborman/uuid v1.2.1
 	github.com/rs/xid v1.3.0
-	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/stretchr/testify v1.8.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
