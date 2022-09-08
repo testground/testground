@@ -83,11 +83,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
+	newIp := netclient.MustGetDataNetworkIP()
+	runenv.RecordMessage("My OLD data network IP is %s", newIp)
+
 	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
 
-	newIp := netclient.MustGetDataNetworkIP()
-	runenv.RecordMessage("My data network IP is %s", newIp)
+	newIp = netclient.MustGetDataNetworkIP()
+	runenv.RecordMessage("My NEW data network IP is %s", newIp)
 
 	addrs, err := handleAddresses(ctx, runenv, client)
 	if err != nil {
