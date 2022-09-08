@@ -81,7 +81,7 @@ func (e *Engine) worker(n int) {
 					// 2. Stop timeouted task execution (e.g. stopping the docker container)
 					e.deleteSignal(tsk.ID)
 					// 3.  Update the state of the task in the database
-
+					logging.S().Infow("Timeout reached for task: ", "task_id", tsk.ID)
 					// get the current state of the task from DB.
 					tsk, err := e.store.Get(tsk.ID)
 					if err != nil {
@@ -94,6 +94,7 @@ func (e *Engine) worker(n int) {
 							State:   task.StateCanceled,
 						}
 						tsk.States = append(tsk.States, canceledState)
+						logging.S().Infow("Task state: ", "state", tsk.State().State)
 
 						err = e.store.PersistProcessing(tsk)
 						if err != nil {
@@ -180,6 +181,8 @@ func (e *Engine) worker(n int) {
 					logging.S().Errorw("Context has been canceled", "err", err)
 				}
 			}
+
+			logging.S().Infow("Task state: ", "state", tsk.State().State)
 
 			tsk.States = append(tsk.States, newState)
 			tsk.Result = result

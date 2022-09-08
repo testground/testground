@@ -1,0 +1,28 @@
+name = "just_sleeping"
+
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[builders."docker:go"]
+enabled = true
+
+[builders."exec:go"]
+enabled = true
+
+[runners."local:docker"]
+enabled = true
+run_timeout_min             = 1
+
+
+[runners."local:exec"]
+enabled = true
+run_timeout_min             = 1
+
+
+[runners."cluster:swarm"]
+enabled = true
+
+[[testcases]]
+name = "sleep"
+instances = { min = 1, max = 200, default = 1 }
