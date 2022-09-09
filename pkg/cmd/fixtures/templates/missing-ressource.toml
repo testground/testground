@@ -1,0 +1,13 @@
+[metadata]
+  name = "experiment"
+
+[global]
+  plan = "plan"
+  case = "case"
+  builder = "docker:go"
+  runner = "local:docker"
+
+{{ with (load_resource "./something.toml" ) }}
+  [[failures]]
+  expected = true
+{{ end }}

@@ -59,7 +59,11 @@ type Global struct {
 
 	// TotalInstances defines the total number of instances that participate in
 	// this composition; it is the sum of all instances in all groups.
-	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"required,gte=0"`
+	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
+
+	// ConcurrentBuilds defines the maximum number of concurrent builds that are
+	// scheduled for this test.
+	ConcurrentBuilds int `toml:"concurrent_builds" json:"concurrent_builds"`
 
 	// Builder is the builder we're using.
 	Builder string `toml:"builder" json:"builder"`
@@ -292,18 +296,28 @@ func (c *Composition) ValidateForRun() error {
 
 	// Calculate instances per group, and assert that sum total matches the
 	// expected value.
-	total, cum := c.Global.TotalInstances, uint(0)
-	for i := range c.Groups {
-		g := c.Groups[i]
-		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
-			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(total)))
+	totalInstances := c.Global.TotalInstances
+
+	computedTotal := uint(0)
+	for _, g := range c.Groups {
+		// When a percentage is specified, we require that totalInstances is set
+		if g.Instances.Percentage > 0 && totalInstances == 0 {
+			return fmt.Errorf("groups count percentage requires a total_instance configuration")
 		}
-		cum += g.calculatedInstanceCnt
+
+		// Update the group's calculated instance counts.
+		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
+			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(totalInstances)))
+		}
+		computedTotal += g.calculatedInstanceCnt
 	}
 
-	if total != cum {
-		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", total, cum)
+	// Verify the sum total matches the expected value if it was passed.
+	if totalInstances > 0 && totalInstances != computedTotal {
+		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", totalInstances, computedTotal)
 	}
+
+	c.Global.TotalInstances = computedTotal
 
 	return c.Groups.Validate(c)
 }

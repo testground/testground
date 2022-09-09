@@ -3,7 +3,6 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/testground/sdk-go/ptypes"
 	"io/ioutil"
 	"net"
 	"os"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/testground/sdk-go/ptypes"
 
 	"github.com/testground/sdk-go/runtime"
 

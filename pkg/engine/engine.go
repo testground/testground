@@ -220,7 +220,8 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 	}
 
 	id := xid.New().String()
-	err := e.queue.Push(&task.Task{
+	cby := task.CreatedBy(request.CreatedBy)
+	newTask := &task.Task{
 		Version:     0,
 		Priority:    request.Priority,
 		Plan:        request.Composition.Global.Plan,
@@ -239,8 +240,10 @@ func (e *Engine) QueueRun(request *api.RunRequest, sources *api.UnpackedSources)
 				Created: time.Now().UTC(),
 			},
 		},
-		CreatedBy: task.CreatedBy(request.CreatedBy),
-	})
+		CreatedBy: cby,
+	}
+
+	err := e.queue.PushUniqueByBranch(newTask)
 
 	return id, err
 }

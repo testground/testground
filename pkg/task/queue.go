@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/testground/testground/pkg/logging"
@@ -53,12 +54,18 @@ func (q *Queue) Push(tsk *Task) error {
 	q.Lock()
 	defer q.Unlock()
 
+	return q.pushUnsafe(tsk)
+}
+
+// Pushes an item to the priority queue, without acquiring a lock
+func (q *Queue) pushUnsafe(tsk *Task) error {
 	// there are too many items enqueued already. can't push; try again later.
 	if q.tq.Len() >= q.max {
 		return ErrQueueFull
 	}
 
 	// Persist this task to the database
+	logging.S().Debugw("queue.push.got-task", "id", tsk.ID, "taskname", tsk.Name())
 	err := q.ts.PersistScheduled(tsk)
 	if err != nil {
 		return err
@@ -67,6 +74,26 @@ func (q *Queue) Push(tsk *Task) error {
 	heap.Push(q.tq, tsk)
 
 	return nil
+}
+
+// Pushes a task to the queue, and removes any tasks with matching repo/branch from the queue
+func (q *Queue) PushUniqueByBranch(tsk *Task) error {
+	q.Lock()
+	defer q.Unlock()
+
+	// Remove existing tasks from same branch end repo before pushing a new task
+	var err error
+	if tsk.CreatedBy.Repo != "" && tsk.CreatedBy.Branch != "" {
+		err = q.removeExisting(tsk.CreatedBy.Branch, tsk.CreatedBy.Repo)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	err = q.pushUnsafe(tsk)
+
+	return err
 }
 
 // get the next item from the priority queue
@@ -82,12 +109,66 @@ func (q *Queue) Pop() (*Task, error) {
 	logging.S().Debugw("queue.pop", "len", q.tq.Len())
 	tsk := heap.Pop(q.tq).(*Task)
 
-	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "testname", tsk.Name())
+	logging.S().Debugw("queue.pop.got-task", "id", tsk.ID, "taskname", tsk.Name())
 	err := q.ts.ProcessTask(tsk)
 	if err != nil {
 		return nil, err
 	}
 	return tsk, nil
+}
+
+// Remove all existing tasks from the queue that match the given branch/string
+func (q *Queue) removeExisting(branch string, repo string) error {
+	var err error
+	keep_indexes := make([]int, 0)
+	for index, qTask := range *q.tq {
+		// if task matches both branch and repo, cancel it
+		if qTask.CreatedBy.Repo == repo && qTask.CreatedBy.Branch == branch {
+			err = q.cancelTask(qTask)
+			if err != nil {
+				return err
+			}
+
+		} else {
+			keep_indexes = append(keep_indexes, index)
+		}
+	}
+	keep_tasks := make([]*Task, len(keep_indexes))
+	for index, value := range keep_indexes {
+		keep_tasks[index] = (*q.tq)[value]
+	}
+
+	*q.tq = keep_tasks
+
+	return nil
+}
+
+// Cancels the given task:
+// 1. Changes the state to Canceled
+// 2. Persists changes to the queue storage
+func (q *Queue) cancelTask(tsk *Task) error {
+	var err error
+
+	// Move task to "processing" state
+	err = q.ts.ProcessTask(tsk)
+	if err != nil {
+		return err
+	}
+
+	newState := DatedState{
+		Created: time.Now().UTC(),
+		State:   StateCanceled,
+	}
+	tsk.States = append(tsk.States, newState)
+	// Apply state changes
+	err = q.ts.PersistProcessing(tsk)
+	if err != nil {
+		return err
+	}
+
+	// Move task to "archived" state
+	err = q.ts.ArchiveTask(tsk)
+	return err
 }
 
 // This is a priority queue which implements container/heap.Interface

@@ -184,7 +184,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, fmt.Errorf("could not init pool: %w", err)
 	}
 
-	result := newResult()
+	result := newResult(input)
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
 		Result: result,
@@ -253,9 +253,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	if !enoughResources {
 		if cfg.AutoscalerEnabled {
-			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in.")
+			ow.Warnw("too many test instances requested, will have to wait for cluster autoscaler to kick in")
 		} else {
-			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity.")
+			runerr = errors.New("too many test instances requested, resize cluster if you need more capacity")
 			return
 		}
 	}
