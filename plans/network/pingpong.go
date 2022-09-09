@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
@@ -83,33 +82,39 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	newIp := netclient.MustGetDataNetworkIP()
-	runenv.RecordMessage("My OLD data network IP is %s", newIp)
-
 	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
 
-	newIp = netclient.MustGetDataNetworkIP()
-	runenv.RecordMessage("My NEW data network IP is %s", newIp)
-
-	addrs, err := handleAddresses(ctx, runenv, client)
-	if err != nil {
-		return err
-	}
-	_ = addrs
+	// addrs, err := handleAddresses(ctx, runenv, client)
+	// if err != nil {
+	// 	return err
+	// }
+	// _ = addrs
 
 	switch seq {
 	case 1:
 		fmt.Println("Listening at  ", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
-		addr := strings.Split(addrs.Addrs[0], ":")[0]
+		// addr := strings.Split(addrs.Addrs[0], ":")[0]
+		addr := "10.33.0.1"
 		var targetIp = net.ParseIP(addr)
 		fmt.Println("Attempting to connect to ", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
 			Port: 1234,
 		})
+		if err != nil {
+			fmt.Println("Could not connect to ", addr)
+
+			addr = "10.33.0.1"
+			targetIp = net.ParseIP(addr)
+			fmt.Println("Attempting to connect to ", targetIp)
+			conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
+				IP:   targetIp,
+				Port: 1234,
+			})
+		}
 	default:
 		return fmt.Errorf("expected at most two test instances")
 	}
