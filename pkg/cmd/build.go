@@ -135,10 +135,19 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 	}
 
 	if c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
+
+		defer func() {
+			cerr := f.Close()
+			if err == nil {
+				err = cerr
+			}
+		}()
+
 		if err != nil {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}
+
 		enc := toml.NewEncoder(f)
 		if err := enc.Encode(comp); err != nil {
 			return fmt.Errorf("failed to encode composition into file: %w", err)
