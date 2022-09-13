@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
@@ -32,6 +33,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
+	fmt.Println("Old addresses: ", oldAddrs)
+
 	config := &network.Config{
 		// Control the "default" network. At the moment, this is the only network.
 		Network: "default",
@@ -50,7 +53,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before netclient.MustConfigureNetwork")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
+	time.Sleep(2 * 60 * time.Second)
 
 	// Make sure that the IP addresses don't change unless we request it.
 	if newAddrs, err := net.InterfaceAddrs(); err != nil {
@@ -59,6 +62,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return fmt.Errorf("interfaces changed")
 	}
 
+	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
+
 	runenv.RecordMessage("I am %d", seq)
 
 	ipC := byte((seq >> 8) + 1)
@@ -66,7 +71,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 255, 255, 0}
+	config.IPv4.Mask = []byte{255, 254, 0, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
@@ -82,39 +87,45 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
+	fmt.Println("Old data ip:", netclient.MustGetDataNetworkIP())
+
 	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
 
-	// addrs, err := handleAddresses(ctx, runenv, client)
-	// if err != nil {
-	// 	return err
-	// }
-	// _ = addrs
+	time.Sleep(2 * 60 * time.Second)
+
+	fmt.Println("New data ip:", netclient.MustGetDataNetworkIP())
+
+	addrs, err := handleAddresses(ctx, runenv, client)
+	if err != nil {
+		return err
+	}
+	_ = addrs
 
 	switch seq {
 	case 1:
 		fmt.Println("Listening at  ", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
-		// addr := strings.Split(addrs.Addrs[0], ":")[0]
-		addr := "10.33.0.1"
+		addr := strings.Split(addrs.Addrs[0], ":")[0]
+		// addr := "10.33.0.1"
 		var targetIp = net.ParseIP(addr)
 		fmt.Println("Attempting to connect to ", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
 			Port: 1234,
 		})
-		if err != nil {
-			fmt.Println("Could not connect to ", addr)
+		// if err != nil {
+		// 	fmt.Println("Could not connect to ", addr)
 
-			addr = "10.33.0.1"
-			targetIp = net.ParseIP(addr)
-			fmt.Println("Attempting to connect to ", targetIp)
-			conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-				IP:   targetIp,
-				Port: 1234,
-			})
-		}
+		// 	addr = "10.33.0.1"
+		// 	targetIp = net.ParseIP(addr)
+		// 	fmt.Println("Attempting to connect to ", targetIp)
+		// 	conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
+		// 		IP:   targetIp,
+		// 		Port: 1234,
+		// 	})
+		// }
 	default:
 		return fmt.Errorf("expected at most two test instances")
 	}
