@@ -575,7 +575,7 @@ ARG BUILD_BASE_IMAGE
 #
 # The user can override the runtime image by passing in the appropriate builder
 # configuration option.
-ARG RUNTIME_IMAGE=busybox:1.31.1-glibc
+ARG RUNTIME_IMAGE=busybox:1.35.0-glibc
 
 #:::
 #::: BUILD CONTAINER
