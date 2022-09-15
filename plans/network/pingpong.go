@@ -4,13 +4,21 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 )
+
+type ListenAddrs struct {
+	Addrs []string
+}
+
+var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
 
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
@@ -43,14 +51,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before netclient.MustConfigureNetwork")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
-
 	// Make sure that the IP addresses don't change unless we request it.
 	if newAddrs, err := net.InterfaceAddrs(); err != nil {
 		return err
 	} else if !sameAddrs(oldAddrs, newAddrs) {
 		return fmt.Errorf("interfaces changed")
 	}
+
+	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
 
 	runenv.RecordMessage("I am %d", seq)
 
@@ -59,7 +67,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 255, 255, 0}
+	config.IPv4.Mask = []byte{255, 254, 0, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
@@ -78,12 +86,21 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
+	addrs, err := exchangeListenAddrs(ctx, runenv, client)
+	if err != nil {
+		return err
+	}
+
 	switch seq {
 	case 1:
+		runenv.RecordMessage("Listening at  ", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
+		addr := strings.Split(addrs.Addrs[0], ":")[0]
+		var targetIp = net.ParseIP(addr)
+		runenv.RecordMessage("Attempting to connect to ", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-			IP:   append(config.IPv4.IP[:3:3], 1),
+			IP:   targetIp,
 			Port: 1234,
 		})
 	default:
@@ -185,6 +202,92 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 
 	return nil
+}
+
+// Exchanges addresses with other instances in the test, and returns their addresses as a slice
+func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (*ListenAddrs, error) {
+
+	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
+	if err != nil {
+		return nil, err
+	}
+
+	mynode := &ListenAddrs{}
+	mine := map[string]struct{}{}
+
+	mynode.Addrs = append(mynode.Addrs, tcpAddr.String())
+	for _, l := range mynode.Addrs {
+		mine[l] = struct{}{}
+	}
+
+	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
+
+	allAddrs, err := shareAddresses(ctx, client, runenv, mynode)
+	if err != nil {
+		return nil, err
+	}
+
+	otherAddrs := []string{}
+	// filter addresses to remove any own address
+	for _, addr := range allAddrs {
+		if _, ok := mine[addr]; ok {
+			continue
+		}
+		otherAddrs = append(otherAddrs, addr)
+	}
+
+	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
+
+	retVal := &ListenAddrs{}
+	retVal.Addrs = otherAddrs
+	return retVal, nil
+}
+
+// Returns the IP address belonging to the given subnet
+func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		if ip, ok := addr.(*net.IPNet); ok {
+			if subnet.Contains(ip.IP) {
+				tcpAddr := &net.TCPAddr{IP: ip.IP}
+				return tcpAddr, nil
+			} else {
+				fmt.Printf("%s does not contain %s\n", subnet, ip.IP)
+			}
+		} else {
+			panic(fmt.Sprintf("%T", addr))
+		}
+	}
+	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
+}
+
+// Shares all of this instance's addresses with all other instances in the test
+func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ch := make(chan *ListenAddrs)
+	if _, _, err := client.PublishSubscribe(subCtx, PeerTopic, mynodeInfo, ch); err != nil {
+		return nil, fmt.Errorf("error with pub/sub")
+	}
+
+	res := []string{}
+
+	for i := 0; i < runenv.TestInstanceCount; i++ {
+		select {
+		case info := <-ch:
+			runenv.RecordMessage("got info: %d: %s", i, info.Addrs)
+			res = append(res, info.Addrs...)
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		runenv.D().Counter("got.info").Inc(1)
+	}
+
+	return res, nil
 }
 
 func sameAddrs(a, b []net.Addr) bool {
