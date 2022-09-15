@@ -76,6 +76,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
 		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
+
 		// Disconnect and reconnect to change the IP addresses.
 		logging.S().Infow("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
 		//
@@ -90,6 +91,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 	// Are we _connected_ to the network.
 	if !online {
+		logging.S().Debugw("Instance is not connected to network!")
 		// No, we're not.
 		// Connect.
 		if cfg.IPv6 != nil {
@@ -101,10 +103,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			err     error
 		)
 		if cfg.IPv4 == nil {
-			logging.S().Infow("trying to add a link", "net", n.subnet, "container", n.container.ID)
+			logging.S().Debugw("trying to add a link, IPV4 not set", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
-			logging.S().Infow("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
+			logging.S().Debugw("trying to add a link, with IPV4 set", "ip", cfg.IPv4.String(), "container", n.container.ID)
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {

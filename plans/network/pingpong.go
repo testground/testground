@@ -28,12 +28,12 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	client := initCtx.SyncClient
 	netclient := initCtx.NetClient
 
-	oldAddrs, err := net.InterfaceAddrs()
+	instanceAddrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Old addresses: ", oldAddrs)
+	fmt.Println("Starting addresses: ", instanceAddrs)
 
 	config := &network.Config{
 		// Control the "default" network. At the moment, this is the only network.
@@ -53,12 +53,13 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before netclient.MustConfigureNetwork")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	time.Sleep(2 * 60 * time.Second)
+	time.Sleep(1 * 60 * time.Second)
 
 	// Make sure that the IP addresses don't change unless we request it.
 	if newAddrs, err := net.InterfaceAddrs(); err != nil {
 		return err
-	} else if !sameAddrs(oldAddrs, newAddrs) {
+	} else if !sameAddrs(instanceAddrs, newAddrs) {
+		fmt.Println("Error: new addresses: ", instanceAddrs)
 		return fmt.Errorf("interfaces changed")
 	}
 
@@ -92,7 +93,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
 
-	time.Sleep(2 * 60 * time.Second)
+	time.Sleep(1 * 60 * time.Second)
 
 	fmt.Println("New data ip:", netclient.MustGetDataNetworkIP())
 
@@ -100,7 +101,6 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	if err != nil {
 		return err
 	}
-	_ = addrs
 
 	switch seq {
 	case 1:
@@ -108,24 +108,12 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		conn, err = listener.AcceptTCP()
 	case 2:
 		addr := strings.Split(addrs.Addrs[0], ":")[0]
-		// addr := "10.33.0.1"
 		var targetIp = net.ParseIP(addr)
 		fmt.Println("Attempting to connect to ", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
 			Port: 1234,
 		})
-		// if err != nil {
-		// 	fmt.Println("Could not connect to ", addr)
-
-		// 	addr = "10.33.0.1"
-		// 	targetIp = net.ParseIP(addr)
-		// 	fmt.Println("Attempting to connect to ", targetIp)
-		// 	conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-		// 		IP:   targetIp,
-		// 		Port: 1234,
-		// 	})
-		// }
 	default:
 		return fmt.Errorf("expected at most two test instances")
 	}
@@ -209,6 +197,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 		return nil
 	}
+
+	instanceAddrs, err = net.InterfaceAddrs()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Addresses just before first test: ", instanceAddrs)
+
 	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
 	if err != nil {
 		return err
@@ -217,6 +213,13 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	config.Default.Latency = 10 * time.Millisecond
 	config.CallbackState = "latency-reduced"
 	netclient.MustConfigureNetwork(ctx, config)
+
+	instanceAddrs, err = net.InterfaceAddrs()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Addresses just before second test: ", instanceAddrs)
 
 	runenv.RecordMessage("ping pong")
 	err = pingPong("10", 20*time.Millisecond, 35*time.Millisecond)
