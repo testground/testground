@@ -52,7 +52,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return nil
 	}
 
-	logging.S().Infof("============ Configuring network START ==============", "network", cfg.Network)
+	logging.S().Infow("============ Configuring network START ==============", "network", cfg.Network)
 
 	for k, v := range n.activeLinks {
 		logging.S().Infow("Active link %s: %s (ipv4) %s (link.Type) %s (rt.IfName) %s (rt.NetNS) %s (netconf.Name)\n",
@@ -60,6 +60,26 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 	}
 
 	link, online := n.activeLinks[cfg.Network]
+
+	logging.S().Infof("Network %s, is online %s Checking existing routes....", cfg.Network, online)
+	netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
+	if err != nil {
+		return err
+	}
+	routes, err := getK8sRoutes(netlinkByName, n.nl)
+	if err != nil {
+		return err
+	}
+
+	logging.S().Infof("Detected %d routes", len(routes.routes))
+
+	for _, route := range routes.routes {
+		logging.S().Infow("Route in network:", "route", route)
+	}
+
+	if !online && len(routes.routes) > 0 {
+		logging.S().Warnf("Not connected to network, but %d routes are present", len(routes.routes))
+	}
 
 	// Are we _disabling_ the network?
 	if !cfg.Enable {
