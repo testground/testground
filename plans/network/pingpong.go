@@ -67,6 +67,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
+	// Translates to /15 mask. The mask needs to match the IP range of the TestSubnet,
+	// otherwise some addresses may be excluded, causing the test to fail
 	config.IPv4.Mask = []byte{255, 254, 0, 0}
 	config.CallbackState = "ip-changed"
 
@@ -86,19 +88,19 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	addrs, err := exchangeListenAddrs(ctx, runenv, client)
+	otherInstanceAddr, err := exchangeListenAddrs(ctx, runenv, client)
 	if err != nil {
 		return err
 	}
 
 	switch seq {
 	case 1:
-		runenv.RecordMessage("Listening at  ", listener.Addr())
+		runenv.RecordMessage("Listening at", "address", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
-		addr := strings.Split(addrs.Addrs[0], ":")[0]
+		addr := strings.Split(otherInstanceAddr, ":")[0]
 		var targetIp = net.ParseIP(addr)
-		runenv.RecordMessage("Attempting to connect to ", targetIp)
+		runenv.RecordMessage("Attempting to connect to ", "target", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
 			IP:   targetIp,
 			Port: 1234,
@@ -204,12 +206,13 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-// Exchanges addresses with other instances in the test, and returns their addresses as a slice
-func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (*ListenAddrs, error) {
+// Exchanges own data network address with other instance in the test, and returns their data addres
+func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (string, error) {
 
+	// Retrieve own data IP
 	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	mynode := &ListenAddrs{}
@@ -224,7 +227,7 @@ func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client syn
 
 	allAddrs, err := shareAddresses(ctx, client, runenv, mynode)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	otherAddrs := []string{}
@@ -238,9 +241,12 @@ func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client syn
 
 	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
 
-	retVal := &ListenAddrs{}
-	retVal.Addrs = otherAddrs
-	return retVal, nil
+	// since there is only 1 other instance in test, we expect a single address in the list
+	if len(otherAddrs) > 1 {
+		return "", fmt.Errorf("expected a single address to be returned, got %d", len(otherAddrs))
+	}
+
+	return otherAddrs[0], nil
 }
 
 // Returns the IP address belonging to the given subnet
@@ -264,7 +270,7 @@ func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
 	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
-// Shares all of this instance's addresses with all other instances in the test
+// Shares *all* of this instance's addresses with all other instances in the test
 func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
