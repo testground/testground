@@ -59,7 +59,15 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			k, v.IPv4, v.Link.Type(), v.rt.IfName, v.rt.NetNS, v.netconf.Name)
 	}
 
+	if len(n.activeLinks) == 0 {
+		logging.S().Infow("No active links detected!")
+	}
+
 	link, online := n.activeLinks[cfg.Network]
+
+	if link != nil {
+		logging.S().Infof("Found active link in network: IPV4: %s, IfName: %s", link.IPv4, link.rt.IfName)
+	}
 
 	logging.S().Infof("Network %s, is online %s Checking existing routes....", cfg.Network, online)
 	netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
@@ -189,7 +197,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
 
-		logging.S().Debugf("Addresses in network %s are as follows:\n", dataNetworkIfname)
+		logging.S().Debugf("Instance %s Addresses in network %s are as follows:", n.container.ID, dataNetworkIfname)
 		for _, v4addr := range v4addrs {
 			logging.S().Infow("V4 addr", "address", v4addr)
 		}
