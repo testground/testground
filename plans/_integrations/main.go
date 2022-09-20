@@ -22,7 +22,7 @@ func silentFailure(runenv *runtime.RunEnv) error {
 
 func taskTimeout(runenv *runtime.RunEnv) error {
 	runenv.RecordMessage("Sleeping...")
-	time.Sleep(1 * time.Minute)
+	time.Sleep(2 * time.Minute)
 	runenv.RecordMessage("Hello I woke up...")
 	return nil
 }

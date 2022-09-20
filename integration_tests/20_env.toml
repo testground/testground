@@ -1,0 +1,16 @@
+[builders."docker:go"]
+enabled = true
+
+[runners."local:docker"]
+enabled = true
+
+[daemon]
+listen = ":8040"
+
+[daemon.scheduler]
+task_timeout_min = 1
+task_repo_type = "disk"
+
+[client]
+endpoint = "http://localhost:8040"
+user = "tg_integration_test"

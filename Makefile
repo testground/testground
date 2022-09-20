@@ -71,6 +71,7 @@ test-integ-local-docker:
 	./integration_tests/15_docker_mixed_builders_configuration.sh
 	./integration_tests/15_02_docker_mixed_builders_and_custom_go_deps.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
+	./integration_tests/20_docker_just_sleeping.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh

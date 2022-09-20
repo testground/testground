@@ -132,8 +132,13 @@ func TestNewEngine(t *testing.T) {
 	engine, err := NewEngine(cfg)
 	require.NoError(t, err)
 
+	const (
+		Ok    string = "ok"
+		Stall        = "stall"
+	)
+
 	t.Run("OK case", func(t *testing.T) {
-		testTask := createTestTask(t, "ok")
+		testTask := createTestTask(t, Ok)
 		require.NoError(t, engine.queue.Push(testTask))
 		time.Sleep(30 * time.Second) // need to give it a time to finish because it is asynchronous function.
 		// get the task back from the database and check final state
@@ -143,7 +148,7 @@ func TestNewEngine(t *testing.T) {
 	})
 
 	t.Run("Stall case", func(t *testing.T) {
-		testTask := createTestTask(t, "stall")
+		testTask := createTestTask(t, Stall)
 		require.NoError(t, engine.queue.Push(testTask))
 		time.Sleep(70 * time.Second) // need to give it a time to finish because it is asynchronous function.
 		// get the task back from the database and check final state
