@@ -84,6 +84,14 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 		}
 	}
 
+	// go mod tidy
+	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "tidy"})...)
+	cmd.Dir = plansrc
+	if err := cmd.Run(); err != nil {
+		out, _ := cmd.CombinedOutput()
+		return nil, fmt.Errorf("unable to go mod tidy in build; %w; output: %s", err, string(out))
+	}
+
 	// Calculate the arguments to go build.
 	// go build -o <output_path> [-tags <comma-separated tags>] <exec_pkg>
 	var args = []string{"build", "-gcflags='all=-N -l'", "-o", path}
@@ -94,7 +102,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 	args = append(args, cfg.ExecPkg)
 
 	// Execute the build.
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd = exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = plansrc
 	out, err := cmd.CombinedOutput()
 	if err != nil {
