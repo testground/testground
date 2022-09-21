@@ -17,9 +17,11 @@ import (
 	"github.com/testground/testground/pkg/task"
 )
 
+type Testcase string
+
 const (
-	Ok    string = "ok"
-	Stall        = "stall"
+	Ok    Testcase = "ok"
+	Stall Testcase = "stall"
 )
 
 func TestUnmarshalTaskRun(t *testing.T) {
@@ -160,12 +162,12 @@ func TestNewEngine(t *testing.T) {
 
 // testcase could be one of these: 'ok' and 'stall'
 // OK will execute right away and stall will cause deadline exceed.
-func createTestTask(t *testing.T, testcase string) *task.Task {
+func createTestTask(t *testing.T, testcase Testcase) *task.Task {
 	cmp := api.Composition{
 		Global: api.Global{
 			Builder:        "exec:go",
 			Plan:           "placebo",
-			Case:           testcase,
+			Case:           string(testcase),
 			TotalInstances: 1,
 			BuildConfig: map[string]interface{}{
 				"go_proxy_mode": "direct",
@@ -193,7 +195,7 @@ func createTestTask(t *testing.T, testcase string) *task.Task {
 		},
 		TestCases: []*api.TestCase{
 			{
-				Name:      testcase,
+				Name:      string(testcase),
 				Instances: api.InstanceConstraints{Minimum: 1, Maximum: 100},
 				Parameters: map[string]api.Parameter{
 					"param4": {
@@ -224,7 +226,7 @@ func createTestTask(t *testing.T, testcase string) *task.Task {
 		Version:     0,
 		Priority:    0,
 		Plan:        "placebo",
-		Case:        testcase,
+		Case:        string(testcase),
 		ID:          id,
 		Runner:      "local:exec",
 		Composition: cmp,
