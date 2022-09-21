@@ -41,6 +41,29 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
+func localAddresses() {
+	ifaces, err := net.Interfaces()
+	fmt.Println("Checking local addresses")
+	if err != nil {
+		fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
+		return
+	}
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
+			continue
+		}
+		for _, a := range addrs {
+			switch v := a.(type) {
+			case *net.IPAddr:
+				fmt.Printf("%v : %s (%s)\n", i.Name, v, v.IP.DefaultMask())
+			}
+
+		}
+	}
+}
+
 func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) error {
 	if cfg.Network != defaultDataNetwork {
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
@@ -51,6 +74,8 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		fmt.Println("Skipping network configuration completely!")
 		return nil
 	}
+
+	localAddresses()
 
 	logging.S().Infow("============ Configuring network START ==============", "network", cfg.Network)
 

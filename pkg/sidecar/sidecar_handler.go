@@ -3,7 +3,6 @@ package sidecar
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/sync"
@@ -22,9 +21,6 @@ func handler(ctx context.Context, instance *Instance) error {
 			instance.S().Warnf("failed to close instance: %s", err)
 		}
 	}()
-
-	instance.S().Infow("Sleeping before initial network config!")
-	time.Sleep(2 * 60 * time.Second)
 
 	// Network configuration loop.
 	err := instance.Network.ConfigureNetwork(ctx, &network.Config{
