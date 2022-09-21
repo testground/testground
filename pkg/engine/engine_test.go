@@ -17,6 +17,11 @@ import (
 	"github.com/testground/testground/pkg/task"
 )
 
+const (
+	Ok    string = "ok"
+	Stall        = "stall"
+)
+
 func TestUnmarshalTaskRun(t *testing.T) {
 	taskData := &task.Task{
 		Type:        task.TypeRun,
@@ -131,11 +136,6 @@ func TestNewEngine(t *testing.T) {
 
 	engine, err := NewEngine(cfg)
 	require.NoError(t, err)
-
-	const (
-		Ok    string = "ok"
-		Stall        = "stall"
-	)
 
 	t.Run("OK case", func(t *testing.T) {
 		testTask := createTestTask(t, Ok)
