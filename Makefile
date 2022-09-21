@@ -71,6 +71,9 @@ test-integ-local-docker:
 	./integration_tests/15_docker_mixed_builders_configuration.sh
 	./integration_tests/15_02_docker_mixed_builders_and_custom_go_deps.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
+	./integration_tests/17_docker_benchmark_storm_ok.sh
+	./integration_tests/18_block_runners.sh
+	./integration_tests/19_limit_runs_per_branch.sh
 	./integration_tests/20_docker_just_sleeping.sh
 
 test-integ-examples:
