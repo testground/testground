@@ -85,7 +85,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 	}
 
 	// go mod tidy
-	cmd := exec.CommandContext(ctx, "go", append([]string{"mod", "tidy"})...)
+	cmd := exec.CommandContext(ctx, "go", "mod", "tidy")
 	cmd.Dir = plansrc
 	if err := cmd.Run(); err != nil {
 		out, _ := cmd.CombinedOutput()
