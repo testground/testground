@@ -98,7 +98,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 
 	// Calculate the arguments to go build.
 	// go build -o <output_path> [-tags <comma-separated tags>] <exec_pkg>
-	var args = []string{"build", "-gcflags='all=-N -l'", "-o", path}
+	var args = []string{"build", "-gcflags=all=-N -l", "-o", path}
 	if len(in.Selectors) > 0 {
 		args = append(args, "-tags")
 		args = append(args, strings.Join(in.Selectors, ","))
