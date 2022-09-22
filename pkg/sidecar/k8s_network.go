@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 
@@ -34,6 +36,7 @@ type K8sNetwork struct {
 	cninet          *libcni.CNIConfig
 	subnet          string
 	netnsPath       string
+	initialized     bool
 }
 
 func (n *K8sNetwork) Close() error {
@@ -41,27 +44,69 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
-func localAddresses() {
-	ifaces, err := net.Interfaces()
-	fmt.Println("Checking local addresses")
-	if err != nil {
-		fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
-		return
-	}
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			fmt.Print(fmt.Errorf("localAddresses: %+v\n", err.Error()))
-			continue
-		}
-		for _, a := range addrs {
-			switch v := a.(type) {
-			case *net.IPAddr:
-				fmt.Printf("%v : %s (%s)\n", i.Name, v, v.IP.DefaultMask())
-			}
+// getExistingIpRange returns an IP range, if it exists and is attached, that contains the
+// given matchingAddr
+func getExistingIpRange(matchingAddr string) *net.IPNet {
+	// remove mask from matching Addr
+	matchingAddr = strings.Split(matchingAddr, "/")[0]
 
+	logging.S().Infof("Checking local ranges for address %s", matchingAddr)
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		logging.S().Errorf("interfaceAddrs error: %+v\n", err.Error())
+		return nil
+	}
+
+	if len(addrs) == 0 {
+		logging.S().Warnf("No InterfaceAddrs exist")
+	} else {
+		// check all interface addresses
+		for _, i := range addrs {
+			_, parsedIp, err := net.ParseCIDR(i.String())
+			if err != nil {
+				logging.S().Errorf(err.Error())
+				continue
+			}
+			iNet := &ptypes.IPNet{IPNet: *parsedIp}
+			matchingNetIp := net.ParseIP(matchingAddr)
+			// does the range contain the target IP?
+			if iNet.Contains(matchingNetIp) {
+				return parsedIp
+			}
 		}
 	}
+	return nil
+
+}
+
+// InitializeNetwork initializes the k8s network. This should be once, before any additional configuration takes place
+func (n *K8sNetwork) InitializeNetwork(ctx context.Context) error {
+	// It is possible an existing address is already assigned by the k8s CNI, and the network doesn't track it
+	// In that case, the easiest thing to do is to simply delete the link - the rest of the configuration code will
+	// handle the rest
+	logging.S().Infow("Initializing k8s network")
+
+	// check for existing address
+	foundIpnet := getExistingIpRange(n.subnet)
+	if foundIpnet != nil {
+		logging.S().Infow("Found an existing IP address during network init. Deleting address...", "address", foundIpnet)
+		// disconnect it
+		linkCfg, err := newNetworkConfigList("ip", foundIpnet.IP.String())
+		if err != nil {
+			return err
+		}
+		rt := &libcni.RuntimeConf{
+			ContainerID: n.container.ID,
+			NetNS:       n.netnsPath,
+			IfName:      dataNetworkIfname,
+		}
+
+		if err := n.cninet.DelNetworkList(ctx, linkCfg, rt); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) error {
@@ -69,50 +114,17 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
 	}
 
-	var skipConfig = false
-	if skipConfig {
-		fmt.Println("Skipping network configuration completely!")
-		return nil
+	if !n.initialized {
+		err := n.InitializeNetwork(ctx)
+		if err != nil {
+			return fmt.Errorf("error initializing k8s network: %s", err)
+		}
+		n.initialized = true
 	}
-
-	localAddresses()
 
 	logging.S().Infow("============ Configuring network START ==============", "network", cfg.Network)
 
-	for k, v := range n.activeLinks {
-		logging.S().Infow("Active link %s: %s (ipv4) %s (link.Type) %s (rt.IfName) %s (rt.NetNS) %s (netconf.Name)\n",
-			k, v.IPv4, v.Link.Type(), v.rt.IfName, v.rt.NetNS, v.netconf.Name)
-	}
-
-	if len(n.activeLinks) == 0 {
-		logging.S().Infow("No active links detected!")
-	}
-
 	link, online := n.activeLinks[cfg.Network]
-
-	if link != nil {
-		logging.S().Infof("Found active link in network: IPV4: %s, IfName: %s", link.IPv4, link.rt.IfName)
-	}
-
-	logging.S().Infof("Network %s, is online %s Checking existing routes....", cfg.Network, online)
-	netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
-	if err != nil {
-		return err
-	}
-	routes, err := getK8sRoutes(netlinkByName, n.nl)
-	if err != nil {
-		return err
-	}
-
-	logging.S().Infof("Detected %d routes", len(routes.routes))
-
-	for _, route := range routes.routes {
-		logging.S().Infow("Route in network:", "route", route)
-	}
-
-	if !online && len(routes.routes) > 0 {
-		logging.S().Warnf("Not connected to network, but %d routes are present", len(routes.routes))
-	}
 
 	// Are we _disabling_ the network?
 	if !cfg.Enable {
@@ -144,7 +156,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 	// Are we _connected_ to the network.
 	if !online {
-		logging.S().Debugw("Instance is not connected to network!")
+		logging.S().Infow("Instance is not connected to network!")
 		// No, we're not.
 		// Connect.
 		if cfg.IPv6 != nil {
