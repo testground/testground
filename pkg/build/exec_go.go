@@ -66,6 +66,10 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
+		if ver.Target == "" {
+			ver.Target = mod
+		}
+
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, ver.Target, ver.Version))
 	}
 
