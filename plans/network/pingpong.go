@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/testground/sdk-go/network"
-	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
@@ -82,7 +81,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	peerAddrs, err := getPeerAddrs(ctx, runenv, client)
+	ownDataIp := netclient.MustGetDataNetworkIP()
+	peerAddrs, err := getPeerAddrs(ctx, runenv, ownDataIp, client)
 	if err != nil {
 		return err
 	}
@@ -201,17 +201,10 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 }
 
 // Returns data network addresses of test peer instances
-func getPeerAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) ([]string, error) {
-
-	// Retrieve own data IP
-	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
-	if err != nil {
-		return nil, err
-	}
-
+func getPeerAddrs(ctx context.Context, runenv *runtime.RunEnv, ownDataIp net.IP, client sync.Client) ([]string, error) {
 	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
 
-	peerAddrs, err := exchangeAddrWithPeers(ctx, client, runenv, tcpAddr.String())
+	peerAddrs, err := exchangeAddrWithPeers(ctx, client, runenv, ownDataIp.String())
 	if err != nil {
 		return nil, err
 	}
@@ -219,27 +212,6 @@ func getPeerAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Clien
 	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
 
 	return peerAddrs, nil
-}
-
-// Returns the IP address belonging to the given subnet
-func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil, err
-	}
-	for _, addr := range addrs {
-		if ip, ok := addr.(*net.IPNet); ok {
-			if subnet.Contains(ip.IP) {
-				tcpAddr := &net.TCPAddr{IP: ip.IP}
-				return tcpAddr, nil
-			} else {
-				fmt.Printf("%s does not contain %s\n", subnet, ip.IP)
-			}
-		} else {
-			panic(fmt.Sprintf("%T", addr))
-		}
-	}
-	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
 // Shares this instance's address with all other instances in the test,
