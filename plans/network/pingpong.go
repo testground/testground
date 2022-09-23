@@ -14,12 +14,6 @@ import (
 	"github.com/testground/sdk-go/sync"
 )
 
-type ListenAddrs struct {
-	Addrs []string
-}
-
-var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
-
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
@@ -88,7 +82,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before reconfiguring network")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	otherInstanceAddr, err := exchangeListenAddrs(ctx, runenv, client)
+	peerAddrs, err := getPeerAddrs(ctx, runenv, client)
 	if err != nil {
 		return err
 	}
@@ -98,7 +92,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		runenv.RecordMessage("Listening at", "address", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
-		addr := strings.Split(otherInstanceAddr, ":")[0]
+		addr := strings.Split(peerAddrs[0], ":")[0]
 		var targetIp = net.ParseIP(addr)
 		runenv.RecordMessage("Attempting to connect to ", "target", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
@@ -206,47 +200,25 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-// Exchanges own data network address with other instance in the test, and returns their data addres
-func exchangeListenAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) (string, error) {
+// Returns data network addresses of test peer instances
+func getPeerAddrs(ctx context.Context, runenv *runtime.RunEnv, client sync.Client) ([]string, error) {
 
 	// Retrieve own data IP
 	tcpAddr, err := getSubnetAddr(runenv.TestSubnet)
 	if err != nil {
-		return "", err
-	}
-
-	mynode := &ListenAddrs{}
-	mine := map[string]struct{}{}
-
-	mynode.Addrs = append(mynode.Addrs, tcpAddr.String())
-	for _, l := range mynode.Addrs {
-		mine[l] = struct{}{}
+		return nil, err
 	}
 
 	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
 
-	allAddrs, err := shareAddresses(ctx, client, runenv, mynode)
+	peerAddrs, err := exchangeAddrWithPeers(ctx, client, runenv, tcpAddr.String())
 	if err != nil {
-		return "", err
-	}
-
-	otherAddrs := []string{}
-	// filter addresses to remove any own address
-	for _, addr := range allAddrs {
-		if _, ok := mine[addr]; ok {
-			continue
-		}
-		otherAddrs = append(otherAddrs, addr)
+		return nil, err
 	}
 
 	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
 
-	// since there is only 1 other instance in test, we expect a single address in the list
-	if len(otherAddrs) > 1 {
-		return "", fmt.Errorf("expected a single address to be returned, got %d", len(otherAddrs))
-	}
-
-	return otherAddrs[0], nil
+	return peerAddrs, nil
 }
 
 // Returns the IP address belonging to the given subnet
@@ -270,23 +242,27 @@ func getSubnetAddr(subnet *ptypes.IPNet) (*net.TCPAddr, error) {
 	return nil, fmt.Errorf("no network interface found. Addrs: %v", addrs)
 }
 
-// Shares *all* of this instance's addresses with all other instances in the test
-func shareAddresses(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, mynodeInfo *ListenAddrs) ([]string, error) {
+// Shares this instance's address with all other instances in the test,
+//  collects all other instances' addresses and returns them
+func exchangeAddrWithPeers(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, addr string) ([]string, error) {
 	subCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ch := make(chan *ListenAddrs)
-	if _, _, err := client.PublishSubscribe(subCtx, PeerTopic, mynodeInfo, ch); err != nil {
-		return nil, fmt.Errorf("error with pub/sub")
+	peerTopic := sync.NewTopic("peers", "")
+	ch := make(chan string)
+	if _, _, err := client.PublishSubscribe(subCtx, peerTopic, addr, ch); err != nil {
+		return nil, fmt.Errorf(err.Error())
 	}
 
 	res := []string{}
 
 	for i := 0; i < runenv.TestInstanceCount; i++ {
 		select {
-		case info := <-ch:
-			runenv.RecordMessage("got info: %d: %s", i, info.Addrs)
-			res = append(res, info.Addrs...)
+		case otherAddr := <-ch:
+			runenv.RecordMessage("got info: %d: %s", i, otherAddr)
+			if addr != otherAddr {
+				res = append(res, otherAddr)
+			}
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
