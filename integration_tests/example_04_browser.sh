@@ -3,6 +3,7 @@ my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$my_dir/header.sh"
 
 docker pull node:16
+docker pull mcr.microsoft.com/playwright:v1.25.2-focal
 testground plan import --from ./plans --name testground
 
 pushd $TEMPDIR
