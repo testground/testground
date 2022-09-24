@@ -1,13 +1,10 @@
 module.exports = async (page, runenv, client) => {
-  runenv.recordStart()
-
-  const browserPlatform = await page.evaluate(() => {
-    return window.navigator.userAgentData.platform
+  const userAgent = await page.evaluate(() => {
+    return window.navigator.userAgent
   })
-  if (!/linux/i.exec(browserPlatform)) {
-    throw new Error(`unexpected browser platform: ${browserPlatform}`)
+  if (!/linux/i.exec(userAgent)) {
+    throw new Error(`unexpected linux user agent: ${userAgent}`)
   }
 
   runenv.recordMessage('playwright: success: linux platform detected')
-  runenv.recordSuccess()
 }
