@@ -14,6 +14,6 @@ RUN apt-get update && \
 WORKDIR /plan
 COPY ./* /plan/
 
-RUN npm install
+RUN npm ci
 
-ENTRYPOINT [ "yarn", "run", "start" ]
+ENTRYPOINT [ "npm", "start" ]

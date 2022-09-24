@@ -1,10 +1,14 @@
 const { chromium, firefox } = require('playwright')
-const { expect } = require('@playwright/test')
 
-module.exports = async (runenv, client) => {
+module.exports = (module) => {
+  const testFn = require(module)
+  return (runenv, client) => {
+    runTestFn(runenv, client, testFn)
+  }
+}
+
+async function runTestFn (runenv, client, fn) {
   let browser
-
-  runenv.recordStart()
 
   runenv.recordMessage('playwright: launching browser and opening new page')
   if (/firefox/i.exec(runenv.testInstanceParams.browser)) {
@@ -17,10 +21,5 @@ module.exports = async (runenv, client) => {
   const page = await browser.newPage()
   runenv.recordMessage('playwright: new page opened')
 
-  await expect(page.evaluate(() => {
-    return window.navigator.userAgentData.platform
-  })).toHaveText('Linux')
-
-  runenv.recordMessage('playwright: success: linux platform detected')
-  runenv.recordSuccess()
+  return await fn(page, runenv, client)
 }

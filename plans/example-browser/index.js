@@ -1,7 +1,8 @@
 const { invokeMap } = require('@testground/sdk')
+const createTestCase = require('./playwright-runner')
 
 const testcases = {
-  helloWorld: require('./helloWorld')
+  success: createTestCase('./success')
 }
 
 ;(async () => {
