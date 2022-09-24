@@ -1,0 +1,34 @@
+name = "playwright-test"
+
+[defaults]
+builder = "docker:generic"
+runner = "local:docker"
+
+[builders."docker:generic"]
+enabled = true
+  
+[builders."docker:generic".build_args]
+build_image = "node:latest"
+run_image = "node:latest"
+
+[builders."docker:go"]
+enabled = false
+
+[builders."exec:go"]
+enabled = false
+
+[runners."local:docker"]
+enabled = true
+
+[runners."local:exec"]
+enabled = false
+
+[runners."cluster:swarm"]
+enabled = false
+
+[runners."cluster:k8s"]
+enabled = false
+
+[[testcases]]
+name = "basicExpress"
+instances = { min = 1, max = 1, default = 1 }
