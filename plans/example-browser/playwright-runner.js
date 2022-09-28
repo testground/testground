@@ -1,5 +1,9 @@
 const { chromium, firefox } = require('playwright')
 
+// create a testground testCase function
+// which will open a page in a desired browser
+// and run the default exported function from the given
+// module against that page.
 module.exports = (module) => {
   const testFn = require(module)
   return async (runenv, client) => {
@@ -9,19 +13,30 @@ module.exports = (module) => {
   }
 }
 
+// utility function to launch the desired browser,
+// open a new (blank) page on it and run the given test against it.
 async function runTestFn (runenv, client, fn) {
   let browser
   let result
 
   try {
     runenv.recordMessage('playwright: launching browser and opening new page')
-    if (/firefox/i.exec(runenv.testInstanceParams.browser)) {
-      browser = await firefox.launch()
-      runenv.recordMessage('playwright: firefox launched')
-    } else {
-      browser = await chromium.launch()
-      runenv.recordMessage('playwright: chromium launched')
+
+    switch (runenv.testInstanceParams.browser || 'chromium') {
+      case 'firefox':
+        browser = await firefox.launch()
+        runenv.recordMessage('playwright: firefox launched')
+        break
+
+      case 'chromium':
+        browser = await chromium.launch()
+        runenv.recordMessage('playwright: chromium launched')
+        break
+
+      default:
+        throw new Error(`invalid browser test parameter: ${runenv.testInstanceParams.browser}`)
     }
+
     const page = await browser.newPage()
     runenv.recordMessage('playwright: new page opened')
 

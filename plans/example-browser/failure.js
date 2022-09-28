@@ -3,9 +3,7 @@ module.exports = async (page, runenv, client) => {
     return window.navigator.userAgent
   })
   if (userAgent !== 'testground') {
-    throw new Error(`expected user agent 'testground', unexpected: ${userAgent}`)
+    throw new Error(`failure.js: If you see this message, that means the test failed as expected. User agent is ${userAgent}`)
   }
-
-  // we do not ever expect to reach here, this is a failure test
-  runenv.recordMessage('playwright: success: testground platform detected')
+  runenv.recordMessage('failure.js: If you see this message, something bad has occurred - this test is meant to fail')
 }
