@@ -26,10 +26,11 @@ Testground As A Service,
   * [1. Testground provides reliable results](#1-testground-provides-reliable-results)
   * [2. Testground can be set up as an organization-wide Service](#2-testground-can-be-set-up-as-an-organization-wide-service)
   * [3. The knowledge required to work efficiently with Testground is available and easy to access](#3-the-knowledge-required-to-work-efficiently-with-testground-is-available-and-easy-to-access)
-  * [4. It is simple and pleasant to contribute to Testground](#4-it-is-simple-and-pleasant-to-contribute-to-testground)
+  * [4. Testground Developement follows high-standard](#4-testground-developement-follows-high-standard)
   * [5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications](#5-testground-provides-the-networking-tooling-required-to-test-complex-distributed---decentralized-applications)
   * [6. Testground provides the tooling to make identifying and fixing issues easy.](#6-testground-provides-the-tooling-to-make-identifying-and-fixing-issues-easy)
   * [7. Testground covers every /essential/ combinations of languages and libraries required by its users](#7-testground-covers-every--essential--combinations-of-languages-and-libraries-required-by-its-users)
+
 
 ## 1. Testground provides reliable results
 
@@ -99,7 +100,7 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 - "Public Relations".
 
 
-## 4. It is simple and pleasant to contribute to Testground
+## 4. Testground Developement follows high-standard
 
 ### Testground CI & Testing is practical and reliable
 
@@ -118,11 +119,12 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 - public discussions
 - community gatherings
 
-### Efficient Team management
+
+### Efficient Project Management and Project Visibility
 
 - We have a single maintainer team for review,
 - We have a clear label and triaging process,
-- We have a clean contribution process (protected branches, etc),
+- We have a clear contribution process (protected branches, etc),
 - We have precise project management tooling (re-ignite ZenHub?)
 
 
@@ -146,10 +148,11 @@ There is a clear matrix of what features can be used with which Testground runne
 - Remote runners feature
 
 
-## 6. Testground provides the tooling to make identifying and fixing issues easy.
+## 6. Testground provides the tooling to make creating tests, identifying issues, and fixing issue simple.
 
-- Logging improvements
-- tcpdump'ing features
+- composition files specification and improvements -
+- Logging improvements - [Epic 1355](https://github.com/testground/testground/issues/1355)
+- tcpdump'ing features - [Issue #1384](https://github.com/testground/testground/issues/1384)
 
 
 ## 7. Testground covers every /essential/ combinations of languages and libraries required by its users
@@ -179,4 +182,3 @@ There is a clear matrix of what features can be used with which Testground runne
 # Later
 
 ## Testground is used at ProtocolLabs to measure performances
-
