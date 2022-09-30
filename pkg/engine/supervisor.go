@@ -112,7 +112,9 @@ func (e *Engine) worker(n int) {
 			case task.TypeRun:
 				var res *api.RunOutput
 				res, errTask = e.doRun(ctx, tsk.ID, tsk.Input.(*RunInput), ow)
+
 				if errTask != nil {
+					errTask = &TaskExecutionError{TaskType: string(tsk.Type), WrappedErr: errTask}
 					logging.S().Errorw("doRun returned err", "err", errTask)
 				}
 
@@ -123,6 +125,7 @@ func (e *Engine) worker(n int) {
 				var res []*api.BuildOutput
 				res, errTask = e.doBuild(ctx, tsk.Input.(*BuildInput), ow)
 				if errTask != nil {
+					errTask = &TaskExecutionError{TaskType: string(tsk.Type), WrappedErr: errTask}
 					logging.S().Errorw("doBuild returned err", "err", errTask)
 				}
 
@@ -146,8 +149,12 @@ func (e *Engine) worker(n int) {
 			if errTask != nil {
 				tsk.Error = errTask.Error()
 
-				if errors.Is(errTask, context.Canceled) {
+				var e *TaskExecutionError
+				if errors.As(errTask, &e) || errors.Is(errTask, context.Canceled) {
 					newState.State = task.StateCanceled
+					logging.S().Errorw("task cancelled due to error", "err", errTask)
+				} else {
+					logging.S().Infow("Task encountered error, but was not canceled.")
 				}
 			}
 
@@ -339,7 +346,6 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		// no need to synchronise access, as each goroutine will write its
 		// response in its index.
 		ress   = make([]*api.BuildOutput, len(comp.Groups))
-		errgrp = errgroup.Group{}
 		cancel context.CancelFunc
 	)
 
@@ -385,6 +391,14 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	// Trigger a build job for each unique build, and wait until all of them are
 	// done, mapping the build artifacts back to the original group positions in
 	// the response.
+	errGroup, errGroupCtx := errgroup.WithContext(ctx)
+
+	concurrentBuilds := comp.Global.ConcurrentBuilds
+	if concurrentBuilds == 0 {
+		concurrentBuilds = -1
+	}
+	errGroup.SetLimit(concurrentBuilds)
+
 	var cnt int
 	for key, idxs := range uniq {
 		idxs := idxs
@@ -393,7 +407,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 		src := finalSources[cnt]
 		cnt++
 
-		errgrp.Go(func() (err error) {
+		errGroup.Go(func() (err error) {
 			// Every Group in `idxs`` have the same build key. They are identitical when it comes to build,
 			// so it's safe to use the first one to build them all.
 			grp := comp.Groups[idxs[0]]
@@ -449,7 +463,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 				UnpackedSources: src,
 			}
 
-			res, err := bm.Build(ctx, in, ow)
+			res, err := bm.Build(errGroupCtx, in, ow)
 			if err != nil {
 				ow.Infow("build failed", "plan", plan, "groups", grpids, "builder", builder, "error", err)
 				return err
@@ -469,7 +483,7 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 	}
 
 	// Wait until all goroutines are done. If any failed, return the error.
-	if err := errgrp.Wait(); err != nil {
+	if err := errGroup.Wait(); err != nil {
 		return nil, err
 	}
 
@@ -548,6 +562,11 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 
 	// 2. Get the env config for the runner.
 	cfg = cfg.Append(e.envcfg.Runners[trunner])
+
+	var flag = e.envcfg.Runners[trunner][config.RunnerDisabledFlag]
+	if flag == true {
+		return nil, runner.ErrRunnerDisabled
+	}
 
 	// 1. Get overrides from the composition.
 	cfg = cfg.Append(comp.Global.RunConfig)

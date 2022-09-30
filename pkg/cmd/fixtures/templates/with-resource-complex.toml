@@ -1,0 +1,48 @@
+[metadata]
+  name = "experiment"
+
+[global]
+  plan = "plan"
+  case = "case"
+  builder = "docker:go"
+  runner = "local:docker"
+
+{{ with (load_resource "./resource-complex.toml" ) }}
+{{- range .groups }}
+[[groups]]
+  id = "{{ .id }}"
+  instances = { count = 1 }
+
+  [groups.build]
+    selectors = ['{{ .selector }}']
+
+  [groups.build_config]
+    build_base_image = 'golang:{{ .go_version }}-buster'
+    modfile = "{{ .modfile }}"
+{{ end }}
+
+  {{- with .master }}
+[[groups]]
+  id = "master"
+  instances = { count = 1 }
+
+  [groups.build]
+    selectors = ['{{ .selector }}']
+
+    [[groups.build.dependencies]]
+      module = "github.com/libp2p/go-libp2p"
+      version = "master"
+
+  [groups.build_config]
+    build_base_image = 'golang:{{ .go_version }}-buster'
+    modfile = "{{ .modfile }}"
+
+  [groups.build_config.dockerfile_extensions]
+    # deal with dependency changes in master until we create the new vx.y.z instance
+    pre_build = """
+RUN cd ${PLAN_DIR} && \
+    go mod download github.com/libp2p/go-libp2p && \
+    go mod tidy -compat={{ .go_version }}
+"""
+{{- end -}}
+{{- end -}}

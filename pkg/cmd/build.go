@@ -114,15 +114,17 @@ var BuildCommand = cli.Command{
 }
 
 func buildCompositionCmd(c *cli.Context) (err error) {
-	comp := new(api.Composition)
 	file := c.String("file")
 	if file == "" {
 		return fmt.Errorf("no composition file supplied")
 	}
 
-	if _, err = toml.DecodeFile(file, comp); err != nil {
-		return fmt.Errorf("failed to process composition file: %w", err)
+	comp, err := loadComposition(file)
+
+	if err != nil {
+		return fmt.Errorf("failed to load composition file: %w", err)
 	}
+
 	if err = comp.ValidateForBuild(); err != nil {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
@@ -133,10 +135,19 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 	}
 
 	if c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		f, err := os.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
+
+		defer func() {
+			cerr := f.Close()
+			if err == nil {
+				err = cerr
+			}
+		}()
+
 		if err != nil {
 			return fmt.Errorf("failed to write composition to file: %w", err)
 		}
+
 		enc := toml.NewEncoder(f)
 		if err := enc.Encode(comp); err != nil {
 			return fmt.Errorf("failed to encode composition into file: %w", err)

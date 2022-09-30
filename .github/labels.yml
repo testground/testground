@@ -27,18 +27,15 @@
 - name: area/core
   color: 0bb1ed
   description: "Area: Core"
-- name: area/sdk-sync
+- name: area/sdk
   color: 0bb1ed
-  description: "Area: SDK | Sync Service"
-- name: area/sdk-runtime
-  color: 0bb1ed
-  description: "Area: SDK | Runtime"
-- name: area/sdk-testplans
-  color: 0bb1ed
-  description: "Area: SDK | Test plan API"
+  description: "Area: SDK"
 - name: area/sidecar
   color: 0bb1ed
   description: "Area: Sidecar"
+- name: area/sync-service
+  color: 0bb1ed
+  description: "Area: Sync Service"
 - name: area/observability
   color: 0bb1ed
   description: "Area: Observability"
@@ -60,9 +57,22 @@
 - name: area/testing
   color: 0bb1ed
   description: "Area: Testing"
-- name: area/test-plan
+- name: area/ci
   color: 0bb1ed
-  description: "Area: Test Plans"
+  description: "Area: Continuous Integration"
+
+###
+### SDKs
+###
+- name: sdk/rust
+  color: 0bb1ed
+  description: "SDK: Rust"
+- name: sdk/js
+  color: 0bb1ed
+  description: "SDK: Javascript"
+- name: sdk/go
+  color: 0bb1ed
+  description: "SDK: Go"
 
 ###
 ### Kinds
@@ -70,9 +80,6 @@
 - name: kind/bug
   color: c92712
   description: "Kind: Bug"
-- name: kind/problem
-  color: c92712
-  description: "Kind: Problem"
 - name: kind/investigation
   color: fcf0b5
   description: "Kind: Investigation"
@@ -91,44 +98,38 @@
 - name: kind/tracking-issue
   color: fcf0b5
   description: "Kind: Tracking Issue"
+- name: kind/epic
+  color: 3e4b9e
+  description: "Kind: EPIC"
 - name: kind/question
   color: fcf0b5
   description: "Kind: Question"
-- name: kind/enhancement
-  color: fcf0b5
-  description: "Kind: Enhancement"
 - name: kind/discussion
   color: fcf0b5
   description: "Kind: Discussion"
-- name: kind/spike
-  color: fcf0b5
-  description: "Kind: Spike"  
 
 ###
 ### Difficulties
 ###
-- name: dif/trivial
+- name: exp/beginner
   color: b2b7ff
   description: "Can be confidently tackled by newcomers, who are widely unfamiliar with testground."
-- name: dif/easy
+- name: exp/novice
   color: 7886d7
   description: "A prexisting testground user should be able to pick this up."
-- name: dif/medium
+- name: exp/intermediate
   color: 6574cd
   description: "Prior experience in having developed testground modules is likely helpful."
-- name: dif/hard
+- name: exp/expert
   color: 5661b3
   description: "Suggests that having worked on the specific component affected by this issue is important."
-- name: dif/expert
+- name: exp/wizard
   color: 2f365f
   description: "Requires extensive knowledge of the history, implications, ramifications of the issue."  
 
 ###
 ### Efforts
 ###
-- name: effort/minutes
-  color: e8fffe
-  description: "Effort: Minutes"
 - name: effort/hours
   color: a0f0ed
   description: "Effort: One or Multiple Hours."
@@ -202,24 +203,12 @@
 ###
 ### Hints
 ###
-- name: hint/good-first-issue
-  color: 0623cc
-  description: "Hint: Good First Issue"
 - name: hint/needs-contributor
   color: 0623cc
   description: "Hint: Needs Contributor"
-- name: hint/needs-participation
-  color: 0623cc
-  description: "Hint: Needs Participation"
-- name: hint/needs-decision
-  color: 0623cc
-  description: "Hint: Needs Decision"
 - name: hint/needs-triage
   color: 0623cc
   description: "Hint: Needs Triage"
-- name: hint/needs-analysis
-  color: 0623cc
-  description: "Hint: Needs Analysis"
 - name: hint/needs-author-input
   color: 0623cc
   description: "Hint: Needs Author Input"
@@ -229,12 +218,6 @@
 - name: hint/needs-community-input
   color: 0623cc
   description: "Hint: Needs Community Input"
-- name: hint/needs-review
-  color: 0623cc
-  description: "Hint: Needs Review"
-- name: hint/needs-help
-  color: 0623cc
-  description: "Hint: Needs Help"  
 - name: hint/needs-docs
   color: 0623cc
   description: "Hint: Needs Docs"
@@ -242,36 +225,6 @@
 ###
 ### Statuses
 ###
-- name: status/done
-  color: edb3a6
-  description: "Status: Done"
-- name: status/approved-waiting
-  color: edb3a6
-  description: "Status: Approved and Awaiting Merge"
-- name: status/changes-requested
-  color: edb3a6
-  description: "Status: Changes Requested in Review"
-- name: status/awaiting-review
-  color: edb3a6
-  description: "Status: Waiting for Review"
-- name: status/deferred
-  color: edb3a6
-  description: "Status: Deferred"
-- name: status/in-progress
-  color: edb3a6
-  description: "Status: In Progress"
 - name: status/blocked
   color: edb3a6
   description: "Status: Blocked"
-- name: status/inactive
-  color: edb3a6
-  description: "Status: Inactive"
-- name: status/waiting
-  color: edb3a6
-  description: "Status: Waiting"
-- name: status/rotten
-  color: edb3a6
-  description: "Status: Rotten"  
-- name: status/discarded
-  color: a0aec0
-  description: "Status: Discarded / Won't fix"  

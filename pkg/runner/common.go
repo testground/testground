@@ -23,6 +23,8 @@ var (
 	controlGateway = "192.18.0.1"
 )
 
+var ErrRunnerDisabled = fmt.Errorf("runner is disabled by config")
+
 func nextDataNetwork(lenNetworks int) (*net.IPNet, string, error) {
 	if lenNetworks > 4095 {
 		return nil, "", errors.New("space exhausted")
@@ -116,6 +118,6 @@ func gzipRunOutputs(ctx context.Context, basedir string, input *api.CollectionIn
 func reviewResources(group *api.RunGroup, ow *rpc.OutputWriter) {
 	log := ow.With("group_id", group.ID)
 	if group.Resources.CPU != "" || group.Resources.Memory != "" {
-		log.Warnw("group has resources set. note that resources requirement and limits are ignored on the this runner.")
+		log.Warnw("group has resources set. Note that resources requirement and limits are ignored by this runner.")
 	}
 }

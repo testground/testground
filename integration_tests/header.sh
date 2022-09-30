@@ -25,8 +25,18 @@ function assert_run_outcome_is {
   RUN_ID=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
   echo "checking run ${RUN_ID}"
 
+  assert_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
+}
+
+# Assert the status of a testground task, as provided by the CLI output
+#
+# Usage:
+#   assert_testground_task_status "###run_id123###" "success"
+function assert_testground_task_status { 
+  RUN_ID="$1"
+  EXPECTED_OUTCOME="$2"
+
   OUTCOME=$(testground status -t "${RUN_ID}" | awk '/Outcome:/{ print $2 }')
-  echo "found outcome ${OUTCOME}"
 
   if [ "${OUTCOME}" != "${EXPECTED_OUTCOME}" ]; then
       exit 1;
@@ -63,18 +73,32 @@ function assert_run_output_is_correct {
   test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 }
 
+# Directory where the daemon and each test will store its outputs
 TEMPDIR=`mktemp -d`
-mkdir -p ${HOME}/testground
-cp env-kind.toml ${HOME}/testground/.env.toml
 
-echo "Starting daemon and logging outputs to $TEMPDIR"
-testground daemon > $TEMPDIR/daemon.out 2>&1 &
-DAEMONPID=$!
+# Start the testground daemon, loading the .env file from the first parameter
+function start_daemon {
+  env_file=$1
 
-sleep 2
+  mkdir -p ${HOME}/testground
 
-echo "Waiting for Testground to launch on 8040..."
-while ! nc -z localhost 8040; do
-  sleep 1
-done
-echo "Testground launched"
+  cp $env_file ${HOME}/testground/.env.toml
+
+  echo "Starting daemon and logging outputs to $TEMPDIR"
+  testground daemon > $TEMPDIR/daemon.out 2>&1 &
+  DAEMONPID=$!
+
+  sleep 2
+
+  echo "Waiting for Testground to launch on 8040..."
+  while ! nc -z localhost 8040; do
+    sleep 1
+  done
+  echo "Testground launched"
+}
+
+# if the SKIP_AUTO_START flag is unset or set to 0, start the daemon immediately
+if [[ ! -n "$SKIP_AUTO_START" || $SKIP_AUTO_START -eq 0 ]]; then
+  echo "Starting daemon automatically"
+  start_daemon 'env-kind.toml'
+fi

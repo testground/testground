@@ -71,15 +71,25 @@ type LocalDockerRunnerConfig struct {
 	Ulimits []string `toml:"ulimits"`
 
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
+	// Collection timeout is the time we wait for the sync service to send us the test outcomes after
+	// all instances have finished.
+	OutcomesCollectionTimeout time.Duration `toml:"outcomes_collection_timeout"`
+}
+
+type testContainerInstance struct {
+	containerID string
+	groupID     string
+	groupIdx    int
 }
 
 // defaultConfig is the default configuration. Incoming configurations will be
 // merged with this object.
 var defaultConfig = LocalDockerRunnerConfig{
-	KeepContainers: false,
-	Unstarted:      false,
-	Background:     false,
-	Ulimits:        []string{"nofile=1048576:1048576"},
+	KeepContainers:            false,
+	Unstarted:                 false,
+	Background:                false,
+	Ulimits:                   []string{"nofile=1048576:1048576"},
+	OutcomesCollectionTimeout: time.Second * 45,
 }
 
 // LocalDockerRunner is a runner that manually stands up as many docker
@@ -195,50 +205,88 @@ func (r *LocalDockerRunner) setupSyncClient() error {
 	return nil
 }
 
+// collectOutcomes listens to the sync service and collects the outcome for every test instance.
+// It stops when all instances have submitted a result or the context was canceled.
 func (r *LocalDockerRunner) collectOutcomes(ctx context.Context, result *Result, tpl *runtime.RunParams) (chan bool, error) {
 	eventsCh, err := r.syncClient.SubscribeEvents(ctx, tpl)
 	if err != nil {
 		return nil, err
 	}
 
+	// TODO: eventually we'll keep a trace of each test instance status.
+	// Right now, if a container sends multiple events, it will mess up the outcomes.
+	// We have to pass its group id to the container, so that it can send us back messages
+	// with its own id.
+	expectingOutcomes := result.countTotalInstances()
 	done := make(chan bool)
 
 	go func() {
 		running := true
-		for running {
+		for running && expectingOutcomes > 0 {
 			select {
 			case <-ctx.Done():
 				running = false
 			case e := <-eventsCh:
-				// for now we emit only outcome OK events, so no need for more checks
 				if e.SuccessEvent != nil {
-					se := e.SuccessEvent
-					o := result.Outcomes[se.TestGroupID]
-					o.Ok = o.Ok + 1
+					result.addOutcome(e.SuccessEvent.TestGroupID, task.OutcomeSuccess)
+					expectingOutcomes -= 1
+				} else if e.FailureEvent != nil {
+					result.addOutcome(e.FailureEvent.TestGroupID, task.OutcomeFailure)
+					expectingOutcomes -= 1
+				} else if e.CrashEvent != nil {
+					result.addOutcome(e.CrashEvent.TestGroupID, task.OutcomeFailure)
+					expectingOutcomes -= 1
 				}
+				// else: skip
 			}
 		}
 
-		result.Outcome = task.OutcomeSuccess
-		if len(result.Outcomes) == 0 {
-			result.Outcome = task.OutcomeFailure
-		}
-
-		for g := range result.Outcomes {
-			if result.Outcomes[g].Total != result.Outcomes[g].Ok {
-				result.Outcome = task.OutcomeFailure
-				break
-			}
-		}
-
+		result.updateOutcome()
 		done <- true
 	}()
 
 	return done, nil
 }
 
+func (r *LocalDockerRunner) prepareOutputDirectory(instance_id int, runenv *runtime.RunParams) (string, error) {
+	// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
+	odir := filepath.Join(r.outputsDir, runenv.TestPlan, runenv.TestRun, runenv.TestGroupID, strconv.Itoa(instance_id))
+
+	err := os.MkdirAll(odir, 0777)
+	if err != nil {
+		return "", fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
+	}
+
+	return odir, nil
+}
+
+func (r *LocalDockerRunner) prepareTemporaryDirectory(instance_id int, runenv *runtime.RunParams) (string, error) {
+	var tmpdir string
+	tmpdir, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
+	}
+
+	return tmpdir, nil
+}
+
 func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc.OutputWriter) (runoutput *api.RunOutput, err error) {
 	log := ow.With("runner", "local:docker", "run_id", input.RunID)
+
+	result := newResult(input)
+	runoutput = &api.RunOutput{
+		RunID:  input.RunID,
+		Result: result,
+	}
+
+	defer func() {
+		if err != nil && result.Outcome == "" {
+			result.Outcome = task.OutcomeFailure
+		}
+		if ctx.Err() == context.Canceled {
+			result.Outcome = task.OutcomeCanceled
+		}
+	}()
 
 	err = r.setupSyncClient()
 	if err != nil {
@@ -248,20 +296,11 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 	// Grab a read lock. This will allow many runs to run simultaneously, but
 	// they will be exclusive of state-altering healthchecks.
+	// TODO: I'm not sure this is true anymore.
 	r.lk.RLock()
 	defer r.lk.RUnlock()
 
-	result := newResult()
-	runoutput = &api.RunOutput{
-		RunID:  input.RunID,
-		Result: result,
-	}
-
-	defer func() {
-		if ctx.Err() == context.Canceled {
-			result.Outcome = task.OutcomeCanceled
-		}
-	}()
+	// ## Prepare Execution Context
 
 	// Create a docker client.
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -269,7 +308,13 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return
 	}
 
-	// Build a template runenv.
+	// Create a data network.
+	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, input, "default")
+	if err != nil {
+		return
+	}
+
+	// Prepare the Run Environment template.
 	template := runtime.RunParams{
 		TestPlan:           input.TestPlan,
 		TestCase:           input.TestCase,
@@ -280,85 +325,76 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		TestOutputsPath:    "/outputs",
 		TestTempPath:       "/temp", // not using /tmp to avoid overriding linux standard paths.
 		TestStartTime:      time.Now(),
+		TestSubnet:         &ptypes.IPNet{IPNet: *subnet},
 	}
 
-	// Create a data network.
-	dataNetworkID, subnet, err := newDataNetwork(ctx, cli, ow, &template, "default")
-	if err != nil {
-		return
-	}
-
-	template.TestSubnet = &ptypes.IPNet{IPNet: *subnet}
-
-	// Merge the incoming configuration with the default configuration.
+	// Prepare the Runner Configuration.
 	cfg := defaultConfig
 	if err = mergo.Merge(&cfg, input.RunnerConfig, mergo.WithOverride); err != nil {
 		err = fmt.Errorf("error while merging configurations: %w", err)
 		return
 	}
 
+	// Prepare the ports mapping.
 	ports := make(nat.PortSet)
 	for _, p := range cfg.ExposedPorts {
 		ports[nat.Port(p)] = struct{}{}
 	}
 
-	type testContainer struct {
-		containerID string
-		groupID     string
-		groupIdx    int
+	// Prepare environment variables.
+	sharedEnv := make([]string, 0, 3)
+	sharedEnv = append(sharedEnv, "INFLUXDB_URL=http://testground-influxdb:8086")
+	sharedEnv = append(sharedEnv, "REDIS_HOST=testground-redis")
+	// Inject exposed ports.
+	sharedEnv = append(sharedEnv, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
+	// Set the log level if provided in cfg.
+	if cfg.LogLevel != "" {
+		sharedEnv = append(sharedEnv, "LOG_LEVEL="+cfg.LogLevel)
 	}
 
+	// ## Create the containers
 	var (
-		containers []testContainer
+		containers []testContainerInstance
 		tmpdirs    []string
 	)
+
+	defer func() {
+		// remove all temporary directories.
+		for _, tmpdir := range tmpdirs {
+			_ = os.RemoveAll(tmpdir)
+		}
+	}()
+
 	for _, g := range input.Groups {
+		reviewResources(g, ow)
+
 		runenv := template
 		runenv.TestGroupInstanceCount = g.Instances
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
 		runenv.TestCaptureProfiles = g.Profiles
 
-		result.Outcomes[g.ID] = &GroupOutcome{
-			Total: g.Instances,
-		}
-
-		reviewResources(g, ow)
-
-		// Serialize the runenv into env variables to pass to docker.
-		env := conv.ToOptionsSlice(runenv.ToEnvVars())
-		env = append(env, "INFLUXDB_URL=http://testground-influxdb:8086")
-		env = append(env, "REDIS_HOST=testground-redis")
-
-		// Inject exposed ports.
-		env = append(env, conv.ToOptionsSlice(cfg.ExposedPorts.ToEnvVars())...)
-
-		// Set the log level if provided in cfg.
-		if cfg.LogLevel != "" {
-			env = append(env, "LOG_LEVEL="+cfg.LogLevel)
-		}
+		// Prepare the group's environment variables.
+		env := make([]string, 0, len(sharedEnv)+len(runenv.ToEnvVars()))
+		env = append(env, sharedEnv...)
+		env = append(env, conv.ToOptionsSlice(runenv.ToEnvVars())...)
 
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
-			// <outputs_dir>/<plan>/<run_id>/<group_id>/<instance_number>
-			odir := filepath.Join(r.outputsDir, input.TestPlan, input.RunID, g.ID, strconv.Itoa(i))
-			err = os.MkdirAll(odir, 0777)
+			// TODO: We should set the instance id in runenv and make this whole operation self contained around a local runenv.
+			tmpdir, err := r.prepareTemporaryDirectory(i, &runenv)
 			if err != nil {
-				err = fmt.Errorf("failed to create outputs dir %s: %w", odir, err)
-				break
+				return nil, fmt.Errorf("failed to prepare temporary directory: %w", err)
 			}
-
-			// temporary directory.
-			var tmpdir string
-			tmpdir, err = ioutil.TempDir("", "testground")
-			if err != nil {
-				err = fmt.Errorf("failed to create temp dir: %s: %w", tmpdir, err)
-				break
-			}
-
 			tmpdirs = append(tmpdirs, tmpdir)
 
-			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", input.TestPlan, input.TestCase, input.RunID, g.ID, i)
+			odir, err := r.prepareOutputDirectory(i, &runenv)
+			if err != nil {
+				return nil, fmt.Errorf("failed to prepare output directory: %w", err)
+			}
+
+			// TODO: runenv.TestRun == input.RunID. Refactor into a single name.
+			name := fmt.Sprintf("tg-%s-%s-%s-%s-%d", runenv.TestPlan, runenv.TestCase, runenv.TestRun, runenv.TestGroupID, i)
 			log.Infow("creating container", "name", name)
 
 			ccfg := &container.Config{
@@ -367,10 +403,10 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				Env:          env,
 				Labels: map[string]string{
 					"testground.purpose":  "plan",
-					"testground.plan":     input.TestPlan,
-					"testground.testcase": input.TestCase,
-					"testground.run_id":   input.RunID,
-					"testground.group_id": g.ID,
+					"testground.plan":     runenv.TestPlan,
+					"testground.testcase": runenv.TestCase,
+					"testground.run_id":   runenv.TestRun,
+					"testground.group_id": runenv.TestGroupID,
 				},
 			}
 
@@ -404,7 +440,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				break
 			}
 
-			containers = append(containers, testContainer{res.ID, g.ID, i})
+			container := testContainerInstance{
+				containerID: res.ID,
+				groupID:     g.ID,
+				groupIdx:    i,
+			}
+			containers = append(containers, container)
 
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
@@ -420,7 +461,9 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			for _, c := range containers {
 				ids = append(ids, c.containerID)
 			}
-			_ = docker.DeleteContainers(cli, log, ids)
+			if err := docker.DeleteContainers(cli, log, ids); err != nil {
+				log.Errorw("failed to delete containers", "err", err)
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			if err := cli.NetworkRemove(ctx, dataNetworkID); err != nil {
@@ -439,25 +482,29 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		return
 	}
 
-	var (
-		doneCh    = make(chan error, 2)
-		started   = make(chan testContainer, len(containers))
-		ratelimit = make(chan struct{}, 16)
-	)
+	// ## Start the containers & log their outputs.
+	runCtx, cancelRun := context.WithCancel(ctx)
 
-	ctxContainers, cancel := context.WithCancel(ctx)
-	defer cancel()
+	defer func() {
+		cancelRun()
+	}()
 
-	// collect the outcomes in parallel while the process runs.
-	outcomesDoneCh, err := r.collectOutcomes(ctxContainers, result, &template)
+	// First we collect every container outcomes.
+	outcomesCollectIsCompleteCh, err := r.collectOutcomes(runCtx, result, &template)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 
+	// Second we start the containers
 	log.Infow("starting containers", "count", len(containers))
+	var (
+		startGroup, startGroupCtx = errgroup.WithContext(runCtx)
+		runGroup, runGroupCtx     = errgroup.WithContext(runCtx)
+		ratelimit                 = make(chan struct{}, 16)
+		started                   = make(chan testContainerInstance, len(containers))
+	)
 
-	g, gctx := errgroup.WithContext(ctxContainers)
 	for _, c := range containers {
 		c := c
 		f := func() error {
@@ -466,40 +513,29 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 
 			log.Infow("starting container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
 
-			err := cli.ContainerStart(ctx, c.containerID, types.ContainerStartOptions{})
+			err := cli.ContainerStart(startGroupCtx, c.containerID, types.ContainerStartOptions{})
 			if err == nil {
 				log.Debugw("started container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
 				select {
-				case <-gctx.Done():
+				case <-startGroupCtx.Done():
 				default:
 					started <- c
 				}
 			}
+
 			return err
 		}
-		g.Go(f)
+		startGroup.Go(f)
 	}
 
-	// Wait until we're done to close the started channel.
-	go func() {
-		err := g.Wait()
-		close(started)
-
-		if err != nil {
-			log.Error(err)
-			doneCh <- err
-		} else {
-			log.Infow("started containers", "count", len(containers))
-		}
-	}()
-
+	// Third we start the pretty printer
 	if !cfg.Background {
 		pretty := NewPrettyPrinter(ow)
 
-		// This goroutine tails the sidecar container logs and appends them to the pretty printer.
+		// Tail the sidecar container logs and appends them to the pretty printer.
 		go func() {
 			t := time.Now().Add(time.Duration(-10) * time.Second) // sidecar is a long running daemon, so we care only about logs around the execution of our test run
-			stream, err := cli.ContainerLogs(ctx, "testground-sidecar", types.ContainerLogsOptions{
+			stream, err := cli.ContainerLogs(runCtx, "testground-sidecar", types.ContainerLogsOptions{
 				ShowStdout: true,
 				ShowStderr: false,
 				Since:      t.Format("2006-01-02T15:04:05"),
@@ -507,7 +543,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			})
 
 			if err != nil {
-				doneCh <- err
+				log.Errorw("failed to attach sidecar", "error", err)
+				cancelRun()
 				return
 			}
 
@@ -522,17 +559,14 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			pretty.Append("sidecar     ", rstdout, rstderr)
 		}()
 
+		// Tail the other container logs and appends them to the pretty printer.
 		// This goroutine takes started containers and attaches them to the pretty printer.
 		go func() {
-		Outer:
 			for {
 				select {
-				case tc, more := <-started:
-					if !more {
-						break Outer
-					}
-
-					stream, err := cli.ContainerLogs(ctx, tc.containerID, types.ContainerLogsOptions{
+				case c := <-started:
+					log.Infow("attaching container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
+					stream, err := cli.ContainerLogs(runCtx, c.containerID, types.ContainerLogsOptions{
 						ShowStdout: true,
 						ShowStderr: true,
 						Since:      "2019-01-01T00:00:00",
@@ -540,7 +574,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					})
 
 					if err != nil {
-						doneCh <- err
+						log.Errorw("failed to attach container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx, "error", err)
+						cancelRun()
 						return
 					}
 
@@ -553,43 +588,95 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 					}()
 
 					// instance tag in output: << group[zero_padded_i] >> (container_id[0:6]), e.g. << miner[003] (a1b2c3) >>
-					tag := fmt.Sprintf("%s[%03d] (%s)", tc.groupID, tc.groupIdx, tc.containerID[0:6])
+					tag := fmt.Sprintf("%s[%03d] (%s)", c.groupID, c.groupIdx, c.containerID[0:6])
 					pretty.Manage(tag, rstdout, rstderr)
-
-				case <-ctx.Done():
-					// yield if we're been cancelled.
-					doneCh <- ctx.Err()
+				case <-runCtx.Done():
+					// Exit
 					return
 				}
-			}
-
-			select {
-			case err := <-pretty.Wait():
-				doneCh <- err
-			case <-ctx.Done():
-				log.Error(ctx) // yield if we're been cancelled.
-				doneCh <- ctx.Err()
 			}
 		}()
 	}
 
-	select {
-	case err = <-doneCh:
-	case <-ctx.Done():
-		err = ctx.Err()
+	// Wait for all container to have started
+	err = startGroup.Wait()
+	if err != nil {
+		log.Error(err)
+		return
 	}
 
-	// remove all temporary directories.
-	for _, tmpdir := range tmpdirs {
-		_ = os.RemoveAll(tmpdir)
+	// Finally, we're going to follow our containers until they are done
+
+	for _, c := range containers {
+		c := c
+		f := func() error {
+			log.Infow("waiting for container", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx)
+
+			statusCh, errCh := cli.ContainerWait(runCtx, c.containerID, container.WaitConditionNotRunning)
+
+			select {
+			case err := <-errCh:
+				log.Infow("container failed", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx, "error", err)
+				if err != nil {
+					return err
+				}
+				return nil
+			case status := <-statusCh:
+				log.Infow("container exited", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx, "status", status.StatusCode)
+				return nil
+			case <-runGroupCtx.Done(): // race with the group
+				log.Infow("container group exited", runGroupCtx.Err())
+				return nil
+			}
+		}
+		runGroup.Go(f)
 	}
 
-	cancel()
-	<-outcomesDoneCh
+	// When we're here, our containers are started, the outcomes are being collected.
+	// We wait until either:
+	// - all container are done and outcome have been received
+	// - we reach a timeout.
+
+	containersAreCompleteCh := make(chan bool)
+	outcomesCollectTimeout := make(chan bool)
+
+	// Wait for the containers
+	go func() {
+		err = runGroup.Wait()
+		containersAreCompleteCh <- true
+	}()
+
+	startOutcomesCollectTimeout := func() {
+		time.Sleep(cfg.OutcomesCollectionTimeout)
+		outcomesCollectTimeout <- true
+	}
+
+	waitingForContainers := true
+	waitingForOutcomes := true
+
+	log.Info("Containers started, waiting for containers and outcome signals")
+	for waitingForContainers || waitingForOutcomes {
+		select {
+		case <-containersAreCompleteCh:
+			log.Infow("all containers are complete")
+			waitingForContainers = false
+			go startOutcomesCollectTimeout()
+		case <-outcomesCollectIsCompleteCh:
+			log.Infow("all outcomes are complete")
+			waitingForOutcomes = false
+		case <-outcomesCollectTimeout:
+			log.Infow("we timeout'd waiting for outcomes")
+			waitingForOutcomes = false
+		case <-runCtx.Done():
+			log.Infow("the test run ended early")
+			return
+		}
+	}
+
 	return
 }
 
-func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *runtime.RunParams, name string) (id string, subnet *net.IPNet, err error) {
+func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWriter, env *api.RunInput, name string) (id string, subnet *net.IPNet, err error) {
 	// Find a free network.
 	networks, err := cli.NetworkList(ctx, types.NetworkListOptions{
 		Filters: filters.NewArgs(
@@ -611,12 +698,12 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 	id, err = docker.NewBridgeNetwork(
 		ctx,
 		cli,
-		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.TestRun, name),
+		fmt.Sprintf("tg-%s-%s-%s-%s", env.TestPlan, env.TestCase, env.RunID, name),
 		true,
 		map[string]string{
 			"testground.plan":     env.TestPlan,
 			"testground.testcase": env.TestCase,
-			"testground.run_id":   env.TestRun,
+			"testground.run_id":   env.RunID,
 			"testground.name":     name,
 		},
 		network.IPAMConfig{
@@ -624,6 +711,7 @@ func newDataNetwork(ctx context.Context, cli *client.Client, rw *rpc.OutputWrite
 			Gateway: gateway,
 		},
 	)
+
 	return id, subnet, err
 }
 

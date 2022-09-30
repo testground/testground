@@ -14,7 +14,7 @@ goinstall:
 	go install -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
 
 sync-install:
-	docker pull iptestground/sync-service:latest
+	docker pull iptestground/sync-service:edge
 
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
@@ -69,7 +69,11 @@ test-integ-local-docker:
 	./integration_tests/13_02_docker_builder_configuration.sh
 	./integration_tests/14_docker_silent_test_failure.sh
 	./integration_tests/15_docker_mixed_builders_configuration.sh
+	./integration_tests/15_02_docker_mixed_builders_and_custom_go_deps.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
+	./integration_tests/17_docker_benchmark_storm_ok.sh
+	./integration_tests/18_block_runners.sh
+	./integration_tests/19_limit_runs_per_branch.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh
@@ -85,7 +89,7 @@ kind-cluster:
 	kind load docker-image iptestground/sidecar:edge
 	kubectl apply -f .circleci/sidecar.yaml
 
-	kind load docker-image iptestground/sync-service:latest
+	kind load docker-image iptestground/sync-service:edge
 	kubectl apply -f .circleci/sync-service.yaml
 	kubectl expose deployment/testground-sync-service
 	kubectl port-forward deployment/testground-sync-service 5050:5050 &
