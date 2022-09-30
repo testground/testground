@@ -16,7 +16,7 @@ testground run composition -f ${my_dir}/../plans/_integrations_mixed_builders/_c
     --collect \
     --wait | tee run.out
 
-assert_run_output_is_correct run.out
+SKIP_LOG_PARSING=true assert_run_output_is_correct run.out
 
 popd
 
