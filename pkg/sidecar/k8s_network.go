@@ -165,8 +165,10 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			err     error
 		)
 		if cfg.IPv4 == nil {
+			logging.S().Debugw("trying to add a link", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
+			logging.S().Debugw("trying to add a link", "ip", cfg.IPv4.String(), "container", n.container.ID)
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {

@@ -369,11 +369,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
-				createErr := c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
-				if createErr != nil {
-					ow.Debugf("cluster.Run: Received error when creating testplanPod %s", createErr)
-				}
-				return createErr
+				return c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 			})
 		}
 	}

@@ -544,7 +544,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 			return nil, fmt.Errorf("healthcheck fixes failed; aborting:\n%s", rep)
 		} else if !rep.ChecksSucceeded() {
 			ow.Warnf(aurora.Bold(aurora.Yellow("some healthchecks failed, but continuing")).String())
-			ow.Warnf(aurora.Yellow(rep.String()).String())
 		} else {
 			ow.Infof(aurora.Bold(aurora.Green("healthcheck: ok")).String())
 		}
