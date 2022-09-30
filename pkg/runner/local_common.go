@@ -63,9 +63,6 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 					},
 				},
-				// Sysctls: map[string]string{
-				// 	"net.core.somaxconn": "150000",
-				// },
 				RestartPolicy: container.RestartPolicy{
 					Name: "unless-stopped",
 				},
@@ -93,9 +90,6 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 						{Name: "nofile", Hard: InfraMaxFilesUlimit, Soft: InfraMaxFilesUlimit},
 					},
 				},
-				// Sysctls: map[string]string{
-				// 	"net.core.somaxconn": "150000",
-				// },
 				RestartPolicy: container.RestartPolicy{
 					Name: "unless-stopped",
 				},

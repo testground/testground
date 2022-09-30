@@ -85,12 +85,10 @@ func init() {
 }
 
 func nextK8sSubnet() (*net.IPNet, error) {
-	fmt.Println("Getting next K8s subnet...")
 	subnet, _, err := nextDataNetwork(int(atomic.AddUint64(&k8sSubnetIdx, 1) % 4096))
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("Got subnet: ", subnet)
 	return subnet, err
 }
 
@@ -209,7 +207,6 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			runerr = fmt.Errorf("failed to push images to %s; err: %w", cfg.Provider, err)
 			return
 		}
-		ow.Debugf("Successfully pushed images to registry")
 	}
 
 	defaultCPU, err := resource.ParseQuantity(cfg.TestplanPodCPU)
@@ -265,7 +262,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	jobName := fmt.Sprintf("tg-%s", input.TestPlan)
 
-	ow.Infow("cluster.Run: deploying testground testplan run on k8s", "job-name", jobName)
+	ow.Infow("deploying testground testplan run on k8s", "job-name", jobName)
 
 	var eg errgroup.Group
 
@@ -283,12 +280,8 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			return err
 		}
 
-		ow.Debugf("cluster.Run: Collecting outcomes and watching pods...")
-
 		cancel()
-		ow.Debugf("cluster.Run: Called cancel function")
 		<-outcomesDoneCh
-		ow.Debugf("cluster.Run: Outcomes chan done")
 		return nil
 	})
 
@@ -309,6 +302,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis"})
 		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
+		// This subnet should correspond to the secondary CNI's IP range (usually Weave)
 		env = append(env, v1.EnvVar{Name: "TEST_SUBNET", Value: "10.32.0.0/12"})
 
 		// Set the log level if provided in cfg.
@@ -316,7 +310,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 			env = append(env, v1.EnvVar{Name: "LOG_LEVEL", Value: cfg.LogLevel})
 		}
 
-		// env = append(env, v1.EnvVar{Name: "POD_IP", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "status.podIP"}}})
+		env = append(env, v1.EnvVar{Name: "POD_IP", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "status.podIP"}}})
 		env = append(env, v1.EnvVar{Name: "HOST_IP", ValueFrom: &v1.EnvVarSource{FieldRef: &v1.ObjectFieldSelector{FieldPath: "status.hostIP"}}})
 
 		// Inject exposed ports.
@@ -375,12 +369,10 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 					Value: fmt.Sprintf("/outputs/%s/%s/%d", input.RunID, g.ID, i),
 				})
 
-				ow.Debugf("cluster.Run: Creating testplanPod %s", podName)
 				createErr := c.createTestplanPod(ctx, podName, input, runenv, currentEnv, g, i, podMemory, podCPU)
 				if createErr != nil {
 					ow.Debugf("cluster.Run: Received error when creating testplanPod %s", createErr)
 				}
-				ow.Debugf("cluster.Run: testplanPod created")
 				return createErr
 			})
 		}
@@ -881,9 +873,6 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					},
 				},
 			},
-			// SecurityContext: &v1.PodSecurityContext{
-			// 	Sysctls: sysctls,
-			// },
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
 				{
@@ -1013,11 +1002,9 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 		neededCPUs += podCPU * float64(g.Instances)
 	}
 
-	// skip CPU check (EKS info does not appear to be correct)
+	// TODO: restore EKS cpu check
 	// if (availableCPUs * utilisation) > neededCPUs {
-	if true {
-		return true, nil
-	}
+	return true, nil
 
 	ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
 	return false, nil

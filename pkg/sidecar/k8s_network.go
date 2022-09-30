@@ -122,8 +122,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		n.initialized = true
 	}
 
-	logging.S().Infow("============ Configuring network START ==============", "network", cfg.Network)
-
 	link, online := n.activeLinks[cfg.Network]
 
 	// Are we _disabling_ the network?
@@ -132,7 +130,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		if online {
 			// No. Disconnect.
 			if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-				return fmt.Errorf("when 6: %w", err)
+				return fmt.Errorf("error disabling network: %w", err)
 			}
 			delete(n.activeLinks, cfg.Network)
 		}
@@ -149,14 +147,13 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		// However, we probably do with swarm.
 		online = false
 		if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-			return fmt.Errorf("when 5: %w", err)
+			return fmt.Errorf("error reconnecting network: %w", err)
 		}
 		delete(n.activeLinks, cfg.Network)
 	}
 
 	// Are we _connected_ to the network.
 	if !online {
-		logging.S().Infow("Instance is not connected to network!")
 		// No, we're not.
 		// Connect.
 		if cfg.IPv6 != nil {
@@ -168,10 +165,8 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			err     error
 		)
 		if cfg.IPv4 == nil {
-			logging.S().Debugw("trying to add a link, IPV4 not set", "net", n.subnet, "container", n.container.ID)
 			netconf, err = newNetworkConfigList("net", n.subnet)
 		} else {
-			logging.S().Debugw("trying to add a link, with IPV4 set", "ip", cfg.IPv4.String(), "container", n.container.ID)
 			netconf, err = newNetworkConfigList("ip", cfg.IPv4.String())
 		}
 		if err != nil {
@@ -214,11 +209,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		}
 
 		routes, err := getK8sRoutes(netlinkByName, n.nl)
-		for _, route := range routes.routes {
-			logging.S().Infow("Route in network:", "route", route)
-
-		}
-		logging.S().Debugf("External routing for network %s set to the routes logged above\n", dataNetworkIfname)
 		n.externalRouting[dataNetworkIfname] = routes
 		if err != nil {
 			return err
@@ -234,14 +224,8 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
 
-		logging.S().Debugf("Instance %s Addresses in network %s are as follows:", n.container.ID, dataNetworkIfname)
-		for _, v4addr := range v4addrs {
-			logging.S().Infow("V4 addr", "address", v4addr)
-		}
-
 		if len(v4addrs) != 1 {
 			logging.S().Warnf("Found %d v4 addresses, expected just 1", len(v4addrs))
-			// return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
 		}
 
 		link = &k8sLink{
@@ -251,8 +235,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			rt:          rt,
 			netconf:     netconf,
 		}
-
-		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
 
 		n.activeLinks[cfg.Network] = link
 	}
@@ -266,7 +248,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 	if err := handleRoutingPolicy(n.externalRouting, cfg.RoutingPolicy, n.nl); err != nil {
 		return err
 	}
-	logging.S().Debugw("============ Configuring network END ==============", "network", cfg.Network)
 	return nil
 }
 
@@ -279,7 +260,6 @@ func (n *K8sNetwork) ListActive() []string {
 }
 
 func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, error) {
-	logging.S().Debugw("New network config list", t, addr)
 	switch t {
 	case "net":
 		bytes := []byte(`

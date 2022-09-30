@@ -126,7 +126,6 @@ func (d *DockerReactor) Close() error {
 }
 
 func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.ContainerRef) (inst *Instance, err error) {
-	logging.S().Debugw("Handling container", container.ID)
 	// Get the state/config of the cluster
 	info, err := container.Inspect(ctx)
 	if err != nil {
@@ -145,12 +144,10 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 
 	// Not using the sidecar, ignore this container.
 	if !params.TestSidecar {
-		logging.S().Debugw("Skipping container, because sidecar is not enabled")
 		return nil, nil
 	}
 
 	if strings.Contains(info.Name, "mkdir-outputs") {
-		logging.S().Debugw("Skipping container, because name contains `mkdir-outputs`")
 		return nil, nil
 	}
 
@@ -183,7 +180,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// Get a netlink handle.
 	nshandle, netlinkHandle, err := getNetworkHandlers(info.State.Pid)
 	if err != nil {
-		logging.S().Errorw("Failed to get network handlers", err)
 		return nil, err
 	}
 	defer func() {
@@ -197,7 +193,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// Map _current_ networks to links.
 	links, err := dockerLinks(netlinkHandle, info.NetworkSettings)
 	if err != nil {
-		logging.S().Errorw("Failed to enumerate docker links", err)
 		return nil, fmt.Errorf("failed to enumerate links: %w", err)
 	}
 
@@ -213,7 +208,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 	// Retrieve control routes.
 	controlRoutes, err := getControlRoutes(d.servicesRoutes, container.ID, netlinkHandle)
 	if err != nil {
-		logging.S().Errorw("Failed to get control routes", err)
 		return nil, err
 	}
 
@@ -228,7 +222,6 @@ func (d *DockerReactor) handleContainer(ctx context.Context, container *docker.C
 		reverseIndex[id] = name
 	}
 
-	logging.S().Debug("Initializing network links")
 	for id, link := range links {
 		if name, ok := reverseIndex[id]; ok {
 			// manage this network
