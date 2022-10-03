@@ -2,6 +2,8 @@
 my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$my_dir/header.sh" "$my_dir/20_env.toml"
 
+testground healthcheck --runner local:docker --fix
+
 docker build ./plans/additional_hosts/http_server -t http_server
 docker run -it -d -p 8080:8080 --name http_server http_server
 docker network connect testground-control http_server
@@ -17,7 +19,6 @@ testground build single \
 export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
 docker tag $ARTIFACT testplan:additional_hosts
 
-testground healthcheck --runner local:docker --fix
 
 testground run single \
     --plan=testground/additional_hosts \
