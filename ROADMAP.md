@@ -22,7 +22,7 @@ Testground As A Service embodies our long-term vision.
 
 Products with similar ideas:
 
-- [CockroadDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
+- [CockroachDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
 - [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
 
 ## Problems we focus on
