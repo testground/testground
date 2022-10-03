@@ -974,7 +974,6 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 	// TODO: restore EKS cpu check
 	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
-	_ = availableCPUs
 
 	for _, g := range groups {
 		var podCPU float64
@@ -993,11 +992,13 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 		neededCPUs += podCPU * float64(g.Instances)
 	}
-	// if (availableCPUs * utilisation) > neededCPUs {
-	return true, nil
 
-	// ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
-	// return false, nil
+	if (availableCPUs*utilisation) > neededCPUs || true {
+		return true, nil
+	}
+
+	ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
+	return false, nil
 }
 
 // TerminateAll terminates all pods for with the label testground.purpose: plan

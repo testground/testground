@@ -13,10 +13,6 @@ import (
 	"github.com/testground/sdk-go/sync"
 )
 
-type ListenAddrs struct {
-	Addrs []string
-}
-
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()

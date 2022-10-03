@@ -311,21 +311,6 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	}
 }
 
-func getServiceRoute(handle *netlink.Handle, serviceIP net.IP) (*netlink.Route, error) {
-	serviceRoutes, err := handle.RouteGet(serviceIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to service: %w", err)
-	}
-
-	if len(serviceRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to the given service, but got %v", len(serviceRoutes))
-	}
-
-	serviceRoute := serviceRoutes[0]
-
-	return &serviceRoute, nil
-}
-
 func retry(attempts int, sleep time.Duration, f func() error) (err error) {
 	for i := 0; ; i++ {
 		err = f()
