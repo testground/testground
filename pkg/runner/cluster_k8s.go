@@ -968,11 +968,15 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 	// all worker nodes are the same, so just take allocatable CPU from the first
 	item := res.Items[0].Status.Allocatable["cpu"]
-	nodeCPUs, _ := item.AsInt64()
+	nodeCPUs, success := item.AsInt64()
+
+	// in case parsing fails, the milli value will contain the proper format of cpu resources
+	if !success {
+		nodeCPUs = item.MilliValue()
+	}
 
 	totalCPUs := nodes * int(nodeCPUs)
 
-	// TODO: restore EKS cpu check
 	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
 
 	for _, g := range groups {
@@ -993,7 +997,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 		neededCPUs += podCPU * float64(g.Instances)
 	}
 
-	if (availableCPUs*utilisation) > neededCPUs || true {
+	if (availableCPUs * utilisation) > neededCPUs {
 		return true, nil
 	}
 
