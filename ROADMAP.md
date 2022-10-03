@@ -8,7 +8,7 @@
 Testground was used successfully at Protocol Labs
 
 - TODO: note on libp2p interop
-- TODO: note on filecooin
+- TODO: note on filecoin
 - TODO: note on IPFS v0.5.0 (massive DHT and Bitswap improvements)
 - TODO: note on libp2p (gossipsub 1.1 security extensions)
 
