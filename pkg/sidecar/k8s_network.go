@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -7,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
+	"github.com/testground/sdk-go/ptypes"
 	"github.com/testground/testground/pkg/docker"
 	"github.com/testground/testground/pkg/logging"
 
@@ -33,6 +36,7 @@ type K8sNetwork struct {
 	cninet          *libcni.CNIConfig
 	subnet          string
 	netnsPath       string
+	initialized     bool
 }
 
 func (n *K8sNetwork) Close() error {
@@ -40,9 +44,82 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
+// getExistingIpRange returns an IP range, if it exists and is attached, that contains the
+// given matchingAddr
+func getExistingIpRange(matchingAddr string) *net.IPNet {
+	// remove mask from matching Addr
+	matchingAddr = strings.Split(matchingAddr, "/")[0]
+
+	logging.S().Infof("Checking local ranges for address %s", matchingAddr)
+
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		logging.S().Errorf("interfaceAddrs error: %+v\n", err.Error())
+		return nil
+	}
+
+	if len(addrs) == 0 {
+		logging.S().Warnf("No InterfaceAddrs exist")
+	} else {
+		// check all interface addresses
+		for _, i := range addrs {
+			_, parsedIp, err := net.ParseCIDR(i.String())
+			if err != nil {
+				logging.S().Errorf(err.Error())
+				continue
+			}
+			iNet := &ptypes.IPNet{IPNet: *parsedIp}
+			matchingNetIp := net.ParseIP(matchingAddr)
+			// does the range contain the target IP?
+			if iNet.Contains(matchingNetIp) {
+				return parsedIp
+			}
+		}
+	}
+	return nil
+
+}
+
+// InitializeNetwork initializes the k8s network. This should be once, before any additional configuration takes place
+func (n *K8sNetwork) InitializeNetwork(ctx context.Context) error {
+	// It is possible an existing address is already assigned by the k8s CNI, and the network doesn't track it
+	// In that case, the easiest thing to do is to simply delete the link - the rest of the configuration code will
+	// handle the rest
+	logging.S().Infow("Initializing k8s network")
+
+	// check for existing address
+	foundIpnet := getExistingIpRange(n.subnet)
+	if foundIpnet != nil {
+		logging.S().Infow("Found an existing IP address during network init. Deleting address...", "address", foundIpnet)
+		// disconnect it
+		linkCfg, err := newNetworkConfigList("ip", foundIpnet.IP.String())
+		if err != nil {
+			return err
+		}
+		rt := &libcni.RuntimeConf{
+			ContainerID: n.container.ID,
+			NetNS:       n.netnsPath,
+			IfName:      dataNetworkIfname,
+		}
+
+		if err := n.cninet.DelNetworkList(ctx, linkCfg, rt); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) error {
 	if cfg.Network != defaultDataNetwork {
 		return fmt.Errorf("configured network is not `%s`", defaultDataNetwork)
+	}
+
+	if !n.initialized {
+		err := n.InitializeNetwork(ctx)
+		if err != nil {
+			return fmt.Errorf("error initializing k8s network: %s", err)
+		}
+		n.initialized = true
 	}
 
 	link, online := n.activeLinks[cfg.Network]
@@ -53,7 +130,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		if online {
 			// No. Disconnect.
 			if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-				return fmt.Errorf("when 6: %w", err)
+				return fmt.Errorf("error disabling network: %w", err)
 			}
 			delete(n.activeLinks, cfg.Network)
 		}
@@ -62,14 +139,15 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 	if online && ((cfg.IPv6 != nil && !link.IPv6.IP.Equal(cfg.IPv6.IP)) ||
 		(cfg.IPv4 != nil && !link.IPv4.IP.Equal(cfg.IPv4.IP))) {
+
 		// Disconnect and reconnect to change the IP addresses.
-		logging.S().Debugw("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
+		logging.S().Infow("disconnect and reconnect to change the IP addr", "cfg.IPv4", cfg.IPv4, "link.IPv4", link.IPv4.String(), "container", n.container.ID)
 		//
 		// NOTE: We probably don't need to do this on local docker.
 		// However, we probably do with swarm.
 		online = false
 		if err := n.cninet.DelNetworkList(ctx, link.netconf, link.rt); err != nil {
-			return fmt.Errorf("when 5: %w", err)
+			return fmt.Errorf("error reconnecting network: %w", err)
 		}
 		delete(n.activeLinks, cfg.Network)
 	}
@@ -129,10 +207,11 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 
 		netlinkByName, err := n.nl.LinkByName(dataNetworkIfname)
 		if err != nil {
-			return fmt.Errorf("failed to get link by name: %w", err)
+			return fmt.Errorf("failed to get link by name %s: %w", dataNetworkIfname, err)
 		}
 
-		n.externalRouting[dataNetworkIfname], err = getK8sRoutes(netlinkByName, n.nl)
+		routes, err := getK8sRoutes(netlinkByName, n.nl)
+		n.externalRouting[dataNetworkIfname] = routes
 		if err != nil {
 			return err
 		}
@@ -146,8 +225,9 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		if err != nil {
 			return fmt.Errorf("failed to list v4 addrs: %w", err)
 		}
+
 		if len(v4addrs) != 1 {
-			return fmt.Errorf("expected 1 v4addrs, but received %d", len(v4addrs))
+			logging.S().Warnf("Found %d v4 addresses, expected just 1", len(v4addrs))
 		}
 
 		link = &k8sLink{
@@ -157,8 +237,6 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 			rt:          rt,
 			netconf:     netconf,
 		}
-
-		logging.S().Debugw("successfully adding an active link", "ipv4", link.IPv4, "container", n.container.ID)
 
 		n.activeLinks[cfg.Network] = link
 	}
@@ -189,10 +267,10 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "weave-net",
 		"plugins": [
 				{
-						"name": "weave",
+						"name": "weave-net",
 						"type": "weave-net",
 						"ipam": {
 								"subnet": "` + addr + `"
@@ -208,10 +286,10 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 		bytes := []byte(`
 {
 		"cniVersion": "0.3.0",
-		"name": "weave",
+		"name": "weave-net",
 		"plugins": [
 				{
-						"name": "weave",
+						"name": "weave-net",
 						"type": "weave-net",
 						"ipam": {
 								"ips": [
@@ -231,21 +309,6 @@ func newNetworkConfigList(t string, addr string) (*libcni.NetworkConfigList, err
 	default:
 		return nil, errors.New("unknown type")
 	}
-}
-
-func getServiceRoute(handle *netlink.Handle, serviceIP net.IP) (*netlink.Route, error) {
-	serviceRoutes, err := handle.RouteGet(serviceIP)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve route to service: %w", err)
-	}
-
-	if len(serviceRoutes) != 1 {
-		return nil, fmt.Errorf("expected to get only one route to the given service, but got %v", len(serviceRoutes))
-	}
-
-	serviceRoute := serviceRoutes[0]
-
-	return &serviceRoute, nil
 }
 
 func retry(attempts int, sleep time.Duration, f func() error) (err error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/testground/sdk-go/network"
@@ -20,7 +21,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	client := initCtx.SyncClient
 	netclient := initCtx.NetClient
 
-	oldAddrs, err := net.InterfaceAddrs()
+	instanceAddrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return err
 	}
@@ -43,14 +44,14 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	runenv.RecordMessage("before netclient.MustConfigureNetwork")
 	netclient.MustConfigureNetwork(ctx, config)
 
-	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
-
 	// Make sure that the IP addresses don't change unless we request it.
 	if newAddrs, err := net.InterfaceAddrs(); err != nil {
 		return err
-	} else if !sameAddrs(oldAddrs, newAddrs) {
+	} else if !sameAddrs(instanceAddrs, newAddrs) {
 		return fmt.Errorf("interfaces changed")
 	}
+
+	seq := client.MustSignalAndWait(ctx, "ip-allocation", runenv.TestInstanceCount)
 
 	runenv.RecordMessage("I am %d", seq)
 
@@ -59,7 +60,8 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	config.IPv4 = runenv.TestSubnet
 	config.IPv4.IP = append(config.IPv4.IP[0:2:2], ipC, ipD)
-	config.IPv4.Mask = []byte{255, 255, 255, 0}
+	// the mask should match the data network IP range (e.g. for EKS it is /12)
+	config.IPv4.Mask = []byte{255, 240, 0, 0}
 	config.CallbackState = "ip-changed"
 
 	var (
@@ -75,15 +77,25 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		defer listener.Close()
 	}
 
-	runenv.RecordMessage("before reconfiguring network")
+	runenv.RecordMessage("before reconfiguring network %s", config.IPv4)
 	netclient.MustConfigureNetwork(ctx, config)
+
+	ownDataIp := netclient.MustGetDataNetworkIP()
+	peerAddrs, err := getPeerAddrs(ctx, runenv, ownDataIp, client)
+	if err != nil {
+		return err
+	}
 
 	switch seq {
 	case 1:
+		runenv.RecordMessage("Listening at %s", listener.Addr())
 		conn, err = listener.AcceptTCP()
 	case 2:
+		addr := strings.Split(peerAddrs[0], ":")[0]
+		var targetIp = net.ParseIP(addr)
+		runenv.RecordMessage("Attempting to connect to %s", targetIp)
 		conn, err = net.DialTCP("tcp4", nil, &net.TCPAddr{
-			IP:   append(config.IPv4.IP[:3:3], 1),
+			IP:   targetIp,
 			Port: 1234,
 		})
 	default:
@@ -169,6 +181,7 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 
 		return nil
 	}
+
 	err = pingPong("200", 200*time.Millisecond, 215*time.Millisecond)
 	if err != nil {
 		return err
@@ -185,6 +198,49 @@ func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 
 	return nil
+}
+
+// Returns data network addresses of test peer instances
+func getPeerAddrs(ctx context.Context, runenv *runtime.RunEnv, ownDataIp net.IP, client sync.Client) ([]string, error) {
+	_ = client.MustSignalAndWait(ctx, sync.State("listening"), runenv.TestInstanceCount)
+
+	peerAddrs, err := exchangeAddrWithPeers(ctx, client, runenv, ownDataIp.String())
+	if err != nil {
+		return nil, err
+	}
+
+	_ = client.MustSignalAndWait(ctx, sync.State("got-other-addrs"), runenv.TestInstanceCount)
+
+	return peerAddrs, nil
+}
+
+// Shares this instance's address with all other instances in the test,
+//  collects all other instances' addresses and returns them
+func exchangeAddrWithPeers(ctx context.Context, client sync.Client, runenv *runtime.RunEnv, addr string) ([]string, error) {
+	subCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	peerTopic := sync.NewTopic("peers", "")
+	ch := make(chan string)
+	if _, _, err := client.PublishSubscribe(subCtx, peerTopic, addr, ch); err != nil {
+		return nil, fmt.Errorf(err.Error())
+	}
+
+	res := []string{}
+
+	for i := 0; i < runenv.TestInstanceCount; i++ {
+		select {
+		case otherAddr := <-ch:
+			if addr != otherAddr {
+				res = append(res, otherAddr)
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		runenv.D().Counter("got.info").Inc(1)
+	}
+
+	return res, nil
 }
 
 func sameAddrs(a, b []net.Addr) bool {
