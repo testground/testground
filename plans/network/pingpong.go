@@ -17,8 +17,6 @@ type ListenAddrs struct {
 	Addrs []string
 }
 
-var PeerTopic = sync.NewTopic("peers", &ListenAddrs{})
-
 func pingpong(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()

@@ -824,13 +824,6 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
-	var sysctls []v1.Sysctl
-	for _, v := range cfg.Sysctls {
-		sysctl := strings.Split(v, "=")
-
-		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
-	}
-
 	var ports []v1.ContainerPort
 	cnt := 0
 	for _, p := range cfg.ExposedPorts {
@@ -978,7 +971,10 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 	nodeCPUs, _ := item.AsInt64()
 
 	totalCPUs := nodes * int(nodeCPUs)
+
+	// TODO: restore EKS cpu check
 	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
+	_ = availableCPUs
 
 	for _, g := range groups {
 		var podCPU float64
@@ -997,13 +993,11 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 		neededCPUs += podCPU * float64(g.Instances)
 	}
-
-	// TODO: restore EKS cpu check
 	// if (availableCPUs * utilisation) > neededCPUs {
 	return true, nil
 
-	ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
-	return false, nil
+	// ow.Warnw("not enough resources on cluster", "available_cpus", availableCPUs, "needed_cpus", neededCPUs, "utilisation", utilisation)
+	// return false, nil
 }
 
 // TerminateAll terminates all pods for with the label testground.purpose: plan
