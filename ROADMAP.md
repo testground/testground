@@ -12,29 +12,35 @@ Testground was used successfully at Protocol Labs
 
 # Vision
 
-Testground As A Service,
+Testground As A Service embodies our long-term vision.
 
-- Related Products
-    - https://cockroachdb.github.io/pebble/?max=local
-    - https://perf.webkit.org/v3/
+- A single, scalable platform that one or more organizations can use,
+- The ability to track the impact of a change in terms of stability & performance across multiple projects,
+- The ability to experiment with large-scale networks and simplify the integration testing of libraries used across deep stacks.
+
+Products with similar ideas:
+
+- [CockroadDB performance tracker](https://cockroachdb.github.io/pebble/?max=local), 
+- [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
 
 
 # Problems we focus on
 
+We focus on reliability, usefulness, and sustainability. We want to ensure Testground is valuable and stable before we grow its feature set.
+
+
 ## Table of Content
-
-  * [1. Testground provides reliable results](#1-testground-provides-reliable-results)
-  * [2. Testground can be set up as an organization-wide Service](#2-testground-can-be-set-up-as-an-organization-wide-service)
-  * [3. The knowledge required to work efficiently with Testground is available and easy to access](#3-the-knowledge-required-to-work-efficiently-with-testground-is-available-and-easy-to-access)
-  * [4. Testground Developement follows high-standard](#4-testground-developement-follows-high-standard)
-  * [5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications](#5-testground-provides-the-networking-tooling-required-to-test-complex-distributed---decentralized-applications)
-  * [6. Testground provides the tooling to make identifying and fixing issues easy.](#6-testground-provides-the-tooling-to-make-identifying-and-fixing-issues-easy)
-  * [7. Testground covers every /essential/ combinations of languages and libraries required by its users](#7-testground-covers-every--essential--combinations-of-languages-and-libraries-required-by-its-users)
-
+- [1. Testground provides reliable results](#1-testground-provides-reliable-results)
+- [2. Testground can be set up as an organization-wide Service](#2-testground-can-be-set-up-as-an-organization-wide-service)
+- [3. The knowledge required to work efficiently with Testground is available and easy to access](#3-the-knowledge-required-to-work-efficiently-with-testground-is-available-and-easy-to-access)
+- [4. Testground Development follows high-standard](#4-testground-development-follows-high-standard)
+- [5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications](#5-testground-provides-the-networking-tooling-required-to-test-complex-distributed---decentralized-applications)
+- [6. Testground provides the tooling to make test maintenance & finding issues simple](#6-testground-provides-the-tooling-to-make-test-maintenance---finding-issues-simple)
+- [7. Testground covers every /essential/combination of languages and libraries required by its users](#7-testground-covers-every--essential-combination-of-languages-and-libraries-required-by-its-users)
 
 ## 1. Testground provides reliable results
 
-**Why:** A testing platform that is unreliable is just a noise-producing machine. We need to secure our users' trust. Testground maintainers need clear feebdacks about stability improvements & regressions.
+**Why:** an unreliable testing platform is just a noise machine. We need to secure our users' trust. Testground maintainers need clear feedback about stability improvements & regressions.
 
 ### Milestone 1: We have a stability metrics dashboard
 
@@ -43,7 +49,7 @@ Maintainers and users have a way to measure and follow Testground's Stability ov
 This might combine different languages, runners (k8s, docker, local), and context (developer env, CI env, k8s env).
 
 
-### Milestone 2: Every known stability issue has been solved
+### Milestone 2: We have identified and reached our user's stability requirements. We resolved "most" of them
 
 - local runner,
 - docker runner,
@@ -57,7 +63,7 @@ Maintainers and users have a way to measure and follow Testground's Performances
 
 ## 2. Testground can be set up as an organization-wide Service
 
-**Why:** We believe Testground can provide value accross entire organizations. Making it easy to run large-scale workload and efficient small-scale CI tests is core to it's success.
+**Why:** We believe Testground can provide value across entire organizations. Making it easy to run a large-scale workload and efficient small-scale CI tests are core to its success.
 
 ### Milestone 1: We can use Testground EKS clusters in production
 
@@ -78,7 +84,7 @@ Maintainers and users have a way to measure and follow Testground's Performances
 
 ## 3. The knowledge required to work efficiently with Testground is available and easy to access
 
-**Why:** We believe test is valuable when everyone in the team can contribute to testing. The platform has to be approachable.
+**Why:** We believe testing is valuable when everyone on the team can contribute. Our platform has to be approachable.
 
 Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 
@@ -106,9 +112,9 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 - "Public Relations".
 
 
-## 4. Testground Developement follows high-standard
+## 4. Testground Development follows high-standard
 
-**Why:** Testground has already provided value amongst many different projects. As it grows it will expand in different directions and it's critical that we can support these with efficient developement processes and project management. Being an open source project, external contribution is critical.
+**Why:** Testground has already provided value amongst many different projects. Now, we need bulletproof development processes to make the project sustainable and facilitate external contributions.
 
 ### Testground CI & Testing is practical and reliable
 
@@ -132,13 +138,13 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 
 - We have a single maintainer team for review,
 - We have a clear label and triaging process,
-- We have a clear contribution process (protected branches, etc),
+- We have a reliable & transparent contribution process (protected branches, etc),
 - We have precise project management tooling (re-ignite ZenHub?)
 
 
 ## 5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications
 
-**Why:** This is a main selling point for Testground.
+**Why:** This is Testground's main feature.
 
 ### Milestone 1: ExplicitNetwork Simulation Support
 
@@ -158,7 +164,7 @@ There is a clear matrix of what features can be used with which Testground runne
 - Remote runners feature
 
 
-## 6. Testground provides the tooling to make maintaining tests, identifying issues, and fixing issue simple.
+## 6. Testground provides the tooling to make test maintenance & finding issues simple
 
 **Why:**
 
@@ -167,11 +173,11 @@ There is a clear matrix of what features can be used with which Testground runne
 - tcpdump'ing features - [Issue #1384](https://github.com/testground/testground/issues/1384)
 
 
-## 7. Testground covers every /essential/ combinations of languages and libraries required by its users
+## 7. Testground covers every /essential/combination of languages and libraries required by its users
 
 **Why:** Drive adoptions outside of Protocol Labs.
 
-### We support the main language needed by our users
+### We support the primary languages needed by our users
 
 - Provide a simple matrix about which languages and builders are supported and how
     - example: go support = great, nodejs support = deprecated, python support = non existent
@@ -196,3 +202,5 @@ There is a clear matrix of what features can be used with which Testground runne
 # Later
 
 ## Testground is used at ProtocolLabs to measure performances
+
+## Testground security is top-notch
