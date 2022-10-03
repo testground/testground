@@ -21,7 +21,7 @@ func additionalHosts(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	_, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	res, err := http.Get("http://http_server:8080")
+	res, err := http.Get("http://http-echo:5678")
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func additionalHosts(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	if err != nil {
 		return err
 	}
-	if string(body) != "ok" {
+	if string(body) != "ok\n" {
 		return errors.New("unexpected response")
 	}
 	return nil

@@ -1,6 +1,6 @@
 [runners."local:docker"]
 ulimits = ["nofile=1048576:1048576"]
-additional_hosts = ["http_server"]
+additional_hosts = ["http-echo"]
 
 [daemon]
 listen = ":8040"

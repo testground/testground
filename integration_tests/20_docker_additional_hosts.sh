@@ -4,9 +4,9 @@ source "$my_dir/header.sh" "$my_dir/20_env.toml"
 
 testground healthcheck --runner local:docker --fix
 
-docker build ./plans/additional_hosts/http_server -t http_server
-docker run -it -d -p 8080:8080 --name http_server http_server
-docker network connect testground-control http_server
+# From https://hub.docker.com/r/hashicorp/http-echo/
+docker run -d -p 5678:5678 --name http-echo hashicorp/http-echo -text="ok"
+docker network connect testground-control http-echo
 
 testground plan import --from ./plans --name testground
 
@@ -36,6 +36,6 @@ assert_run_outcome_is ./run.out "success"
 popd
 
 echo "terminating remaining containers"
-docker rm -f http_server
+docker rm -f http-echo
 testground terminate --runner local:docker
 testground terminate --builder docker:go
