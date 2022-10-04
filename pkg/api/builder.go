@@ -78,5 +78,13 @@ type DependencyTarget struct {
 	Target string
 
 	// Version is the version of the dependency we want to use.
+	//It can be optional for local targets.
 	Version string
+}
+
+func (target DependencyTarget) String() string {
+	if target.Version == "" {
+		return target.Target
+	}
+	return target.Target + "@" + target.Version
 }

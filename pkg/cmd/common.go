@@ -104,14 +104,17 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 
 	for name, target := range deps {
 		parts := strings.Split(target, "@")
-		if (len(parts)) != 2 {
+		version := ""
+		if len(parts) == 2 {
+			version = parts[1]
+		} else if len(parts) > 2 {
 			return nil, fmt.Errorf("invalid target-version: %s", target)
 		}
 
 		dep := api.Dependency{
 			Module:  name,
 			Target:  parts[0],
-			Version: parts[1],
+			Version: version,
 		}
 
 		comp.Groups[0].Build.Dependencies = append(comp.Groups[0].Build.Dependencies, dep)
