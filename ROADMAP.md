@@ -73,11 +73,11 @@ Maintainers and users have a way to measure and follow Testground's Performances
 
 - Deploying short-lived clusters for benchmarking
 
-#### Milestone 3: We can measure and improve Testground's EKS performances
+#### Milestone 3: We can measure and improve Testground's EKS performance
 
 - Deploying short-lived clusters for benchmarking
 
-#### Milestone 4: Dashboard & CI Toolings
+#### Milestone 4: Dashboard & CI Tooling
 
 ### 3. The knowledge required to work efficiently with Testground is available and easy to access
 
@@ -135,14 +135,14 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 
 **Why:** This is Testground's main feature.
 
-#### Milestone 1: ExplicitNetwork Simulation Support
+#### Milestone 1: Explicit Network Simulation Support Documentation
 
 There is a clear matrix of what features can be used with which Testground runner.
 
 - MTU issues, networking simulation, etc.
 - This will be a Matrix of feature x runner x precision (transport level, application level, etc.).
 
-#### Milestone 2: Testground provides support for important networks topologies
+#### Milestone 2: Testground provides support for important network topologies
 
 - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
 - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
@@ -162,7 +162,7 @@ There is a clear matrix of what features can be used with which Testground runne
 
 ### 7. Testground covers every /essential/combination of languages and libraries required by its users
 
-**Why:** Drive adoptions outside of Protocol Labs.
+**Why:** Drive adoption outside of Protocol Labs.
 
 #### We support the primary languages needed by our users
 
