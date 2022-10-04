@@ -61,7 +61,7 @@ function assert_run_output_is_correct {
 
   tar -xzvvf ${RUN_ID}.tgz
 
-  if [ SKIP_LOG_PARSING ]; then
+  if [[ -n "$SKIP_LOG_PARSING" ]]; then
     return
   fi
 

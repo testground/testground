@@ -25,11 +25,7 @@ t1=$(testground run single \
     --runner=local:docker \
     --instances=1 \
     --metadata-branch b1 \
-    --metadata-repo r1 \
-    --collect)
-
-# Very unwieldy, $59 is the ID in the log
-run_id1=$(echo $t1 | awk '/run is queued with ID: / {print $59}')
+    --metadata-repo r1)
 
 # Run the second test case, and wait for it to finish
 t2=$(testground run single \
@@ -44,6 +40,8 @@ t2=$(testground run single \
     --wait \
     --collect)
 
+# Very unwieldy, $59 is the ID in the log
+run_id1=$(echo $t1 | awk '/run is queued with ID: / {print $59}')
 run_id2=$(echo $t2 | awk '/run is queued with ID: / {print $59}')
 
 # First run must be canceled
