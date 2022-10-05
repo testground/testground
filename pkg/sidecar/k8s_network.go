@@ -44,8 +44,9 @@ func (n *K8sNetwork) Close() error {
 	return nil
 }
 
-// getExistingIpRange returns an IP range, if it exists and is attached, that contains the
-// given matchingAddr
+// getExistingIpRange returns an IP address
+// from any of the attached interfaces, that contains the given matchingAddr
+// otherwise returns nil
 func getExistingIpRange(matchingAddr string) *net.IPNet {
 	// remove mask from matching Addr
 	matchingAddr = strings.Split(matchingAddr, "/")[0]
@@ -54,7 +55,7 @@ func getExistingIpRange(matchingAddr string) *net.IPNet {
 
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		logging.S().Errorf("interfaceAddrs error: %+v\n", err.Error())
+		logging.S().Warnf("interfaceAddrs error: %+v\n", err.Error())
 		return nil
 	}
 
@@ -77,13 +78,14 @@ func getExistingIpRange(matchingAddr string) *net.IPNet {
 		}
 	}
 	return nil
-
 }
 
-// InitializeNetwork initializes the k8s network. This should be once, before any additional configuration takes place
+// InitializeNetwork initializes the k8s network. This should be done once,
+// before any additional configuration takes place
 func (n *K8sNetwork) InitializeNetwork(ctx context.Context) error {
-	// It is possible an existing address is already assigned by the k8s CNI, and the network doesn't track it
-	// In that case, the easiest thing to do is to simply delete the link - the rest of the configuration code will
+	// Due to the current cluster setup, an existing address is already assigned by the k8s CNI,
+	// and the network doesn't track it
+	// The easiest thing to do is to simply delete the link - the rest of the configuration code will
 	// handle the rest
 	logging.S().Infow("Initializing k8s network")
 
