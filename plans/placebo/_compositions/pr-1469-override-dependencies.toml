@@ -1,0 +1,18 @@
+[metadata]
+  name = "pr-1469-override-dependencies"
+
+[global]
+  plan = "testground/placebo"
+  case = "ok"
+  runner = "local:exec"
+  builder = "exec:go"
+
+[[groups]]
+  id = "instance"
+  instances = {count = 2}
+
+  [groups.build]
+
+  [[groups.build.dependencies]]
+       module = "github.com/testground/sdk-go"
+       version = "49c90fa754052018b70c63d87b7f1d37f6080a78"
