@@ -20,6 +20,7 @@ import (
 	"github.com/testground/testground/pkg/rpc"
 	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
+	v1 "k8s.io/api/core/v1"
 )
 
 // AllBuilders enumerates all builders known to the system.
@@ -430,31 +431,58 @@ func (e *Engine) Kill(id string) error {
 // CleanUpTasks deletes all tasks in the store that are currently being processed
 func (e *Engine) CleanUpTasks() error {
 
+	logging.S().Infow("Sleeping for a while, allowing sync service to start...")
+	time.Sleep(10 * time.Second)
+	logging.S().Infow("Waking up")
+	arunner, success := e.RunnerByName("cluster:k8s")
+
+	if !success {
+		return errors.New("no cluster k8s runner")
+	}
+
+	krunner := *arunner.(*runner.ClusterK8sRunner)
+
 	allTasks, err := e.store.AllTasks()
 	if err != nil {
 		return err
 	}
 
-	deleted := 0
 	for _, aTask := range allTasks {
-		if aTask.State().State == task.StateProcessing {
+
+		// TODO: parse the configuration (runInput/runnerconfig)  from the task, then pass it along to the runner
+		if aTask.State().State != task.StateScheduled {
 			// If the engine has a signal for the task, that means it's being tracked actively
 			if e.hasSignal(aTask.ID) {
-				logging.S().Debugw("Skipping cleanup of task, as it is still active", "task", aTask.ID, "state", aTask.State())
+				logging.S().Infof("Skipping cleanup of task %s, as it is still active: %s", aTask.ID, aTask.State())
 				continue
 			}
 
-			logging.S().Infow("Cleaning up inactive task", "task", aTask.ID, "type", aTask.Name())
-			err = e.store.Delete(aTask.ID)
-			if err != nil {
-				return errors.New("error cleaning up task in progress")
+			if aTask.State().State == task.StateProcessing {
+				err = e.store.ArchiveTask(aTask)
+				if err != nil {
+					logging.S().Warnf("Error archiving task %s: %s", aTask.ID, err.Error())
+				}
 			}
-			deleted++
-		}
-	}
 
-	if deleted > 0 {
-		logging.S().Infof("Cleaned up %d inactive (in progress) tasks", deleted)
+			var pods *v1.PodList
+			if len(aTask.ID) > 0 {
+				pods, err = krunner.ListAllPods(context.TODO(), aTask.ID)
+				if err != nil {
+					return err
+				}
+			}
+
+			if len(pods.Items) > 0 {
+				logging.S().Infof("Cleaning up inactive task %s with %d pods", aTask.ID, len(pods.Items))
+				for _, pod := range pods.Items {
+					logging.S().Infof("Deleting pod %s", pod.Name)
+					err = krunner.DeleteWorkPod(pod.Name, aTask.Input)
+					if err != nil {
+						return fmt.Errorf("error deleting pod %s: %v", pod.Name, err)
+					}
+				}
+			}
+		}
 	}
 
 	return nil

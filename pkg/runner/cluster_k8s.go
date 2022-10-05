@@ -426,6 +426,34 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	return
 }
 
+func (c *ClusterK8sRunner) DeleteWorkPod(podName string, input interface{}) error {
+	// if cfg.KeepService {
+	// 	return nil
+	// }
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+	err := client.CoreV1().Pods(c.config.Namespace).Delete(context.TODO(), podName, metav1.DeleteOptions{})
+	return err
+}
+
+func (c *ClusterK8sRunner) ListAllPods(ctx context.Context, runId string) (*v1.PodList, error) {
+
+	if err := c.initPool(); err != nil {
+		return nil, fmt.Errorf("could not init pool: %w", err)
+	}
+
+	client := c.pool.Acquire()
+	defer c.pool.Release(client)
+	pods, err := client.CoreV1().Pods(c.config.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("testground.run_id=%s", runId),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return pods, err
+}
+
 func (*ClusterK8sRunner) ID() string {
 	return "cluster:k8s"
 }
