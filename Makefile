@@ -79,6 +79,7 @@ test-integ-examples:
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
+	./integration_tests/example_04_browser.sh
 
 kind-cluster:
 	kind create cluster --wait 90s
