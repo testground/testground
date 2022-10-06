@@ -20,10 +20,10 @@ Testground As A Service embodies our long-term vision.
 - The ability to track the impact of a change in terms of stability & performance across multiple projects,
 - The ability to experiment with large-scale networks and simplify the integration testing of libraries used across deep stacks.
 
-Products with similar ideas:
+Products with similar ideas, but specialized in different areas:
 
-- [CockroachDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
-- [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
+- database: [CockroachDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
+- browser: [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
 
 ## Problems we focus on
 
