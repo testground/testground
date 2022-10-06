@@ -27,7 +27,13 @@ Products with similar ideas, but specialized in different areas:
 
 ## Problems we focus on
 
-We focus on reliability, usefulness, and sustainability. We want to ensure Testground is valuable and stable before we grow its feature set.
+We focus on the following:
+
+1. Reliability: above all, Testground should be trusted by its users,
+2. Usefulness: solving needs that have been requested explicitly by projects,
+3. Sustainability: implementing the processes & tools we need to maintain Testground in the medium and long term.
+
+We want to ensure Testground is valuable and stable before we grow its feature set.
 
 ### Table of Content
 
