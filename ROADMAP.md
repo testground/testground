@@ -37,7 +37,7 @@ We focus on reliability, usefulness, and sustainability. We want to ensure Testg
 - [4. Testground Development follows high-standard](#4-testground-development-follows-high-standard)
 - [5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications](#5-testground-provides-the-networking-tooling-required-to-test-complex-distributed--decentralized-applications)
 - [6. Testground provides the tooling to make test maintenance & finding issues simple](#6-testground-provides-the-tooling-to-make-test-maintenance--finding-issues-simple)
-- [7. Testground covers every /essential/combination of languages and libraries required by its users](#7-testground-covers-every-essentialcombination-of-languages-and-libraries-required-by-its-users)
+- [7. Testground covers every essential combination of languages and libraries required by its users](#7-testground-covers-every-essential-combination-of-languages-and-libraries-required-by-its-users)
 
 ### 1. Testground provides reliable results
 
@@ -160,7 +160,7 @@ There is a clear matrix of what features can be used with which Testground runne
 - Logging improvements - [Epic 1355](https://github.com/testground/testground/issues/1355)
 - tcpdump'ing features - [Issue #1384](https://github.com/testground/testground/issues/1384)
 
-### 7. Testground covers every /essential/combination of languages and libraries required by its users
+### 7. Testground covers every essential combination of languages and libraries required by its users
 
 **Why:** Drive adoption outside of Protocol Labs.
 
