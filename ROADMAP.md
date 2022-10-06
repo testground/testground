@@ -80,21 +80,24 @@ It might contain:
 
 **Why:** We believe Testground can provide value across entire organizations. Making it easy to run a large-scale workload and efficient small-scale CI tests are core to its success.
 
-#### Milestone 1: We can use Testground EKS clusters in production
+#### Milestone 1: Users are able to start an EKS cluster and use it
 
 - Deploy
-- Security
-- Stability
 
-#### Milestone 2: We can measure and improve Testground's EKS stability
+#### Milestone 2: There is a Testground As A Service product that orgs like libp2p and ipfs can use
+
+- Security (authentication)
+- domain setup
+
+#### Milestone 3: We can measure and improve Testground's EKS stability
 
 - Deploying short-lived clusters for benchmarking
 
-#### Milestone 3: We can measure and improve Testground's EKS performance
+#### Milestone 4: We can measure and improve Testground's EKS performance
 
 - Deploying short-lived clusters for benchmarking
 
-#### Milestone 4: Dashboard & CI Tooling
+#### Milestone 5: Dashboard & CI Tooling
 
 ### 3. The knowledge required to work efficiently with Testground is available and easy to access
 
