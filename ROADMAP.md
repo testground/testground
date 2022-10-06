@@ -135,7 +135,7 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 - We have a single maintainer team for review,
 - We have a clear label and triaging process,
 - We have a reliable & transparent contribution process (protected branches, etc),
-- We have precise project management tooling (re-ignite ZenHub?)
+- We have precise project management tooling (port previous ZenHub planning into Github?)
 
 ### 5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications
 
