@@ -968,12 +968,7 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 	// all worker nodes are the same, so just take allocatable CPU from the first
 	item := res.Items[0].Status.Allocatable["cpu"]
-	nodeCPUs, success := item.AsInt64()
-
-	// in case parsing fails, the milli value will contain the proper format of cpu resources
-	if !success {
-		nodeCPUs = item.MilliValue()
-	}
+	nodeCPUs := item.ToDec().Value()
 
 	totalCPUs := nodes * int(nodeCPUs)
 
