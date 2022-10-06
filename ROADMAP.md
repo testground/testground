@@ -157,6 +157,8 @@ There is a clear matrix of what features can be used with which Testground runne
 #### Milestone 3: Testground provides a way to run tests over real networks
 
 - Remote runners feature
+  - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
+  - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
 
 ### 6. Testground provides the tooling to make test maintenance & finding issues simple
 
