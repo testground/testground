@@ -49,11 +49,16 @@ We want to ensure Testground is valuable and stable before we grow its feature s
 
 **Why:** an unreliable testing platform is just a noise machine. We need to secure our users' trust. Testground maintainers need clear feedback about stability improvements & regressions.
 
+- We expect strictly zero false positives (a test succeeds because Testground missed an error); these are critical bugs we already test for.
+- However, Testground users might encounter false negatives (a test fails because Testground encountered an issue). Our stability metrics will measure this.
+
 #### Milestone 1: We have a stability metrics dashboard
 
 Maintainers and users have a way to measure and follow Testground's Stability over any "relevant" axis.
 
 This might combine different languages, runners (k8s, docker, local), and context (developer env, CI env, k8s env).
+
+This dashboard will describe, explicitly, what to expect in term of false negatives (when an error is caused by testground itself and not by the plan or the test).
 
 #### Milestone 2: We have identified and reached our user's stability requirements. We resolved "most" of them
 
