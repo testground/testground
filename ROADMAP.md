@@ -107,20 +107,14 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
 
 #### Milestone 1: There is a working quickstart that is the entry point to every other documentation
 
-#### Milestone 2: Testground has an official release process
-
-- We distribute versions following an explicit release process (no more `:edge` by default)
-- It's easy to follow changes (CHANGELOG)
-- We distribute binaries
-
-#### Milestone 3: Testground provides extensive documentation
+#### Milestone 2: Testground provides extensive documentation
 
 - The documentation is up-to-date
   - Generates configuration documentation
 - We provide introduction guides for every language
 - We provide doc for Common Patterns
 
-#### Milestone 4: Potential users know about Testground's existence and features
+#### Milestone 3: Potential users know about Testground's existence and features
 
 - "Public Relations".
 
@@ -137,6 +131,13 @@ Related - [EPICS 1741](https://github.com/testground/testground/issues/1471).
   - remove shell scripts
 - Plan for testing EKS
 - Measure & remove flakiness
+
+#### Testground has an official release process
+
+- We distribute versions following an explicit release process (no more `:edge` by default)
+- It's easy to follow changes (CHANGELOG)
+- We distribute binaries
+- The release process is automated
 
 #### I have all the documentation I need as a Maintainer
 
