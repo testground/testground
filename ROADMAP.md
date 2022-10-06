@@ -57,7 +57,13 @@ This might combine different languages, runners (k8s, docker, local), and contex
 
 #### Milestone 3: We have a performances dashboard
 
-Maintainers and users have a way to measure and follow Testground's Performances over any "relevant" axis.
+Maintainers and users have a way to measure and follow Testground's Performances over any "relevant" axis. This effort will start with identifying which metrics we want to measure first.
+
+It might contain:
+
+- Raw build / run performance for synthetic workload
+- Performance of real-life usage in CI (like `libp2p/test-plans`)
+- Consideration for caching features, re-building, etc.
 
 ### 2. Testground can be set up as an organization-wide Service
 
