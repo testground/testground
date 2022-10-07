@@ -82,9 +82,7 @@ func (d *DockerReactor) ResolveServices(runid string) {
 
 	additionalHosts := strings.Split(os.Getenv(EnvAdditionalHosts), ",")
 	logging.S().Infow("additional hosts", "hosts", os.Getenv(EnvAdditionalHosts))
-	if len(additionalHosts) != 1 || additionalHosts[0] != "" {
-		wantedRoutes = append(wantedRoutes, additionalHosts...)
-	}
+	wantedRoutes = append(wantedRoutes, additionalHosts...)
 
 	var resolvedRoutes []net.IP
 	for _, route := range wantedRoutes {
