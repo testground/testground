@@ -139,14 +139,9 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	}
 
 	additionalHosts := "ADDITIONAL_HOSTS="
-	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]interface{})
+	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]string)
 	if hasHosts {
-		for i, host := range envHosts {
-			if i > 0 {
-				additionalHosts += ","
-			}
-			additionalHosts += host.(string)
-		}
+		additionalHosts += strings.Join(envHosts, ",")
 	}
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
