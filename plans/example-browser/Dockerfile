@@ -12,8 +12,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /plan
-COPY ./* /plan/
 
-RUN npm ci
+COPY ./package.json ./package-lock.json /plan/
+RUN npm ci && npm cache clean --force
+
+COPY ./src /plan/src/
 
 ENTRYPOINT [ "npm", "start" ]
