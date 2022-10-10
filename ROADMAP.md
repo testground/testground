@@ -1,49 +1,194 @@
 # Testground Roadmap
 
+```
+Date: 2022-10-07
+Status: In Progress
+Notes: This document is still in review will may be heavily modified based on stakeholder feedback. Please add any feedback or questions in:
+https://github.com/testground/testground/issues/1491
+```
+
+## Table Of Content
+
+- [Context](#context)
+  - [About the Roadmap](#about-the-roadmap)
+- [Vision](#vision)
+- [Our Focus for 2022-2023](#our-focus-for-2022-2023)
+- [Milestones](#milestones)
+  - [1. Bootstrap libp2p's interoperability testing story](#1-bootstrap-libp2ps-interoperability-testing-story)
+  - [2. Refresh Testground's EKS support](#2-refresh-testgrounds-eks-support)
+  - [3. Improve our Development & Testing infrastructure to meet engineering standards](#3-improve-our-development--testing-infrastructure-to-meet-engineering-standards)
+  - [4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams](#4-provide-a-testground-as-a-service-cluster-used-by-libp2p--ipfs-teams)
+  - [5. Testground Is Usable by Non-Testground experts](#5-testground-is-usable-by-non-testground-experts)
+  - [6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements](#6-support-libp2ps-interoperability-testing-story-and-probelabs-work-as-a-way-to-drive-critical-testground-improvements)
+- [Appendix: Problems we focus on](#appendix-problems-we-focus-on)
+
 ## Context
 
 > Testground is a platform for testing, benchmarking, and simulating distributed and peer-to-peer systems at scale.
 > It's designed to be multi-lingual and runtime-agnostic, scaling gracefully from 2 to 10k instances when needed.
 
-Testground was used successfully at Protocol Labs
+Testground was used successfully at Protocol Labs to validate improvements like libp2p's gossipsub security extensions,
+IPFS' massive DHT and Bitswap improvement, and Filecoin improvements. Today, we are actively working on it to support libp2p interoperability testing.
 
-- TODO: note on libp2p interop
-- TODO: note on filecoin
-- TODO: note on IPFS v0.5.0 (massive DHT and Bitswap improvements)
-- TODO: note on libp2p (gossipsub 1.1 security extensions)
+### About the Roadmap
+
+This document consists of two sections:
+
+- [Milestones](#milestones) is the list of key improvement we intend to release with dates and deliverable. It is a "deliverable" oriented slice of our plan.
+- [Appendix: Problems we focus on](#appendix-problems-we-focus-on) is the list of areas of improvement we intend to focus on. Some contains a few examples of milestones. It is a "problem" oriented slice of our plan.
+
+The timeline we share is our best educated guess (not a hard commitment) around when we plan to provide key improvements.
+
+Where possible we've shared a list of deliverables for every Milestone. These lists are not exhaustive or definitive, their aim is to create a sense of "what are concrete outcomes" delivered by an improvement.
+
+As we're agreeing on this Roadmap and refining it, we'll create & organize missing the missing EPICs
+
+Note that "refreshing" Testground project management is [one of our key milestones](#3-improve-our-development--testing-infrastructure-to-meet-engineering-standards)
 
 ## Vision
 
+_This section is still a very high level draft_
+
 Testground As A Service embodies our long-term vision.
 
-- A single, scalable platform that one or more organizations can use,
+- A single, scalable, installation that one or more organizations can use in all their projects,
+- The ability to experiment with large-scale networks and simplify the integration testing of "any" network-related code,
 - The ability to track the impact of a change in terms of stability & performance across multiple projects,
-- The ability to experiment with large-scale networks and simplify the integration testing of libraries used across deep stacks.
+  - An example: having the ability to run IPFS benchmarks and simulations with different combinations of libraries. This would help us measure regression and improvements as soon as they occur in upstream dependencies.
 
 Products with similar ideas, but specialized in different areas:
 
 - database: [CockroachDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
 - browser: [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
 
-## Problems we focus on
+## Our Focus for 2022-2023
 
 We focus on the following:
 
 1. Reliability: above all, Testground should be trusted by its users,
-2. Usefulness: solving needs that have been requested explicitly by projects,
-3. Sustainability: implementing the processes & tools we need to maintain Testground in the medium and long term.
+2. Sustainability: implementing the processes & tools we need to maintain Testground in the medium and long term.
+3. Usefulness: solving needs that have been requested explicitly by projects,
 
 We want to ensure Testground is valuable and stable before we grow its feature set.
 
-### Table of Content
+## Milestones
 
-- [1. Testground provides reliable results](#1-testground-provides-reliable-results)
-- [2. Testground can be set up as an organization-wide Service](#2-testground-can-be-set-up-as-an-organization-wide-service)
-- [3. The knowledge required to work efficiently with Testground is available and easy to access](#3-the-knowledge-required-to-work-efficiently-with-testground-is-available-and-easy-to-access)
-- [4. Testground Development follows high-standard](#4-testground-development-follows-high-standard)
-- [5. Testground provides the networking tooling required to test complex Distributed / Decentralized Applications](#5-testground-provides-the-networking-tooling-required-to-test-complex-distributed--decentralized-applications)
-- [6. Testground provides the tooling to make test maintenance & finding issues simple](#6-testground-provides-the-tooling-to-make-test-maintenance--finding-issues-simple)
-- [7. Testground covers every essential combination of languages, runtimes, and libraries required by its users](#7-testground-covers-every-essential-combination-of-languages-runtimes-and-libraries-required-by-its-users)
+### 1. Bootstrap libp2p's interoperability testing story
+
+- Theme: usefulness
+- Effort: approx. 6 months
+- Delivery: Q4 2022
+
+**Why:** Testground provides a great fundation for distributed testing. Supporting the libp2p team with interoperability tests generates long-term value outside of Testground. By focusing on a use-case, we can move faster, generate interest, and create measurable improvements.
+
+**Deliverables:**
+
+- Tooling to support interoperability testing (mixed-builders, composition templating),
+- Stability measurements & fixes to reach the libp2p team's expectations,
+- A fully working example (ping test) used in go-libp2p and rust-libp2p CIs,
+- An interoperability Dashboard that shows how implementations and versions are tested.
+
+### 2. Refresh Testground's EKS support
+
+- Theme: usefulness
+- Effort: approx. 6 months
+- Delivery: Q4 2022
+
+**Why:** Testground can be used to simulate small networks in CI, but it covers more usecase when it lives in a larger cluster. When we can run Testgroun in Kubernetes we can support whole organizations through the Testground As A Service product.
+
+Using a managed service (Amazon's Elastic Kubernetes Service) means our maintenance cost are lower and the team can focus on improvements.
+
+**Deliverables:**
+
+- An EKS installation script,
+  - Extra care is taken on Network infrastructure (CNIs).
+- A (fixed) Kubernetes runner that run on Amazon's EKS,
+- The ability for the team to use the latest Testground version, create new releases, and upgrade the cluster.
+
+### 3. Improve our Development & Testing infrastructure to meet engineering standards
+
+- Theme: reliability & sustainability
+- Effort: approx. 4 months
+- Delivery: Q1 2023
+
+**Why:** Testground proved itself useful multiple times over the years. Now we need bulletproof development processes to make the project sustainable and facilitate external contributions.
+
+Extra-care is taken on Testing and Stability: we are building a testing platform, our own testing must be irreprochable.
+
+**Deliverables:**
+
+- Automated release process with official releases, binary distribution, and Changelogs - [EPIC 1430](https://github.com/testground/testground/issues/1430)
+- Well-defined Project management processes like triaging, contribution & reviewing processes, etc.
+- Documentations for maintainers,
+- Maintainable integration testing tooling (no more shell scripts or flakiness),
+- A Stability Dashboard used to identify regression & discuss improvement with Maintainers and Users,
+- Tooling for EKS testing.
+
+### 4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
+
+- Theme: usefulness
+- Effort: approx. 4 months
+- Delivery: Q3 2023
+
+**Why:** Improving experience with faster testing in CI. Cover more use cases with large scale networks.
+
+**Deliverables:**
+
+- A _stable_ cluster,
+- Authentication,
+- Tooling for users to use EKS cluster in their testing,
+- Integration of the EKS feature in our testing infrastructure
+  - Short lived clusters used during integration testing
+
+### 5. Testground Is Usable by Non-Testground experts
+
+- Theme: sustainability
+- Effort: approx. 8 months
+- Delivery: Q4 2023
+
+**Why:** Testground is an Open Source project and the more project that uses it, the more improvement we'll see. We want to drive adoption outside of Protocol Labs but also encourage contribution. Other organization have picked up the tool and started contributing, we want to lower friction and strike the Iron while it's hot.
+
+**Deliverables:**
+
+- Working Examples (tested in CI)
+- Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
+  - Updated documentation infrastructure
+  - Quickstart guides
+  - Updated Examples & Tested in CI
+  - New features & parameters, etc.
+  - guides for most useful use cases and features
+  - composition templating, etc.
+- Usability improvements
+- SDK implementers support
+  - Matrix of supported languages with links to SDKs
+  - Instructions for SDK Implementers
+
+### 6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements
+
+- Theme: usefulness
+- Effort: approx. 8 months
+- Delivery: Q4 2023
+
+**Why:** By focusing on a use-case, we can move faster, generate interest, and create measurable improvements outside of the project.
+
+**Deliverables:**
+
+- Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
+- Logging improvements - [Epic 1355](https://github.com/testground/testground/issues/1355)
+- Reliabled Network simulation in Docker and EKS
+  - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
+  - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
+  - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
+  - Network Simulation Fixes - [Epic 1492](https://github.com/testground/testground/issues/1492)
+- Remote-Runners for transport Benchamarking
+  - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
+  - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
+- Performance benchmarking tooling
+- Debug tooling
+  - tcpdump-related features - [Issue #1384](https://github.com/testground/testground/issues/1384)
+- Composition Improvements
+
+## Appendix: Problems we focus on
 
 ### 1. Testground provides reliable results
 
@@ -206,9 +351,3 @@ There is a clear matrix of what features can be used with which Testground runne
 - Record every known SDK and its level of maintenance in an official "awesome-testground" page
   - example: nim-sdk.
 - Provide instructions and a path for SDK implementers
-
-## Later
-
-### Testground is used at ProtocolLabs to measure performances
-
-### Testground security is top-notch
