@@ -2,19 +2,24 @@
   "name": "example-browser-advanced",
   "private": true,
   "version": "1.0.0",
-  "description": "Example Testground Browser Advanced Test",
+  "description": "Example Testground Browser Test With Embedded Testground SDK",
   "main": "index.js",
   "author": "Glen De Cauwsemaecker <glen@littlebearlabs.io>",
   "license": "MIT",
   "scripts": {
     "start": "node index.js",
-    "test": "standard"
+    "test": "standard",
+    "server": "node bin/server.js",
+    "transpile": "npm run transpile-testground",
+    "transpile-testground": "browserify server/scripts/testground.js -o server/static/assets/testground.js"
   },
   "devDependencies": {
+    "browserify": "^17.0.0",
     "standard": "^14.3.4"
   },
   "dependencies": {
-    "@testground/sdk": "^0.1.2",
+    "@testground/sdk": "github:GlenDC/sdk-js#feat/support-browser",
+    "express": "^4.18.1",
     "playwright": "^1.25.2"
   }
 }
