@@ -81,9 +81,9 @@ We want to ensure Testground is valuable and stable before we grow its feature s
 
 ### 1. Bootstrap libp2p's interoperability testing story
 
+- Delivery: Q4 2022
 - Theme: usefulness
 - Effort: approx. 6 months
-- Delivery: Q4 2022
 
 **Why:** Testground provides an excellent foundation for distributed testing. Supporting the libp2p team with interoperability tests generates long-term value outside of Testground. We can move faster, generate interest, and create measurable improvements by focusing on a use-case.
 
@@ -96,9 +96,9 @@ We want to ensure Testground is valuable and stable before we grow its feature s
 
 ### 2. Refresh Testground's EKS support
 
+- Delivery: Q4 2022
 - Theme: usefulness
 - Effort: approx. 6 months
-- Delivery: Q4 2022
 
 **Why:** Testground can simulate small networks in CI, but it covers more use cases when it lives in a larger cluster. When we run Testgroun in Kubernetes, we can support whole organizations through the Testground As A Service product.
 
@@ -113,9 +113,9 @@ Using a managed service (Amazon's Elastic Kubernetes Service) means our maintena
 
 ### 3. Improve our Development & Testing infrastructure to meet engineering standards
 
+- Delivery: Q1 2023
 - Theme: reliability & sustainability
 - Effort: approx. 4 months
-- Delivery: Q1 2023
 
 **Why:** Testground proved itself valuable multiple times over the years. However, now we need bulletproof development processes to make the project sustainable and facilitate external contributions.
 
@@ -132,9 +132,9 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 ### 4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
 
+- Delivery: Q3 2023
 - Theme: usefulness
 - Effort: approx. 4 months
-- Delivery: Q3 2023
 
 **Why:** Improving experience with faster testing in user's CI. Cover more use cases with large-scale networks.
 
@@ -148,9 +148,9 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 ### 5. Testground Is Usable by Non-Testground experts
 
+- Delivery: Q4 2023
 - Theme: sustainability
 - Effort: approx. 8 months
-- Delivery: Q4 2023
 
 **Why:** Testground is an Open Source project, and the more project that uses it, the more improvement we'll see. We want to drive adoption outside of Protocol Labs but also encourage contribution. Other organizations have picked up the tool and started contributing; we want to lower friction and strike the Iron while it's hot.
 
@@ -171,9 +171,9 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 ### 6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements
 
+- Delivery: Q4 2023
 - Theme: usefulness
 - Effort: approx. 8 months
-- Delivery: Q4 2023
 
 **Why:** By focusing on a use case, we can move faster, generate interest, and create measurable improvements outside the project.
 
