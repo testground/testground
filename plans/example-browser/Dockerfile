@@ -11,11 +11,13 @@ RUN apt-get update && \
     libatspi2.0-0 libxshmfence-dev && \
     rm -rf /var/lib/apt/lists/*
 
+RUN mkdir -p /plan
 WORKDIR /plan
 
-COPY ./package.json ./package-lock.json /plan/
+COPY *.json ./
+RUN ls -l /plan/
 RUN npm ci && npm cache clean --force
 
-COPY ./src /plan/src/
+COPY ./* /plan/
 
 ENTRYPOINT [ "npm", "start" ]

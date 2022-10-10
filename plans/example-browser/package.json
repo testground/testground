@@ -7,8 +7,8 @@
   "author": "Glen De Cauwsemaecker <glen@littlebearlabs.io>",
   "license": "MIT",
   "scripts": {
-    "start": "node src/index.js",
-    "test": "standard src"
+    "start": "node index.js",
+    "test": "standard"
   },
   "devDependencies": {
     "standard": "^14.3.4"
