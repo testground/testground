@@ -1,4 +1,5 @@
-//+build linux
+//go:build linux
+// +build linux
 
 package sidecar
 
@@ -78,6 +79,10 @@ func (d *DockerReactor) ResolveServices(runid string) {
 		os.Getenv(EnvSyncServiceHost),
 		os.Getenv(EnvInfluxdbHost),
 	}
+
+	additionalHosts := strings.Split(os.Getenv(EnvAdditionalHosts), ",")
+	logging.S().Infow("additional hosts", "hosts", os.Getenv(EnvAdditionalHosts))
+	wantedRoutes = append(wantedRoutes, additionalHosts...)
 
 	var resolvedRoutes []net.IP
 	for _, route := range wantedRoutes {
