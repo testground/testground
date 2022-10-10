@@ -3,6 +3,8 @@ enabled = true
 
 [runners."local:docker"]
 enabled = true
+ulimits = ["nofile=1048576:1048576"]
+additional_hosts = ["http-echo"]
 
 [daemon]
 listen = ":8040"
@@ -13,4 +15,4 @@ task_repo_type = "disk"
 
 [client]
 endpoint = "http://localhost:8040"
-user = "tg_integration_test"
+user = "myname"
