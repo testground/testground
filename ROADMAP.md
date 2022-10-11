@@ -219,7 +219,7 @@ This dashboard will explicitly describe what to expect regarding false negatives
 
 #### Milestone 3: We have a performance dashboard
 
-Maintainers and users have a way to measure and follow Testground's Performances over any "relevant" axis. Therefore, this effort will start with identifying which metrics we want to measure first.
+Maintainers and users have a way to measure and follow Testground's Performance over any "relevant" axis. Therefore, this effort will start with identifying which metrics we want to measure first.
 
 It might contain:
 
