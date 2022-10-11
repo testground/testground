@@ -43,7 +43,7 @@ The timeline we share is our best-educated guess (not a hard commitment) around 
 
 Where possible, we've shared a list of deliverables for every Milestone. These lists are not exhaustive or definitive; they aim to create a sense of "what are concrete outcomes" delivered by an improvement.
 
-As we agree on this Roadmap and refine it, we'll create & organize missing  EPICs.
+As we agree on this Roadmap and refine it, we'll create & organize missing EPICs.
 
 Making Testground project management sustainable is [one of our key milestones](#3-improve-our-development--testing-infrastructure-to-meet-engineering-standards).
 
