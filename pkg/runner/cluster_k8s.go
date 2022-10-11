@@ -1109,7 +1109,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 			Labels: map[string]string{
 				"testground.purpose": "outputs",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "ipvlan-multus"},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "weave"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
