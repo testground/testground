@@ -136,7 +136,7 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Theme: usefulness
 - Effort: approx. 4 months
 
-**Why:** Improving experience with faster testing in user's CI. Cover more use cases with large-scale networks.
+**Why:** TaaS enables tests on much bigger scale and makes it easier to use testground in new projects. It will improve build speed (thanks for docker caching) and run speed (thanks to parallelizaton), which are critical for testplans running in CI.
 
 **Deliverables:**
 
@@ -144,7 +144,8 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Authentication,
 - Tooling for users to use EKS cluster in their testing,
 - Integration of the EKS feature in our testing infrastructure
-  - Short-lived clusters used during integration testing
+  - Test the EKS cluster during integration testing,
+  - (use short lived-clusters during nightly CI tests for example).
 
 ### 5. Testground Is Usable by Non-Testground experts
 
@@ -152,7 +153,7 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Theme: sustainability
 - Effort: approx. 8 months
 
-**Why:** Testground is an Open Source project, and the more project that uses it, the more improvement we'll see. We want to drive adoption outside of Protocol Labs but also encourage contribution. Other organizations have picked up the tool and started contributing; we want to lower friction and strike the Iron while it's hot.
+**Why:** If we attract more people to use Testground, we'll have more contributions to the project because Testground is an Open Source project.
 
 **Deliverables:**
 
@@ -200,7 +201,8 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 **Why:** an unreliable testing platform is just a noise machine. We need to secure our users' trust. In addition, testground maintainers need clear feedback about stability improvements & regressions.
 
-- We expect strictly zero false positives (a test succeeds because Testground missed an error); these are critical bugs we already test for.
+- We expect strictly zero false positives (a test succeeds because Testground missed an error);
+  these are critical bugs, we never merge a pull request that introduce a false positive into Testground.
 - However, Testground users might encounter false negatives (a test fails because Testground encountered an issue). Our stability metrics will measure this.
 
 #### Milestone 1: We have a stability metrics dashboard
