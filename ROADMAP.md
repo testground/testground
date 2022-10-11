@@ -63,7 +63,7 @@ Products with similar ideas but specialized in different areas:
 - database: [CockroachDB performance tracker](https://cockroachdb.github.io/pebble/?max=local),
 - browser: [Webkit Performance Dashboard](https://perf.webkit.org/v3/)
 
-Researchs and Templates
+Research and Templates
 
 - [Mockup for the Testground Dashboard](https://github.com/testground/testground/issues/133#issuecomment-553538029)
 
