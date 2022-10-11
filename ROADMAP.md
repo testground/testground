@@ -71,9 +71,9 @@ Research and Templates
 
 We focus on the following:
 
-1. Reliability: above all, Testground should be trusted by its users,
-2. Sustainability: implementing the processes & tools we need to maintain Testground in the medium and long term.
-3. Usefulness: solving needs that have been requested explicitly by projects,
+1. Reliability: above all, Testground should be trusted by its users;
+2. Sustainability: implementing the processes & tools we need to maintain Testground in the medium and long term;
+3. Usefulness: solving needs that have been requested explicitly by projects.
 
 We want to ensure Testground is valuable and stable before we grow its feature set.
 
