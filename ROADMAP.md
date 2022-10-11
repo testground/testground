@@ -211,7 +211,7 @@ This might combine different languages, runners (k8s, docker, local), and contex
 
 This dashboard will explicitly describe what to expect regarding false negatives (when an error is caused by Testground itself and not by the plan or the test).
 
-#### Milestone 2: We have identified and reached our user's stability requirements. We resolved "most" of them
+#### Milestone 2: We have identified and reached our user's stability requirements. We met "most" of them
 
 - local runner,
 - docker runner,
