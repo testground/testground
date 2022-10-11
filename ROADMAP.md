@@ -160,7 +160,7 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
   - Updated documentation infrastructure
   - Quickstart guides
-  - Updated Examples & Tested in CI
+  - Updated examples which are tested in CI
   - New features & parameters, etc.
   - guides for most helpful use cases and features
   - composition templating, etc.
