@@ -1,0 +1,17 @@
+[metadata]
+name = "name"
+  
+# `withEnv` forward the `$.Env` value
+# this should receive the env
+value="123"
+version="1.18"
+
+# `toml` print the value as a toml.
+# `pick` let's you pick a value from a resource.
+[[values]]
+  id = "a"
+
+[[values]]
+  id = "b"
+# atoi convert a string to a number
+another_id="b"

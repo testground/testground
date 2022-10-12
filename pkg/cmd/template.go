@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -20,9 +21,33 @@ type compositionData struct {
 func compileCompositionTemplate(path string, input *compositionData) (*bytes.Buffer, error) {
 	templateDir := filepath.Dir(path)
 
+	// Investigate: https://github.com/Masterminds/sprig
+	// Investigate "missingkey=error"
 	f := template.FuncMap{
+		"pick": func(v map[string]interface{}, key string) map[string]interface{} {
+			x := map[string]interface{}{key: v[key]}
+			return x
+		},
+		"toml": func(v interface{}) (string, error) {
+			var buf bytes.Buffer
+			if err := toml.NewEncoder(&buf).Encode(v); err != nil {
+				return "", err
+			}
+			return buf.String(), nil
+		},
+		"withEnv": func(value map[string]interface{}) map[string]interface{} {
+			result := map[string]interface{}{}
+			for k, v := range value {
+				result[k] = v
+			}
+			result["Env"] = input.Env
+			return result
+		},
 		"split": func(xs string) []string {
 			return strings.Split(xs, ",")
+		},
+		"atoi": func(s string) (int, error) {
+			return strconv.Atoi(s)
 		},
 		"load_resource": func(p string) (map[string]interface{}, error) {
 			// NOTE: we do not worry about path that are leaving the template folders, or going through symlinks
