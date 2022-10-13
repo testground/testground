@@ -23,6 +23,10 @@ func compileCompositionTemplate(path string, input *compositionData) (*bytes.Buf
 
 	// Investigate: https://github.com/Masterminds/sprig
 	f := template.FuncMap{
+		"set": func(item map[string]interface{}, key string, value string) map[string]interface{} {
+			item[key] = value
+			return item
+		},
 		"withEnv": func(value map[string]interface{}) map[string]interface{} {
 			result := map[string]interface{}{}
 			for k, v := range value {
