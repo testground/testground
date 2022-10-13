@@ -22,7 +22,19 @@ func compileCompositionTemplate(path string, input *compositionData) (*bytes.Buf
 	templateDir := filepath.Dir(path)
 
 	// Investigate: https://github.com/Masterminds/sprig
+	// Investigate "missingkey=error"
 	f := template.FuncMap{
+		"pick": func(v map[string]interface{}, key string) map[string]interface{} {
+			x := map[string]interface{}{key: v[key]}
+			return x
+		},
+		"toml": func(v interface{}) (string, error) {
+			var buf bytes.Buffer
+			if err := toml.NewEncoder(&buf).Encode(v); err != nil {
+				return "", err
+			}
+			return buf.String(), nil
+		},
 		"set": func(item map[string]interface{}, key string, value string) map[string]interface{} {
 			item[key] = value
 			return item
