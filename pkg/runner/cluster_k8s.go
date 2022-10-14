@@ -1188,19 +1188,19 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 
 	for _, it := range res.Items {
 		i := it.Status.Allocatable["cpu"]
-		r, _ := i.AsInt64()
+		r := i.ToDec().Value()
 		allocatableCPUs += r
 
 		i = it.Status.Allocatable["memory"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		allocatableMemory += r
 
 		i = it.Status.Capacity["cpu"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		capacityCPUs += r
 
 		i = it.Status.Capacity["memory"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		capacityMemory += r
 	}
 
