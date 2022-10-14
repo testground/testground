@@ -7,6 +7,10 @@ err_report() {
     echo "Error on line $1 : $2"
 }
 FILENAME=`basename $0`
+# The first argument to the script is TOML env for the testground daemon.
+# If no argument is passed, the default is env-kind.toml.
+DAEMON_ENV="${1:-env-kind.toml}"
+
 trap 'err_report $LINENO $FILENAME' ERR
 
 function finish {
@@ -100,5 +104,5 @@ function start_daemon {
 # if the SKIP_AUTO_START flag is unset or set to 0, start the daemon immediately
 if [[ ! -n "$SKIP_AUTO_START" || $SKIP_AUTO_START -eq 0 ]]; then
   echo "Starting daemon automatically"
-  start_daemon 'env-kind.toml'
+  start_daemon $DAEMON_ENV
 fi

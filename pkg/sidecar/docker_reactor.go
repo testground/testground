@@ -80,6 +80,10 @@ func (d *DockerReactor) ResolveServices(runid string) {
 		os.Getenv(EnvInfluxdbHost),
 	}
 
+	additionalHosts := strings.Split(os.Getenv(EnvAdditionalHosts), ",")
+	logging.S().Infow("additional hosts", "hosts", os.Getenv(EnvAdditionalHosts))
+	wantedRoutes = append(wantedRoutes, additionalHosts...)
+
 	var resolvedRoutes []net.IP
 	for _, route := range wantedRoutes {
 		if route == "" {

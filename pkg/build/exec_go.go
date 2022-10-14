@@ -66,6 +66,10 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 	// If we have version overrides, apply them.
 	var replaces []string
 	for mod, ver := range in.Dependencies {
+		if ver.Target == "" {
+			ver.Target = mod
+		}
+
 		replaces = append(replaces, fmt.Sprintf("-replace=%s=%s@%s", mod, ver.Target, ver.Version))
 	}
 
@@ -84,9 +88,17 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 		}
 	}
 
+	// go mod tidy
+	cmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+	cmd.Dir = plansrc
+	if err := cmd.Run(); err != nil {
+		out, _ := cmd.CombinedOutput()
+		return nil, fmt.Errorf("unable to go mod tidy in build; %w; output: %s", err, string(out))
+	}
+
 	// Calculate the arguments to go build.
 	// go build -o <output_path> [-tags <comma-separated tags>] <exec_pkg>
-	var args = []string{"build", "-gcflags='all=-N -l'", "-o", path}
+	var args = []string{"build", "-gcflags=all=-N -l", "-o", path}
 	if len(in.Selectors) > 0 {
 		args = append(args, "-tags")
 		args = append(args, strings.Join(in.Selectors, ","))
@@ -94,7 +106,7 @@ func (b *ExecGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.O
 	args = append(args, cfg.ExecPkg)
 
 	// Execute the build.
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd = exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = plansrc
 	out, err := cmd.CombinedOutput()
 	if err != nil {
