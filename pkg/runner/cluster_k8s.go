@@ -824,6 +824,12 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
+	var sysctls []v1.Sysctl
+	for _, v := range cfg.Sysctls {
+		sysctl := strings.Split(v, "=")
+		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
+	}
+
 	var ports []v1.ContainerPort
 	cnt := 0
 	for _, p := range cfg.ExposedPorts {
@@ -861,6 +867,9 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 						},
 					},
 				},
+			},
+			SecurityContext: &v1.PodSecurityContext{
+				Sysctls: sysctls,
 			},
 			RestartPolicy: v1.RestartPolicyNever,
 			InitContainers: []v1.Container{
