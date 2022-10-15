@@ -1,0 +1,14 @@
+[runners."local:docker"]
+ulimits = ["nofile=1048576:1048576"]
+additional_hosts = ["http-echo"]
+
+[daemon]
+listen = ":8040"
+
+[daemon.scheduler]
+task_timeout_min = 5
+task_repo_type = "disk"
+
+[client]
+endpoint = "http://localhost:8040"
+user = "myname"
