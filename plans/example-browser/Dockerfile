@@ -18,6 +18,6 @@ COPY ./plan/package*.json ./plan/
 WORKDIR /plan
 RUN npm ci && npm cache clean --force
 
-COPY ./plan/src/* /plan/
+COPY ./plan/src /plan/src
 
 ENTRYPOINT [ "npm", "start" ]
