@@ -7,6 +7,9 @@ runner = "local:docker"
 [builders."docker:node"]
 enabled = true
 
+[builders."docker:generic"]
+enabled = true
+
 [runners."local:docker"]
 enabled = true
 
