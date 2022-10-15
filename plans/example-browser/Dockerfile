@@ -12,12 +12,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /plan
-WORKDIR /plan
 
-COPY *.json ./
-RUN ls -l /plan/
+COPY ./plan/package*.json ./plan/
+
+WORKDIR /plan
 RUN npm ci && npm cache clean --force
 
-COPY ./* /plan/
+COPY ./plan/src/* /plan/
 
 ENTRYPOINT [ "npm", "start" ]
