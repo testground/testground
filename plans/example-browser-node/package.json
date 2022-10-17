@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/index.js",
     "start:browser": "node browser/index.js",
-    "webpack": "npx webpack --stats-error-details",
+    "webpack": "webpack --stats-error-details",
     "test": "standard"
   },
   "devDependencies": {
