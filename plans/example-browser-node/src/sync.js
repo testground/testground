@@ -1,4 +1,4 @@
-const { sync, network } = require('@testground/sdk')
+const { network } = require('@testground/sdk')
 
 function sleep (ms) {
   return new Promise((resolve) => {

@@ -3,8 +3,7 @@ const { invokeMap } = require('@testground/sdk')
 const testcases = {
   failure: require('./failure'),
   output: require('./output'),
-  sync: require('./sync'),
-  pingpong: require('./pingpong')
+  sync: require('./sync')
 }
 
 ;(async () => {
