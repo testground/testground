@@ -34,4 +34,7 @@ node_modules
 # Ignore all local history of files
 .history
 
+### IntelliJ IDEA ###
+.idea/
+
 # End of https://www.gitignore.io/api/go,visualstudiocode
