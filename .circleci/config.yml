@@ -16,9 +16,9 @@ commands:
       - run:
           name: "install go"
           command: |
-            sudo rm -rf ${GOROOT}/go
+            sudo rm -rf /usr/local/go
             curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
-            sudo tar -C ${GOROOT} -xzf $GOPATH/go.tar.gz
+            sudo tar -C /usr/local -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
             go version
       - checkout
@@ -74,7 +74,6 @@ executors:
       GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
       PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:<< pipeline.parameters.workspace-dir >>/bin:/usr/local/bin:/usr/bin:/bin
       GOVERSION: << pipeline.parameters.go-version >>
-      GOROOT: /usr/local
 
 workflows:
   version: 2
@@ -125,7 +124,7 @@ jobs:
       - setup
       - run:
           name: "install linter"
-          command: "pushd .. && GO111MODULE=on go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.0 && popd"
+          command: "pushd .. && go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.0 && popd"
       - run:
           name: "make lint"
           command: make lint
