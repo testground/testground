@@ -27,7 +27,7 @@
     selectors = ['v0.17']
 
   [groups.build_config]
-    build_base_image = 'golang:1.16-buster'
+    build_base_image = 'golang:1.19-buster'
     modfile = "go.v0.17.mod"
 
 [[groups]]

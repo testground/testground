@@ -29,7 +29,7 @@
 
   [groups.build_config]
     path = "generic/" # this will be passed to the builder as `ARG PLAN_PATH`
-    build_args = { image = "golang:1.16-buster" }
+    build_args = { image = "golang:1.19-buster" }
 
   [groups.run.test_params]
     expected_implementation = "generic"

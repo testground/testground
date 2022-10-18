@@ -3,7 +3,7 @@
 #:::
 
 # GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.16
+ARG GO_VERSION=1.19
 
 # Dynamically select the golang version.
 FROM golang:${GO_VERSION}-buster
