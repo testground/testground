@@ -31,7 +31,7 @@
   instances = { count = 1 }
 
   [groups.build_config]
-    docker_build_image  = "golang:1.19-buster"
+    docker_build_image  = "golang:1.16-buster"
     modfile = "go.v16.mod"
 
   [groups.build]
