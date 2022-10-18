@@ -16,7 +16,7 @@ commands:
       - run:
           name: "install go"
           command: |
-            curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
+            curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go1.19.linux-amd64.tar.gz
             tar --strip-components=1 -C $GOPATH -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
       - checkout
@@ -31,9 +31,9 @@ commands:
           name: "install go on macOS"
           command: |
             brew --version
-            [ ! -d /usr/local/opt/go@1.16 ] && brew install go@1.16 && echo "done installing go"
+            [ ! -d /usr/local/opt/go@1.19 ] && brew install go@1.19 && echo "done installing go"
             echo 'export GOPATH="$HOME/go"' >> $BASH_ENV
-            echo 'export PATH="/usr/local/opt/go@1.16/bin:$GOPATH/bin:$PATH"' >> $BASH_ENV
+            echo 'export PATH="/usr/local/opt/go@1.19/bin:$GOPATH/bin:$PATH"' >> $BASH_ENV
             source $BASH_ENV
             go version
       - checkout
