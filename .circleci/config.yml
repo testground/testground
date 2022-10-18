@@ -16,18 +16,16 @@ commands:
       - run:
           name: "install go"
           command: |
-            go env
+            echo ${GOVERSION}
             go version
-            curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go1.19.linux-amd64.tar.gz
+            curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
             tar --strip-components=1 -C $GOPATH -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
-            echo $GOPATH
-            go env
             go version
       - checkout
       - restore_cache:
           keys:
-            - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.1.19 }}'
+            - 'v2-pkg-cache-{{ checksum "go.sum" }}-{{ .Environment.GOVERSION }}'
             - 'bin-cache-{{ .Branch }}'
   setup-macos:
     description: "install go, checkout and restore cache"
