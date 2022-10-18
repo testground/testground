@@ -19,6 +19,9 @@ commands:
             curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go1.19.linux-amd64.tar.gz
             tar --strip-components=1 -C $GOPATH -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
+            echo $GOPATH
+            go env
+            go version
       - checkout
       - restore_cache:
           keys:
