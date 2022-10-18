@@ -4,15 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 
-	"github.com/testground/testground/pkg/logging"
-
 	"github.com/docker/docker/pkg/ioutils"
+	"github.com/testground/testground/pkg/logging"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -27,11 +25,11 @@ type OutputWriter struct {
 }
 
 func NewStdoutWriter() *OutputWriter {
-	pw := &progressWriter{out: ioutil.Discard}
+	pw := &progressWriter{out: io.Discard}
 	bw := &binaryWriter{}
 	ow := &OutputWriter{
 		SugaredLogger: logging.S(),
-		out:           ioutil.Discard,
+		out:           io.Discard,
 		pw:            pw,
 		bw:            bw,
 	}
@@ -103,11 +101,11 @@ func NewOutputWriter(w http.ResponseWriter, r *http.Request) *OutputWriter {
 }
 
 func Discard() *OutputWriter {
-	pw := &progressWriter{out: ioutil.Discard}
+	pw := &progressWriter{out: io.Discard}
 	bw := &binaryWriter{}
 	ow := &OutputWriter{
 		SugaredLogger: zap.NewNop().Sugar(),
-		out:           ioutil.Discard,
+		out:           io.Discard,
 		pw:            pw,
 		bw:            bw,
 	}

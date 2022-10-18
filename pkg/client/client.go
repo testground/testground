@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -72,9 +71,9 @@ func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdk
 //
 // A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): the request json, usually composition.
-//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
-//  * Part 3 (optional, Content-Type: application/zip): linked sdk.
+//   - Part 1 (Content-Type: application/json): the request json, usually composition.
+//   - Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
+//   - Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
 // caller to close it.
@@ -97,7 +96,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 		// A temporary .zip file to deflate the directory into.
 		// archiver doesn't support archiving direcly into an io.Writer, so we
 		// need a file as a buffer.
-		tmp, err := ioutil.TempFile("", "*.zip")
+		tmp, err := os.CreateTemp("", "*.zip")
 		if err != nil {
 			return err
 		}
@@ -121,7 +120,7 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 			for _, dir := range dirs {
 				// Fetch all files in the dir to pass them to archiver; otherwise we'll
 				// end up with a top-level directory inside the zip.
-				fis, err := ioutil.ReadDir(dir)
+				fis, err := os.ReadDir(dir)
 				if err != nil {
 					return err
 				}
