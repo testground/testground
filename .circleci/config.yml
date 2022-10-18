@@ -19,8 +19,9 @@ commands:
             which go
             go version
             echo $GOPATH
+            echo ${GOROOT}
             curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
-            tar --strip-components=1 -C $GOPATH -xzf $GOPATH/go.tar.gz
+            tar --strip-components=1 -C ${GOROOT} -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
             go version
       - checkout
@@ -76,6 +77,7 @@ executors:
       GOPATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>
       PATH: << pipeline.parameters.workspace-dir >>/go/<< pipeline.parameters.go-version >>/bin:<< pipeline.parameters.workspace-dir >>/bin:/usr/local/bin:/usr/bin:/bin
       GOVERSION: << pipeline.parameters.go-version >>
+      GOROOT: /usr/local
 
 workflows:
   version: 2
