@@ -16,15 +16,10 @@ commands:
       - run:
           name: "install go"
           command: |
-            which go
-            go version
-            echo $GOPATH
-            echo ${GOROOT}
             sudo rm -rf ${GOROOT}/go
             curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
             sudo tar -C ${GOROOT} -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
-            which go
             go version
       - checkout
       - restore_cache:
@@ -130,7 +125,7 @@ jobs:
       - setup
       - run:
           name: "install linter"
-          command: "pushd .. && GO111MODULE=on go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.23.6 && popd"
+          command: "pushd .. && GO111MODULE=on go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.0 && popd"
       - run:
           name: "make lint"
           command: make lint
