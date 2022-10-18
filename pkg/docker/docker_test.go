@@ -3,7 +3,7 @@ package docker_test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -141,20 +141,20 @@ func pullImage(ctx context.Context, imageID string) error {
 	if err != nil {
 		return err
 	}
-	_, err = ioutil.ReadAll(c)
+	_, err = io.ReadAll(c)
 	return err
 }
 
 func randomBuildContext(t *testing.T) (name string, dir string) {
 	rndname := strings.ToLower(t.Name() + "-" + strconv.Itoa(rand.Int()))
 
-	d, err := ioutil.TempDir("", rndname)
+	d, err := os.MkdirTemp("", rndname)
 	require.NoError(t, err)
 
 	// Create a simple Dockerfile.
 	dockerfile := filepath.Join(d, "Dockerfile")
 	cont := fmt.Sprintf("FROM scratch\nCOPY Dockerfile /\n# random comment %s\n", rndname)
-	err = ioutil.WriteFile(dockerfile, []byte(cont), os.ModePerm)
+	err = os.WriteFile(dockerfile, []byte(cont), os.ModePerm)
 	require.NoError(t, err)
 	return rndname, d
 }

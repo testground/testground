@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -57,7 +57,7 @@ func routingPolicyTest(policy network.RoutingPolicyType) run.InitializedTestCase
 		}
 		defer resp.Body.Close()
 
-		bytes, err := ioutil.ReadAll(resp.Body)
+		bytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return err
 		}

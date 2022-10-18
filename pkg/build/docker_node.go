@@ -3,7 +3,7 @@ package build
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -45,7 +45,7 @@ func (d DockerNodeBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rp
 
 	// Write the Dockerfile.
 	dockerfileDst := filepath.Join(basesrc, "Dockerfile")
-	err = ioutil.WriteFile(dockerfileDst, []byte(NodeDockerfileTemplate), 0644)
+	err = os.WriteFile(dockerfileDst, []byte(NodeDockerfileTemplate), 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Dockerfile at %s: %w", dockerfileDst, err)
 	}
