@@ -22,8 +22,9 @@ commands:
             echo ${GOROOT}
             sudo rm -rf ${GOROOT}/go
             curl --create-dirs -o $GOPATH/go.tar.gz https://dl.google.com/go/go${GOVERSION}.linux-amd64.tar.gz
-            sudo tar --strip-components=1 -C ${GOROOT} -xzf $GOPATH/go.tar.gz
+            sudo tar -C ${GOROOT} -xzf $GOPATH/go.tar.gz
             rm -rf $GOPATH/go.tar.gz
+            which go
             go version
       - checkout
       - restore_cache:
