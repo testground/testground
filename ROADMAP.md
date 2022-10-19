@@ -169,6 +169,9 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - SDK implementers support
   - Matrix of supported languages with links to SDKs
   - Instructions for SDK Implementers
+- Outbound Communication
+  - Publish guides, usage reports (whitepapers), and more.
+  - We want to multiply the impact of this effort by attracting more users, contributors, and candidates.
 
 ### 6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements
 
