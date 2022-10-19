@@ -108,6 +108,8 @@ Please report any problems or inaccuracies by [opening a docs issue on this repo
 
 ## Features
 
+For the short and long term roadmap see [ROADMAP.md](./ROADMAP.md).
+
 ### Supports (or aims to support) a variety of testing workflows 💡
 
 > (🌕 = fully supported // 🌑 = planned)
