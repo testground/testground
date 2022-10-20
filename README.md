@@ -46,6 +46,8 @@ $ cd testground
 
 $ make install       # builds testground and the Docker image, used by the local:docker runner.
 
+$ ./install.sh # installs testground on the ~/testground/ dir, don't forget to add it to your $PATH.
+
 $ testground daemon  # will start the daemon listening on localhost:8042 by default.
 
 # => open a different console (client-side), in the same directory (testground/testground repo checkout)
