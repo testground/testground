@@ -18,6 +18,7 @@ COPY ./plan/package*.json ./plan/
 WORKDIR /plan
 RUN npm ci
 
+COPY ./plan/*.js /plan/
 COPY ./plan/src /plan/src
 RUN npm run webpack
 RUN npm cache clean --force
