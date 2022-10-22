@@ -26,4 +26,9 @@ RUN npm cache clean --force
 COPY ./plan/server /plan/server
 COPY ./plan/browser /plan/browser
 
+ARG DEBUG_PORT=9222
+
+EXPOSE ${DEBUG_PORT}
+ENV DEBUG_PORT=${DEBUG_PORT}
+
 ENTRYPOINT [ "npm", "run", "start:browser" ]

@@ -10,6 +10,9 @@ enabled = true
 [builders."docker:generic"]
 enabled = true
 
+[builders."docker:generic".build_args]
+DEBUG_PORT = "9222"
+
 [runners."local:docker"]
 enabled = true
 
