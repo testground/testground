@@ -39,6 +39,7 @@ function sleep (ms) {
         await browser.close()
       } catch (_) {}
     }
+    console.log('exiting browser testplan...')
     exit(0)
   }
 })()
