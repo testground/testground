@@ -3,10 +3,6 @@ const { exit } = require('process')
 
 const spawnServer = require('../server')
 
-function sleep (ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 ;(async () => {
   spawnServer(8080)
 
@@ -17,7 +13,7 @@ function sleep (ms) {
     browser = await chromium.launch({
       args: [
         '--remote-debugging-address=0.0.0.0',
-        `--remote-debugging-port=${chomeDebugPort}`
+        `--remote-debugging-port=${chromeDebugPort}`
       ]
     })
 
@@ -31,13 +27,27 @@ function sleep (ms) {
     await page.goto('http://127.0.0.1:8080')
 
     // TODO: wait for the test to finish somehow :|
-    console.log('waiting for 60s until exiting... (TODO fix this)')
-    await sleep(60000)
+
+    console.log('start browser exit process...')
+
+    if (process.env.HALT_BROWSER_ON_FINISH === 'true') {
+      console.log('halting on browser exit process (dev tools breakpoint)...')
+      await page.evaluate(() => {
+        debugger // eslint-disable-line no-debugger
+        window.open() // triggers popup window
+      })
+      await page.waitForEvent('popup', { timeout: 0 })
+    }
+  } catch (error) {
+    console.error(`browser process resulted in exception: ${error}`)
+    throw error
   } finally {
     if (browser) {
       try {
         await browser.close()
-      } catch (_) {}
+      } catch (error) {
+        console.error(`browser closure resulted in exception: ${error}`)
+      }
     }
     console.log('exiting browser testplan...')
     exit(0)

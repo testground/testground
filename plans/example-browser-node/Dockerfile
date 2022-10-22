@@ -27,7 +27,11 @@ COPY ./plan/server /plan/server
 COPY ./plan/browser /plan/browser
 
 ARG CHROME_DEBUG_PORT=9222
+ARG HALT_BROWSER_ON_FINISH=false
 
 EXPOSE ${CHROME_DEBUG_PORT}
+
+ENV CHROME_DEBUG_PORT=${CHROME_DEBUG_PORT}
+ENV HALT_BROWSER_ON_FINISH=${HALT_BROWSER_ON_FINISH}
 
 ENTRYPOINT [ "npm", "run", "start:browser" ]
