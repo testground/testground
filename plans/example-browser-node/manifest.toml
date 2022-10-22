@@ -11,13 +11,13 @@ enabled = true
 enabled = true
 
 [builders."docker:generic".build_args]
-DEBUG_PORT = "9222"
+CHROME_DEBUG_PORT = "9222"
 
 [runners."local:docker"]
 enabled = true
 
 [runners."local:docker".exposed_ports]
-9222 = "9222"
+CHROME_DEBUG = "9222"
 
 [[testcases]]
 name = "failure"

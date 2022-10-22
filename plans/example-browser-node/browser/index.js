@@ -12,8 +12,8 @@ function sleep (ms) {
 
   let browser
   try {
-    const chomeDebugPort = process.env.DEBUG_PORT || 9222
-    console.log(`launching chromium browser with exposed debug port: ${chomeDebugPort}`)
+    const chromeDebugPort = process.env.CHROME_DEBUG_PORT || 9222
+    console.log(`launching chromium browser with exposed debug port: ${chromeDebugPort}`)
     browser = await chromium.launch({
       args: [
         '--remote-debugging-address=0.0.0.0',
