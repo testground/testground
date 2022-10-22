@@ -13,6 +13,9 @@ enabled = true
 [runners."local:docker"]
 enabled = true
 
+[runners."local:docker".exposed_ports]
+9222 = "9222"
+
 [[testcases]]
 name = "failure"
 instances = { min = 1, max = 200, default = 1 }
