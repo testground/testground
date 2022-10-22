@@ -11,9 +11,18 @@ RUN apt-get update && \
     libatspi2.0-0 libxshmfence-dev && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /plan
-COPY ./* /plan/
+RUN mkdir -p /plan
 
+COPY ./plan/package*.json ./plan/
+
+WORKDIR /plan
 RUN npm ci
 
-ENTRYPOINT [ "npm", "start:browser" ]
+COPY ./plan/src /plan/src
+RUN npm run webpack
+RUN npm cache clean --force
+
+COPY ./plan/server /plan/server
+COPY ./plan/browser /plan/browser
+
+ENTRYPOINT [ "npm", "run", "start:browser" ]

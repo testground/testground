@@ -13,7 +13,7 @@ you wish to test can be used from both environments.
 
 Within the root folder of this repository you can run the
 integration test for this plan which will run all its test cases
-in node, chrome and firefox:
+in node and chromium:
 
 ```
 integration_tests/example_05_browser_node.sh
@@ -25,10 +25,9 @@ you can also run a single test case as follows:
 ```
 testground run single \
     --plan example-browser-node \
-    --testcase success \
+    --testcase output \
     --instances 1 \
     --builder docker:generic \
     --runner local:docker \
-    --tp browser=chromium \
     --wait
 ```

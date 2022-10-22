@@ -6,6 +6,9 @@
   "main": "index.js",
   "author": "Glen De Cauwsemaecker <glen@littlebearlabs.io>",
   "license": "MIT",
+  "engines": {
+      "node": ">=16"
+  },
   "scripts": {
     "start": "node src/index.js",
     "test": "standard"
