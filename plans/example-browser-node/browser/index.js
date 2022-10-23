@@ -24,6 +24,17 @@ const spawnServer = require('../server')
       console.log(`[${message.type()}] ${message.locaton()}: ${message.text()} — ${message.args()}`)
     })
 
+    console.log('prepare page window (global) environment')
+    await page.addInitScript((nodeEnv) => {
+      const env = {}
+      for (const k in nodeEnv) {
+        if (k.startsWith('TEST_')) {
+          env[k] = nodeEnv[k]
+        }
+      }
+      window.testground = { env }
+    }, process.env)
+
     console.log('opening up testplan webpage on localhost')
     await page.goto('http://127.0.0.1:8080')
 
