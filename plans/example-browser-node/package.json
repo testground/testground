@@ -24,7 +24,7 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
-    "@testground/sdk": "github:glendc/sdk-js#32672235c25c2045376bb20250d916e5e828e69d",
+    "@testground/sdk": "github:glendc/sdk-js#219126902a67f6c524e47a1704bbdaa8a0ac5160",
     "assert": "^2.0.0",
     "browserify-zlib": "^0.2.0",
     "buffer": "^6.0.3",

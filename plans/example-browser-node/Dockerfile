@@ -20,10 +20,10 @@ RUN npm ci
 
 COPY ./plan/*.js /plan/
 COPY ./plan/src /plan/src
+COPY ./plan/server /plan/server
 RUN npm run webpack
 RUN npm cache clean --force
 
-COPY ./plan/server /plan/server
 COPY ./plan/browser /plan/browser
 
 ARG CHROME_DEBUG_PORT=9222
