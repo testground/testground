@@ -12,7 +12,7 @@ const spawnServer = require('../server')
     console.log(`launching chromium browser with exposed debug port: ${chromeDebugPort}`)
     browser = await chromium.launch({
       args: [
-        '--auto-open-devtools-for-tabs', // TODO: test if this works
+        '--auto-open-devtools-for-tabs',
         '--remote-debugging-address=0.0.0.0',
         `--remote-debugging-port=${chromeDebugPort}`
       ]
@@ -37,7 +37,6 @@ const spawnServer = require('../server')
         debugger // eslint-disable-line no-debugger
         // TODO: how to view the above debug breakpoint, as chrome://inspect does not show it (we do halt on it)
         // >>>>>>>> NOTE: refreshing page with breakpoint does work, so perhaps we do not care about this initial breakpoint at all!
-        // TODO: how to open chrome dev tools since opening it!?
         // TODO: how to automatically detect any open port chrome inspect?!?!?!
         window.open() // triggers popup window
       })
