@@ -21,7 +21,8 @@ const spawnServer = require('../server')
     const page = await browser.newPage()
 
     page.on('console', (message) => {
-      console.log(`[${message.type()}] ${message.locaton()}: ${message.text()} — ${message.args()}`)
+      const loc = message.location();
+      console.log(`[${message.type()}] ${loc.url}@L${loc.lineNumber}:C${loc.columnNumber}: ${message.text()} — ${message.args()}`)
     })
 
     console.log('prepare page window (global) environment')

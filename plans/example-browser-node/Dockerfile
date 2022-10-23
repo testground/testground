@@ -21,6 +21,9 @@ RUN npm ci
 COPY ./plan/*.js /plan/
 COPY ./plan/src /plan/src
 COPY ./plan/server /plan/server
+COPY ./plan/scripts /plan/scripts
+
+RUN scripts/polyfill.sh
 RUN npm run webpack
 RUN npm cache clean --force
 
