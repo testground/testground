@@ -41,6 +41,10 @@ module.exports = {
     }),
     new webpack.ProvidePlugin({
       process: 'process/browser'
+    }),
+    new webpack.ProvidePlugin({
+      setImmediate: ['setimmediate', 'setImmedate'],
+      clearImmediate: ['setimmediate', 'clearImmedate']
     })
   ],
   mode: 'development'
