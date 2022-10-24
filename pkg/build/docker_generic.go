@@ -26,8 +26,9 @@ type DockerGenericBuilder struct {
 
 type DockerGenericBuilderConfig struct {
 	// Custom base path where we find the test source
-	Path      string             `toml:"path" default:"./"`
-	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
+	Path       string             `toml:"path" default:"./"`
+	Dockerfile string             `toml:"dockerfile" default:"Dockerfile"`
+	BuildArgs  map[string]*string `toml:"build_args"` // ok if nil
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -62,7 +63,7 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
-		Dockerfile:  filepath.Join(basePathForPlan, "Dockerfile"),
+		Dockerfile:  filepath.Join(basePathForPlan, cfg.Dockerfile),
 	}
 
 	imageOpts := docker.BuildImageOpts{
