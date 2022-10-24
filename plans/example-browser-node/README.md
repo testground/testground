@@ -31,3 +31,27 @@ testground run single \
     --runner local:docker \
     --wait
 ```
+
+## Remote Debugging
+
+Using the `chrome://inspect` debugger tool,
+as documented in <https://developer.chrome.com/docs/devtools/remote-debugging/local-server/>,
+you can remotely debug this testplan.
+
+This allows you to attach to the chrome browser which is running the plan.
+Different with the [/plans/example-browsers](../example-browser/) plan
+is that we only allow the chrome browser here, as to keep things simple here.
+
+How to do it:
+
+1. start the testplan
+2. check what host port is bound to the exposed debug port
+3. open `chrome://inspect` in your chrome browser on your host machine
+4. configure the network targets to discover: `127.0.0.1:<your port>`
+5. attach to the debugger using `inspect`
+
+If you want you can now attach breakpoints to anywhere in the source code,
+an a refresh of the page should allow you to break on it.
+
+> TODO: support `debugger;` statements in the testplan,
+> which should break and hang in the chrome debugger :|
