@@ -8,5 +8,6 @@ const testcases = {
 
 ;(async () => {
   // This is the plan entry point.
+  debugger;
   await invokeMap(testcases)
 })()
