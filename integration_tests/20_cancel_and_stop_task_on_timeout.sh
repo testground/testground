@@ -4,7 +4,7 @@ my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKIP_AUTO_START=1
 source "$my_dir/header.sh"
 
-start_daemon "$my_dir/20_env.toml"
+start_daemon "$my_dir/20_01_env.toml"
 testground plan import --from ./plans/_integrations --name integrations
 
 pushd $TEMPDIR

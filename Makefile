@@ -55,6 +55,7 @@ test-integ-cluster-k8s:
 
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
+	./integration_tests/20_exec_go_mod_rewrites.sh
 
 test-integ-local-docker:
 	./integration_tests/04_docker_placebo_ok.sh
@@ -80,6 +81,7 @@ test-integ-examples:
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
+	./integration_tests/example_04_browser.sh
 
 kind-cluster:
 	kind create cluster --wait 90s
