@@ -1,0 +1,17 @@
+[metadata]
+  name = "issue-tbd-workspaces-support"
+
+[global]
+  plan = "integrations_mixed_builders"
+  case = "issue-tbd-workspaces-support"
+  total_instances = 1
+  runner = "local:docker"
+
+[[groups]]
+  id = "go"
+  instances = { count = 1 }
+  builder = "docker:generic"
+
+  [groups.build_config]
+    path = "other/"
+    build_args = { image = "golang:1.16-buster" }
