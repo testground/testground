@@ -11,8 +11,9 @@ enabled = true
 enabled = true
 
 [builders."docker:generic".build_args]
-CHROME_DEBUG_PORT = "5321"
-HALT_BROWSER_ON_FINISH = "true"
+BROWSER_KIND = "firefox"
+BROWSER_DEBUG_PORT = "5321"
+HALT_BROWSER_ON_FINISH = "false"
 
 [runners."local:docker"]
 enabled = true

@@ -55,3 +55,9 @@ an a refresh of the page should allow you to break on it.
 
 > TODO: support `debugger;` statements in the testplan,
 > which should break and hang in the chrome debugger :|
+
+### Firefox Remote Debugging
+
+Using `about:debugging` you should be able to debug remotely
+in a similar fashion. However, for now we had no success
+in trying to connect to our firefox instance.

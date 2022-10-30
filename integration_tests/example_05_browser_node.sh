@@ -12,7 +12,14 @@ testground build single \
     --builder docker:node \
     --wait | tee build.out
 export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
-docker tag $ARTIFACT testplan:example-browser-node
+docker tag $ARTIFACT testplan:example-browser-node-node
+
+testground build single \
+    --plan testground/example-browser-node \
+    --builder docker:generic \
+    --wait | tee build.out
+export ARTIFACT=$(awk -F\" '/generated build artifact/ {print $8}' build.out)
+docker tag $ARTIFACT testplan:example-browser-node-browser
 
 testground healthcheck --runner local:docker --fix
 
@@ -22,7 +29,21 @@ testground run single \
     --plan=testground/example-browser-node \
     --testcase=output \
     --builder=docker:node \
-    --use-build=testplan:example-browser-node \
+    --use-build=testplan:example-browser-node-node \
+    --runner=local:docker \
+    --instances=1 \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
+# Browser (Firefox): success
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=output \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
     --collect \
@@ -36,7 +57,21 @@ testground run single \
     --plan=testground/example-browser-node \
     --testcase=failure \
     --builder=docker:node \
-    --use-build=testplan:example-browser-node \
+    --use-build=testplan:example-browser-node-node \
+    --runner=local:docker \
+    --instances=1 \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "failure"
+
+# Browser (Firefox): failure
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=failure \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
     --collect \
@@ -50,7 +85,21 @@ testground run single \
     --plan=testground/example-browser-node \
     --testcase=sync \
     --builder=docker:node \
-    --use-build=testplan:example-browser-node \
+    --use-build=testplan:example-browser-node-node \
+    --runner=local:docker \
+    --instances=2 \
+    --collect \
+    --wait | tee run.out
+
+assert_run_output_is_correct run.out
+
+# Browser (Firefox): sync
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=sync \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=2 \
     --collect \

@@ -2,13 +2,15 @@
 FROM node:16
 
 # Get the latest version of Playwright
-FROM mcr.microsoft.com/playwright:v1.25.2-focal
+FROM mcr.microsoft.com/playwright:v1.27.1-focal
 
 RUN apt-get update && \
     apt-get -y install \
     libnss3 libatk-bridge2.0-0 libdrm-dev \
     libxkbcommon-dev libgbm-dev libasound-dev \
-    libatspi2.0-0 libxshmfence-dev && \
+    libatspi2.0-0 libxshmfence-dev \
+    libevent-2.1-7 libenchant-2-2 \
+    socat && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /plan
@@ -29,12 +31,14 @@ RUN npm cache clean --force
 
 COPY ./plan/browser /plan/browser
 
-ARG CHROME_DEBUG_PORT=9222
+ARG BROWSER_KIND="chromium"
+ARG BROWSER_DEBUG_PORT=9222
 ARG HALT_BROWSER_ON_FINISH=false
 
-EXPOSE ${CHROME_DEBUG_PORT}
+EXPOSE ${BROWSER_DEBUG_PORT}
 
-ENV CHROME_DEBUG_PORT=${CHROME_DEBUG_PORT}
+ENV BROWSER_KIND=${BROWSER_KIND}
+ENV BROWSER_DEBUG_PORT=${BROWSER_DEBUG_PORT}
 ENV HALT_BROWSER_ON_FINISH=${HALT_BROWSER_ON_FINISH}
 
 ENTRYPOINT [ "npm", "run", "start:browser" ]

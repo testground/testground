@@ -1,5 +1,6 @@
-const { chromium } = require('playwright')
+const { chromium, firefox, webkit } = require('playwright')
 const { exit } = require('process')
+const { spawn } = require('child_process')
 
 const spawnServer = require('../server')
 
@@ -8,19 +9,55 @@ const spawnServer = require('../server')
 
   let browser
   try {
-    const chromeDebugPort = process.env.CHROME_DEBUG_PORT || 9222
-    console.log(`launching chromium browser with exposed debug port: ${chromeDebugPort}`)
-    browser = await chromium.launch({
-      args: [
-        '--remote-debugging-address=0.0.0.0',
-        `--remote-debugging-port=${chromeDebugPort}`
-      ]
-    })
+    const browserDebugPort = process.env.BROWSER_DEBUG_PORT || 9222
+
+    switch (process.env.BROWSER_KIND || 'chromium') {
+      case 'chromium':
+        console.log(`launching chromium browser with exposed debug port: ${browserDebugPort}`)
+        browser = await chromium.launch({
+          args: [
+            '--remote-debugging-address=0.0.0.0',
+            `--remote-debugging-port=${browserDebugPort}`
+          ]
+        })
+        break
+
+      case 'firefox':
+        const localBrowserDebugPort = Number(browserDebugPort) + 1
+        console.log(`launching firefox browser with exposed debug port: ${browserDebugPort} (local ${localBrowserDebugPort})`)
+        browser = await firefox.launch({
+          args: [
+            `-start-debugger-server=${localBrowserDebugPort}`
+          ]
+        })
+
+        console.log('launching tcp proxy to expose firefox debugger for remote access')
+        const tcpProxy = spawn(
+          'socat', [
+            `tcp-listen:${browserDebugPort},bind=0.0.0.0,fork`,
+            `tcp:localhost:${localBrowserDebugPort}`
+          ]
+        )
+        tcpProxy.stdout.on('data', (data) => {
+          console.log(`firefox debugger: tcpProxy: stdout: ${data}`)
+        })
+
+        tcpProxy.stderr.on('data', (data) => {
+          console.error(`firefox debugger: tcpProxy: stderr: ${data}`)
+        })
+
+        break
+
+      case 'webkit':
+        console.log('launching webkit browser (remote debugging not yet supported)')
+        browser = await webkit.launch()
+        break
+    }
 
     const page = await browser.newPage()
 
     page.on('console', (message) => {
-      const loc = message.location();
+      const loc = message.location()
       console.log(`[${message.type()}] ${loc.url}@L${loc.lineNumber}:C${loc.columnNumber}: ${message.text()} — ${message.args()}`)
     })
 
@@ -43,6 +80,7 @@ const spawnServer = require('../server')
     console.log('start browser exit process...')
 
     if (process.env.HALT_BROWSER_ON_FINISH === 'true') {
+      // TODO: create a better way, which actually does halt!
       console.log('halting on browser exit process (dev tools breakpoint)...')
       await page.evaluate(() => {
         debugger // eslint-disable-line no-debugger
