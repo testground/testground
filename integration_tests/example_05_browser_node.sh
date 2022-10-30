@@ -79,34 +79,6 @@ testground run single \
 
 assert_run_outcome_is run.out "failure"
 
-# Node: sync
-
-testground run single \
-    --plan=testground/example-browser-node \
-    --testcase=sync \
-    --builder=docker:node \
-    --use-build=testplan:example-browser-node-node \
-    --runner=local:docker \
-    --instances=2 \
-    --collect \
-    --wait | tee run.out
-
-assert_run_output_is_correct run.out
-
-# Browser (Firefox): sync
-
-testground run single \
-    --plan=testground/example-browser-node \
-    --testcase=sync \
-    --builder=docker:generic \
-    --use-build=testplan:example-browser-node-browser \
-    --runner=local:docker \
-    --instances=2 \
-    --collect \
-    --wait | tee run.out
-
-assert_run_output_is_correct run.out
-
 popd
 
 echo "terminating remaining containers"
