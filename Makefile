@@ -14,7 +14,7 @@ goinstall:
 	go install -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=`git rev-list -1 HEAD`" .
 
 sync-install:
-	docker pull iptestground/sync-service:latest
+	docker pull iptestground/sync-service:edge
 
 pre-commit:
 	python -m pip install pre-commit --upgrade --user
@@ -57,6 +57,7 @@ test-integ-cluster-k8s: install kind-cluster
 
 test-integ-local-exec: install
 	./integration_tests/03_exec_go_placebo_ok.sh
+	./integration_tests/20_exec_go_mod_rewrites.sh
 
 test-integ-local-docker: install
 	./integration_tests/04_docker_placebo_ok.sh
@@ -73,11 +74,15 @@ test-integ-local-docker: install
 	./integration_tests/15_docker_mixed_builders_configuration.sh
 	./integration_tests/15_02_docker_mixed_builders_and_custom_go_deps.sh
 	./integration_tests/16_show_task_outcome_in_cli.sh
+	./integration_tests/17_docker_benchmark_storm_ok.sh
+	./integration_tests/18_block_runners.sh
+	./integration_tests/19_limit_runs_per_branch.sh
 
 test-integ-examples: install
 	./integration_tests/example_01_rust.sh
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
+	./integration_tests/example_04_browser.sh
 
 kind-cluster:
 	kind create cluster --wait 90s
@@ -88,7 +93,7 @@ kind-cluster:
 	kind load docker-image iptestground/sidecar:edge
 	kubectl apply -f .circleci/sidecar.yaml
 
-	kind load docker-image iptestground/sync-service:latest
+	kind load docker-image iptestground/sync-service:edge
 	kubectl apply -f .circleci/sync-service.yaml
 	kubectl expose deployment/testground-sync-service
 	kubectl port-forward deployment/testground-sync-service 5050:5050 &

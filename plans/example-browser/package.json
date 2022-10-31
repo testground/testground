@@ -1,0 +1,20 @@
+{
+  "name": "example-browser",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Example Testground Browser Test",
+  "main": "index.js",
+  "author": "Glen De Cauwsemaecker <glen@littlebearlabs.io>",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js",
+    "test": "standard"
+  },
+  "devDependencies": {
+    "standard": "^14.3.4"
+  },
+  "dependencies": {
+    "@testground/sdk": "^0.1.2",
+    "playwright": "^1.25.2"
+  }
+}

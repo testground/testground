@@ -19,6 +19,7 @@ listen                    = ":8040"
 [daemon.scheduler]
 task_timeout_min          = 20
 task_repo_type            = "disk"
+workers                   = 1
 
 [client]
 endpoint = "http://localhost:8040"

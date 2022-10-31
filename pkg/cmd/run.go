@@ -188,7 +188,8 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	var (
 		sdkDir    string
 		extraSrcs []string
-		wait      = c.Bool("wait")
+		collectOpt = c.Bool("collect")
+		wait      = c.Bool("wait") || collectOpt // we always wait if we are collecting.
 	)
 
 	if len(buildIdx) > 0 {
@@ -296,8 +297,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 
 	logging.S().Infof("finished run with ID: %s", id)
 
-	// if the `collect` flag is not set, we are done
-	collectOpt := c.Bool("collect")
+	// if the `collect` flag is not set, we are done	
 	if !collectOpt {
 		return data.IsTaskOutcomeInError(&tsk)
 	}

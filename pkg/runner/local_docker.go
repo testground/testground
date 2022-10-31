@@ -73,6 +73,8 @@ type LocalDockerRunnerConfig struct {
 	// Collection timeout is the time we wait for the sync service to send us the test outcomes after
 	// all instances have finished.
 	OutcomesCollectionTimeout time.Duration `toml:"outcomes_collection_timeout"`
+
+	AdditionalHosts []string `toml:"additional_hosts"`
 }
 
 type testContainerInstance struct {
@@ -135,6 +137,11 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 		ow.Warnf("guessing docker socket as %s", dockerSock)
 	}
 
+	additionalHosts := "ADDITIONAL_HOSTS="
+	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]string)
+	if hasHosts {
+		additionalHosts += strings.Join(envHosts, ",")
+	}
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
@@ -142,7 +149,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
 			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
-			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1"},
+			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1", additionalHosts},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -372,11 +379,12 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		runenv.TestGroupID = g.ID
 		runenv.TestInstanceParams = g.Parameters
 		runenv.TestCaptureProfiles = g.Profiles
-
 		// Prepare the group's environment variables.
 		env := make([]string, 0, len(sharedEnv)+len(runenv.ToEnvVars()))
 		env = append(env, sharedEnv...)
 		env = append(env, conv.ToOptionsSlice(runenv.ToEnvVars())...)
+		logging.S().Infow("additional hosts", "hosts", strings.Join(cfg.AdditionalHosts, ","))
+		env = append(env, fmt.Sprintf("ADDITIONAL_HOSTS=%s", strings.Join(cfg.AdditionalHosts, ",")))
 
 		// Start as many containers as group instances.
 		for i := 0; i < g.Instances; i++ {
