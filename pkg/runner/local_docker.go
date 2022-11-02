@@ -70,6 +70,12 @@ type LocalDockerRunnerConfig struct {
 	// (default: ["nofile=1048576:1048576"]).
 	Ulimits []string `toml:"ulimits"`
 
+	// EnvironmentVariables can be used to set additional environment variables.
+	// Note to use unique environment variables not used by Testground,
+	// as your custom environment variables will get overwritten by the ones
+	// also set by Testground.
+	EnvironmentVariables map[string]string `toml:"environment_variables"`
+
 	ExposedPorts ExposedPorts `toml:"exposed_ports"`
 	// Collection timeout is the time we wait for the sync service to send us the test outcomes after
 	// all instances have finished.
@@ -381,7 +387,8 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		runenv.TestInstanceParams = g.Parameters
 		runenv.TestCaptureProfiles = g.Profiles
 		// Prepare the group's environment variables.
-		env := make([]string, 0, len(sharedEnv)+len(runenv.ToEnvVars()))
+		env := make([]string, 0, len(cfg.EnvironmentVariables)+len(sharedEnv)+len(runenv.ToEnvVars()))
+		env = append(env, conv.ToOptionsSlice(cfg.EnvironmentVariables)...)
 		env = append(env, sharedEnv...)
 		env = append(env, conv.ToOptionsSlice(runenv.ToEnvVars())...)
 		logging.S().Infow("additional hosts", "hosts", strings.Join(cfg.AdditionalHosts, ","))
