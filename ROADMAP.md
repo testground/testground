@@ -123,12 +123,12 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 **Deliverables:**
 
-- Automated release process with official releases, binary distribution, and Changelogs - [EPIC 1430](https://github.com/testground/testground/issues/1430)
-- Well-defined Project management processes like triaging, contribution & reviewing processes, etc.
-- Documentations for maintainers,
-- Maintainable integration testing tooling (no more shell scripts or flakiness),
-- A Stability Dashboard used to identify regression & discuss improvement with Maintainers and Users,
-- Tooling for EKS testing.
+- [EPIC 1430](https://github.com/testground/testground/issues/1430): Automated release process with official releases, binary distribution, and Changelogs
+- [EPIC 1511](https://github.com/testground/testground/issues/1511): Well-defined Project management processes like triaging contribution & reviewing processes, etc.
+- [EPIC 1471](https://github.com/testground/testground/issues/1471): Documentations for maintainers
+- [EPIC 1368](https://github.com/testground/testground/issues/1368): Maintainable integration testing tooling (no more shell scripts or flakiness)
+- [EPIC 1401](https://github.com/testground/testground/issues/1401): A Stability Dashboard used to identify regression & discuss improvement with Maintainers and Users
+- [EPIC 1510](https://github.com/testground/testground/issues/1510): Tooling for EKS testing
 
 ### 4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
 
