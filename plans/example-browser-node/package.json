@@ -25,21 +25,7 @@
   },
   "dependencies": {
     "@testground/sdk": "github:glendc/sdk-js#ce1db89af099b470159c1becc4091850a12953aa",
-    "assert": "^2.0.0",
-    "browserify-zlib": "^0.2.0",
-    "buffer": "^6.0.3",
-    "crypto-browserify": "^3.12.0",
     "express": "^4.18.2",
-    "https-browserify": "^1.0.0",
-    "ipaddr.js": "^2.0.1",
-    "os-browserify": "^0.3.0",
-    "path-browserify": "^1.0.1",
-    "playwright": "^1.27.1",
-    "process": "^0.11.10",
-    "setimmediate": "^1.0.5",
-    "stream-browserify": "^3.0.0",
-    "stream-http": "^3.2.0",
-    "url": "^0.11.0",
-    "util": "^0.12.5"
+    "playwright": "^1.27.1"
   }
 }
