@@ -45,6 +45,10 @@ var RunCommand = cli.Command{
 					Usage:   "write the collection output archive to `FILENAME`",
 				},
 				&cli.StringFlag{
+					Name:  "run-ids",
+					Usage: "run a specific run id, or a comma-separated list of run ids",
+				},
+				&cli.StringFlag{
 					Name:  "metadata-repo",
 					Usage: "repo that triggered this run",
 				},
@@ -162,6 +166,8 @@ func runSingleCmd(c *cli.Context) (err error) {
 }
 
 func run(c *cli.Context, comp *api.Composition) (err error) {
+	// Assumes the composition has been validated for run.
+	// TODO: Rethink the composition types to expose clearly what is validated / not validated.
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
@@ -176,7 +182,30 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
-	// Check if the daemon needs to build the test plan.
+	// Retrieve the run ids to use.
+	rawRunIds := c.String("run-ids")
+	var runIds []string
+
+	// default to the first run id in the composition
+	if rawRunIds == "" {
+		runIds = comp.ListRunIds()
+	} else {
+		runIds = strings.Split(rawRunIds, ",")
+	}
+
+	// TODO: validate run ids
+	if len(runIds) != 1 {
+		// TODO: remove when we support multiple runs.
+		return fmt.Errorf("we only support a single run id for now")
+	}
+
+	// TODO: verify run ids exists in the composition.
+
+	// Skip artifacts if the user explicit requests it.
+	// TODO: Simplify this code: empty the artifact field if required and post
+	//       the composition to the daemon. The daemon will take care of identifying
+	// 		 which artifacts should be built, etc.
+	//		 Eventually we'll drop the BuildGroups field from the request.
 	ignore := c.Bool("ignore-artifacts")
 	var buildIdx []int
 	for i, grp := range comp.Groups {

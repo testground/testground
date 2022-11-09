@@ -139,6 +139,16 @@ type Group struct {
 type Run struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
+	// Instances defines the number of instances that belong to this group.
+	Groups CompositionRunGroups `toml:"groups" json:"groups" validate:"required,gt=0"`
+}
+
+type CompositionRunGroups []*CompositionRunGroup
+
+type CompositionRunGroup struct {
+	// ID is the unique ID of this group.
+	ID string `toml:"id" json:"id"`
+	Instances Instances `toml:"instances" json:"instances"`
 }
 
 // CalculatedInstanceCount returns the actual number of instances in this group.
@@ -560,6 +570,14 @@ func (c Composition) PickGroups(indices ...int) (Composition, error) {
 	// c is a value, so the receiver won't be mutated.
 	c.Groups = grps
 	return c, nil
+}
+
+func (c Composition) ListRunIds() []string {
+	ids := make([]string, 0, len(c.Groups))
+	for _, g := range c.Runs {
+		ids = append(ids, g.ID)
+	}
+	return ids
 }
 
 // ValidateInstances validates that either count or percentage is provided, but

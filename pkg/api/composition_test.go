@@ -657,3 +657,49 @@ func TestIssue1493CompositionContainsARunsField(t *testing.T) {
 
 	require.NotNil(t, validComposition.Runs)
 }
+
+func TestListRunIds(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
+				Builder: "docker:generic",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "aa",
+			},
+			{
+				ID: "bb",
+			},
+			{
+				ID: "cc",
+			},
+		},
+	}
+
+	ret := c.ListRunIds()
+
+	require.EqualValues(t, []string{"aa", "bb", "cc"}, ret)
+}

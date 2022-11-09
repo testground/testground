@@ -492,6 +492,24 @@ func (e *Engine) doBuild(ctx context.Context, input *BuildInput, ow *rpc.OutputW
 }
 
 func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.OutputWriter) (*api.RunOutput, error) {
+	// TODO: this is hackish, let's redesign this:
+	// Next should be:
+
+	// 1. Identify the groups we're going to run from the input.RunIds parameters + missing artifacts
+	// 2. Build the groups
+	// 3. For every run parameter,
+	//  3.1. Generate the run info
+	//  3.2. Schedule it somehow.
+	//  3.3 Wait and gather results
+	// 4. Aggregate the results and return them.
+
+	// For the first step let's:
+	// 1. Assume every group needs to be built
+	// 2. Build the groups
+	// 3. Assume there is only one run
+	// 	3.1. Generate the run info in a practical way
+	// 4. Return as before.
+
 	if len(input.BuildGroups) > 0 {
 		bcomp, err := input.Composition.PickGroups(input.BuildGroups...)
 		if err != nil {
@@ -576,6 +594,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	obj, err := cfg.CoalesceIntoType(run.ConfigType())
 	if err != nil {
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
+	}
+
+	// TODO: this is where we select the run groups.
+	if (len(input.RunIds) > 1) {
+		// TODO: remove when we can build multiple runs
+		return nil, fmt.Errorf("cannot specify multiple run ids for now")
 	}
 
 	in := api.RunInput{
