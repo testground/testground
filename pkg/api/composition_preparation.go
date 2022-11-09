@@ -6,9 +6,31 @@ import (
 	"sort"
 )
 
-// CompleteFromUserInputs
-func (c Composition) CompleteFromUserInputs() (Composition, error) {
-	return Composition{}, nil
+// CompleteFromUserInputs applies default values to user inputs.
+//
+// It will generate a default run if none is provided.
+//
+// This method doesn't modify the composition, it returns a new one.
+func (c Composition) PrepareFromUserInput() (*Composition, error) {
+	// Generate Default Run
+	if len(c.Runs) == 0 {
+		r := Run{
+			ID:             "default",
+			TotalInstances: c.Global.TotalInstances,
+			Groups:         CompositionRunGroups{},
+		}
+
+		for _, g := range c.Groups {
+			r.Groups = append(r.Groups, &CompositionRunGroup{
+				ID:           g.ID,
+				RunnableItem: g.RunnableItem,
+			})
+		}
+
+		c.Runs = Runs{&r}
+	}
+
+	return &c, nil
 }
 
 // PrepareForBuild verifies that this composition is compatible with
