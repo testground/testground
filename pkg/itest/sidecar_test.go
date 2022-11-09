@@ -1,3 +1,6 @@
+//go:build integration && local_docker
+// +build integration,local_docker
+
 package cmd_test
 
 import (

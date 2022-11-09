@@ -30,13 +30,31 @@ const (
 )
 
 func (e *EnvConfig) Load() error {
+	e.EnsureMinimalConfig()
+
+	// parse the .env.toml file, if it exists.
+	f := filepath.Join(e.dirs.Home(), ".env.toml")
+	if _, err := os.Stat(f); err == nil {
+		// try to load the optional .env.toml file
+		_, err = toml.DecodeFile(f, e)
+		if err != nil {
+			return fmt.Errorf("found .env.toml at %s, but failed to parse: %w", f, err)
+		}
+		logging.S().Infof(".env.toml loaded from: %s", f)
+	} else {
+		logging.S().Infof("no .env.toml found at %s; running with defaults", f)
+	}
+	return nil
+}
+
+func (e *EnvConfig) EnsureMinimalConfig() error {
 	// apply fallbacks.
-	e.Daemon.Listen = DefaultListenAddr
-	e.Daemon.InfluxDBEndpoint = DefaultInfluxDBEndpoint
-	e.Client.Endpoint = DefaultClientURL
-	e.Daemon.Scheduler.Workers = DefaultWorkers
-	e.Daemon.Scheduler.QueueSize = DefaultQueueSize
-	e.Daemon.Scheduler.TaskRepoType = DefaultTaskRepoType
+	e.Daemon.Listen = defaultString(e.Daemon.Listen, DefaultListenAddr)
+	e.Daemon.InfluxDBEndpoint = defaultString(e.Daemon.InfluxDBEndpoint, DefaultInfluxDBEndpoint)
+	e.Client.Endpoint = defaultString(e.Client.Endpoint, DefaultClientURL)
+	e.Daemon.Scheduler.Workers = defaultInt(e.Daemon.Scheduler.Workers, DefaultWorkers)
+	e.Daemon.Scheduler.QueueSize = defaultInt(e.Daemon.Scheduler.QueueSize, DefaultQueueSize)
+	e.Daemon.Scheduler.TaskRepoType = defaultString(e.Daemon.Scheduler.TaskRepoType, DefaultTaskRepoType)
 
 	// calculate home directory; use env var, or fall back to $HOME/testground
 	// otherwise.
@@ -80,18 +98,6 @@ func (e *EnvConfig) Load() error {
 		}
 	}
 
-	// parse the .env.toml file, if it exists.
-	f := filepath.Join(e.dirs.Home(), ".env.toml")
-	if _, err := os.Stat(f); err == nil {
-		// try to load the optional .env.toml file
-		_, err = toml.DecodeFile(f, e)
-		if err != nil {
-			return fmt.Errorf("found .env.toml at %s, but failed to parse: %w", f, err)
-		}
-		logging.S().Infof(".env.toml loaded from: %s", f)
-	} else {
-		logging.S().Infof("no .env.toml found at %s; running with defaults", f)
-	}
 	return nil
 }
 
@@ -108,4 +114,17 @@ func ensureDir(path string) error {
 		return fmt.Errorf("path %s exists, and it is not a directory", path)
 	}
 	return nil
+}
+
+func defaultString(v, def string) string {
+	if v == "" {
+		return def
+	}
+	return v
+}
+func defaultInt(v, def int) int {
+	if v == 0 {
+		return def
+	}
+	return v
 }

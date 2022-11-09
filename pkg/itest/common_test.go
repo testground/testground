@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package cmd_test
 
 import (
@@ -27,7 +30,7 @@ func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 			},
 		},
 	}
-	if err := cfg.Load(); err != nil {
+	if err := cfg.EnsureMinimalConfig(); err != nil {
 		t.Fatal(err)
 	}
 	cfg.Daemon.Listen = "localhost:0"

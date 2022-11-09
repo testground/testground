@@ -43,7 +43,7 @@ docker-testground:
 test-go:
 	testground plan import --from ./plans/placebo
 	testground plan import --from ./plans/example
-	$(call eachmod,go test -p 1 -v $(GOTFLAGS) ./...)
+	$(call eachmod,go test --tags integration -p 1 -v $(GOTFLAGS) ./...)
 
 test-integration: test-integ-cluster-k8s test-integ-local-exec test-integ-local-docker test-integ-examples
 
