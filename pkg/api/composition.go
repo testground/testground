@@ -85,7 +85,7 @@ type Global struct {
 	// Run applies global run defaults that trickle down to all groups, such as
 	// test parameters or build artifacts. Groups can override these in their
 	// local run definition.
-	Run *Run `toml:"run" json:"run"`
+	Run *RunParams `toml:"run" json:"run"`
 
 	// DisableMetrics is used to disable metrics batching.
 	DisableMetrics bool `toml:"disable_metrics" json:"disable_metrics"`
@@ -124,7 +124,7 @@ type Group struct {
 	Build Build `toml:"build" json:"build"`
 
 	// Run specifies the run configuration for this group.
-	Run Run `toml:"run" json:"run"`
+	Run RunParams `toml:"run" json:"run"`
 
 	// calculatedInstanceCnt caches the actual amount of instances in this
 	// group.
@@ -242,7 +242,7 @@ func (d Dependencies) ApplyDefaults(defaults Dependencies) Dependencies {
 	return ret
 }
 
-type Run struct {
+type RunParams struct {
 	// Artifact specifies the build artifact to use for this run.
 	Artifact string `toml:"artifact" json:"artifact"`
 

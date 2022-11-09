@@ -68,7 +68,7 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 				Instances: api.Instances{
 					Count: instances,
 				},
-				Run: api.Run{
+				Run: api.RunParams{
 					Artifact: artifact,
 				},
 			},

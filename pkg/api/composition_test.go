@@ -282,7 +282,7 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 			TotalInstances: 3,
 			Builder:        "docker:go",
 			Runner:         "local:docker",
-			Run: &Run{
+			Run: &RunParams{
 				TestParams: map[string]string{
 					"param1": "value1:default:composition",
 					"param2": "value2:default:composition",
@@ -294,7 +294,7 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 			{
 				ID:        "all_set",
 				Instances: Instances{Count: 1},
-				Run: Run{
+				Run: RunParams{
 					TestParams: map[string]string{
 						"param1": "value1:set",
 						"param2": "value2:set",
@@ -309,7 +309,7 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 			{
 				ID:        "first_set",
 				Instances: Instances{Count: 1},
-				Run: Run{
+				Run: RunParams{
 					TestParams: map[string]string{
 						"param1": "value1:set",
 					},
