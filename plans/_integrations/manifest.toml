@@ -13,3 +13,7 @@ enabled = true
 [[testcases]]
 name = "issue-1349-silent-failure"
 instances = { min = 1, max = 1, default = 1 }
+
+[[testcases]]
+name = "issue-1493-success"
+instances = { min = 1, max = 1000, default = 1 }

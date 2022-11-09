@@ -76,6 +76,7 @@ test-integ-local-docker:
 	./integration_tests/17_docker_benchmark_storm_ok.sh
 	./integration_tests/18_block_runners.sh
 	./integration_tests/19_limit_runs_per_branch.sh
+	./integration_tests/1493_runs_feature.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh

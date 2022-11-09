@@ -80,6 +80,34 @@ function assert_run_output_is_correct {
   test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 }
 
+# Assert that a testground run has a certain number of instances outputs.
+# Expects that the testground call was run with `--collect`
+#
+# Usage:
+#   assert_run_instance_count "./run.out" 3
+#   SKIP_LOG_PARSING=1 assert_run_output_is_correct "./testground-run-logs.out"
+function assert_run_instance_count {
+  RUN_OUT_FILEPATH="$1"
+  EXPECTED_COUNT="$2"
+
+  RUN_ID=$(awk '/finished run with ID/ { print $9 }' "${RUN_OUT_FILEPATH}")
+  echo "checking run $RUN_ID"
+
+  file ${RUN_ID}.tgz
+  LENGTH=${#RUN_ID}
+  test $LENGTH -eq 20
+
+  tar -xzvvf ${RUN_ID}.tgz
+
+  echo ${PWD}
+  echo `ls -l`
+
+  COUNT_INSTANCES=$(ls ./${RUN_ID}/*/ | wc -l)
+  echo "instances counts is ${COUNT_INSTANCES}, expected: ${EXPECTED_COUNT}."
+
+  test $COUNT_INSTANCES -eq $EXPECTED_COUNT
+}
+
 # Directory where the daemon and each test will store its outputs
 TEMPDIR=`mktemp -d`
 
