@@ -629,3 +629,31 @@ func TestValidateForBuildVerifiesThatBuildersAreDefined(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, ret)
 }
+
+func TestIssue1493CompositionContainsARunsField(t *testing.T) {
+	// Composition with global builder and group builder.
+	globalWithBuilder := Global{
+		Plan:           "foo_plan",
+		Case:           "foo_case",
+		Builder:        "docker:go",
+		Runner:         "local:docker",
+		TotalInstances: 3,
+	}
+
+	group := &Group{
+		ID: "foo",
+	}
+
+	run := &Run{
+		ID: "foo",
+	}
+
+	validComposition := &Composition{
+		Metadata: Metadata{},
+		Global:   globalWithBuilder,
+		Groups:   []*Group{group},
+		Runs:     []*Run{run},
+	}
+
+	require.NotNil(t, validComposition.Runs)
+}

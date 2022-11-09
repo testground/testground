@@ -38,6 +38,8 @@ func (gs Groups) Validate(c *Composition) error {
 	return nil
 }
 
+type Runs []*Run
+
 type Composition struct {
 	// Metadata expresses optional metadata about this composition.
 	Metadata Metadata `toml:"metadata" json:"metadata"`
@@ -48,6 +50,9 @@ type Composition struct {
 	// Groups enumerates the instances groups that participate in this
 	// composition.
 	Groups Groups `toml:"groups" json:"groups" validate:"required,gt=0"`
+
+	// Runs enumerate the runs that participate in this composition.
+	Runs Runs `toml:"runs" json:"runs" validate:"required,gt=0"`
 }
 
 type Global struct {
@@ -129,6 +134,11 @@ type Group struct {
 	// calculatedInstanceCnt caches the actual amount of instances in this
 	// group.
 	calculatedInstanceCnt uint
+}
+
+type Run struct {
+	// ID is the unique ID of this group.
+	ID string `toml:"id" json:"id"`
 }
 
 // CalculatedInstanceCount returns the actual number of instances in this group.
