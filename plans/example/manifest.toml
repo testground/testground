@@ -20,6 +20,9 @@ enabled = true
 [runners."local:docker"]
 enabled = true
 
+[runners."local:docker".environment_variables]
+TESTGROUND_HELLO_MESSAGE = "Hello, Docker."
+
 [runners."local:exec"]
 enabled = true
 
