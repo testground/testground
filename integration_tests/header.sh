@@ -14,7 +14,10 @@ DAEMON_ENV="${1:-env-kind.toml}"
 trap 'err_report $LINENO $FILENAME' ERR
 
 function finish {
-  kill -15 $DAEMONPID
+  # if the SKIP_AUTO_START flag is unset or set to 0, kill the daemon we started
+  if [[ ! -n "$SKIP_AUTO_START"  || $SKIP_AUTO_START = 0 ]]; then
+    kill -15 "$DAEMONPID"
+  fi
 }
 trap finish EXIT
 
@@ -101,8 +104,9 @@ function start_daemon {
   echo "Testground launched"
 }
 
+set -x
 # if the SKIP_AUTO_START flag is unset or set to 0, start the daemon immediately
-if [[ ! -n "$SKIP_AUTO_START" || $SKIP_AUTO_START -eq 0 ]]; then
+if [[ ! -n "$SKIP_AUTO_START"  || $SKIP_AUTO_START = 0 ]]; then
   echo "Starting daemon automatically"
   start_daemon $DAEMON_ENV
 fi
