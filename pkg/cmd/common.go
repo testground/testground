@@ -65,11 +65,11 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 		Groups: []*api.Group{
 			{
 				ID: "single",
-				Instances: api.Instances{
-					Count: instances,
-				},
-				Run: api.RunParams{
-					Artifact: artifact,
+				RunnableItem: api.RunnableItem{
+					Instances: api.Instances{Count: instances},
+					Run: api.RunParams{
+						Artifact: artifact,
+					},
 				},
 			},
 		},

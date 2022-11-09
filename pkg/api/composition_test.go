@@ -101,17 +101,23 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:        "a",
-				Builder:   "docker:generic",
-				Instances: Instances{Count: 3},
+				ID:      "a",
+				Builder: "docker:generic",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 3},
+				},
 			},
 			{
-				ID:        "b",
-				Instances: Instances{Count: 2},
+				ID: "b",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 2},
+				},
 			},
 			{
-				ID:        "c",
-				Instances: Instances{Count: 1},
+				ID: "c",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 1},
+				},
 			},
 		},
 	}
@@ -135,13 +141,17 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:        "a",
-				Builder:   "docker:generic",
-				Instances: Instances{Count: 3},
+				ID:      "a",
+				Builder: "docker:generic",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 3},
+				},
 			},
 			{
-				ID:        "b",
-				Instances: Instances{Percentage: 50},
+				ID: "b",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 50},
+				},
 			},
 		},
 	}
@@ -166,13 +176,17 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:        "a",
-				Builder:   "docker:generic",
-				Instances: Instances{Count: 3},
+				ID:      "a",
+				Builder: "docker:generic",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 3},
+				},
 			},
 			{
-				ID:        "b",
-				Instances: Instances{Percentage: 0.5},
+				ID: "b",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Percentage: 0.5},
+				},
 			},
 		},
 	}
@@ -197,13 +211,17 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:        "a",
-				Builder:   "docker:generic",
-				Instances: Instances{Count: 3},
+				ID:      "a",
+				Builder: "docker:generic",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 3},
+				},
 			},
 			{
-				ID:        "b",
-				Instances: Instances{Percentage: 1.2},
+				ID: "b",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Percentage: 1.2},
+				},
 			},
 		},
 	}
@@ -292,26 +310,32 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:        "all_set",
-				Instances: Instances{Count: 1},
-				Run: RunParams{
-					TestParams: map[string]string{
-						"param1": "value1:set",
-						"param2": "value2:set",
-						"param3": "value3:set",
+				ID: "all_set",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 1},
+					Run: RunParams{
+						TestParams: map[string]string{
+							"param1": "value1:set",
+							"param2": "value2:set",
+							"param3": "value3:set",
+						},
 					},
 				},
 			},
 			{
-				ID:        "none_set",
-				Instances: Instances{Count: 1},
+				ID: "none_set",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 1},
+				},
 			},
 			{
-				ID:        "first_set",
-				Instances: Instances{Count: 1},
-				Run: RunParams{
-					TestParams: map[string]string{
-						"param1": "value1:set",
+				ID: "first_set",
+				RunnableItem: RunnableItem{
+					Instances: Instances{Count: 1},
+					Run: RunParams{
+						TestParams: map[string]string{
+							"param1": "value1:set",
+						},
 					},
 				},
 			},
@@ -740,8 +764,10 @@ func TestFrameForRun(t *testing.T) {
 				ID: "just-a",
 				Groups: []*CompositionRunGroup{
 					{
-						ID:        "a",
-						Instances: Instances{Count: 3},
+						ID: "a",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 3},
+						},
 					},
 				},
 			},
@@ -749,12 +775,16 @@ func TestFrameForRun(t *testing.T) {
 				ID: "a-and-b",
 				Groups: []*CompositionRunGroup{
 					{
-						ID:        "a",
-						Instances: Instances{Count: 3},
+						ID: "a",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 3},
+						},
 					},
 					{
-						ID:        "b",
-						Instances: Instances{Count: 1},
+						ID: "b",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 1},
+						},
 					},
 				},
 			},
@@ -762,12 +792,16 @@ func TestFrameForRun(t *testing.T) {
 				ID: "a-and-c",
 				Groups: []*CompositionRunGroup{
 					{
-						ID:        "a",
-						Instances: Instances{Count: 3},
+						ID: "a",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 3},
+						},
 					},
 					{
-						ID:        "c",
-						Instances: Instances{Count: 4},
+						ID: "c",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 4},
+						},
 					},
 				},
 			},
@@ -784,7 +818,6 @@ func TestFrameForRun(t *testing.T) {
 	require.EqualValues(t, []string{"a"}, groupIds)
 	require.EqualValues(t, []string{"just-a"}, runIds)
 
-	
 	framedForRunAAndB, err := c.FrameForRuns("a-and-b")
 	require.NoError(t, err)
 
@@ -794,7 +827,6 @@ func TestFrameForRun(t *testing.T) {
 	// require.EqualValues(t, 4, framedForRunAAndB.Global.TotalInstances) TODO
 	require.EqualValues(t, []string{"a", "b"}, groupIds)
 	require.EqualValues(t, []string{"a-and-b"}, runIds)
-
 
 	framedForRunAAndC, err := c.FrameForRuns("a-and-c", "just-a")
 	require.NoError(t, err)

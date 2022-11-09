@@ -84,12 +84,6 @@ type Group struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
 
-	// Resources requested for each pod from the Kubernetes cluster
-	Resources Resources `toml:"resources" json:"resources"`
-
-	// Instances defines the number of instances that belong to this group.
-	Instances Instances `toml:"instances" json:"instances"`
-
 	// Builder is the builder we're using.
 	Builder string `toml:"builder" json:"builder"`
 
@@ -99,17 +93,17 @@ type Group struct {
 	// Build specifies the build configuration for this group.
 	Build Build `toml:"build" json:"build"`
 
-	// Run specifies the run configuration for this group.
-	Run RunParams `toml:"run" json:"run"`
-
-	// calculatedInstanceCnt caches the actual amount of instances in this
-	// group.
-	calculatedInstanceCnt uint
+	RunnableItem
 }
 
 type Run struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
+
+	// TotalInstances defines the total number of instances that participate in
+	// this run; it is the sum of all instances in all groups.
+	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
+
 	// Instances defines the number of instances that belong to this group.
 	Groups CompositionRunGroups `toml:"groups" json:"groups" validate:"required,gt=0"`
 }
@@ -119,14 +113,30 @@ type CompositionRunGroups []*CompositionRunGroup
 type CompositionRunGroup struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
+
+	RunnableItem
+}
+
+type RunnableItem struct {
+	// Resources requested for each pod from the Kubernetes cluster
+	Resources Resources `toml:"resources" json:"resources"`
+
+	// Instances defines the number of instances that belong to this group.
 	Instances Instances `toml:"instances" json:"instances"`
+
+	// Run specifies the run configuration for this group.
+	Run RunParams `toml:"run" json:"run"`
+
+	// calculatedInstanceCnt caches the actual number of instances in this
+	// group.
+	calculatedInstanceCnt uint
 }
 
 // CalculatedInstanceCount returns the actual number of instances in this group.
 //
 // Validate MUST be called for this field to be available.
-func (g *Group) CalculatedInstanceCount() uint {
-	return g.calculatedInstanceCnt
+func (r *RunnableItem) CalculatedInstanceCount() uint {
+	return r.calculatedInstanceCnt
 }
 
 type Instances struct {

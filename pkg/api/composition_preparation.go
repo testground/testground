@@ -6,6 +6,11 @@ import (
 	"sort"
 )
 
+// CompleteFromUserInputs
+func (c Composition) CompleteFromUserInputs() (Composition, error) {
+	return Composition{}, nil
+}
+
 // PrepareForBuild verifies that this composition is compatible with
 // the provided manifest for the purposes of a build, and applies any manifest-
 // mandated defaults for the builder configuration.

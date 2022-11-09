@@ -74,7 +74,9 @@ func TestBuildSelector(t *testing.T) {
 					{
 						ID:        "test",
 						Build:     api.Build{Selectors: selectors},
-						Instances: api.Instances{Count: 1},
+						RunnableItem: api.RunnableItem{
+							Instances: api.Instances{Count: 1},
+						},
 					},
 				},
 			}
