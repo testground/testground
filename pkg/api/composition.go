@@ -572,12 +572,46 @@ func (c Composition) PickGroups(indices ...int) (Composition, error) {
 	return c, nil
 }
 
-func (c Composition) ListRunIds() []string {
-	ids := make([]string, 0, len(c.Groups))
-	for _, g := range c.Runs {
-		ids = append(ids, g.ID)
+// FrameForRuns clones this composition, retaining only the specified run ids and corresponding groups
+// TODO: Verify that our composition and nested objects are immutables / deep copies.
+func (c Composition) FrameForRuns(runIds ...string) (Composition, error) {
+	requiredGroupsIdx := make(map[string]bool)
+	runs := make([]*Run, 0, len(runIds))
+
+	// Gather every run used + the corresponding groups.
+	for _, runId := range runIds {
+		run, err := c.getRun(runId)
+
+		if err != nil {
+			return Composition{}, fmt.Errorf("invalid run id %s: %w", runId, err)
+		}
+
+		for _, groupIdx := range run.Groups {
+			requiredGroupsIdx[groupIdx.ID] = true
+		}
+
+		runs = append(runs, run)
 	}
-	return ids
+
+	// Gather the groups that we listed in requiredGroupsIdx.
+	groups := make([]*Group, 0, len(requiredGroupsIdx))
+	for groupId := range requiredGroupsIdx {
+		group, err := c.getGroup(groupId)
+
+		if err != nil {
+			return Composition{}, fmt.Errorf("invalid group id %s: %w", groupId, err)
+		}
+
+		groups = append(groups, group)
+	}
+
+	c.Groups = groups
+	c.Runs = runs
+
+	// TODO: update the ValidateForRun
+	// return c, c.ValidateForRun()
+
+	return c, nil
 }
 
 // ValidateInstances validates that either count or percentage is provided, but
@@ -591,4 +625,40 @@ func ValidateInstances(sl validator.StructLevel) {
 
 	sl.ReportError(instances.Count, "count", "Count", "count_or_percentage", "")
 	sl.ReportError(instances.Percentage, "percentage", "Percentage", "count_or_percentage", "")
+}
+
+func (c Composition) getRun(runId string) (*Run, error) {
+	for _, x := range c.Runs {
+		if x.ID == runId {
+			return x, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown run id %s", runId)
+}
+
+func (c Composition) getGroup(groupId string) (*Group, error) {
+	for _, x := range c.Groups {
+		if x.ID == groupId {
+			return x, nil
+		}
+	}
+	return nil, fmt.Errorf("unknown group id %s", groupId)
+}
+
+func (c Composition) ListRunIds() []string {
+	ids := make([]string, 0, len(c.Runs))
+	for _, x := range c.Runs {
+		ids = append(ids, x.ID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func (c Composition) ListGroupsId() []string {
+	ids := make([]string, 0, len(c.Groups))
+	for _, x := range c.Groups {
+		ids = append(ids, x.ID)
+	}
+	sort.Strings(ids)
+	return ids
 }

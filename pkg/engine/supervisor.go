@@ -509,7 +509,6 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	// 3. Assume there is only one run
 	// 	3.1. Generate the run info in a practical way
 	// 4. Return as before.
-
 	if len(input.BuildGroups) > 0 {
 		bcomp, err := input.Composition.PickGroups(input.BuildGroups...)
 		if err != nil {
@@ -600,6 +599,13 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	if (len(input.RunIds) > 1) {
 		// TODO: remove when we can build multiple runs
 		return nil, fmt.Errorf("cannot specify multiple run ids for now")
+	}
+
+	newComp, err := comp.FrameForRuns(input.RunIds[0]);
+	comp = &newComp // TODO: naive
+
+	if err != nil {
+		return nil, fmt.Errorf("error while framing composition for run: %s: %w", input.RunIds[0], err)
 	}
 
 	in := api.RunInput{

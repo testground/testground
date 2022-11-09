@@ -168,6 +168,7 @@ func runSingleCmd(c *cli.Context) (err error) {
 func run(c *cli.Context, comp *api.Composition) (err error) {
 	// Assumes the composition has been validated for run.
 	// TODO: Rethink the composition types to expose clearly what is validated / not validated.
+	// TODO: In the composition we'll generate a default run if it is missing.
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
@@ -186,7 +187,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	rawRunIds := c.String("run-ids")
 	var runIds []string
 
-	// default to the first run id in the composition
+	// default to all the runs in the composition
 	if rawRunIds == "" {
 		runIds = comp.ListRunIds()
 	} else {
@@ -194,11 +195,6 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	// TODO: validate run ids
-	if len(runIds) != 1 {
-		// TODO: remove when we support multiple runs.
-		return fmt.Errorf("we only support a single run id for now")
-	}
-
 	// TODO: verify run ids exists in the composition.
 
 	// Skip artifacts if the user explicit requests it.
@@ -215,10 +211,10 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	var (
-		sdkDir    string
-		extraSrcs []string
+		sdkDir     string
+		extraSrcs  []string
 		collectOpt = c.Bool("collect")
-		wait      = c.Bool("wait") || collectOpt // we always wait if we are collecting.
+		wait       = c.Bool("wait") || collectOpt // we always wait if we are collecting.
 	)
 
 	if len(buildIdx) > 0 {
@@ -251,6 +247,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 
 	req := &api.RunRequest{
 		BuildGroups: buildIdx,
+		RunIds:      runIds,
 		Composition: *comp,
 		Manifest:    *manifest,
 		CreatedBy: api.CreatedBy{
@@ -326,7 +323,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 
 	logging.S().Infof("finished run with ID: %s", id)
 
-	// if the `collect` flag is not set, we are done	
+	// if the `collect` flag is not set, we are done
 	if !collectOpt {
 		return data.IsTaskOutcomeInError(&tsk)
 	}

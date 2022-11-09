@@ -658,7 +658,7 @@ func TestIssue1493CompositionContainsARunsField(t *testing.T) {
 	require.NotNil(t, validComposition.Runs)
 }
 
-func TestListRunIds(t *testing.T) {
+func TestListRunAndGroupsIds(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
@@ -699,7 +699,162 @@ func TestListRunIds(t *testing.T) {
 		},
 	}
 
-	ret := c.ListRunIds()
+	groups := c.ListGroupsId()
+	require.EqualValues(t, []string{"a", "b", "c", "d"}, groups)
 
-	require.EqualValues(t, []string{"aa", "bb", "cc"}, ret)
+	runs := c.ListRunIds()
+	require.EqualValues(t, []string{"aa", "bb", "cc"}, runs)
+
+}
+
+func TestFrameForRun(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
+				Builder: "docker:generic",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "just-a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+				},
+			},
+			{
+				ID: "a-and-b",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "b",
+						Instances: Instances{Count: 1},
+					},
+				},
+			},
+			{
+				ID: "a-and-c",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "c",
+						Instances: Instances{Count: 4},
+					},
+				},
+			},
+		},
+	}
+
+	framedForRunA, err := c.FrameForRuns("just-a")
+	require.NoError(t, err)
+
+	groupIds := framedForRunA.ListGroupsId()
+	runIds := framedForRunA.ListRunIds()
+
+	// require.EqualValues(t, 3, framedForRunA.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a"}, groupIds)
+	require.EqualValues(t, []string{"just-a"}, runIds)
+
+	
+	framedForRunAAndB, err := c.FrameForRuns("a-and-b")
+	require.NoError(t, err)
+
+	groupIds = framedForRunAAndB.ListGroupsId()
+	runIds = framedForRunAAndB.ListRunIds()
+
+	// require.EqualValues(t, 4, framedForRunAAndB.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a", "b"}, groupIds)
+	require.EqualValues(t, []string{"a-and-b"}, runIds)
+
+
+	framedForRunAAndC, err := c.FrameForRuns("a-and-c", "just-a")
+	require.NoError(t, err)
+
+	groupIds = framedForRunAAndC.ListGroupsId()
+	runIds = framedForRunAAndC.ListRunIds()
+
+	// require.EqualValues(t, 10, framedForRunAAndC.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a", "c"}, groupIds)
+	require.EqualValues(t, []string{"a-and-c", "just-a"}, runIds)
+}
+
+func TestGetRun(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
+				Builder: "docker:generic",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+		},
+	}
+
+	run, err := c.getRun("a")
+
+	require.NoError(t, err)
+	require.EqualValues(t, "a", run.ID)
+
+	run, err = c.getRun("d")
+
+	require.Error(t, err)
+	require.Nil(t, run)
 }
