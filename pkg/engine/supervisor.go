@@ -601,12 +601,14 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		return nil, fmt.Errorf("cannot specify multiple run ids for now")
 	}
 
-	newComp, err := comp.FrameForRuns(input.RunIds[0]);
-	comp = &newComp // TODO: naive
+	runId := input.RunIds[0]
+	comp, err = comp.FrameForRuns(runId);
 
 	if err != nil {
-		return nil, fmt.Errorf("error while framing composition for run: %s: %w", input.RunIds[0], err)
+		return nil, fmt.Errorf("error while framing composition for run: %s: %w", runId, err)
 	}
+
+	compRun := comp.Runs[0]
 
 	in := api.RunInput{
 		RunID:          id,
@@ -614,13 +616,12 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		RunnerConfig:   obj,
 		TestPlan:       clean(plan),
 		TestCase:       clean(tcase),
-		TotalInstances: int(comp.Global.TotalInstances),
-		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
+		TotalInstances: int(compRun.TotalInstances),
+		Groups:         make([]*api.RunGroup, 0, len(compRun.Groups)),
 		DisableMetrics: comp.Global.DisableMetrics,
 	}
 
-	// Trigger a build for each group, and wait until all of them are done.
-	for _, grp := range comp.Groups {
+	for _, grp := range compRun.Groups {
 		g := &api.RunGroup{
 			ID:           grp.ID,
 			Instances:    int(grp.CalculatedInstanceCount()),
