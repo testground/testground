@@ -331,8 +331,8 @@ func (c Composition) PickGroups(indices ...int) (Composition, error) {
 
 // FrameForRuns clones this composition, retaining only the specified run ids and corresponding groups
 // TODO: Verify that our composition and nested objects are immutables / deep copies.
-func (c Composition) FrameForRuns(runIds ...string) (Composition, error) {
-	requiredGroupsIdx := make(map[string]bool)
+func (c Composition) FrameForRuns(runIds ...string) (*Composition, error) {
+	requiredGroupsIds := make(map[string]bool)
 	runs := make([]*Run, 0, len(runIds))
 
 	// Gather every run used + the corresponding groups.
@@ -340,23 +340,23 @@ func (c Composition) FrameForRuns(runIds ...string) (Composition, error) {
 		run, err := c.getRun(runId)
 
 		if err != nil {
-			return Composition{}, fmt.Errorf("invalid run id %s: %w", runId, err)
+			return nil, fmt.Errorf("invalid run id %s: %w", runId, err)
 		}
 
-		for _, groupIdx := range run.Groups {
-			requiredGroupsIdx[groupIdx.ID] = true
+		for _, group := range run.Groups {
+			requiredGroupsIds[group.ID] = true
 		}
 
 		runs = append(runs, run)
 	}
 
 	// Gather the groups that we listed in requiredGroupsIdx.
-	groups := make([]*Group, 0, len(requiredGroupsIdx))
-	for groupId := range requiredGroupsIdx {
+	groups := make([]*Group, 0, len(requiredGroupsIds))
+	for groupId := range requiredGroupsIds {
 		group, err := c.getGroup(groupId)
 
 		if err != nil {
-			return Composition{}, fmt.Errorf("invalid group id %s: %w", groupId, err)
+			return nil, fmt.Errorf("invalid group id %s: %w", groupId, err)
 		}
 
 		groups = append(groups, group)
@@ -365,10 +365,7 @@ func (c Composition) FrameForRuns(runIds ...string) (Composition, error) {
 	c.Groups = groups
 	c.Runs = runs
 
-	// TODO: update the ValidateForRun
-	// return c, c.ValidateForRun()
-
-	return c, nil
+	return &c, nil
 }
 
 func (c Composition) getRun(runId string) (*Run, error) {
