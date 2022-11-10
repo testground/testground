@@ -213,10 +213,10 @@ func (b Build) BuildKey() string {
 	return sb.String()
 }
 
-func (d Dependencies) AsMap() map[string]string {
-	m := make(map[string]string, len(d))
+func (d Dependencies) AsMap() map[string]Dependency {
+	m := make(map[string]Dependency, len(d))
 	for _, dep := range d {
-		m[dep.Module] = dep.Version
+		m[dep.Module] = dep
 	}
 	return m
 }
@@ -232,11 +232,12 @@ func (d Dependencies) ApplyDefaults(defaults Dependencies) Dependencies {
 	copy(ret[:], d)
 
 	into := d.AsMap()
-	for mod, ver := range defaults.AsMap() {
+	for mod, dep := range defaults.AsMap() {
 		if _, present := into[mod]; !present {
 			ret = append(ret, Dependency{
 				Module:  mod,
-				Version: ver,
+				Target: dep.Target,
+				Version: dep.Version,
 			})
 		}
 	}
