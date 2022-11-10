@@ -211,10 +211,8 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	}
 
 	var (
-		sdkDir     string
-		extraSrcs  []string
-		collectOpt = c.Bool("collect")
-		wait       = c.Bool("wait") || collectOpt // we always wait if we are collecting.
+		sdkDir    string
+		extraSrcs []string
 	)
 
 	if len(buildIdx) > 0 {
@@ -245,18 +243,37 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		planDir = ""
 	}
 
-	req := &api.RunRequest{
-		BuildGroups: buildIdx,
-		RunIds:      runIds,
-		Composition: *comp,
-		Manifest:    *manifest,
-		CreatedBy: api.CreatedBy{
-			User:   cfg.Client.User,
-			Repo:   c.String("metadata-repo"),
-			Branch: c.String("metadata-branch"),
-			Commit: c.String("metadata-commit"),
-		},
+	for _, runId := range runIds {
+		// TODO: deal with preparing the composition to output the "general" version if possible.
+		// Or do this in the supervisor.
+		req := &api.RunRequest{
+			BuildGroups: buildIdx,
+			RunIds:      []string{runId},
+			Composition: *comp,
+			Manifest:    *manifest,
+			CreatedBy: api.CreatedBy{
+				User:   cfg.Client.User,
+				Repo:   c.String("metadata-repo"),
+				Branch: c.String("metadata-branch"),
+				Commit: c.String("metadata-commit"),
+			},
+		}
+
+		err := runSingle(ctx, cl, c, req, planDir, sdkDir, extraSrcs)
+
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
+}
+
+func runSingle(ctx context.Context, cl *client.Client, c *cli.Context, req *api.RunRequest, planDir string, sdkDir string, extraSrcs []string) (err error) {
+	var (
+		collectOpt = c.Bool("collect")
+		wait       = c.Bool("wait") || collectOpt // we always wait if we are collecting.
+	)
 
 	if wait {
 		req.Priority = 1
@@ -304,6 +321,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return errors.New(tsk.Error)
 	}
 
+	// TODO: switch this depending on whether this is a multi-runs or a simple run.
 	var composition api.Composition
 	err = mapstructure.Decode(tsk.Composition, &composition)
 	if err != nil {
@@ -328,12 +346,13 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return data.IsTaskOutcomeInError(&tsk)
 	}
 
+	// TODO: switch this depending on whether this is a multi-runs or a simple run.
 	collectFile := c.String("collect-file")
 	if collectFile == "" {
 		collectFile = fmt.Sprintf("%s.tgz", id)
 	}
 
-	err = collect(ctx, cl, comp.Global.Runner, id, collectFile)
+	err = collect(ctx, cl, req.Composition.Global.Runner, id, collectFile)
 
 	if err != nil {
 		return cli.Exit(err.Error(), 3)
