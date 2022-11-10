@@ -2,7 +2,6 @@ package api
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -63,6 +62,15 @@ func (rs Runs) Validate(c *Composition) error {
 		}
 	}
 
+	// Recalculate instance counts
+	for _, r := range rs {
+		_, err := r.recalculateInstanceCounts()
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -98,33 +106,7 @@ func (c *Composition) ValidateForRun() error {
 		return err
 	}
 
-	// Calculate instances per group, and assert that sum total matches the
-	// expected value.
-	totalInstances := c.Global.TotalInstances
-
-	computedTotal := uint(0)
-	for _, g := range c.Groups {
-		// When a percentage is specified, we require that totalInstances is set
-		if g.Instances.Percentage > 0 && totalInstances == 0 {
-			return fmt.Errorf("groups count percentage requires a total_instance configuration")
-		}
-
-		// Update the group's calculated instance counts.
-		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
-			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(totalInstances)))
-		}
-		computedTotal += g.calculatedInstanceCnt
-	}
-
-	// Verify the sum total matches the expected value if it was passed.
-	if totalInstances > 0 && totalInstances != computedTotal {
-		// TODO: disabled temporarily
-		return fmt.Errorf("sum of calculated instances per group doesn't match total; total=%d, calculated=%d", totalInstances, computedTotal)
-	}
-
-	c.Global.TotalInstances = computedTotal
-
-	return c.Groups.Validate(c)
+	return nil
 }
 
 // ValidateInstances validates that either count or percentage is provided, but

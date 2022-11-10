@@ -90,7 +90,7 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 
 // Generate Default Run
 // This method doesn't modify the composition, it returns a new one.
-func (c Composition) GenerateDefaultRun() (*Composition) {
+func (c Composition) GenerateDefaultRun() *Composition {
 	// Generate Default Run
 	if len(c.Runs) == 0 {
 		r := Run{
@@ -171,25 +171,8 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 	return &c, nil
 }
 
-func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*Run, error) {
-	// Prepare instance counts
-	if r.TotalInstances == 0 {
-		r.TotalInstances = composition.Global.TotalInstances
-	}
-
-	// Prepare run groups with default values.
-	newGroups := make(CompositionRunGroups, len(r.Groups))
-	for i, g := range r.Groups {
-		g, err := g.PrepareForRun(manifest, composition)
-
-		if err != nil {
-			return nil, err
-		}
-
-		newGroups[i] = g
-	}
-	r.Groups = newGroups
-
+// Mutation!
+func (r *Run) recalculateInstanceCounts() (*Run, error) {
 	// Compute instance counts
 	hasTotalInstance := r.TotalInstances != 0
 	computedTotal := uint(0)
@@ -207,10 +190,29 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 	}
 
 	if hasTotalInstance && computedTotal != r.TotalInstances {
-		return nil, fmt.Errorf("total instances mismatch: %d != %d", computedTotal, r.TotalInstances)
+		return nil, fmt.Errorf("total instances mismatch: computed: %d != configured: %d", computedTotal, r.TotalInstances)
 	}
 
 	r.TotalInstances = computedTotal
+
+	return r, nil
+}
+
+func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*Run, error) {
+	// Prepare run groups with default values.
+	newGroups := make(CompositionRunGroups, len(r.Groups))
+	for i, g := range r.Groups {
+		g, err := g.PrepareForRun(manifest, composition)
+
+		if err != nil {
+			return nil, err
+		}
+
+		newGroups[i] = g
+	}
+	r.Groups = newGroups
+
+	r.recalculateInstanceCounts()
 
 	// Validate the desired number of instances is within bounds.
 	_, tcase, ok := manifest.TestCaseByName(composition.Global.Case)

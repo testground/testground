@@ -357,3 +357,62 @@ func TestValidateForBuildVerifiesThatBuildersAreDefined(t *testing.T) {
 	require.Error(t, err)
 	require.Nil(t, ret)
 }
+
+func TestPrepareForRunCountIsCorrect(t *testing.T) {
+	manifest := &TestPlanManifest{
+		Name: "foo_plan",
+		TestCases: []*TestCase{
+			{
+				Name:      "foo_case",
+				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
+			},
+		},
+		Builders: map[string]config.ConfigMap{
+			"docker:go":      {},
+			"docker:generic": {},
+		},
+		Runners: map[string]config.ConfigMap{
+			"local:docker": {},
+		},
+	}
+
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			TotalInstances: 3,
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "test_a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID: "a",
+						RunnableItem: RunnableItem{
+							Instances: Instances{Count: 12},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c, err := c.PrepareForRun(manifest)
+	
+	require.NotNil(t, c)
+	require.NoError(t, err)
+}

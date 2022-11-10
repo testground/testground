@@ -127,7 +127,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.NoError(t, err)
 
-	require.EqualValues(t, 6, c.Global.TotalInstances)
+	require.EqualValues(t, 6, c.Runs[0].TotalInstances)
 
 	// when some groups have a percentage, the total can't be computed
 	c = &Composition{
@@ -162,7 +162,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.Error(t, err)
 
-	require.EqualValues(t, 0, c.Global.TotalInstances)
+	require.EqualValues(t, 0, c.Runs[0].TotalInstances)
 
 	// when groups mix percentages and fixed numbers, the total is verified
 	c = &Composition{
@@ -198,7 +198,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.NoError(t, err)
 
-	require.EqualValues(t, 6, c.Global.TotalInstances)
+	require.EqualValues(t, 6, c.Runs[0].TotalInstances)
 
 	// when groups uses percentages that don't work with the total, the total is verified
 	c = &Composition{
