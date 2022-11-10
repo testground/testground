@@ -35,6 +35,27 @@ function assert_run_outcome_is {
   assert_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
 }
 
+# Assert the status of a multiple testground run ("failure", "success")
+#
+# Usage:
+#   assert_run_outcome_is "./testground-run-logs.out" "failed"
+function assert_runs_outcome_are {
+  RUN_OUT_FILEPATH="$1"
+  EXPECTED_OUTCOMES="${$:2}"
+
+  # TODO: implement
+  exit 1
+  RUN_ID=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
+  echo "checking run ${RUN_ID}"
+
+  assert_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
+}
+
+function assert_runs_instance_count {
+  # TODO: implement
+  exit 1
+}
+
 # Assert the status of a testground task, as provided by the CLI output
 #
 # Usage:

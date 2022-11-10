@@ -6,13 +6,7 @@ testground plan import --from ./plans --name testground
 
 pushd $TEMPDIR
 
-# testground run composition \
-#     -f ${my_dir}/../plans/_integrations_runs/_compositions/issue-1493-multiple-runs-happy-path.toml \
-#     --collect \
-#     --wait | tee run.out
-
-# assert_run_outcome_is ./run.out "failure"
-
+# run a single instance
 testground run composition \
     -f ${my_dir}/../plans/_integrations_runs/_compositions/issue-1493-multiple-runs-happy-path.toml \
     --run-ids="run_simple_4" \
@@ -21,6 +15,15 @@ testground run composition \
 
 assert_run_outcome_is ./run.out "success"
 assert_run_instance_count ./run.out 4
+
+# run all instances
+testground run composition \
+    -f ${my_dir}/../plans/_integrations_runs/_compositions/issue-1493-multiple-runs-happy-path.toml \
+    --collect   \
+    --wait | tee run.out
+
+assert_runs_outcome_are ./run.out "success" "success" "success"
+assert_runs_instance_count ./run.out 1 2 4
 
 popd
 
