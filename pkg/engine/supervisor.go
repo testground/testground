@@ -651,7 +651,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check
-		out.Composition = input.Composition
+		out.Composition = *comp
 	}
 
 	return out, err
