@@ -33,15 +33,18 @@ type Global struct {
 	// Case is the test case we want to run.
 	Case string `toml:"case" json:"case" validate:"required"`
 
-	// TotalInstances defines the total number of instances that participate in
-	// this composition; it is the sum of all instances in all groups.
+	// TotalInstances defines the default total number of instances that participate in
+	// runs of this composition; it is the sum of all instances in all groups.
+	//
+	// If all your instance counts are absolute values (and not percentages), you
+	// may skip this value. It will be calculated automatically.
 	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
 
 	// ConcurrentBuilds defines the maximum number of concurrent builds that are
 	// scheduled for this test.
 	ConcurrentBuilds int `toml:"concurrent_builds" json:"concurrent_builds"`
 
-	// Builder is the builder we're using.
+	// Builder is the default builder we're using.
 	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
