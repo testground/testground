@@ -119,6 +119,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err := c.ValidateForBuild()
 	require.NoError(t, err)
@@ -148,11 +149,12 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			{
 				ID: "b",
 				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 50},
+					Instances: Instances{Percentage: 50},
 				},
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)
@@ -188,6 +190,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)
@@ -223,6 +226,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)

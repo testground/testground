@@ -1,17 +1,96 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
-	"sort"
+	"math"
+
+	"github.com/imdario/mergo"
 )
 
-// CompleteFromUserInputs applies default values to user inputs.
+// PrepareForBuild verifies that this group is compatible with
+// the provided manifest for the purposes of a build, and applies any manifest
+// and global compositions defaults for the builder configuration.
 //
-// It will generate a default run if none is provided.
+// TODO: the build config mapping is not deep-cloned, fix.
+// This method doesn't modify the Group, it returns a new one.
+func (g Group) PrepareForBuild(manifest *TestPlanManifest, c *Composition) (*Group, error) {
+	// trickle down builder
+	if g.Builder == "" {
+		g.Builder = c.Global.Builder
+	}
+
+	if !manifest.HasBuilder(g.Builder) {
+		return nil, fmt.Errorf("plan does not support builder '%s'; supported: %v", c.Global.Builder, manifest.SupportedBuilders())
+	}
+
+	// prepare build configuration
+	if g.BuildConfig == nil {
+		g.BuildConfig = make(map[string]interface{})
+	}
+
+	// load default build configuration from global
+	for k, v := range c.Global.BuildConfig {
+		if _, ok := g.BuildConfig[k]; !ok {
+			g.BuildConfig[k] = v
+		}
+	}
+
+	// load default build configuration from manifest for this builder
+	if bcfg, ok := manifest.Builders[g.Builder]; ok {
+		for k, v := range bcfg {
+			if _, ok := g.BuildConfig[k]; !ok {
+				g.BuildConfig[k] = v
+			}
+		}
+	}
+
+	// Prepare build field: trickle global build defaults to groups, if any.
+	if def := c.Global.Build; def != nil {
+		g.Build.Dependencies = g.Build.Dependencies.ApplyDefaults(def.Dependencies)
+		if len(g.Build.Selectors) == 0 {
+			g.Build.Selectors = def.Selectors
+		}
+	}
+
+	return &g, nil
+}
+
+// PrepareForBuild verifies that this composition is compatible with
+// the provided manifest for the purposes of a build, and applies any manifest-
+// mandated defaults for the builder configuration.
 //
 // This method doesn't modify the composition, it returns a new one.
-func (c Composition) PrepareFromUserInput() (*Composition, error) {
+func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, error) {
+	// override the composition plan name with what's in the manifest
+	// rationale: composition.Global.Plan will be a path relative to
+	// $TESTGROUND_HOME/plans; the server doesn't care about our local
+	// paths.
+	c.Global.Plan = manifest.Name
+
+	// Require a builders in the manifest.
+	if manifest.Builders == nil || len(manifest.Builders) == 0 {
+		return nil, fmt.Errorf("plan supports no builders; review the manifest")
+	}
+
+	// Default groups configuration from the Global configuration + Manifest
+	newGroups := make(Groups, len(c.Groups))
+	for i, g := range c.Groups {
+		newGroup, err := g.PrepareForBuild(manifest, &c)
+
+		if err != nil {
+			return nil, fmt.Errorf("error preparing group %s: %w", g.ID, err)
+		}
+
+		newGroups[i] = newGroup
+	}
+	c.Groups = newGroups
+
+	return &c, nil
+}
+
+// Generate Default Run
+// This method doesn't modify the composition, it returns a new one.
+func (c Composition) GenerateDefaultRun() (*Composition) {
 	// Generate Default Run
 	if len(c.Runs) == 0 {
 		r := Run{
@@ -30,77 +109,7 @@ func (c Composition) PrepareFromUserInput() (*Composition, error) {
 		c.Runs = Runs{&r}
 	}
 
-	return &c, nil
-}
-
-// PrepareForBuild verifies that this composition is compatible with
-// the provided manifest for the purposes of a build, and applies any manifest-
-// mandated defaults for the builder configuration.
-//
-// This method doesn't modify the composition, it returns a new one.
-func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, error) {
-	// override the composition plan name with what's in the manifest
-	// rationale: composition.Global.Plan will be a path relative to
-	// $TESTGROUND_HOME/plans; the server doesn't care about our local
-	// paths.
-	c.Global.Plan = manifest.Name
-
-	// Is the builder supported?
-	if manifest.Builders == nil || len(manifest.Builders) == 0 {
-		return nil, fmt.Errorf("plan supports no builders; review the manifest")
-	}
-
-	// Apply manifest-mandated build configuration.
-	if bcfg, ok := manifest.Builders[c.Global.Builder]; ok {
-		if c.Global.BuildConfig == nil {
-			c.Global.BuildConfig = make(map[string]interface{})
-		}
-		for k, v := range bcfg {
-			// Apply parameters that are not explicitly set in the Composition.
-			if _, ok := c.Global.BuildConfig[k]; !ok {
-				c.Global.BuildConfig[k] = v
-			}
-		}
-	}
-
-	// Trickle global build defaults to groups, if any.
-	if def := c.Global.Build; def != nil {
-		for _, grp := range c.Groups {
-			grp.Build.Dependencies = grp.Build.Dependencies.ApplyDefaults(def.Dependencies)
-			if len(grp.Build.Selectors) == 0 {
-				grp.Build.Selectors = def.Selectors
-			}
-		}
-	}
-
-	// Trickle global build config to groups, if any.
-	if len(c.Global.BuildConfig) > 0 {
-		for _, grp := range c.Groups {
-			if grp.BuildConfig == nil {
-				grp.BuildConfig = make(map[string]interface{})
-			}
-
-			for k, v := range c.Global.BuildConfig {
-				// Note: we only merge root values.
-				if _, ok := grp.BuildConfig[k]; !ok {
-					grp.BuildConfig[k] = v
-				}
-			}
-		}
-	}
-
-	// Trickle builder configuration
-	for _, grp := range c.Groups {
-		if grp.Builder == "" {
-			grp.Builder = c.Global.Builder
-		}
-
-		if !manifest.HasBuilder(grp.Builder) {
-			return nil, fmt.Errorf("plan does not support builder '%s'; supported: %v", c.Global.Builder, manifest.SupportedBuilders())
-		}
-	}
-
-	return &c, nil
+	return &c
 }
 
 // PrepareForRun verifies that this composition is compatible with the
@@ -110,6 +119,8 @@ func (c Composition) PrepareForBuild(manifest *TestPlanManifest) (*Composition, 
 //
 // This method doesn't modify the composition, it returns a new one.
 func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, error) {
+	c = *c.GenerateDefaultRun()
+	
 	// override the composition plan name with what's in the manifest
 	// rationale: composition.Global.Plan will be a path relative to
 	// $TESTGROUND_HOME/plans; the server doesn't care about our local
@@ -117,22 +128,19 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 	c.Global.Plan = manifest.Name
 
 	// validate the test case exists.
-	_, tcase, ok := manifest.TestCaseByName(c.Global.Case)
+	_, _, ok := manifest.TestCaseByName(c.Global.Case)
 	if !ok {
 		return nil, fmt.Errorf("test case %s not found in plan %s", c.Global.Case, manifest.Name)
 	}
 
-	// Is the runner supported?
+	// Require a runner in the manifest.
 	if manifest.Runners == nil || len(manifest.Runners) == 0 {
 		return nil, fmt.Errorf("plan supports no runners; review the manifest")
 	}
-	runners := make([]string, 0, len(manifest.Runners))
-	for k := range manifest.Runners {
-		runners = append(runners, k)
-	}
-	sort.Strings(runners)
-	if sort.SearchStrings(runners, c.Global.Runner) == len(runners) {
-		return nil, fmt.Errorf("plan does not support runner %s; supported: %v", c.Global.Runner, runners)
+
+	// Is the runner supported?
+	if !manifest.HasRunner(c.Global.Runner) {
+		return nil, fmt.Errorf("plan does not support runner '%s'; supported: %v", c.Global.Runner, manifest.SupportedRunners())
 	}
 
 	// Apply manifest-mandated run configuration.
@@ -148,78 +156,113 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 		}
 	}
 
+	// Default runs configuration from the Global configuration + Manifest
+	newRuns := make(Runs, len(c.Runs))
+	for i, r := range c.Runs {
+		newRun, err := r.PrepareForRun(manifest, &c)
+		if err != nil {
+			return nil, fmt.Errorf("error preparing run %s: %w", r.ID, err)
+		}
+
+		newRuns[i] = newRun
+	}
+	c.Runs = newRuns
+
+	return &c, nil
+}
+
+func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*Run, error) {
+	// Prepare instance counts
+	if r.TotalInstances == 0 {
+		r.TotalInstances = composition.Global.TotalInstances
+	}
+
+	// Prepare run groups with default values.
+	newGroups := make(CompositionRunGroups, len(r.Groups))
+	for i, g := range r.Groups {
+		g, err := g.PrepareForRun(manifest, composition)
+
+		if err != nil {
+			return nil, err
+		}
+
+		newGroups[i] = g
+	}
+	r.Groups = newGroups
+
+	// Compute instance counts
+	hasTotalInstance := r.TotalInstances != 0
+	computedTotal := uint(0)
+
+	for _, g := range r.Groups {
+		// When a percentage is specified, we require that totalInstances is set
+		if g.Instances.Percentage > 0 && !hasTotalInstance {
+			return nil, fmt.Errorf("groups count percentage requires a total_instance configuration")
+		}
+
+		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
+			g.calculatedInstanceCnt = uint(math.Round(g.Instances.Percentage * float64(r.TotalInstances)))
+		}
+		computedTotal += g.calculatedInstanceCnt
+	}
+
+	if hasTotalInstance && computedTotal != r.TotalInstances {
+		return nil, fmt.Errorf("total instances mismatch: %d != %d", computedTotal, r.TotalInstances)
+	}
+
+	r.TotalInstances = computedTotal
+
 	// Validate the desired number of instances is within bounds.
-	if t := int(c.Global.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
+	_, tcase, ok := manifest.TestCaseByName(composition.Global.Case)
+	if !ok {
+		return nil, fmt.Errorf("test case %s not found", composition.Global.Case)
+	}
+
+	if t := int(r.TotalInstances); t < tcase.Instances.Minimum || t > tcase.Instances.Maximum {
 		str := "total instance count (%d) outside of allowable range [%d, %d] for test case %s"
 		err := fmt.Errorf(str, t, tcase.Instances.Minimum, tcase.Instances.Maximum, tcase.Name)
 		return nil, err
 	}
 
-	// Trickle global run defaults to groups, if any.
-	if def := c.Global.Run; def != nil {
-		for _, grp := range c.Groups {
-			// Artifact. If a global artifact is provided, it will be applied
-			// to all groups that do not set an artifact explicitly.
-			// TODO(rk): this rather extreme; we might want a way to force
-			//  builds for groups that do not have an artifact, even in the
-			//  presence of a default one.
-			if grp.Run.Artifact == "" {
-				grp.Run.Artifact = def.Artifact
-			}
+	return &r, nil
+}
 
-			trickleMap := func(from, to map[string]string) (result map[string]string) {
-				if to == nil {
-					// copy all params in to.
-					result = make(map[string]string, len(from))
-					for k, v := range from {
-						result[k] = v
-					}
-				} else {
-					result = to
-					// iterate over all global params, and copy over those that haven't been overridden.
-					for k, v := range from {
-						if _, present := to[k]; !present {
-							result[k] = v
-						}
-					}
-				}
-				return result
-			}
+func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*CompositionRunGroup, error) {
+	// Merge groups defaults
+	buildGroup, err := composition.getGroup(g.ID)
 
-			grp.Run.TestParams = trickleMap(def.TestParams, grp.Run.TestParams)
-			grp.Run.Profiles = trickleMap(def.Profiles, grp.Run.Profiles)
+	if err != nil {
+		return nil, err
+	}
+
+	err = mergo.Merge(&g.RunnableItem, buildGroup.RunnableItem)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge global defaults
+	if composition.Global.Run != nil {
+		globalRunItem := RunnableItem{
+			Run: *composition.Global.Run,
+		}
+
+		err = mergo.Merge(&g.RunnableItem, globalRunItem)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Apply test case param defaults. First parse all defaults as JSON data
-	// types; then iterate through all the groups in the composition, and apply
-	// the parameters that are absent.
-	defaults := make(map[string]string, len(tcase.Parameters))
-	for n, v := range tcase.Parameters {
-		switch dv := v.Default.(type) {
-		case string:
-			defaults[n] = dv
-		default:
-			data, err := json.Marshal(v.Default)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
-			}
-			defaults[n] = string(data)
-		}
+	// Merge testcase defaults
+	testParamsDefaults, err := manifest.defaultParameters(composition.Global.Case)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, g := range c.Groups {
-		m := g.Run.TestParams
-		if m == nil {
-			m = make(map[string]string, len(defaults))
-			g.Run.TestParams = m
-		}
-		for k, v := range defaults {
-			if _, ok := m[k]; !ok {
-				m[k] = v
-			}
-		}
+	err = mergo.Merge(&g.RunnableItem.Run.TestParams, testParamsDefaults)
+	if err != nil {
+		return nil, err
 	}
 
-	return &c, nil
+	return &g, nil
 }

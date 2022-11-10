@@ -97,7 +97,7 @@ type Group struct {
 }
 
 type Run struct {
-	// ID is the unique ID of this group.
+	// ID is the unique ID of this run group.
 	ID string `toml:"id" json:"id"`
 
 	// TotalInstances defines the total number of instances that participate in
@@ -113,6 +113,10 @@ type CompositionRunGroups []*CompositionRunGroup
 type CompositionRunGroup struct {
 	// ID is the unique ID of this group.
 	ID string `toml:"id" json:"id"`
+
+	// GroupID is the ID of the group that this run group belongs to.
+	// It will default to ID.
+	GroupID string `toml:"group_id" json:"group_id"`
 
 	RunnableItem
 }
@@ -241,7 +245,15 @@ func (d Dependencies) ApplyDefaults(defaults Dependencies) Dependencies {
 			})
 		}
 	}
+	
 	return ret
+}
+
+func (x CompositionRunGroup) EffectiveGroupId() string {
+	if x.GroupID != "" {
+		return x.GroupID
+	}
+	return x.ID
 }
 
 type RunParams struct {

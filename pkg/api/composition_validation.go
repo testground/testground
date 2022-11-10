@@ -33,12 +33,46 @@ func (gs Groups) Validate(c *Composition) error {
 	return nil
 }
 
+func (rs Runs) Validate(c *Composition) error {
+	// Validate run IDs are unique
+	m := make(map[string]bool, len(rs))
+	for _, r := range rs {
+		if _, ok := m[r.ID]; ok {
+			return fmt.Errorf("runs ids not unique; found duplicate: %s", r.ID)
+		}
+		m[r.ID] = true
+	}
+
+	// Validate Run groups
+	for _, r := range rs {
+		// Validate the corresponding group exists
+		for _, g := range r.Groups {
+			_, err := c.getGroup(g.EffectiveGroupId())
+			if err != nil {
+				return fmt.Errorf("run %s:%s references non-existent group %s", r.ID, g.ID, g.EffectiveGroupId())
+			}
+		}
+
+		// Validate group ids are unique
+		m := make(map[string]bool, len(r.Groups))
+		for _, x := range r.Groups {
+			if _, ok := m[x.ID]; ok {
+				return fmt.Errorf("group ids not unique; found duplicate: %s:%s", r.ID, x.ID)
+			}
+			m[x.ID] = true
+		}
+	}
+
+	return nil
+}
+
 // ValidateForBuild validates that this Composition is correct for a build.
 func (c *Composition) ValidateForBuild() error {
 	err := compositionValidator.StructExcept(c,
 		"Global.Case",
 		"Global.TotalInstances",
 		"Global.Runner",
+		"Runs",
 	)
 	if err != nil {
 		return err
@@ -51,6 +85,16 @@ func (c *Composition) ValidateForBuild() error {
 func (c *Composition) ValidateForRun() error {
 	// Perform structural validation.
 	if err := compositionValidator.Struct(c); err != nil {
+		return err
+	}
+
+	// Validate groups.
+	if err := c.Groups.Validate(c); err != nil {
+		return err
+	}
+
+	// Validate runs.
+	if err := c.Runs.Validate(c); err != nil {
 		return err
 	}
 

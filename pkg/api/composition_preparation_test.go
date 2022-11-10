@@ -86,22 +86,22 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 	require.NotNil(t, ret)
 
 	// group all_set.
-	require.EqualValues(t, "value1:set", ret.Groups[0].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:set", ret.Groups[0].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:set", ret.Groups[0].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[0].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[0].Run.TestParams["param1"])
+	require.EqualValues(t, "value2:set", ret.Runs[0].Groups[0].Run.TestParams["param2"])
+	require.EqualValues(t, "value3:set", ret.Runs[0].Groups[0].Run.TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[0].Run.TestParams["param4"])
 
 	// group none_set.
-	require.EqualValues(t, "value1:default:composition", ret.Groups[1].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Groups[1].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Groups[1].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[1].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param1"])
+	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param2"])
+	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[1].Run.TestParams["param4"])
 
 	// group first_set
-	require.EqualValues(t, "value1:set", ret.Groups[2].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Groups[2].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Groups[2].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[2].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[2].Run.TestParams["param1"])
+	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[2].Run.TestParams["param2"])
+	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[2].Run.TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[2].Run.TestParams["param4"])
 }
 
 func TestDefaultBuildParamsApplied(t *testing.T) {
@@ -252,10 +252,6 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 	ret, err := c.PrepareForBuild(manifest)
 	require.NoError(t, err)
 	require.NotNil(t, ret)
-
-	// trickle down global
-	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Global.BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_global", ret.Global.BuildConfig["build_base_image"])
 
 	// trickle down group no_local_settings.
 	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[0].BuildConfig["dockerfile_extensions"])
