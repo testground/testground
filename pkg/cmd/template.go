@@ -106,6 +106,8 @@ func loadComposition(path string) (*api.Composition, error) {
 		return nil, fmt.Errorf("failed to process composition file: %w", err)
 	}
 
+	comp = comp.GenerateDefaultRun()
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare composition: %w", err)
 	}

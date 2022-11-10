@@ -117,6 +117,8 @@ func createSingletonComposition(c *cli.Context) (*api.Composition, error) {
 		comp.Groups[0].Build.Dependencies = append(comp.Groups[0].Build.Dependencies, dep)
 	}
 
+	comp = comp.GenerateDefaultRun()
+
 	// Validate the composition before returning it.
 	switch c := strings.Fields(c.Command.FullName()); c[0] {
 	case "build":
