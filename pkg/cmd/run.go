@@ -165,9 +165,6 @@ func runSingleCmd(c *cli.Context) (err error) {
 }
 
 func run(c *cli.Context, comp *api.Composition) (err error) {
-	// Assumes the composition has been validated for run.
-	// TODO: Rethink the composition types to expose clearly what is validated / not validated.
-	// TODO: In the composition we'll generate a default run if it is missing.
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err

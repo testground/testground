@@ -128,7 +128,7 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 		return fmt.Errorf("invalid composition file: %w", err)
 	}
 
-	err = doBuild(c, comp)
+	err = build(c, comp)
 	if err != nil {
 		return err
 	}
@@ -149,42 +149,30 @@ func buildSingleCmd(c *cli.Context) (err error) {
 	if comp, err = createSingletonComposition(c); err != nil {
 		return err
 	}
-	err = doBuild(c, comp)
+	err = build(c, comp)
 	return err
 }
 
-func doBuild(c *cli.Context, comp *api.Composition) error {
-	var (
-		plan    = comp.Global.Plan
-		wait    = c.Bool("wait")
-		planDir string
-		sdkDir  string
-	)
-
-	ctx, cancel := context.WithCancel(ProcessContext())
-	defer cancel()
-
+func build(c *cli.Context, comp *api.Composition) error {
 	cl, cfg, err := setupClient(c)
 	if err != nil {
 		return err
 	}
 
-	// Resolve the linked SDK directory, if one has been supplied.
-	if sdk := c.String("link-sdk"); sdk != "" {
-		var err error
-		sdkDir, err = resolveSDK(cfg, sdk)
-		if err != nil {
-			return fmt.Errorf("failed to resolve linked SDK directory: %w", err)
-		}
-		logging.S().Infof("linking with sdk at: %s", sdkDir)
-	}
+	ctx, cancel := context.WithCancel(ProcessContext())
+	defer cancel()
 
 	// Resolve the test plan and its manifest.
 	var manifest *api.TestPlanManifest
-	planDir, manifest, err = resolveTestPlan(cfg, plan)
+	planDir, manifest, err := resolveTestPlan(cfg, comp.Global.Plan)
 	if err != nil {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
+
+	var (
+		wait    = c.Bool("wait")
+		sdkDir  string
+	)
 
 	logging.S().Infof("test plan source at: %s", planDir)
 
@@ -205,6 +193,15 @@ func doBuild(c *cli.Context, comp *api.Composition) error {
 		req.Priority = 1
 	}
 
+	// Resolve the linked SDK directory, if one has been supplied.
+	if sdk := c.String("link-sdk"); sdk != "" {
+		var err error
+		sdkDir, err = resolveSDK(cfg, sdk)
+		if err != nil {
+			return fmt.Errorf("failed to resolve linked SDK directory: %w", err)
+		}
+		logging.S().Infof("linking with sdk at: %s", sdkDir)
+	}
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
 	builder := strings.Replace(comp.Global.Builder, ":", "_", -1)
