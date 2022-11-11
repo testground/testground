@@ -50,8 +50,9 @@ test-integration: test-integ-cluster-k8s test-integ-local-exec test-integ-local-
 # Note that in these tests, we override the SYNC_SERVICE env var,
 # so that testground connects to the instance exposed with `make kind-cluster`
 test-integ-cluster-k8s:
-	SYNC_SERVICE_HOST=localhost ./integration_tests/01_k8s_kind_placebo_ok.sh
-	SYNC_SERVICE_HOST=localhost ./integration_tests/02_k8s_kind_placebo_stall.sh
+	# SYNC_SERVICE_HOST=localhost ./integration_tests/01_k8s_kind_placebo_ok.sh
+	# SYNC_SERVICE_HOST=localhost ./integration_tests/02_k8s_kind_placebo_stall.sh
+	echo these tests where disabled temporarily (https://github.com/testground/testground/pull/1515)	
 
 test-integ-local-exec:
 	./integration_tests/03_exec_go_placebo_ok.sh
@@ -81,17 +82,3 @@ test-integ-examples:
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
 	./integration_tests/example_04_browser.sh
-
-kind-cluster:
-	kind create cluster --wait 90s
-	kubectl apply -f .circleci/pv.yaml
-	kubectl apply -f .circleci/pvc.yaml
-	kubectl label nodes kind-control-plane testground.node.role.plan=true
-	kubectl label nodes kind-control-plane testground.node.role.infra=true
-	kind load docker-image iptestground/sidecar:edge
-	kubectl apply -f .circleci/sidecar.yaml
-
-	kind load docker-image iptestground/sync-service:edge
-	kubectl apply -f .circleci/sync-service.yaml
-	kubectl expose deployment/testground-sync-service
-	kubectl port-forward deployment/testground-sync-service 5050:5050 &
