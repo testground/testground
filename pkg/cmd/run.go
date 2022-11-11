@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"os"
@@ -11,11 +12,15 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
+	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/runner"
 	"github.com/testground/testground/pkg/task"
 
 	"github.com/urfave/cli/v2"
 )
+
+const ResultFileOpt = "result-file"
 
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
@@ -46,6 +51,11 @@ var RunCommand = cli.Command{
 				&cli.StringFlag{
 					Name:  "run-ids",
 					Usage: "run a specific run id, or a comma-separated list of run ids",
+				},
+				&cli.StringFlag{
+					Name:    ResultFileOpt,
+					Aliases: []string{"O"},
+					Usage:   "write the results csv `FILENAME`",
 				},
 				&cli.StringFlag{
 					Name:  "metadata-repo",
@@ -260,6 +270,9 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 
 	collectionTarget := c.String("collect-file")
 
+	// Compute result target
+	resultTarget := c.String(ResultFileOpt)
+
 	// Prepare the strategy
 	strategy := MultiRunStrategy{
 		CurrentRunIndex:      0,
@@ -287,16 +300,52 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		isMultiple:        isMultiple,
 		compositionTarget: compositionTarget,
 		collectionTarget:  collectionTarget,
+		resultTarget:      resultTarget,
+		Results:           make([]MultiRunResult, 0, len(runIds)),
 	}
 
 	for {
 		shouldContinue, err := strategy.Next(ctx, cl, c)
 		if err != nil {
+			strategy.ShowResult()
 			return err
 		}
 
 		if !shouldContinue {
 			break
+		}
+	}
+
+	return strategy.ShowResult()
+}
+
+func (m *MultiRunStrategy) ShowResult() error {
+	for _, result := range m.Results {
+		logging.S().Infof("result %s[%s]: %s", result.RunId, result.TaskId, result.Result.Outcome)
+	}
+
+	// Output the CSV file
+	if m.resultTarget != "" {
+		f, err := os.Create(m.resultTarget)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		w := csv.NewWriter(f)
+		defer w.Flush()
+
+		err = w.Write([]string{"run_id", "task_id", "outcome", "error"})
+		if err != nil {
+			return err
+		}
+
+		for _, result := range m.Results {
+			err := w.Write([]string{result.RunId, result.TaskId, string(result.Result.Outcome), result.Error})
+
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -309,6 +358,7 @@ func (m *MultiRunStrategy) Next(ctx context.Context, cl *client.Client, c *cli.C
 		return false, nil
 	}
 
+	// Run the current run
 	taskId, err := m.CallDaemonRun(ctx, cl)
 	if err != nil {
 		return false, err
@@ -325,6 +375,15 @@ func (m *MultiRunStrategy) Next(ctx context.Context, cl *client.Client, c *cli.C
 	if err != nil {
 		return false, err
 	}
+
+	// Add result
+	result := data.DecodeRunnerResult(tsk.Result)
+	m.Results = append(m.Results, MultiRunResult{
+		RunId:  m.CurrentRunId(),
+		TaskId: taskId,
+		Error:  tsk.Error,
+		Result: *result,
+	})
 
 	// Process the composition
 	err = m.ProcessComposition(tsk)
@@ -499,4 +558,22 @@ type MultiRunStrategy struct {
 	// Outputs
 	compositionTarget string
 	collectionTarget  string
+	resultTarget      string
+
+	// Results
+	Results []MultiRunResult
+}
+
+type MultiRunResult struct {
+	// Run ID
+	RunId string
+
+	// Task ID
+	TaskId string
+
+	// Error
+	Error string
+
+	// Result
+	Result runner.Result
 }
