@@ -41,19 +41,48 @@ function assert_run_outcome_is {
 #   assert_run_outcome_is "./testground-run-logs.out" "failed"
 function assert_runs_outcome_are {
   RUN_OUT_FILEPATH="$1"
-  EXPECTED_OUTCOMES="${$:2}"
+  EXPECTED_OUTCOMES=("${@:2}")
 
-  # TODO: implement
-  exit 1
-  RUN_ID=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
-  echo "checking run ${RUN_ID}"
+  RUN_IDS=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
 
-  assert_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
+  i=0
+  for RUN_ID in $RUN_IDS; do
+    echo "checking run ${RUN_ID} for outcome ${EXPECTED_OUTCOMES[$i]}"
+    assert_testground_task_status "$RUN_ID" "${EXPECTED_OUTCOMES[$i]}"
+    i=$((i+1))
+  done
+
+  if [ $i -ne ${#EXPECTED_OUTCOMES[@]} ]; then
+    echo "expected ${#EXPECTED_OUTCOMES[@]} runs, but found $i"
+    exit 1
+  fi
 }
 
 function assert_runs_instance_count {
   # TODO: implement
   exit 1
+}
+
+function assert_runs_results {
+  RESULT_FILEPATH="$1"
+  EXPECTED_OUTCOMES=("${@:2}")
+
+  RESULTS=`cat $RESULT_FILEPATH | tail -n +2 | awk -F, '{print $3}'`
+
+  i=0
+  for RESULT in $RESULTS; do
+    echo "checking line ${i} for outcome ${EXPECTED_OUTCOMES[$i]}"
+    if [ "${RESULT}" != "${EXPECTED_OUTCOMES[$i]}" ]; then
+      echo "expected outcome ${EXPECTED_OUTCOMES[$i]} but got ${RESULT}"
+      exit 1
+    fi
+    i=$((i+1))
+  done
+
+  if [ $i -ne ${#EXPECTED_OUTCOMES[@]} ]; then
+    echo "expected ${#EXPECTED_OUTCOMES[@]} runs, but found $i"
+    exit 1
+  fi
 }
 
 # Assert the status of a testground task, as provided by the CLI output
