@@ -10,7 +10,7 @@ import (
 var testcases = map[string]interface{}{
 	"issue-1349-silent-failure": silentFailure,
 	"issue-1493-success": run.InitializedTestCaseFn(success),
-	"issue-1493-failure": run.InitializedTestCaseFn(failure),
+	"issue-1493-optional-failure": run.InitializedTestCaseFn(optionalFailure),
 }
 
 func main() {
@@ -27,7 +27,13 @@ func success(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 	return nil
 }
 
-func failure(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
-	runenv.RecordMessage("failure!")
-	return errors.New("expected failure")
+func optionalFailure(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	shouldFail := runenv.BooleanParam("should_fail")
+	runenv.RecordMessage("Test run with shouldFail: %s", shouldFail)
+
+	if shouldFail  {
+		return errors.New("failing as requested")
+	}
+
+	return nil
 }
