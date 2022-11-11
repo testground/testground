@@ -135,27 +135,15 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 	}
 
 	if c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY|os.O_TRUNC, 0644)
-
-		defer func() {
-			cerr := f.Close()
-			if err == nil {
-				err = cerr
-			}
-		}()
-
+		err = WriteCompositionToFile(comp, file)
 		if err != nil {
-			return fmt.Errorf("failed to write composition to file: %w", err)
-		}
-
-		enc := toml.NewEncoder(f)
-		if err := enc.Encode(comp); err != nil {
-			return fmt.Errorf("failed to encode composition into file: %w", err)
+			return fmt.Errorf("failed to write composition file: %w", err)
 		}
 	}
 
 	return nil
 }
+
 
 func buildSingleCmd(c *cli.Context) (err error) {
 	var comp *api.Composition
@@ -318,5 +306,26 @@ func runBuildPurgeCmd(c *cli.Context) (err error) {
 	}
 
 	fmt.Printf("finished purging testplan %s for builder %s\n", plan, builder)
+	return nil
+}
+
+func WriteCompositionToFile(comp *api.Composition, file string) error {
+	f, err := os.Create(file)
+
+	defer func() {
+		cerr := f.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+
+	if err != nil {
+		return fmt.Errorf("failed to write composition to file: %w", err)
+	}
+
+	enc := toml.NewEncoder(f)
+	if err := enc.Encode(comp); err != nil {
+		return fmt.Errorf("failed to encode composition into file: %w", err)
+	}
 	return nil
 }

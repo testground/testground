@@ -14,7 +14,6 @@ import (
 	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 
-	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
 )
 
@@ -329,13 +328,9 @@ func runSingle(ctx context.Context, cl *client.Client, c *cli.Context, req *api.
 	}
 
 	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+		err = WriteCompositionToFile(&composition, file)
 		if err != nil {
-			return fmt.Errorf("failed to write composition to file: %w", err)
-		}
-		enc := toml.NewEncoder(f)
-		if err := enc.Encode(composition); err != nil {
-			return fmt.Errorf("failed to encode composition into file: %w", err)
+			return fmt.Errorf("failed to write composition file: %w", err)
 		}
 	}
 
