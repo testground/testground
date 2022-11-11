@@ -46,7 +46,7 @@ func (rs Runs) Validate(c *Composition) error {
 	for _, r := range rs {
 		// Validate the corresponding group exists
 		for _, g := range r.Groups {
-			_, err := c.getGroup(g.EffectiveGroupId())
+			_, err := c.GetGroup(g.EffectiveGroupId())
 			if err != nil {
 				return fmt.Errorf("run %s:%s references non-existent group %s", r.ID, g.ID, g.EffectiveGroupId())
 			}

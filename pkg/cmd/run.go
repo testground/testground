@@ -328,7 +328,7 @@ func runSingle(ctx context.Context, cl *client.Client, c *cli.Context, req *api.
 	}
 
 	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-		err = WriteCompositionToFile(&composition, file)
+		err = api.WriteCompositionToFile(&composition, file)
 		if err != nil {
 			return fmt.Errorf("failed to write composition file: %w", err)
 		}

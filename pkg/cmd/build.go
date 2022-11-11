@@ -15,7 +15,6 @@ import (
 	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
 
-	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
 )
 
@@ -135,7 +134,7 @@ func buildCompositionCmd(c *cli.Context) (err error) {
 	}
 
 	if c.Bool("write-artifacts") {
-		err = WriteCompositionToFile(comp, file)
+		err = api.WriteCompositionToFile(comp, file)
 		if err != nil {
 			return fmt.Errorf("failed to write composition file: %w", err)
 		}
@@ -309,23 +308,3 @@ func runBuildPurgeCmd(c *cli.Context) (err error) {
 	return nil
 }
 
-func WriteCompositionToFile(comp *api.Composition, file string) error {
-	f, err := os.Create(file)
-
-	defer func() {
-		cerr := f.Close()
-		if err == nil {
-			err = cerr
-		}
-	}()
-
-	if err != nil {
-		return fmt.Errorf("failed to write composition to file: %w", err)
-	}
-
-	enc := toml.NewEncoder(f)
-	if err := enc.Encode(comp); err != nil {
-		return fmt.Errorf("failed to encode composition into file: %w", err)
-	}
-	return nil
-}

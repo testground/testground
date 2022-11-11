@@ -100,10 +100,7 @@ func (c Composition) GenerateDefaultRun() *Composition {
 		}
 
 		for _, g := range c.Groups {
-			r.Groups = append(r.Groups, &CompositionRunGroup{
-				ID:           g.ID,
-				RunnableItem: g.RunnableItem,
-			})
+			r.Groups = append(r.Groups, g.DefaultRunGroup())
 		}
 
 		c.Runs = Runs{&r}
@@ -231,25 +228,20 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 
 func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*CompositionRunGroup, error) {
 	// Merge groups defaults
-	buildGroup, err := composition.getGroup(g.ID)
+	buildGroup, err := composition.GetGroup(g.ID)
 
 	if err != nil {
 		return nil, err
 	}
 
-	err = mergo.Merge(&g.RunnableItem, buildGroup.RunnableItem)
-
+	err = g.merge(buildGroup)
 	if err != nil {
 		return nil, err
 	}
 
 	// Merge global defaults
 	if composition.Global.Run != nil {
-		globalRunItem := RunnableItem{
-			Run: *composition.Global.Run,
-		}
-
-		err = mergo.Merge(&g.RunnableItem, globalRunItem)
+		err = g.mergeRun(composition.Global.Run)
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +253,7 @@ func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, compositi
 		return nil, err
 	}
 
-	err = mergo.Merge(&g.RunnableItem.Run.TestParams, testParamsDefaults)
+	err = mergo.Merge(&g.TestParams, testParamsDefaults)
 	if err != nil {
 		return nil, err
 	}

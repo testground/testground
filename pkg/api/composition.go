@@ -3,8 +3,12 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/imdario/mergo"
 )
 
 type Groups []*Group
@@ -38,7 +42,7 @@ type Global struct {
 	//
 	// If all your instance counts are absolute values (and not percentages), you
 	// may skip this value. It will be calculated automatically.
-	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
+	TotalInstances uint `toml:"total_instances" json:"total_instances" mapstructure:"total_instances" validate:"gte=0"`
 
 	// ConcurrentBuilds defines the maximum number of concurrent builds that are
 	// scheduled for this test.
@@ -48,7 +52,7 @@ type Global struct {
 	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
-	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
+	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config" mapstructure:"build_config"`
 
 	// Build applies global build defaults that trickle down to all groups, such
 	// as selectors or dependencies. Groups can override these in their local
@@ -59,7 +63,7 @@ type Global struct {
 	Runner string `toml:"runner" json:"runner" validate:"required"`
 
 	// RunConfig specifies the run configuration for this run.
-	RunConfig map[string]interface{} `toml:"run_config" json:"run_config"`
+	RunConfig map[string]interface{} `toml:"run_config" json:"run_config" mapstructure:"run_config"`
 
 	// Run applies global run defaults that trickle down to all groups, such as
 	// test parameters or build artifacts. Groups can override these in their
@@ -91,40 +95,11 @@ type Group struct {
 	Builder string `toml:"builder" json:"builder"`
 
 	// BuildConfig specifies the build configuration for this run.
-	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config"`
+	BuildConfig map[string]interface{} `toml:"build_config" json:"build_config" mapstructure:"build_config"`
 
 	// Build specifies the build configuration for this group.
 	Build Build `toml:"build" json:"build"`
 
-	RunnableItem
-}
-
-type Run struct {
-	// ID is the unique ID of this run group.
-	ID string `toml:"id" json:"id"`
-
-	// TotalInstances defines the total number of instances that participate in
-	// this run; it is the sum of all instances in all groups.
-	TotalInstances uint `toml:"total_instances" json:"total_instances" validate:"gte=0"`
-
-	// Instances defines the number of instances that belong to this group.
-	Groups CompositionRunGroups `toml:"groups" json:"groups" validate:"required,gt=0"`
-}
-
-type CompositionRunGroups []*CompositionRunGroup
-
-type CompositionRunGroup struct {
-	// ID is the unique ID of this group.
-	ID string `toml:"id" json:"id"`
-
-	// GroupID is the ID of the group that this run group belongs to.
-	// It will default to ID.
-	GroupID string `toml:"group_id" json:"group_id"`
-
-	RunnableItem
-}
-
-type RunnableItem struct {
 	// Resources requested for each pod from the Kubernetes cluster
 	Resources Resources `toml:"resources" json:"resources"`
 
@@ -139,11 +114,52 @@ type RunnableItem struct {
 	calculatedInstanceCnt uint
 }
 
-// CalculatedInstanceCount returns the actual number of instances in this group.
-//
-// Validate MUST be called for this field to be available.
-func (r *RunnableItem) CalculatedInstanceCount() uint {
-	return r.calculatedInstanceCnt
+type Run struct {
+	// ID is the unique ID of this run group.
+	ID string `toml:"id" json:"id"`
+
+	// TotalInstances defines the total number of instances that participate in
+	// this run; it is the sum of all instances in all groups.
+	TotalInstances uint `toml:"total_instances" json:"total_instances" mapstructure:"total_instances" validate:"gte=0"`
+
+	// Instances defines the number of instances that belong to this group.
+	Groups CompositionRunGroups `toml:"groups" json:"groups" validate:"required,gt=0"`
+}
+
+type CompositionRunGroups []*CompositionRunGroup
+
+type CompositionRunGroup struct {
+	// ID is the unique ID of this group.
+	ID string `toml:"id" json:"id"`
+
+	// GroupID is the ID of the group that this run group belongs to.
+	// It will default to ID.
+	GroupID string `toml:"group_id" json:"group_id" mapstructure:"group_id"`
+
+	// Resources requested for each pod from the Kubernetes cluster
+	Resources Resources `toml:"resources" json:"resources"`
+
+	// Instances defines the number of instances that belong to this group.
+	Instances Instances `toml:"instances" json:"instances"`
+
+	// TestParams specify the test parameters to pass down to instances of this
+	// group.
+	TestParams map[string]string `toml:"test_params" json:"test_params" mapstructure:"test_params"`
+
+	// Profiles specifies the profiles to capture, and the frequency of capture
+	// of each. Profile support is SDK-dependent, as it relies entirely on the
+	// facilities provided by the language runtime.
+	//
+	// In the case of Go, all profile kinds listed in https://golang.org/pkg/runtime/pprof/#Profile
+	// are supported, taking a frequency expressed in time.Duration string
+	// representation (e.g. 5s for every five seconds). Additionally, a special
+	// profile kind "cpu" is supported; it takes no frequency and it starts a
+	// CPU profile for the entire duration of the test.
+	Profiles map[string]string `toml:"profiles" json:"profiles"`
+
+	// calculatedInstanceCnt caches the actual number of instances in this
+	// group.
+	calculatedInstanceCnt uint
 }
 
 type Instances struct {
@@ -243,12 +259,12 @@ func (d Dependencies) ApplyDefaults(defaults Dependencies) Dependencies {
 		if _, present := into[mod]; !present {
 			ret = append(ret, Dependency{
 				Module:  mod,
-				Target: dep.Target,
+				Target:  dep.Target,
 				Version: dep.Version,
 			})
 		}
 	}
-	
+
 	return ret
 }
 
@@ -353,7 +369,7 @@ func (c Composition) FrameForRuns(runIds ...string) (*Composition, error) {
 	// Gather the groups that we listed in requiredGroupsIdx.
 	groups := make([]*Group, 0, len(requiredGroupsIds))
 	for groupId := range requiredGroupsIds {
-		group, err := c.getGroup(groupId)
+		group, err := c.GetGroup(groupId)
 
 		if err != nil {
 			return nil, fmt.Errorf("invalid group id %s: %w", groupId, err)
@@ -377,7 +393,7 @@ func (c Composition) getRun(runId string) (*Run, error) {
 	return nil, fmt.Errorf("unknown run id %s", runId)
 }
 
-func (c Composition) getGroup(groupId string) (*Group, error) {
+func (c Composition) GetGroup(groupId string) (*Group, error) {
 	for _, x := range c.Groups {
 		if x.ID == groupId {
 			return x, nil
@@ -402,4 +418,83 @@ func (c Composition) ListGroupsId() []string {
 	}
 	sort.Strings(ids)
 	return ids
+}
+
+// CalculatedInstanceCount returns the actual number of instances in this group.
+//
+// Validate MUST be called for this field to be available.
+func (r *CompositionRunGroup) CalculatedInstanceCount() uint {
+	return r.calculatedInstanceCnt
+}
+
+// CalculatedInstanceCount returns the actual number of instances in this group.
+//
+// Validate MUST be called for this field to be available.
+func (r *Group) CalculatedInstanceCount() uint {
+	return r.calculatedInstanceCnt
+}
+
+func WriteCompositionToFile(comp *Composition, file string) error {
+	f, err := os.Create(file)
+
+	defer func() {
+		cerr := f.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+
+	if err != nil {
+		return fmt.Errorf("failed to write composition to file: %w", err)
+	}
+
+	enc := toml.NewEncoder(f)
+	if err := enc.Encode(comp); err != nil {
+		return fmt.Errorf("failed to encode composition into file: %w", err)
+	}
+	return nil
+}
+
+func (g *Group) DefaultRunGroup() (*CompositionRunGroup) {
+	return &CompositionRunGroup{
+		ID:         g.ID,
+		GroupID:    g.ID,
+		Resources:  g.Resources,
+		Instances:  g.Instances,
+		TestParams: g.Run.TestParams,
+		Profiles:   g.Run.Profiles,
+	}
+}
+
+func (r *CompositionRunGroup) merge(other *Group) (error) {
+	err := mergo.Merge(&r.Resources, other.Resources)
+	if err != nil {
+		return err
+	}
+
+	err = mergo.Merge(&r.Instances, other.Instances)
+	if err != nil {
+		return err
+	}
+
+	err = r.mergeRun(&other.Run)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *CompositionRunGroup) mergeRun(other *RunParams) (error) {
+	err := mergo.Merge(&r.TestParams, other.TestParams)
+	if err != nil {
+		return err
+	}
+
+	err = mergo.Merge(&r.Profiles, other.Profiles)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

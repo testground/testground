@@ -27,32 +27,26 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID: "all_set",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 1},
-					Run: RunParams{
-						TestParams: map[string]string{
-							"param1": "value1:set",
-							"param2": "value2:set",
-							"param3": "value3:set",
-						},
+				ID:        "all_set",
+				Instances: Instances{Count: 1},
+				Run: RunParams{
+					TestParams: map[string]string{
+						"param1": "value1:set",
+						"param2": "value2:set",
+						"param3": "value3:set",
 					},
 				},
 			},
 			{
-				ID: "none_set",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 1},
-				},
+				ID:        "none_set",
+				Instances: Instances{Count: 1},
 			},
 			{
-				ID: "first_set",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 1},
-					Run: RunParams{
-						TestParams: map[string]string{
-							"param1": "value1:set",
-						},
+				ID:        "first_set",
+				Instances: Instances{Count: 1},
+				Run: RunParams{
+					TestParams: map[string]string{
+						"param1": "value1:set",
 					},
 				},
 			},
@@ -86,22 +80,22 @@ func TestDefaultTestParamsApplied(t *testing.T) {
 	require.NotNil(t, ret)
 
 	// group all_set.
-	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[0].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:set", ret.Runs[0].Groups[0].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:set", ret.Runs[0].Groups[0].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[0].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[0].TestParams["param1"])
+	require.EqualValues(t, "value2:set", ret.Runs[0].Groups[0].TestParams["param2"])
+	require.EqualValues(t, "value3:set", ret.Runs[0].Groups[0].TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[0].TestParams["param4"])
 
 	// group none_set.
-	require.EqualValues(t, "value1:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[1].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[1].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:default:composition", ret.Runs[0].Groups[1].TestParams["param1"])
+	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[1].TestParams["param2"])
+	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[1].TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[1].TestParams["param4"])
 
 	// group first_set
-	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[2].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[2].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[2].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[2].Run.TestParams["param4"])
+	require.EqualValues(t, "value1:set", ret.Runs[0].Groups[2].TestParams["param1"])
+	require.EqualValues(t, "value2:default:composition", ret.Runs[0].Groups[2].TestParams["param2"])
+	require.EqualValues(t, "value3:default:composition", ret.Runs[0].Groups[2].TestParams["param3"])
+	require.EqualValues(t, "value4:default:manifest", ret.Runs[0].Groups[2].TestParams["param4"])
 }
 
 func TestDefaultBuildParamsApplied(t *testing.T) {
@@ -402,9 +396,7 @@ func TestPrepareForRunCountIsCorrect(t *testing.T) {
 				Groups: []*CompositionRunGroup{
 					{
 						ID: "a",
-						RunnableItem: RunnableItem{
 							Instances: Instances{Count: 12},
-						},
 					},
 				},
 			},
@@ -412,7 +404,7 @@ func TestPrepareForRunCountIsCorrect(t *testing.T) {
 	}
 
 	c, err := c.PrepareForRun(manifest)
-	
+
 	require.NotNil(t, c)
 	require.NoError(t, err)
 }

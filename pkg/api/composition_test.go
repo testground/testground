@@ -1,9 +1,12 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/require"
+	"github.com/testground/testground/pkg/task"
 )
 
 func TestValidateGroupsUnique(t *testing.T) {
@@ -99,23 +102,17 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:      "a",
-				Builder: "docker:generic",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 3},
-				},
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
 			},
 			{
-				ID: "b",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 2},
-				},
+				ID:        "b",
+				Instances: Instances{Count: 2},
 			},
 			{
-				ID: "c",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 1},
-				},
+				ID:        "c",
+				Instances: Instances{Count: 1},
 			},
 		},
 	}
@@ -140,17 +137,13 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:      "a",
-				Builder: "docker:generic",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 3},
-				},
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
 			},
 			{
-				ID: "b",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Percentage: 50},
-				},
+				ID:        "b",
+				Instances: Instances{Percentage: 50},
 			},
 		},
 	}
@@ -176,17 +169,13 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:      "a",
-				Builder: "docker:generic",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 3},
-				},
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
 			},
 			{
-				ID: "b",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Percentage: 0.5},
-				},
+				ID:        "b",
+				Instances: Instances{Percentage: 0.5},
 			},
 		},
 	}
@@ -212,17 +201,13 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID:      "a",
-				Builder: "docker:generic",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Count: 3},
-				},
+				ID:        "a",
+				Builder:   "docker:generic",
+				Instances: Instances{Count: 3},
 			},
 			{
-				ID: "b",
-				RunnableItem: RunnableItem{
-					Instances: Instances{Percentage: 1.2},
-				},
+				ID:        "b",
+				Instances: Instances{Percentage: 1.2},
 			},
 		},
 	}
@@ -293,11 +278,6 @@ func TestBuildKeyDependsOnBuilder(t *testing.T) {
 	require.EqualValues(t, k2, k3)
 }
 
-
-
-
-
-
 func TestGroupsMayDefineBuilder(t *testing.T) {
 	g := &Group{
 		ID:      "foo",
@@ -306,8 +286,6 @@ func TestGroupsMayDefineBuilder(t *testing.T) {
 
 	require.NotNil(t, g)
 }
-
-
 
 func TestIssue1493CompositionContainsARunsField(t *testing.T) {
 	// Composition with global builder and group builder.
@@ -419,10 +397,8 @@ func TestFrameForRun(t *testing.T) {
 				ID: "just-a",
 				Groups: []*CompositionRunGroup{
 					{
-						ID: "a",
-						RunnableItem: RunnableItem{
-							Instances: Instances{Count: 3},
-						},
+						ID:        "a",
+						Instances: Instances{Count: 3},
 					},
 				},
 			},
@@ -430,16 +406,12 @@ func TestFrameForRun(t *testing.T) {
 				ID: "a-and-b",
 				Groups: []*CompositionRunGroup{
 					{
-						ID: "a",
-						RunnableItem: RunnableItem{
-							Instances: Instances{Count: 3},
-						},
+						ID:        "a",
+						Instances: Instances{Count: 3},
 					},
 					{
-						ID: "b",
-						RunnableItem: RunnableItem{
-							Instances: Instances{Count: 1},
-						},
+						ID:        "b",
+						Instances: Instances{Count: 1},
 					},
 				},
 			},
@@ -447,16 +419,12 @@ func TestFrameForRun(t *testing.T) {
 				ID: "a-and-c",
 				Groups: []*CompositionRunGroup{
 					{
-						ID: "a",
-						RunnableItem: RunnableItem{
-							Instances: Instances{Count: 3},
-						},
+						ID:        "a",
+						Instances: Instances{Count: 3},
 					},
 					{
-						ID: "c",
-						RunnableItem: RunnableItem{
-							Instances: Instances{Count: 4},
-						},
+						ID:        "c",
+						Instances: Instances{Count: 4},
 					},
 				},
 			},
@@ -544,4 +512,79 @@ func TestGetRun(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, run)
+}
+
+func TestMarshalIsIdempotent(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 28,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+				BuildConfig: map[string]interface{}{
+					"build_base_image": "custom_image",
+				},
+			},
+			{
+				ID:      "b",
+				Builder: "docker:go",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "just-a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+				},
+			},
+			{
+				ID:             "a-and-b",
+				TotalInstances: 4,
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "b",
+						Instances: Instances{Count: 1},
+					},
+				},
+			},
+		},
+	}
+
+	tsk := &task.Task{
+		Composition: c,
+	}
+
+	// Marshal the task
+	b, err := json.Marshal(tsk)
+	require.NoError(t, err)
+
+	// Unmarshall the task
+	tsk2 := &task.Task{}
+	err = json.Unmarshal(b, tsk2)
+	require.NoError(t, err)
+
+	// Decode the task
+	var composition Composition
+	err = mapstructure.Decode(tsk2.Composition, &composition)
+	require.NoError(t, err)
+
+	// Check equalities
+	require.Equal(t, c, &composition)
+	require.Equal(t, uint(4), composition.Runs[1].TotalInstances)
 }
