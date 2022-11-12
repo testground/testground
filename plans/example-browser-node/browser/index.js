@@ -2,9 +2,9 @@ const { chromium, firefox, webkit } = require('playwright')
 const { exit } = require('process')
 const { spawn } = require('child_process')
 
-const spawnServer = require('./server')
+const { runtime } = require('@testground/sdk')
 
-const { runtime } = require('@testground/sdk');
+const spawnServer = require('./server')
 
 ;(async () => {
   spawnServer(8080)
@@ -17,6 +17,7 @@ const { runtime } = require('@testground/sdk');
       case 'chromium':
         console.log(`launching chromium browser with exposed debug port: ${browserDebugPort}`)
         browser = await chromium.launch({
+          devtools: true,
           args: [
             '--remote-debugging-address=0.0.0.0',
             `--remote-debugging-port=${browserDebugPort}`
@@ -28,6 +29,7 @@ const { runtime } = require('@testground/sdk');
         const localBrowserDebugPort = Number(browserDebugPort) + 1
         console.log(`launching firefox browser with exposed debug port: ${browserDebugPort} (local ${localBrowserDebugPort})`)
         browser = await firefox.launch({
+          devtools: true,
           args: [
             `-start-debugger-server=${localBrowserDebugPort}`
           ]
@@ -52,7 +54,9 @@ const { runtime } = require('@testground/sdk');
 
       case 'webkit':
         console.log('launching webkit browser (remote debugging not yet supported)')
-        browser = await webkit.launch()
+        browser = await webkit.launch({
+          devtools: true
+        })
         break
     }
 
@@ -71,18 +75,21 @@ const { runtime } = require('@testground/sdk');
     console.log('opening up testplan webpage on localhost')
     await page.goto('http://127.0.0.1:8080')
 
-    // TODO: wait for the test to finish somehow :|
+    console.log('waiting until testCase is finished...')
+    // `window.testground.result` is set by @testground/sdk (js),
+    // at the end of invokeMap
+    const testgroundResult = await page.waitForFunction(() => {
+      return window.testground && window.testground.result;
+    });
+    console.log(`testground in browser finished with result: ${testgroundResult}`)
 
     console.log('start browser exit process...')
 
     if (process.env.TEST_KEEP_OPENED_BROWSERS === 'true') {
-      // TODO: create a better way, which actually does halt!
-      console.log('halting on browser exit process (dev tools breakpoint)...')
-      await page.evaluate(() => {
-        debugger // eslint-disable-line no-debugger
-        window.open() // triggers popup window
+      console.log('halting browser until SIGINT is received...')
+      await new Promise((resolve) => {
+        process.on('SIGINT', resolve)
       })
-      await page.waitForEvent('popup', { timeout: 0 })
     }
   } catch (error) {
     console.error(`browser process resulted in exception: ${error}`)

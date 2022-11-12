@@ -24,7 +24,7 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
-    "@testground/sdk": "github:glendc/sdk-js#46c347a1e39f3014d789f13b9065a0d08a492ac2",
+    "@testground/sdk": "github:glendc/sdk-js#03fc268de60f1cc4286ec490fe5ef9eb9e402263",
     "express": "^4.18.2",
     "playwright": "^1.27.1"
   }
