@@ -17,6 +17,7 @@ const spawnServer = require('./server')
       case 'chromium':
         console.log(`launching chromium browser with exposed debug port: ${browserDebugPort}`)
         browser = await chromium.launch({
+          headless: true,
           devtools: true,
           args: [
             '--remote-debugging-address=0.0.0.0',
@@ -29,6 +30,7 @@ const spawnServer = require('./server')
         const localBrowserDebugPort = Number(browserDebugPort) + 1
         console.log(`launching firefox browser with exposed debug port: ${browserDebugPort} (local ${localBrowserDebugPort})`)
         browser = await firefox.launch({
+          headless: true,
           devtools: true,
           args: [
             `-start-debugger-server=${localBrowserDebugPort}`
@@ -55,6 +57,7 @@ const spawnServer = require('./server')
       case 'webkit':
         console.log('launching webkit browser (remote debugging not yet supported)')
         browser = await webkit.launch({
+          headless: true,
           devtools: true
         })
         break
