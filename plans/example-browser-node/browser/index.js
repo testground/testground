@@ -2,7 +2,7 @@ const { chromium, firefox, webkit } = require('playwright')
 const { exit } = require('process')
 const { spawn } = require('child_process')
 
-const spawnServer = require('../server')
+const spawnServer = require('./server')
 
 ;(async () => {
   spawnServer(8080)
