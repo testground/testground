@@ -7,14 +7,9 @@ runner = "local:docker"
 [builders."docker:go"]
 enabled = true
 
-[builders."docker:generic"]
-enabled = true
-
 [runners."local:docker"]
 enabled = true
-
-[runners."local:docker".additional_envs]
-TESTGROUND_HELLO_MESSAGE = "Hello, AdditionalEnvs!"
+additional_envs = { MY_FIRST_CUSTOM_ENV_VARIABLE = "Hello, AdditionalEnvs!" }
 
 [[testcases]]
 name = "additional_envs"
