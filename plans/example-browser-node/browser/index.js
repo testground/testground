@@ -4,6 +4,8 @@ const { spawn } = require('child_process')
 
 const spawnServer = require('./server')
 
+const { runtime } = require('@testground/sdk');
+
 ;(async () => {
   spawnServer(8080)
 
@@ -62,15 +64,9 @@ const spawnServer = require('./server')
     })
 
     console.log('prepare page window (global) environment')
-    await page.addInitScript((nodeEnv) => {
-      const env = {}
-      for (const k in nodeEnv) {
-        if (k.startsWith('TEST_')) {
-          env[k] = nodeEnv[k]
-        }
-      }
+    await page.addInitScript((env) => {
       window.testground = { env }
-    }, process.env)
+    }, runtime.getEnvParameters())
 
     console.log('opening up testplan webpage on localhost')
     await page.goto('http://127.0.0.1:8080')
