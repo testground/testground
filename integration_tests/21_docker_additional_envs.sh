@@ -32,6 +32,5 @@ assert_run_outcome_is ./run.out "success"
 popd
 
 echo "terminating remaining containers"
-docker rm -f http-echo
 testground terminate --runner local:docker
 testground terminate --builder docker:go
