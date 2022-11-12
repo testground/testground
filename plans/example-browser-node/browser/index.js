@@ -9,9 +9,9 @@ const spawnServer = require('./server')
 
   let browser
   try {
-    const browserDebugPort = process.env.BROWSER_DEBUG_PORT || 9222
+    const browserDebugPort = process.env.TEST_BROWSER_DEBUG_PORT || 9222
 
-    switch (process.env.BROWSER_KIND || 'chromium') {
+    switch (process.env.TEST_BROWSER_KIND || 'chromium') {
       case 'chromium':
         console.log(`launching chromium browser with exposed debug port: ${browserDebugPort}`)
         browser = await chromium.launch({
@@ -79,7 +79,7 @@ const spawnServer = require('./server')
 
     console.log('start browser exit process...')
 
-    if (process.env.HALT_BROWSER_ON_FINISH === 'true') {
+    if (process.env.TEST_KEEP_OPENED_BROWSERS === 'true') {
       // TODO: create a better way, which actually does halt!
       console.log('halting on browser exit process (dev tools breakpoint)...')
       await page.evaluate(() => {
