@@ -61,3 +61,13 @@ an a refresh of the page should allow you to break on it.
 Using `about:debugging` you should be able to debug remotely
 in a similar fashion. However, for now we had no success
 in trying to connect to our firefox instance.
+
+As such you consider Firefox remote debugging a non-supported feature for now,
+should you want to remotely debug, please us chromium for now (the default browser).
+
+### WebKit Remote Debugging
+
+No approach for remote debugging a WebKit browser is known by the team.
+For now this is not supported.
+
+Please use chromium (the default browser) if you wish to remotely debug.
