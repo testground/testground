@@ -1,9 +1,6 @@
 # Example Browser and Node Testplan
 
-This testplan serves as a more advanced and complete version
-compared to [/plans/example-browsers](../example-browser/).
-
-The difference here is that we want to showcase how one could,
+With this testplan we want to showcase how one could,
 while still using the `docker:generic` builder, have a testplan
 which can be tested in a node environment (using `docker:node`)
 as well as within a browser. This does require that the library
