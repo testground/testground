@@ -35,10 +35,6 @@ Using the `chrome://inspect` debugger tool,
 as documented in <https://developer.chrome.com/docs/devtools/remote-debugging/local-server/>,
 you can remotely debug this testplan.
 
-This allows you to attach to the chrome browser which is running the plan.
-Different with the [/plans/example-browsers](../example-browser/) plan
-is that we only allow the chrome browser here, as to keep things simple here.
-
 How to do it:
 
 1. start the testplan
