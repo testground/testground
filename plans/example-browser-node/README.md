@@ -53,9 +53,6 @@ How to do it:
 If you want you can now attach breakpoints to anywhere in the source code,
 an a refresh of the page should allow you to break on it.
 
-> TODO: support `debugger;` statements in the testplan,
-> which should break and hang in the chrome debugger :|
-
 ### Firefox Remote Debugging
 
 Using `about:debugging` you should be able to debug remotely

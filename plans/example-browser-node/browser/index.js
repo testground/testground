@@ -6,6 +6,23 @@ const { runtime } = require('@testground/sdk')
 
 const spawnServer = require('./server')
 
+/**
+ * Runs your testplan — found in the src/ folder of this testplan —
+ * as follows:
+ *
+ * 1. spawn the Express server containing the root index.html page
+ *    and the plan.bundle.js file, containing your src/ testplan,
+ *    @testground/sdk and any indirect or direct dependencies required;
+ * 2. start playwright with the desired browser engine (chromium by default)
+ * 3. inject the testground env parameters into the browser
+ * 4. go to the start page to execute the `plan.bundle.js` file,
+ *    and as a consequence start the selected testplan
+ *    (selected via the exposed env variables)
+ * 5. wait for the testplan to finish
+ * 6. exit immediately, or hang the browser until a SIGINT signal
+ *    in-case this opt-in feature was enabled.
+ * 7. exit, fun and profit
+ */
 ;(async () => {
   spawnServer(8080)
 
@@ -14,6 +31,10 @@ const spawnServer = require('./server')
     const browserDebugPort = process.env.TEST_BROWSER_DEBUG_PORT || 9222
 
     switch (process.env.TEST_BROWSER_KIND || 'chromium') {
+      // chromium is the default browser engine,
+      // and the only browser for which we currently support
+      // remote debugging, meaning attaching a local chrome (on your host)
+      // to the chromium version running in docker under a testground plan.
       case 'chromium':
         console.log(`launching chromium browser with exposed debug port: ${browserDebugPort}`)
         browser = await chromium.launch({
@@ -26,6 +47,11 @@ const spawnServer = require('./server')
         })
         break
 
+      // NOTE: remote debugging is not supported on webkit,
+      // it should in theory be possible, but no working solution
+      // has been demonstrated so far. Consider the remote debugging for this
+      // browser engine (firefox) as a starting point should you want to contribute
+      // such support yourself.
       case 'firefox':
         const localBrowserDebugPort = Number(browserDebugPort) + 1
         console.log(`launching firefox browser with exposed debug port: ${browserDebugPort} (local ${localBrowserDebugPort})`)
@@ -54,6 +80,8 @@ const spawnServer = require('./server')
 
         break
 
+      // NOTE: remote debugging is not supported on webkit,
+      // nor do we know of an approach on how we would allow such a thing
       case 'webkit':
         console.log('launching webkit browser (remote debugging not yet supported)')
         browser = await webkit.launch({
