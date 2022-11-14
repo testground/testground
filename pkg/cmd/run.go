@@ -307,6 +307,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	for {
 		shouldContinue, err := strategy.Next(ctx, cl, c)
 		if err != nil {
+			strategy.CancelEveryOtherRun()
 			strategy.ShowResult()
 			return err
 		}
@@ -488,6 +489,20 @@ func (m *MultiRunStrategy) Collect(ctx context.Context, cl *client.Client, taskI
 	}
 
 	return nil
+}
+
+func (m *MultiRunStrategy) CancelEveryOtherRun() {
+	for m.CurrentRunIndex < len(m.RunIds) {
+		m.Results = append(m.Results, MultiRunResult{
+			RunId:  m.CurrentRunId(),
+			TaskId: "N/A",
+			Error:  "canceled",
+			Result: runner.Result{
+				Outcome: task.OutcomeCanceled,
+			},
+		})
+		m.CurrentRunIndex++
+	}
 }
 
 func (m *MultiRunStrategy) ShowResult() error {

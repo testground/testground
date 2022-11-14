@@ -13,7 +13,7 @@ testground run composition \
     --result-file=./results.csv \
     --wait | tee run.out
 
-assert_runs_outcome_are ./run.out canceled canceled canceled
+assert_runs_outcome_are ./run.out canceled # ignore other runs because we just skip them at the client
 assert_runs_results ./results.csv canceled canceled canceled
 
 popd
