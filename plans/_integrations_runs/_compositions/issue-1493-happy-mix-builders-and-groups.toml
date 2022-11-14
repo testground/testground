@@ -1,0 +1,84 @@
+# Test for https://github.com/testground/testground/issues/1493
+[metadata]
+name = "issue-1493-multiple-runs-happy-path"
+
+[global]
+  builder = "docker:go"
+  plan = "integrations_mixed_builders"
+  case = "issue-1357-mix-builder-configuration"
+  runner = "local:docker"
+
+  [global.build_config]
+    docker_build_image = "golang:1.16-buster"
+
+[[groups]]
+  id = "go"
+  instances = { count = 1 }
+  builder = "docker:go"
+
+  [groups.build_config]
+    path = "go/"
+
+[[groups]]
+  id = "generic"
+  instances = { count = 1 }
+  builder = "docker:generic"
+
+  [groups.build_config]
+    path = "generic/" # this will be passed to the builder as `ARG PLAN_PATH`
+    build_args = { image = "golang:1.16-buster" }
+
+  [groups.run.test_params]
+    expected_implementation = "generic"
+
+[[runs]]
+  id = "run_many_1"
+
+  [[runs.groups]]
+  id = "a"
+  group_id = "go"
+  instances = {count = 1}
+
+  [runs.groups.test_params]
+    expected_implementation = "go"
+
+  [[runs.groups]]
+    id = "b"
+    group_id = "go"
+    instances = {count = 1}
+    [runs.groups.test_params]
+      expected_implementation = "go"
+
+  [[runs.groups]]
+    id = "c"
+    group_id = "go"
+    instances = {count = 1}
+    [runs.groups.test_params]
+      expected_implementation = "go"
+
+  [[runs.groups]]
+  id = "generic"
+  instances = {count = 1}
+
+[[runs]]
+  id = "run_many_2"
+
+  [[runs.groups]]
+  id = "a"
+  group_id = "generic"
+  instances = {count = 1}
+
+  [[runs.groups]]
+  id = "b"
+  group_id = "generic"
+  instances = {count = 1}
+
+  [[runs.groups]]
+  id = "c"
+  group_id = "generic"
+  instances = {count = 1}
+
+  [[runs.groups]]
+  id = "d"
+  group_id = "generic"
+  instances = {count = 1}

@@ -80,6 +80,7 @@ test-integ-local-docker:
 	./integration_tests/1493_continue_on_failure.sh
 	./integration_tests/1493_runs_feature.sh
 	./integration_tests/1493_abort_on_broken_build.sh
+	./integration_tests/1493_runs_feature_mixed_builders.sh
 
 test-integ-examples:
 	./integration_tests/example_01_rust.sh
