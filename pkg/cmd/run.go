@@ -308,7 +308,12 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		shouldContinue, err := strategy.Next(ctx, cl, c)
 		if err != nil {
 			strategy.CancelEveryOtherRun()
-			strategy.ShowResult()
+			showResultErr := strategy.ShowResult()
+
+			if showResultErr != nil {
+				fmt.Printf("failed to show result: %v", showResultErr)
+			}
+
 			return err
 		}
 
