@@ -169,7 +169,7 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 }
 
 // Mutation!
-func (r *Run) recalculateInstanceCounts() (*Run, error) {
+func (r *Run) recalculateInstanceCounts() (error) {
 	// Compute instance counts
 	hasTotalInstance := r.TotalInstances != 0
 	computedTotal := uint(0)
@@ -177,7 +177,7 @@ func (r *Run) recalculateInstanceCounts() (*Run, error) {
 	for _, g := range r.Groups {
 		// When a percentage is specified, we require that totalInstances is set
 		if g.Instances.Percentage > 0 && !hasTotalInstance {
-			return nil, fmt.Errorf("groups count percentage requires a total_instance configuration")
+			return fmt.Errorf("groups count percentage requires a total_instance configuration")
 		}
 
 		if g.calculatedInstanceCnt = g.Instances.Count; g.calculatedInstanceCnt == 0 {
@@ -187,12 +187,12 @@ func (r *Run) recalculateInstanceCounts() (*Run, error) {
 	}
 
 	if hasTotalInstance && computedTotal != r.TotalInstances {
-		return nil, fmt.Errorf("total instances mismatch: computed: %d != configured: %d", computedTotal, r.TotalInstances)
+		return fmt.Errorf("total instances mismatch: computed: %d != configured: %d", computedTotal, r.TotalInstances)
 	}
 
 	r.TotalInstances = computedTotal
 
-	return r, nil
+	return nil
 }
 
 func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*Run, error) {
@@ -209,7 +209,10 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 	}
 	r.Groups = newGroups
 
-	r.recalculateInstanceCounts()
+	err := r.recalculateInstanceCounts()
+	if err != nil {
+		return nil, err
+	}
 
 	// Validate the desired number of instances is within bounds.
 	_, tcase, ok := manifest.TestCaseByName(composition.Global.Case)

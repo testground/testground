@@ -64,7 +64,7 @@ func (rs Runs) Validate(c *Composition) error {
 
 	// Recalculate instance counts
 	for _, r := range rs {
-		_, err := r.recalculateInstanceCounts()
+		err := r.recalculateInstanceCounts()
 
 		if err != nil {
 			return err
