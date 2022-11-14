@@ -319,39 +319,6 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	return strategy.ShowResult()
 }
 
-func (m *MultiRunStrategy) ShowResult() error {
-	for _, result := range m.Results {
-		logging.S().Infof("result %s[%s]: %s", result.RunId, result.TaskId, result.Result.Outcome)
-	}
-
-	// Output the CSV file
-	if m.resultTarget != "" {
-		f, err := os.Create(m.resultTarget)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-
-		w := csv.NewWriter(f)
-		defer w.Flush()
-
-		err = w.Write([]string{"run_id", "task_id", "outcome", "error"})
-		if err != nil {
-			return err
-		}
-
-		for _, result := range m.Results {
-			err := w.Write([]string{result.RunId, result.TaskId, string(result.Result.Outcome), result.Error})
-
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 func (m *MultiRunStrategy) Next(ctx context.Context, cl *client.Client, c *cli.Context) (bool, error) {
 	// Done
 	if m.CurrentRunIndex >= len(m.RunIds) {
@@ -517,6 +484,39 @@ func (m *MultiRunStrategy) Collect(ctx context.Context, cl *client.Client, taskI
 
 		if err != nil {
 			return cli.Exit(err.Error(), 3)
+		}
+	}
+
+	return nil
+}
+
+func (m *MultiRunStrategy) ShowResult() error {
+	for _, result := range m.Results {
+		logging.S().Infof("result %s[%s]: %s", result.RunId, result.TaskId, result.Result.Outcome)
+	}
+
+	// Output the CSV file
+	if m.resultTarget != "" {
+		f, err := os.Create(m.resultTarget)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		w := csv.NewWriter(f)
+		defer w.Flush()
+
+		err = w.Write([]string{"run_id", "task_id", "outcome", "error"})
+		if err != nil {
+			return err
+		}
+
+		for _, result := range m.Results {
+			err := w.Write([]string{result.RunId, result.TaskId, string(result.Result.Outcome), result.Error})
+
+			if err != nil {
+				return err
+			}
 		}
 	}
 
