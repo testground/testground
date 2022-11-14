@@ -360,7 +360,7 @@ func (c Composition) FrameForRuns(runIds ...string) (*Composition, error) {
 		}
 
 		for _, group := range run.Groups {
-			requiredGroupsIds[group.ID] = true
+			requiredGroupsIds[group.EffectiveGroupId()] = true
 		}
 
 		runs = append(runs, run)

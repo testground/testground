@@ -624,7 +624,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	for _, grp := range compRun.Groups {
-		buildgroup, err := framedComp.GetGroup(grp.ID)
+		buildgroup, err := framedComp.GetGroup(grp.EffectiveGroupId())
 		if err != nil {
 			return nil, err
 		}

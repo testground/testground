@@ -52,7 +52,7 @@ func (rs Runs) Validate(c *Composition) error {
 			}
 		}
 
-		// Validate group ids are unique
+		// Validate run group ids are unique
 		m := make(map[string]bool, len(r.Groups))
 		for _, x := range r.Groups {
 			if _, ok := m[x.ID]; ok {

@@ -228,7 +228,7 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 
 func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*CompositionRunGroup, error) {
 	// Merge groups defaults
-	buildGroup, err := composition.GetGroup(g.ID)
+	buildGroup, err := composition.GetGroup(g.EffectiveGroupId())
 
 	if err != nil {
 		return nil, err

@@ -27,7 +27,12 @@ name = "issue-1493-multiple-runs-happy-path"
 
   [[runs.groups]]
   id = "group_simple"
-  instances = {count = 2}
+  instances = {count = 1}
+
+  [[runs.groups]]
+  id = "another_group"
+  group_id = "group_simple"
+  instances = {count = 1}
 
 [[runs]]
   id = "run_simple_4"
