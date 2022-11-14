@@ -322,7 +322,13 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		}
 	}
 
-	return strategy.ShowResult()
+	err = strategy.ShowResult()
+
+	if err != nil {
+		return err
+	}
+
+	return strategy.ExitStatus()
 }
 
 func (m *MultiRunStrategy) Next(ctx context.Context, cl *client.Client, c *cli.Context) (bool, error) {
@@ -392,6 +398,17 @@ func (m *MultiRunStrategy) CurrentRequest() api.RunRequest {
 
 func (m *MultiRunStrategy) CurrentRunId() string {
 	return m.RunIds[m.CurrentRunIndex]
+}
+
+
+func (m *MultiRunStrategy) ExitStatus() error {
+	for _, result := range m.Results {
+		if (result.Error != "" || !data.IsOutcomeSuccess(result.Result.Outcome)) {
+			return fmt.Errorf("run \"%s\" failed", result.RunId)
+		}
+	}
+
+	return nil
 }
 
 func (m *MultiRunStrategy) CallDaemonRun(ctx context.Context, cl *client.Client) (string, error) {
