@@ -9,7 +9,6 @@ pushd $TEMPDIR
 # run all instances
 testground run composition \
     -f ${my_dir}/../plans/_integrations_runs/_compositions/issue-1493-happy-mix-builders-and-groups.toml \
-    --collect                     \
     --result-file=./results.csv \
     --wait | tee run.out
 

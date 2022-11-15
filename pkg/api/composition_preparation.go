@@ -117,7 +117,7 @@ func (c Composition) GenerateDefaultRun() *Composition {
 // This method doesn't modify the composition, it returns a new one.
 func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, error) {
 	c = *c.GenerateDefaultRun()
-	
+
 	// override the composition plan name with what's in the manifest
 	// rationale: composition.Global.Plan will be a path relative to
 	// $TESTGROUND_HOME/plans; the server doesn't care about our local
@@ -169,7 +169,7 @@ func (c Composition) PrepareForRun(manifest *TestPlanManifest) (*Composition, er
 }
 
 // Mutation!
-func (r *Run) recalculateInstanceCounts() (error) {
+func (r *Run) recalculateInstanceCounts() error {
 	// Compute instance counts
 	hasTotalInstance := r.TotalInstances != 0
 	computedTotal := uint(0)
