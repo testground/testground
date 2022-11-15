@@ -16,8 +16,22 @@ name = "issue-1493-multiple-runs-happy-path"
   instances = { count = 1 }
   builder = "docker:go"
 
+  # note the missing expected_implementation parameter
+
   [groups.build_config]
     path = "go/"
+
+
+[[groups]]
+  id = "generic_missing"
+  instances = { count = 1 }
+  builder = "docker:generic"
+
+  # note the missing expected_implementation parameter
+
+  [groups.build_config]
+    path = "generic/" # this will be passed to the builder as `ARG PLAN_PATH`
+    build_args = { image = "golang:1.16-buster" }
 
 [[groups]]
   id = "generic"
@@ -82,3 +96,38 @@ name = "issue-1493-multiple-runs-happy-path"
   id = "d"
   group_id = "generic"
   instances = {count = 1}
+
+# parameters at the root of the run group
+[[runs]]
+  id = "run_many_3"
+  [runs.test_params]
+    expected_implementation = "go"
+
+  [[runs.groups]]
+  id = "a"
+  group_id = "go"
+  instances = {count = 1}
+
+  [[runs.groups]]
+    id = "b"
+    group_id = "go"
+    instances = {count = 1}
+
+# parameters at the root of the run group + override
+[[runs]]
+  id = "run_many_4"
+  [runs.test_params]
+    expected_implementation = "go"
+
+  [[runs.groups]]
+  id = "a"
+  group_id = "go"
+  instances = {count = 1}
+
+  [[runs.groups]]
+    id = "b"
+    group_id = "generic_missing"
+    instances = {count = 1}
+
+    [runs.groups.test_params]
+      expected_implementation = "generic"

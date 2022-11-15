@@ -199,7 +199,7 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 	// Prepare run groups with default values.
 	newGroups := make(CompositionRunGroups, len(r.Groups))
 	for i, g := range r.Groups {
-		g, err := g.PrepareForRun(manifest, composition)
+		g, err := g.PrepareForRun(manifest, composition, &r)
 
 		if err != nil {
 			return nil, err
@@ -229,7 +229,13 @@ func (r Run) PrepareForRun(manifest *TestPlanManifest, composition *Composition)
 	return &r, nil
 }
 
-func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, composition *Composition) (*CompositionRunGroup, error) {
+func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, composition *Composition, r *Run) (*CompositionRunGroup, error) {
+	// Merge runs defaults
+	err := mergo.Merge(&g.TestParams, r.TestParams)
+	if err != nil {
+		return nil, err
+	}
+
 	// Merge groups defaults
 	buildGroup, err := composition.GetGroup(g.EffectiveGroupId())
 
@@ -245,6 +251,16 @@ func (g CompositionRunGroup) PrepareForRun(manifest *TestPlanManifest, compositi
 	// Merge global defaults
 	if composition.Global.Run != nil {
 		err = g.mergeRun(composition.Global.Run)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Merge global defaults
+	if composition.Global.Run != nil {
+		globalParamsDefault := composition.Global.Run.TestParams
+
+		err = mergo.Merge(&g.TestParams, globalParamsDefault)
 		if err != nil {
 			return nil, err
 		}

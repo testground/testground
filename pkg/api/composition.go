@@ -118,6 +118,10 @@ type Run struct {
 	// ID is the unique ID of this run group.
 	ID string `toml:"id" json:"id"`
 
+	// TestParams specify the test parameters to pass down to instances of this
+	// group.
+	TestParams map[string]string `toml:"test_params" json:"test_params" mapstructure:"test_params"`
+
 	// TotalInstances defines the total number of instances that participate in
 	// this run; it is the sum of all instances in all groups.
 	TotalInstances uint `toml:"total_instances" json:"total_instances" mapstructure:"total_instances" validate:"gte=0"`

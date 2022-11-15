@@ -13,8 +13,8 @@ testground run composition \
     --result-file=./results.csv \
     --wait | tee run.out
 
-assert_runs_outcome_are ./run.out "success" "success"
-assert_runs_results ./results.csv success success
+assert_runs_outcome_are ./run.out success success success success
+assert_runs_results ./results.csv success success success success
 
 popd
 

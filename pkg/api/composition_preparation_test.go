@@ -395,8 +395,8 @@ func TestPrepareForRunCountIsCorrect(t *testing.T) {
 				ID: "test_a",
 				Groups: []*CompositionRunGroup{
 					{
-						ID: "a",
-							Instances: Instances{Count: 12},
+						ID:        "a",
+						Instances: Instances{Count: 12},
 					},
 				},
 			},
@@ -407,4 +407,155 @@ func TestPrepareForRunCountIsCorrect(t *testing.T) {
 
 	require.NotNil(t, c)
 	require.NoError(t, err)
+}
+
+func TestRunConfigTrickleDown(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+			Run: &RunParams{
+				TestParams: map[string]string{
+					"test_param_global": "test_param_global",
+				},
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "no_local_settings",
+				Run: RunParams{
+					TestParams: map[string]string{
+						"test_param_group": "test_param_group",
+					},
+				},
+			},
+			{
+				ID: "with_overrides",
+				Run: RunParams{
+					TestParams: map[string]string{
+						"test_param_group":  "test_param_group",
+						"test_param_global": "overriden_by_group",
+					},
+				},
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "run_a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:      "no_local_settings",
+						GroupID: "no_local_settings",
+						Instances: Instances{
+							Count: 2,
+						},
+					},
+					{
+						ID:      "with_local_settings",
+						GroupID: "with_overrides",
+						Instances: Instances{
+							Count: 2,
+						},
+						TestParams: map[string]string{
+							"test_param_run": "test_param_run",
+						},
+					},
+
+					{
+						ID:      "with_overrides",
+						GroupID: "with_overrides",
+						Instances: Instances{
+							Count: 2,
+						},
+						TestParams: map[string]string{
+							"test_param_run":    "test_param_run",
+							"test_param_group":  "overriden_by_run",
+							"test_param_global": "overriden_by_run",
+						},
+					},
+				},
+			},
+			{
+				ID: "run_b",
+				TestParams: map[string]string{
+					"test_param_group": "override_by_runs",
+					"test_param_runs":  "test_param_runs",
+				},
+				Groups: []*CompositionRunGroup{
+					{
+						ID:      "no_local_settings",
+						GroupID: "no_local_settings",
+						Instances: Instances{
+							Count: 2,
+						},
+					},
+					{
+						ID:      "with_local_settings",
+						GroupID: "with_overrides",
+						Instances: Instances{
+							Count: 2,
+						},
+						TestParams: map[string]string{
+							"test_param_run": "test_param_run",
+						},
+					},
+
+					{
+						ID:      "with_overrides",
+						GroupID: "with_overrides",
+						Instances: Instances{
+							Count: 2,
+						},
+						TestParams: map[string]string{
+							"test_param_run":    "test_param_run",
+							"test_param_group":  "overriden_by_run",
+							"test_param_global": "overriden_by_run",
+							"test_param_runs":   "overriden_by_run",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	manifest := &TestPlanManifest{
+		Name: "foo_plan",
+		Builders: map[string]config.ConfigMap{
+			"docker:go": {
+				"dockerfile_extensions": map[string]string{
+					"pre_mod_download": "base_pre_mod_download",
+				},
+			},
+			"docker:generic": {},
+		},
+		Runners: map[string]config.ConfigMap{
+			"local:docker": {},
+		},
+		TestCases: []*TestCase{
+			{
+				Name:      "foo_case",
+				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
+			},
+		},
+	}
+
+	ret, err := c.PrepareForRun(manifest)
+	require.NoError(t, err)
+	require.NotNil(t, ret)
+
+	require.EqualValues(t, map[string]string{"test_param_global": "test_param_global", "test_param_group": "test_param_group"}, ret.Runs[0].Groups[0].TestParams)
+	require.EqualValues(t, map[string]string{"test_param_global": "overriden_by_group", "test_param_group": "test_param_group", "test_param_run": "test_param_run"}, ret.Runs[0].Groups[1].TestParams)
+	require.EqualValues(t, map[string]string{"test_param_global": "overriden_by_run", "test_param_group": "overriden_by_run", "test_param_run": "test_param_run"}, ret.Runs[0].Groups[2].TestParams)
+
+	require.EqualValues(t, map[string]string{"test_param_global": "test_param_global", "test_param_group": "override_by_runs", "test_param_runs": "test_param_runs"}, ret.Runs[1].Groups[0].TestParams)
+	require.EqualValues(t, map[string]string{"test_param_global": "overriden_by_group", "test_param_group": "override_by_runs", "test_param_runs": "test_param_runs", "test_param_run": "test_param_run"}, ret.Runs[1].Groups[1].TestParams)
+	require.EqualValues(t, map[string]string{"test_param_global": "overriden_by_run", "test_param_group": "overriden_by_run", "test_param_runs": "overriden_by_run", "test_param_run": "test_param_run"}, ret.Runs[1].Groups[2].TestParams)
+
 }
