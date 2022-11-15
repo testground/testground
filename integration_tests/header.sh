@@ -163,9 +163,15 @@ TEMPDIR=`mktemp -d`
 
 # Start the testground daemon, loading the .env file from the first parameter
 function start_daemon {
-  env_file=$1
+  env_file="$1"
+  backend_env_file="${TEMPDIR}/.env.toml.bak"
 
   mkdir -p ${HOME}/testground
+
+  # backup previous env file
+  if [ -f ${HOME}/testground/.env ]; then
+    mv ${HOME}/testground/.env.toml ${backend_env_file}
+  fi
 
   cp $env_file ${HOME}/testground/.env.toml
 
@@ -180,6 +186,11 @@ function start_daemon {
     sleep 1
   done
   echo "Testground launched"
+
+  # restore previous env file
+  if [ -f ${backend_env_file} ]; then
+    mv ${backend_env_file} ${HOME}/testground/.env.toml
+  fi
 }
 
 set -x
