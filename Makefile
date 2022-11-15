@@ -82,17 +82,3 @@ test-integ-examples:
 	./integration_tests/example_02_js_pingpong.sh
 	./integration_tests/example_03_generic_artifact.sh
 	./integration_tests/example_04_browser_node.sh
-
-kind-cluster:
-	kind create cluster --wait 90s
-	kubectl apply -f .circleci/pv.yaml
-	kubectl apply -f .circleci/pvc.yaml
-	kubectl label nodes kind-control-plane testground.node.role.plan=true
-	kubectl label nodes kind-control-plane testground.node.role.infra=true
-	kind load docker-image iptestground/sidecar:edge
-	kubectl apply -f .circleci/sidecar.yaml
-
-	kind load docker-image iptestground/sync-service:edge
-	kubectl apply -f .circleci/sync-service.yaml
-	kubectl expose deployment/testground-sync-service
-	kubectl port-forward deployment/testground-sync-service 5050:5050 &
