@@ -23,8 +23,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             client.signal("listening".to_string()).await?;
 
-            println!("Established inbound TCP connection.");
             let _ = listener.accept().await?;
+            println!("Established inbound TCP connection.");
         }
         std::net::IpAddr::V4(addr) if addr.octets()[3] == 3 => {
             println!("Test instance, connecting to listening instance.");
@@ -37,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 octets.into()
             };
             let _stream = TcpStream::connect((remote_addr, LISTENING_PORT)).await?;
+            println!("Established outbound TCP connection.");
         }
         addr => {
             client.record_failure("Unexpected local IP address").await?;
