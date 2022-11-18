@@ -350,7 +350,6 @@ func (c Composition) PickGroups(indices ...int) (Composition, error) {
 }
 
 // FrameForRuns clones this composition, retaining only the specified run ids and corresponding groups
-// TODO: Verify that our composition and nested objects are immutables / deep copies.
 func (c Composition) FrameForRuns(runIds ...string) (*Composition, error) {
 	requiredGroupsIds := make(map[string]bool)
 	runs := make([]*Run, 0, len(runIds))
