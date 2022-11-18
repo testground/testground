@@ -21,8 +21,6 @@ type compositionData struct {
 func compileCompositionTemplate(path string, input *compositionData) (*bytes.Buffer, error) {
 	templateDir := filepath.Dir(path)
 
-	// Investigate: https://github.com/Masterminds/sprig
-	// Investigate "missingkey=error"
 	f := template.FuncMap{
 		"pick": func(v map[string]interface{}, key string) map[string]interface{} {
 			x := map[string]interface{}{key: v[key]}
