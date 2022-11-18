@@ -356,7 +356,7 @@ func TestListRunAndGroupsIds(t *testing.T) {
 		},
 	}
 
-	groups := c.ListGroupsId()
+	groups := c.ListGroupsIds()
 	require.EqualValues(t, []string{"a", "b", "c", "d"}, groups)
 
 	runs := c.ListRunIds()
@@ -434,7 +434,7 @@ func TestFrameForRun(t *testing.T) {
 	framedForRunA, err := c.FrameForRuns("just-a")
 	require.NoError(t, err)
 
-	groupIds := framedForRunA.ListGroupsId()
+	groupIds := framedForRunA.ListGroupsIds()
 	runIds := framedForRunA.ListRunIds()
 
 	// require.EqualValues(t, 3, framedForRunA.Global.TotalInstances) TODO
@@ -444,7 +444,7 @@ func TestFrameForRun(t *testing.T) {
 	framedForRunAAndB, err := c.FrameForRuns("a-and-b")
 	require.NoError(t, err)
 
-	groupIds = framedForRunAAndB.ListGroupsId()
+	groupIds = framedForRunAAndB.ListGroupsIds()
 	runIds = framedForRunAAndB.ListRunIds()
 
 	// require.EqualValues(t, 4, framedForRunAAndB.Global.TotalInstances) TODO
@@ -454,7 +454,7 @@ func TestFrameForRun(t *testing.T) {
 	framedForRunAAndC, err := c.FrameForRuns("a-and-c", "just-a")
 	require.NoError(t, err)
 
-	groupIds = framedForRunAAndC.ListGroupsId()
+	groupIds = framedForRunAAndC.ListGroupsIds()
 	runIds = framedForRunAAndC.ListRunIds()
 
 	// require.EqualValues(t, 10, framedForRunAAndC.Global.TotalInstances) TODO

@@ -415,7 +415,7 @@ func (c Composition) ListRunIds() []string {
 	return ids
 }
 
-func (c Composition) ListGroupsId() []string {
+func (c Composition) ListGroupsIds() []string {
 	ids := make([]string, 0, len(c.Groups))
 	for _, x := range c.Groups {
 		ids = append(ids, x.ID)
