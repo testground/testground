@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - unreleased
 ### Added
 - This ̀`CHANGELOG.md` file. See [PR 1445]
-- Support addition of containers to the control network See [PR 1481]
+- Support addition of containers to the control network. See [PR 1481]
+- Add `pick`, `toml`, `withEnv`, and `atoi` to templates. See [PR 1516]
+- Add `[[runs]]` field to compositions. See [PR 1516]
+- Add `--run-ids` option during `testground run`. See [PR 1516]
+- Add `--result-file ./output.csv` option during `testground run`. See [PR 1516]
 
 ### Fixed
 - Fix dependencies rewrites in the `exec:go` builder. See [PR 1469]

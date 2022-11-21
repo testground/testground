@@ -14,7 +14,10 @@ DAEMON_ENV="${1:-env-kind.toml}"
 trap 'err_report $LINENO $FILENAME' ERR
 
 function finish {
-  kill -15 $DAEMONPID
+  # if the SKIP_AUTO_START flag is unset or set to 0, kill the daemon we started
+  if [[ ! -n "$SKIP_AUTO_START"  || $SKIP_AUTO_START = 0 ]]; then
+    kill -15 "$DAEMONPID"
+  fi
 }
 trap finish EXIT
 
@@ -30,6 +33,56 @@ function assert_run_outcome_is {
   echo "checking run ${RUN_ID}"
 
   assert_testground_task_status "$RUN_ID" "$EXPECTED_OUTCOME"
+}
+
+# Assert the status of a multiple testground run ("failure", "success")
+#
+# Usage:
+#   assert_run_outcome_is "./testground-run-logs.out" "failed"
+function assert_runs_outcome_are {
+  RUN_OUT_FILEPATH="$1"
+  EXPECTED_OUTCOMES=("${@:2}")
+
+  RUN_IDS=$(awk '/run is queued with ID/ { print $10 }' "${RUN_OUT_FILEPATH}")
+
+  i=0
+  for RUN_ID in $RUN_IDS; do
+    echo "checking run ${RUN_ID} for outcome ${EXPECTED_OUTCOMES[$i]}"
+    assert_testground_task_status "$RUN_ID" "${EXPECTED_OUTCOMES[$i]}"
+    i=$((i+1))
+  done
+
+  if [ $i -ne ${#EXPECTED_OUTCOMES[@]} ]; then
+    echo "expected ${#EXPECTED_OUTCOMES[@]} runs, but found $i"
+    exit 1
+  fi
+}
+
+function assert_runs_instance_count {
+  # TODO: implement
+  exit 1
+}
+
+function assert_runs_results {
+  RESULT_FILEPATH="$1"
+  EXPECTED_OUTCOMES=("${@:2}")
+
+  RESULTS=`cat $RESULT_FILEPATH | tail -n +2 | awk -F, '{print $3}'`
+
+  i=0
+  for RESULT in $RESULTS; do
+    echo "checking line ${i} for outcome ${EXPECTED_OUTCOMES[$i]}"
+    if [ "${RESULT}" != "${EXPECTED_OUTCOMES[$i]}" ]; then
+      echo "expected outcome ${EXPECTED_OUTCOMES[$i]} but got ${RESULT}"
+      exit 1
+    fi
+    i=$((i+1))
+  done
+
+  if [ $i -ne ${#EXPECTED_OUTCOMES[@]} ]; then
+    echo "expected ${#EXPECTED_OUTCOMES[@]} runs, but found $i"
+    exit 1
+  fi
 }
 
 # Assert the status of a testground task, as provided by the CLI output
@@ -77,14 +130,48 @@ function assert_run_output_is_correct {
   test $SIZEOUT -gt 0 && test $SIZEERR -eq 0
 }
 
+# Assert that a testground run has a certain number of instances outputs.
+# Expects that the testground call was run with `--collect`
+#
+# Usage:
+#   assert_run_instance_count "./run.out" 3
+#   SKIP_LOG_PARSING=1 assert_run_output_is_correct "./testground-run-logs.out"
+function assert_run_instance_count {
+  RUN_OUT_FILEPATH="$1"
+  EXPECTED_COUNT="$2"
+
+  RUN_ID=$(awk '/finished run with ID/ { print $9 }' "${RUN_OUT_FILEPATH}")
+  echo "checking run $RUN_ID"
+
+  file ${RUN_ID}.tgz
+  LENGTH=${#RUN_ID}
+  test $LENGTH -eq 20
+
+  tar -xzvvf ${RUN_ID}.tgz
+
+  echo ${PWD}
+  echo `ls -l`
+
+  COUNT_INSTANCES=$(ls ./${RUN_ID}/*/ | wc -l)
+  echo "instances counts is ${COUNT_INSTANCES}, expected: ${EXPECTED_COUNT}."
+
+  test $COUNT_INSTANCES -eq $EXPECTED_COUNT
+}
+
 # Directory where the daemon and each test will store its outputs
 TEMPDIR=`mktemp -d`
 
 # Start the testground daemon, loading the .env file from the first parameter
 function start_daemon {
-  env_file=$1
+  env_file="$1"
+  backend_env_file="${TEMPDIR}/.env.toml.bak"
 
   mkdir -p ${HOME}/testground
+
+  # backup previous env file
+  if [ -f ${HOME}/testground/.env ]; then
+    mv ${HOME}/testground/.env.toml ${backend_env_file}
+  fi
 
   cp $env_file ${HOME}/testground/.env.toml
 
@@ -99,10 +186,16 @@ function start_daemon {
     sleep 1
   done
   echo "Testground launched"
+
+  # restore previous env file
+  if [ -f ${backend_env_file} ]; then
+    mv ${backend_env_file} ${HOME}/testground/.env.toml
+  fi
 }
 
+set -x
 # if the SKIP_AUTO_START flag is unset or set to 0, start the daemon immediately
-if [[ ! -n "$SKIP_AUTO_START" || $SKIP_AUTO_START -eq 0 ]]; then
+if [[ ! -n "$SKIP_AUTO_START"  || $SKIP_AUTO_START = 0 ]]; then
   echo "Starting daemon automatically"
   start_daemon $DAEMON_ENV
 fi

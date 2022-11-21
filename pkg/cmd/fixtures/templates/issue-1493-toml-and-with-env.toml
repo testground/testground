@@ -1,0 +1,24 @@
+{{ define "simple-template" -}}
+
+# this should receive the env
+value="{{ $.Env.MyValue }}"
+version="{{ .go_version }}"
+
+{{- end -}}
+
+[metadata]
+name = "name"
+
+{{- with (load_resource "./resource.toml") }}
+  
+# `withEnv` forward the `$.Env` value
+{{ template "simple-template" (withEnv .) }}
+
+# `toml` print the value as a toml.
+# `pick` let's you pick a value from a resource.
+{{ (pick . "values") | toml -}}
+
+# atoi convert a string to a number
+another_id="{{ (index .values (atoi "1")).id }}"
+
+{{- end -}}

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"os"
@@ -13,10 +14,13 @@ import (
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/data"
 	"github.com/testground/testground/pkg/logging"
+	"github.com/testground/testground/pkg/runner"
+	"github.com/testground/testground/pkg/task"
 
-	"github.com/BurntSushi/toml"
 	"github.com/urfave/cli/v2"
 )
+
+const ResultFileOpt = "result-file"
 
 // RunCommand is the specification of the `run` command.
 var RunCommand = cli.Command{
@@ -43,6 +47,15 @@ var RunCommand = cli.Command{
 					Name:    "collect-file",
 					Aliases: []string{"o"},
 					Usage:   "write the collection output archive to `FILENAME`",
+				},
+				&cli.StringFlag{
+					Name:  "run-ids",
+					Usage: "run a specific run id, or a comma-separated list of run ids",
+				},
+				&cli.StringFlag{
+					Name:    ResultFileOpt,
+					Aliases: []string{"O"},
+					Usage:   "write the results csv `FILENAME`",
 				},
 				&cli.StringFlag{
 					Name:  "metadata-repo",
@@ -176,7 +189,25 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		return fmt.Errorf("failed to resolve test plan: %w", err)
 	}
 
-	// Check if the daemon needs to build the test plan.
+	// Retrieve the run ids to use.
+	rawRunIds := c.String("run-ids")
+	var runIds []string
+
+	// default to all the runs in the composition
+	if rawRunIds == "" {
+		runIds = comp.ListRunIds()
+	} else {
+		runIds = strings.Split(rawRunIds, ",")
+	}
+
+	// TODO: validate run ids
+	// TODO: verify run ids exists in the composition.
+
+	// Skip artifacts if the user explicit requests it.
+	// TODO: Simplify this code: empty the artifact field if required and post
+	//       the composition to the daemon. The daemon will take care of identifying
+	// 		 which artifacts should be built, etc.
+	//		 Eventually we'll drop the BuildGroups field from the request.
 	ignore := c.Bool("ignore-artifacts")
 	var buildIdx []int
 	for i, grp := range comp.Groups {
@@ -188,8 +219,6 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 	var (
 		sdkDir    string
 		extraSrcs []string
-		collectOpt = c.Bool("collect")
-		wait      = c.Bool("wait") || collectOpt // we always wait if we are collecting.
 	)
 
 	if len(buildIdx) > 0 {
@@ -220,98 +249,368 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		planDir = ""
 	}
 
-	req := &api.RunRequest{
-		BuildGroups: buildIdx,
-		Composition: *comp,
-		Manifest:    *manifest,
-		CreatedBy: api.CreatedBy{
-			User:   cfg.Client.User,
-			Repo:   c.String("metadata-repo"),
-			Branch: c.String("metadata-branch"),
-			Commit: c.String("metadata-commit"),
+	// Execute!
+
+	// Compute priority
+	isCollecting := c.Bool("collect")
+	isMultiple := len(runIds) > 1
+	isWaiting := c.Bool("wait") || isCollecting || isMultiple
+
+	priority := 0
+	if isWaiting {
+		priority = 1
+	}
+
+	// Compute compositionTarget
+	compositionTarget := ""
+
+	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
+		compositionTarget = file
+	}
+
+	collectionTarget := c.String("collect-file")
+
+	// Compute result target
+	resultTarget := c.String(ResultFileOpt)
+
+	// Prepare the strategy
+	strategy := MultiRunStrategy{
+		CurrentRunIndex:      0,
+		RunIds:               runIds,
+		Composition:          comp,
+		EffectiveComposition: comp,
+		BaseRequest: api.RunRequest{
+			BuildGroups: buildIdx,
+			Priority:    priority,
+			RunIds:      []string{},
+			Composition: *comp,
+			Manifest:    *manifest,
+			CreatedBy: api.CreatedBy{
+				User:   cfg.Client.User,
+				Repo:   c.String("metadata-repo"),
+				Branch: c.String("metadata-branch"),
+				Commit: c.String("metadata-commit"),
+			},
 		},
+		planDir:           planDir,
+		sdkDir:            sdkDir,
+		extraSrcs:         extraSrcs,
+		isCollecting:      isCollecting,
+		isWaiting:         isWaiting,
+		isMultiple:        isMultiple,
+		compositionTarget: compositionTarget,
+		collectionTarget:  collectionTarget,
+		resultTarget:      resultTarget,
+		Results:           make([]MultiRunResult, 0, len(runIds)),
 	}
 
-	if wait {
-		req.Priority = 1
+	for {
+		shouldContinue, err := strategy.Next(ctx, cl, c)
+		if err != nil {
+			strategy.CancelEveryOtherRun()
+			showResultErr := strategy.ShowResult()
+
+			if showResultErr != nil {
+				fmt.Printf("failed to show result: %v", showResultErr)
+			}
+
+			return err
+		}
+
+		if !shouldContinue {
+			break
+		}
 	}
 
-	resp, err := cl.Run(ctx, req, planDir, sdkDir, extraSrcs)
+	err = strategy.ShowResult()
+
+	if err != nil {
+		return err
+	}
+
+	return strategy.ExitStatus()
+}
+
+func (m *MultiRunStrategy) Next(ctx context.Context, cl *client.Client, c *cli.Context) (bool, error) {
+	// Done
+	if m.CurrentRunIndex >= len(m.RunIds) {
+		return false, nil
+	}
+
+	// Run the current run
+	taskId, err := m.CallDaemonRun(ctx, cl)
+	if err != nil {
+		return false, err
+	}
+
+	// We're not waiting, let's leave
+	if !m.isWaiting {
+		return false, nil
+	}
+
+	// Wait for the task to finish.
+	tsk, err := m.WaitForTaskCompletion(ctx, cl, taskId)
+
+	if err != nil {
+		return false, err
+	}
+
+	// Add result
+	result := data.DecodeRunnerResult(tsk.Result)
+	m.Results = append(m.Results, MultiRunResult{
+		RunId:  m.CurrentRunId(),
+		TaskId: taskId,
+		Error:  tsk.Error,
+		Result: *result,
+	})
+
+	// Process the composition
+	err = m.ProcessComposition(tsk)
+
+	if err != nil {
+		return false, err
+	}
+
+	// Process the collection
+	err = m.Collect(ctx, cl, tsk.ID)
+
+	if err != nil {
+		return false, err
+	}
+
+	m.CurrentRunIndex += 1
+	return true, nil
+}
+
+func (m *MultiRunStrategy) CurrentRequest() api.RunRequest {
+	request := m.BaseRequest
+	request.RunIds = []string{m.CurrentRunId()}
+
+	// No build groups, we are using the effective composition
+	if m.CurrentRunIndex != 0 {
+		request.BuildGroups = []int{}
+	}
+
+	request.Composition = *m.EffectiveComposition
+
+	return request
+}
+
+func (m *MultiRunStrategy) CurrentRunId() string {
+	return m.RunIds[m.CurrentRunIndex]
+}
+
+
+func (m *MultiRunStrategy) ExitStatus() error {
+	for _, result := range m.Results {
+		if (result.Error != "" || !data.IsOutcomeSuccess(result.Result.Outcome)) {
+			return fmt.Errorf("run \"%s\" failed", result.RunId)
+		}
+	}
+
+	return nil
+}
+
+func (m *MultiRunStrategy) CallDaemonRun(ctx context.Context, cl *client.Client) (string, error) {
+	req := m.CurrentRequest()
+	resp, err := cl.Run(ctx, &req, m.planDir, m.sdkDir, m.extraSrcs)
+
 	switch err {
 	case nil:
-		// noop
+		break // noop
 	case context.Canceled:
-		return fmt.Errorf("interrupted")
+		return "", fmt.Errorf("interrupted")
 	default:
-		return err
+		return "", err
 	}
 
 	defer resp.Close()
 
 	id, err := client.ParseRunResponse(resp)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	logging.S().Infof("run is queued with ID: %s", id)
+	return id, nil
+}
 
-	if !wait {
-		return nil
-	}
-
+func (m *MultiRunStrategy) WaitForTaskCompletion(ctx context.Context, cl *client.Client, taskId string) (*task.Task, error) {
 	r, err := cl.Logs(ctx, &api.LogsRequest{
-		TaskID:            id,
+		TaskID:            taskId,
 		Follow:            true,
 		CancelWithContext: true,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer r.Close()
 
 	tsk, err := client.ParseLogsRequest(os.Stdout, r)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if tsk.Error != "" {
-		return errors.New(tsk.Error)
+		return nil, errors.New(tsk.Error)
 	}
 
-	var composition api.Composition
-	err = mapstructure.Decode(tsk.Composition, &composition)
-	if err != nil {
-		return err
-	}
+	logging.S().Infof("finished run with ID: %s", taskId)
 
-	if file := c.String("file"); file != "" && c.Bool("write-artifacts") {
-		f, err := os.OpenFile(file, os.O_WRONLY, 0644)
+	return &tsk, nil
+}
+
+func (m *MultiRunStrategy) ProcessComposition(tsk *task.Task) error {
+	// for the first run, keep the composition produced by the daemon.
+	if m.CurrentRunIndex == 0 {
+		var composition api.Composition
+		err := mapstructure.Decode(tsk.Composition, &composition)
+
 		if err != nil {
-			return fmt.Errorf("failed to write composition to file: %w", err)
+			return err
 		}
-		enc := toml.NewEncoder(f)
-		if err := enc.Encode(composition); err != nil {
-			return fmt.Errorf("failed to encode composition into file: %w", err)
+
+		m.EffectiveComposition = &composition
+	}
+
+	// If that's the first run and we are asking for a write artifact, store it
+	if m.CurrentRunIndex == 0 && m.compositionTarget != "" {
+		err := api.WriteCompositionToFile(m.EffectiveComposition, m.compositionTarget)
+		if err != nil {
+			return fmt.Errorf("failed to write composition file: %w", err)
 		}
 	}
 
-	logging.S().Infof("finished run with ID: %s", id)
+	return nil
+}
 
-	// if the `collect` flag is not set, we are done	
-	if !collectOpt {
-		return data.IsTaskOutcomeInError(&tsk)
+func (m *MultiRunStrategy) CurrentCollectedPath(taskId string) string {
+	collectionTarget := m.collectionTarget
+
+	if m.isMultiple {
+		if collectionTarget == "" {
+			collectionTarget = "multiple"
+		}
+		collectionTarget = fmt.Sprintf("%s-%s-%s", collectionTarget, m.CurrentRunId(), taskId)
+	} else {
+		if collectionTarget == "" {
+			collectionTarget = taskId
+		}
 	}
 
-	collectFile := c.String("collect-file")
-	if collectFile == "" {
-		collectFile = fmt.Sprintf("%s.tgz", id)
+	return fmt.Sprintf("%s.tgz", collectionTarget)
+}
+
+func (m *MultiRunStrategy) Collect(ctx context.Context, cl *client.Client, taskId string) error {
+	if m.isCollecting {
+		err := collect(ctx, cl, m.Composition.Global.Runner, taskId, m.CurrentCollectedPath(taskId))
+
+		if err != nil {
+			return cli.Exit(err.Error(), 3)
+		}
 	}
 
-	err = collect(ctx, cl, comp.Global.Runner, id, collectFile)
+	return nil
+}
 
-	if err != nil {
-		return cli.Exit(err.Error(), 3)
+func (m *MultiRunStrategy) CancelEveryOtherRun() {
+	for m.CurrentRunIndex < len(m.RunIds) {
+		m.Results = append(m.Results, MultiRunResult{
+			RunId:  m.CurrentRunId(),
+			TaskId: "N/A",
+			Error:  "canceled",
+			Result: runner.Result{
+				Outcome: task.OutcomeCanceled,
+			},
+		})
+		m.CurrentRunIndex++
+	}
+}
+
+func (m *MultiRunStrategy) ShowResult() error {
+	for _, result := range m.Results {
+		logging.S().Infof("result %s[%s]: %s", result.RunId, result.TaskId, result.Result.Outcome)
 	}
 
-	return data.IsTaskOutcomeInError(&tsk)
+	// Output the CSV file
+	if m.resultTarget != "" {
+		f, err := os.Create(m.resultTarget)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		w := csv.NewWriter(f)
+		defer w.Flush()
+
+		err = w.Write([]string{"run_id", "task_id", "outcome", "error"})
+		if err != nil {
+			return err
+		}
+
+		for _, result := range m.Results {
+			err := w.Write([]string{result.RunId, result.TaskId, string(result.Result.Outcome), result.Error})
+
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+type MultiRunStrategy struct {
+	// Current RunID Index
+	CurrentRunIndex int
+
+	// Run IDs
+	RunIds []string
+
+	// Initial Composition
+	Composition *api.Composition
+
+	// Effective Composition used by the daemon, which contains artifacts
+	EffectiveComposition *api.Composition
+
+	// Base Request
+	BaseRequest api.RunRequest
+
+	// Collect Destination
+	CollectDestination string
+
+	// Composition Destination
+	CompositionDestination string
+
+	// Plan configuration
+	planDir   string
+	sdkDir    string
+	extraSrcs []string
+
+	// Flags
+	isCollecting bool
+	isWaiting    bool
+	isMultiple   bool
+
+	// Outputs
+	compositionTarget string
+	collectionTarget  string
+	resultTarget      string
+
+	// Results
+	Results []MultiRunResult
+}
+
+type MultiRunResult struct {
+	// Run ID
+	RunId string
+
+	// Task ID
+	TaskId string
+
+	// Error
+	Error string
+
+	// Result
+	Result runner.Result
 }
