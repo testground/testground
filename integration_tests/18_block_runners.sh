@@ -2,12 +2,8 @@
 # Test for https://github.com/testground/testground/issues/1236
 my_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# block the daemon from starting automatically
-SKIP_AUTO_START=1
-source "$my_dir/header.sh"
-
-# start it manually with the preset env file, where the local:docker runner is blocked
-start_daemon "$my_dir/18_env.toml"
+# Use our preset env file, where the local:docker runner is blocked
+source "$my_dir/header.sh" "$my_dir/18_env.toml"
 
 testground plan import --from ./plans --name testground
 

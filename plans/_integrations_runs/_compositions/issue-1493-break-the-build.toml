@@ -1,0 +1,52 @@
+# Test for https://github.com/testground/testground/issues/1493
+[metadata]
+name = "issue-1493-break-the-build"
+
+[global]
+  builder = "docker:go"
+  plan = "integrations"
+  case = "issue-1493-optional-failure"
+  runner = "local:docker"
+
+  [global.build_config]
+    docker_build_image = "golang:1.16-buster"
+
+[[groups]]
+  id = "group_simple"
+  instances = {count = 1}
+
+[[groups]]
+  id = "second_group"
+  instances = {count = 1}
+
+  [groups.build_config]
+    modfile = "mising_modfile"
+
+[[runs]]
+  id = "run_simple_1"
+
+  [[runs.groups]]
+  id = "group_simple"
+  instances = {count = 1}
+
+  [runs.groups.test_params]
+  # TODO: using an actual boolean value will crash the parser
+  should_fail = "true"
+
+[[runs]]
+  id = "run_simple_2"
+
+  [[runs.groups]]
+  id = "second_group"
+  instances = {count = 2}
+
+  [runs.groups.test_params]
+  # TODO: using an actual boolean value will crash the parser
+  should_fail = "true"
+
+[[runs]]
+  id = "run_simple_4"
+
+  [[runs.groups]]
+  id = "second_group"
+  instances = {count = 4}
