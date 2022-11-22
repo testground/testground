@@ -37,6 +37,21 @@ testground run single \
 
 assert_run_outcome_is run.out "success"
 
+# Browser (Chromium): success
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=output \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
+    --runner=local:docker \
+    --instances=1 \
+    --tp BrowserKind=chromium
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
 # Browser (Firefox): success
 
 testground run single \
@@ -46,6 +61,22 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
+    --tp BrowserKind=firefox
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
+# Browser (WebKit): success
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=output \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
+    --runner=local:docker \
+    --instances=1 \
+    --tp BrowserKind=webkit
     --collect \
     --wait | tee run.out
 
@@ -65,6 +96,21 @@ testground run single \
 
 assert_run_outcome_is run.out "failure"
 
+# Browser (Chromium): failure
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=failure \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
+    --runner=local:docker \
+    --instances=1 \
+    --tp BrowserKind=chromium
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "failure"
+
 # Browser (Firefox): failure
 
 testground run single \
@@ -74,6 +120,22 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
+    --tp BrowserKind=firefox
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "failure"
+
+# Browser (WebKit): failure
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=failure \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node-browser \
+    --runner=local:docker \
+    --instances=1 \
+    --tp BrowserKind=webkit
     --collect \
     --wait | tee run.out
 

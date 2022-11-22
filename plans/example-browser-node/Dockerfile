@@ -28,14 +28,10 @@ RUN npm run webpack
 RUN npm cache clean --force
 
 ARG TEST_BROWSER_DEBUG_PORT=9222
-
-# TODO: delete these args once we have docker:launch runner args in master
-ARG TEST_BROWSER_KIND="chromium"
 ARG TEST_KEEP_OPENED_BROWSERS=false
 
 EXPOSE ${TEST_BROWSER_DEBUG_PORT}
 
-ENV TEST_BROWSER_KIND=${TEST_BROWSER_KIND}
 ENV TEST_BROWSER_DEBUG_PORT=${TEST_BROWSER_DEBUG_PORT}
 ENV TEST_KEEP_OPENED_BROWSERS=false
 

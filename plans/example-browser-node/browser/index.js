@@ -26,11 +26,15 @@ const spawnServer = require('./server')
 ;(async () => {
   spawnServer(8080)
 
+  const envParameters = runtime.getEnvParameters()
+  const runner = runtime.parseRunEnv(envParameters)
+
   let browser
   try {
-    const browserDebugPort = process.env.TEST_BROWSER_DEBUG_PORT || 9222
+    const browserDebugPort =
+      runner.runParams.testInstanceParams['BrowserDebugPort'] || process.env.TEST_BROWSER_DEBUG_PORT ||  9222
 
-    switch (process.env.TEST_BROWSER_KIND || 'chromium') {
+    switch (runner.runParams.testInstanceParams['BrowserKind'] || 'chromium') {
       // chromium is the default browser engine,
       // and the only browser for which we currently support
       // remote debugging, meaning attaching a local chrome (on your host)
@@ -101,7 +105,7 @@ const spawnServer = require('./server')
     console.log('prepare page window (global) environment')
     await page.addInitScript((env) => {
       window.testground = { env }
-    }, runtime.getEnvParameters())
+    }, envParameters)
 
     console.log('opening up testplan webpage on localhost')
     await page.goto('http://127.0.0.1:8080')
@@ -116,7 +120,7 @@ const spawnServer = require('./server')
 
     console.log('start browser exit process...')
 
-    if (process.env.TEST_KEEP_OPENED_BROWSERS === 'true') {
+    if (runner.runParams.testInstanceParams['KeepOpenedBrowsers'] === 'true' || process.env.TEST_KEEP_OPENED_BROWSERS === 'true') {
       console.log('halting browser until SIGINT is received...')
       await new Promise((resolve) => {
         process.on('SIGINT', resolve)
