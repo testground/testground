@@ -139,10 +139,20 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 	}
 
 	additionalHosts := "ADDITIONAL_HOSTS="
-	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]string)
+
+	// The config will return an []interface{} that we have to manually cast to strings
+	envHosts, hasHosts := engine.EnvConfig().Runners["local:docker"]["additional_hosts"].([]interface{})
 	if hasHosts {
-		additionalHosts += strings.Join(envHosts, ",")
+		for _, host := range envHosts {
+			hostString, isValid := host.(string)
+			if !isValid {
+				return nil, fmt.Errorf("invalid host entry in additional_hosts: %v", host)
+			}
+
+			additionalHosts += hostString + ","
+		}
 	}
+
 	sidecarContainerOpts := docker.EnsureContainerOpts{
 		ContainerName: "testground-sidecar",
 		ContainerConfig: &container.Config{
@@ -739,7 +749,7 @@ func attachContainerToNetwork(ctx context.Context, cli *client.Client, container
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
-//nolint this function is unused, but it may come in handy.
+// nolint this function is unused, but it may come in handy.
 func detachContainerFromNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
