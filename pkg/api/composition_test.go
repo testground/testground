@@ -1,11 +1,12 @@
 package api
 
 import (
+	"encoding/json"
 	"testing"
 
-	"github.com/testground/testground/pkg/config"
-
+	"github.com/mitchellh/mapstructure"
 	"github.com/stretchr/testify/require"
+	"github.com/testground/testground/pkg/task"
 )
 
 func TestValidateGroupsUnique(t *testing.T) {
@@ -115,6 +116,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err := c.ValidateForBuild()
 	require.NoError(t, err)
@@ -122,7 +124,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.NoError(t, err)
 
-	require.EqualValues(t, 6, c.Global.TotalInstances)
+	require.EqualValues(t, 6, c.Runs[0].TotalInstances)
 
 	// when some groups have a percentage, the total can't be computed
 	c = &Composition{
@@ -145,6 +147,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)
@@ -152,7 +155,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.Error(t, err)
 
-	require.EqualValues(t, 0, c.Global.TotalInstances)
+	require.EqualValues(t, 0, c.Runs[0].TotalInstances)
 
 	// when groups mix percentages and fixed numbers, the total is verified
 	c = &Composition{
@@ -176,6 +179,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)
@@ -183,7 +187,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 	err = c.ValidateForRun()
 	require.NoError(t, err)
 
-	require.EqualValues(t, 6, c.Global.TotalInstances)
+	require.EqualValues(t, 6, c.Runs[0].TotalInstances)
 
 	// when groups uses percentages that don't work with the total, the total is verified
 	c = &Composition{
@@ -207,6 +211,7 @@ func TestTotalInstancesIsComputedWhenPossible(t *testing.T) {
 			},
 		},
 	}
+	c = c.GenerateDefaultRun()
 
 	err = c.ValidateForBuild()
 	require.NoError(t, err)
@@ -273,183 +278,44 @@ func TestBuildKeyDependsOnBuilder(t *testing.T) {
 	require.EqualValues(t, k2, k3)
 }
 
-func TestDefaultTestParamsApplied(t *testing.T) {
-	c := &Composition{
-		Metadata: Metadata{},
-		Global: Global{
-			Plan:           "foo_plan",
-			Case:           "foo_case",
-			TotalInstances: 3,
-			Builder:        "docker:go",
-			Runner:         "local:docker",
-			Run: &Run{
-				TestParams: map[string]string{
-					"param1": "value1:default:composition",
-					"param2": "value2:default:composition",
-					"param3": "value3:default:composition",
-				},
-			},
-		},
-		Groups: []*Group{
-			{
-				ID:        "all_set",
-				Instances: Instances{Count: 1},
-				Run: Run{
-					TestParams: map[string]string{
-						"param1": "value1:set",
-						"param2": "value2:set",
-						"param3": "value3:set",
-					},
-				},
-			},
-			{
-				ID:        "none_set",
-				Instances: Instances{Count: 1},
-			},
-			{
-				ID:        "first_set",
-				Instances: Instances{Count: 1},
-				Run: Run{
-					TestParams: map[string]string{
-						"param1": "value1:set",
-					},
-				},
-			},
-		},
+func TestGroupsMayDefineBuilder(t *testing.T) {
+	g := &Group{
+		ID:      "foo",
+		Builder: "docker:generic",
 	}
 
-	manifest := &TestPlanManifest{
-		Name: "foo_plan",
-		Builders: map[string]config.ConfigMap{
-			"docker:go": {},
-		},
-		Runners: map[string]config.ConfigMap{
-			"local:docker": {},
-		},
-		TestCases: []*TestCase{
-			{
-				Name:      "foo_case",
-				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
-				Parameters: map[string]Parameter{
-					"param4": {
-						Type:    "string",
-						Default: "value4:default:manifest",
-					},
-				},
-			},
-		},
-	}
-
-	ret, err := c.PrepareForRun(manifest)
-	require.NoError(t, err)
-	require.NotNil(t, ret)
-
-	// group all_set.
-	require.EqualValues(t, "value1:set", ret.Groups[0].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:set", ret.Groups[0].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:set", ret.Groups[0].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[0].Run.TestParams["param4"])
-
-	// group none_set.
-	require.EqualValues(t, "value1:default:composition", ret.Groups[1].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Groups[1].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Groups[1].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[1].Run.TestParams["param4"])
-
-	// group first_set
-	require.EqualValues(t, "value1:set", ret.Groups[2].Run.TestParams["param1"])
-	require.EqualValues(t, "value2:default:composition", ret.Groups[2].Run.TestParams["param2"])
-	require.EqualValues(t, "value3:default:composition", ret.Groups[2].Run.TestParams["param3"])
-	require.EqualValues(t, "value4:default:manifest", ret.Groups[2].Run.TestParams["param4"])
+	require.NotNil(t, g)
 }
 
-func TestDefaultBuildParamsApplied(t *testing.T) {
-	c := &Composition{
+func TestIssue1493CompositionContainsARunsField(t *testing.T) {
+	// Composition with global builder and group builder.
+	globalWithBuilder := Global{
+		Plan:           "foo_plan",
+		Case:           "foo_case",
+		Builder:        "docker:go",
+		Runner:         "local:docker",
+		TotalInstances: 3,
+	}
+
+	group := &Group{
+		ID: "foo",
+	}
+
+	run := &Run{
+		ID: "foo",
+	}
+
+	validComposition := &Composition{
 		Metadata: Metadata{},
-		Global: Global{
-			Plan:           "foo_plan",
-			Case:           "foo_case",
-			TotalInstances: 3,
-			Builder:        "docker:go",
-			Runner:         "local:docker",
-			Build: &Build{
-				Selectors: []string{"default_selector_1", "default_selector_2"},
-				Dependencies: []Dependency{
-					{"dependency:a", "", "1.0.0.default"},
-					{"dependency:b", "", "2.0.0.default"},
-				},
-			},
-		},
-		Groups: []*Group{
-			{
-				ID: "no_local_settings",
-			},
-			{
-				ID: "dep_override",
-				Build: Build{
-					Dependencies: []Dependency{
-						{"dependency:a", "", "1.0.0.overridden"},
-						{"dependency:c", "", "1.0.0.locally_set"},
-						{"dependency:d", "remote/fork", "1.0.0.locally_set"},
-					},
-				},
-			},
-			{
-				ID: "selector_and_dep_override",
-				Build: Build{
-					Selectors: []string{"overridden"},
-					Dependencies: []Dependency{
-						{"dependency:a", "", "1.0.0.overridden"},
-						{"dependency:c", "", "1.0.0.locally_set"},
-					},
-				},
-			},
-		},
+		Global:   globalWithBuilder,
+		Groups:   []*Group{group},
+		Runs:     []*Run{run},
 	}
 
-	manifest := &TestPlanManifest{
-		Name: "foo_plan",
-		Builders: map[string]config.ConfigMap{
-			"docker:go": {},
-		},
-		Runners: map[string]config.ConfigMap{
-			"local:docker": {},
-		},
-		TestCases: []*TestCase{
-			{
-				Name:      "foo_case",
-				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
-			},
-		},
-	}
-
-	ret, err := c.PrepareForBuild(manifest)
-	require.NoError(t, err)
-	require.NotNil(t, ret)
-
-	// group no_local_settings.
-	require.EqualValues(t, []string{"default_selector_1", "default_selector_2"}, ret.Groups[0].Build.Selectors)
-	require.ElementsMatch(t, Dependencies{{"dependency:a", "", "1.0.0.default"}, {"dependency:b", "", "2.0.0.default"}}, ret.Groups[0].Build.Dependencies)
-
-	// group dep_override.
-	require.EqualValues(t, []string{"default_selector_1", "default_selector_2"}, ret.Groups[1].Build.Selectors)
-	require.ElementsMatch(t, Dependencies{
-		{"dependency:a", "", "1.0.0.overridden"},
-		{"dependency:b", "", "2.0.0.default"},
-		{"dependency:c", "", "1.0.0.locally_set"},
-		{"dependency:d", "remote/fork", "1.0.0.locally_set"},
-	}, ret.Groups[1].Build.Dependencies)
-
-	// group selector_and_dep_override
-	require.EqualValues(t, []string{"overridden"}, ret.Groups[2].Build.Selectors)
-	require.ElementsMatch(t, Dependencies{
-		{"dependency:a", "", "1.0.0.overridden"},
-		{"dependency:b", "", "2.0.0.default"},
-		{"dependency:c", "", "1.0.0.locally_set"},
-	}, ret.Groups[2].Build.Dependencies)
+	require.NotNil(t, validComposition.Runs)
 }
 
-func TestDefaultBuildConfigTrickleDown(t *testing.T) {
+func TestListRunAndGroupsIds(t *testing.T) {
 	c := &Composition{
 		Metadata: Metadata{},
 		Global: Global{
@@ -464,168 +330,261 @@ func TestDefaultBuildConfigTrickleDown(t *testing.T) {
 		},
 		Groups: []*Group{
 			{
-				ID: "no_local_settings",
+				ID: "a",
 			},
 			{
-				ID: "dockerfile_override",
-				BuildConfig: map[string]interface{}{
-					"dockerfile_extensions": map[string]string{
-						"pre_mod_download": "pre_mod_download_overriden",
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
+				Builder: "docker:generic",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "aa",
+			},
+			{
+				ID: "bb",
+			},
+			{
+				ID: "cc",
+			},
+		},
+	}
+
+	groups := c.ListGroupsIds()
+	require.EqualValues(t, []string{"a", "b", "c", "d"}, groups)
+
+	runs := c.ListRunIds()
+	require.EqualValues(t, []string{"aa", "bb", "cc"}, runs)
+
+}
+
+func TestFrameForRun(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
+				Builder: "docker:generic",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "just-a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
 					},
 				},
 			},
 			{
-				ID: "build_base_image_override",
-				BuildConfig: map[string]interface{}{
-					"build_base_image": "base_image_overriden",
+				ID: "a-and-b",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "b",
+						Instances: Instances{Count: 1},
+					},
 				},
 			},
 			{
-				ID:      "builder_override",
+				ID: "a-and-c",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "c",
+						Instances: Instances{Count: 4},
+					},
+				},
+			},
+		},
+	}
+
+	framedForRunA, err := c.FrameForRuns("just-a")
+	require.NoError(t, err)
+
+	groupIds := framedForRunA.ListGroupsIds()
+	runIds := framedForRunA.ListRunIds()
+
+	// require.EqualValues(t, 3, framedForRunA.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a"}, groupIds)
+	require.EqualValues(t, []string{"just-a"}, runIds)
+
+	framedForRunAAndB, err := c.FrameForRuns("a-and-b")
+	require.NoError(t, err)
+
+	groupIds = framedForRunAAndB.ListGroupsIds()
+	runIds = framedForRunAAndB.ListRunIds()
+
+	// require.EqualValues(t, 4, framedForRunAAndB.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a", "b"}, groupIds)
+	require.EqualValues(t, []string{"a-and-b"}, runIds)
+
+	framedForRunAAndC, err := c.FrameForRuns("a-and-c", "just-a")
+	require.NoError(t, err)
+
+	groupIds = framedForRunAAndC.ListGroupsIds()
+	runIds = framedForRunAAndC.ListRunIds()
+
+	// require.EqualValues(t, 10, framedForRunAAndC.Global.TotalInstances) TODO
+	require.EqualValues(t, []string{"a", "c"}, groupIds)
+	require.EqualValues(t, []string{"a-and-c", "just-a"}, runIds)
+}
+
+func TestGetRun(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 4,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+			{
+				ID:      "d",
 				Builder: "docker:generic",
 			},
 		},
+		Runs: []*Run{
+			{
+				ID: "a",
+			},
+			{
+				ID: "b",
+			},
+			{
+				ID: "c",
+			},
+		},
 	}
 
-	manifest := &TestPlanManifest{
-		Name: "foo_plan",
-		Builders: map[string]config.ConfigMap{
-			"docker:go": {
-				"dockerfile_extensions": map[string]string{
-					"pre_mod_download": "base_pre_mod_download",
+	run, err := c.getRun("a")
+
+	require.NoError(t, err)
+	require.EqualValues(t, "a", run.ID)
+
+	run, err = c.getRun("d")
+
+	require.Error(t, err)
+	require.Nil(t, run)
+}
+
+func TestMarshalIsIdempotent(t *testing.T) {
+	c := &Composition{
+		Metadata: Metadata{},
+		Global: Global{
+			Plan:           "foo_plan",
+			Case:           "foo_case",
+			TotalInstances: 28,
+			Builder:        "docker:go",
+			Runner:         "local:docker",
+			BuildConfig: map[string]interface{}{
+				"build_base_image": "base_image_global",
+			},
+		},
+		Groups: []*Group{
+			{
+				ID: "a",
+				BuildConfig: map[string]interface{}{
+					"build_base_image": "custom_image",
 				},
 			},
-			"docker:generic": {},
-		},
-		Runners: map[string]config.ConfigMap{
-			"local:docker": {},
-		},
-		TestCases: []*TestCase{
 			{
-				Name:      "foo_case",
-				Instances: InstanceConstraints{Minimum: 1, Maximum: 100},
+				ID:      "b",
+				Builder: "docker:go",
+			},
+		},
+		Runs: []*Run{
+			{
+				ID: "just-a",
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+				},
+			},
+			{
+				ID:             "a-and-b",
+				TotalInstances: 4,
+				Groups: []*CompositionRunGroup{
+					{
+						ID:        "a",
+						Instances: Instances{Count: 3},
+					},
+					{
+						ID:        "b",
+						Instances: Instances{Count: 1},
+					},
+				},
 			},
 		},
 	}
 
-	ret, err := c.PrepareForBuild(manifest)
+	tsk := &task.Task{
+		Composition: c,
+	}
+
+	// Marshal the task
+	b, err := json.Marshal(tsk)
 	require.NoError(t, err)
-	require.NotNil(t, ret)
 
-	// trickle down global
-	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Global.BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_global", ret.Global.BuildConfig["build_base_image"])
-
-	// trickle down group no_local_settings.
-	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[0].BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_global", ret.Groups[0].BuildConfig["build_base_image"])
-
-	// trickle down group dockerfile_override.
-	require.EqualValues(t, map[string]string{"pre_mod_download": "pre_mod_download_overriden"}, ret.Groups[1].BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_global", ret.Groups[1].BuildConfig["build_base_image"])
-
-	// trickle down group build_base_image_override.
-	require.EqualValues(t, map[string]string{"pre_mod_download": "base_pre_mod_download"}, ret.Groups[2].BuildConfig["dockerfile_extensions"])
-	require.EqualValues(t, "base_image_overriden", ret.Groups[2].BuildConfig["build_base_image"])
-
-	// trickle down builder override.
-	require.EqualValues(t, "docker:go", ret.Groups[0].Builder)
-	require.EqualValues(t, "docker:go", ret.Groups[1].Builder)
-	require.EqualValues(t, "docker:generic", ret.Groups[3].Builder)
-}
-
-func TestGroupsMayDefineBuilder(t *testing.T) {
-	g := &Group{
-		ID:      "foo",
-		Builder: "docker:generic",
-	}
-
-	require.NotNil(t, g)
-}
-
-func TestValidateForBuildVerifiesThatBuildersAreDefined(t *testing.T) {
-	manifest := &TestPlanManifest{
-		Name: "foo_plan",
-		Builders: map[string]config.ConfigMap{
-			"docker:go":      {},
-			"docker:generic": {},
-		},
-	}
-
-	// Composition with global builder and group builder.
-	globalWithBuilder := Global{
-		Plan:           "foo_plan",
-		Case:           "foo_case",
-		Builder:        "docker:go",
-		Runner:         "local:docker",
-		TotalInstances: 3,
-	}
-
-	groupWithoutBuilder := &Group{
-		ID: "foo",
-	}
-
-	validComposition := &Composition{
-		Metadata: Metadata{},
-		Global:   globalWithBuilder,
-		Groups:   []*Group{groupWithoutBuilder},
-	}
-
-	err := validComposition.ValidateForBuild()
-	require.Nil(t, err)
-
-	ret, err := validComposition.PrepareForBuild(manifest)
+	// Unmarshall the task
+	tsk2 := &task.Task{}
+	err = json.Unmarshal(b, tsk2)
 	require.NoError(t, err)
-	require.NotNil(t, ret)
 
-	// Composition without global builder but with group builder.
-	globalWithoutBuilder := Global{
-		Plan:           "foo_plan",
-		Case:           "foo_case",
-		Runner:         "local:docker",
-		TotalInstances: 3,
-	}
-
-	groupWithBuilder := &Group{
-		ID:      "foo",
-		Builder: "docker:generic",
-	}
-
-	validComposition2 := &Composition{
-		Metadata: Metadata{},
-		Global:   globalWithoutBuilder,
-		Groups:   []*Group{groupWithBuilder},
-	}
-
-	err = validComposition2.ValidateForBuild()
-	require.Nil(t, err)
-
-	ret, err = validComposition2.PrepareForBuild(manifest)
+	// Decode the task
+	var composition Composition
+	err = mapstructure.Decode(tsk2.Composition, &composition)
 	require.NoError(t, err)
-	require.NotNil(t, ret)
 
-	// Composition without global builder and without group builder.
-	globalWithoutBuilder = Global{
-		Plan:           "foo_plan",
-		Case:           "foo_case",
-		Runner:         "local:docker",
-		TotalInstances: 3,
-	}
-
-	groupWithoutBuilder = &Group{
-		ID: "foo",
-	}
-
-	invalidComposition := &Composition{
-		Metadata: Metadata{},
-		Global:   globalWithoutBuilder,
-		Groups:   []*Group{groupWithoutBuilder},
-	}
-
-	err = invalidComposition.ValidateForBuild()
-	require.Error(t, err)
-
-	ret, err = invalidComposition.PrepareForBuild(manifest)
-	require.Error(t, err)
-	require.Nil(t, ret)
+	// Check equalities
+	require.Equal(t, c, &composition)
+	require.Equal(t, uint(4), composition.Runs[1].TotalInstances)
 }

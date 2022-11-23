@@ -445,7 +445,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			var res container.ContainerCreateCreatedBody
 			res, err = cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("failed to create container: %w", err)
 			}
 
 			container := testContainerInstance{
@@ -458,7 +458,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("failed to attach container to network: %w", err)
 			}
 		}
 	}

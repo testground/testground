@@ -27,6 +27,7 @@ type BuildRequest struct {
 type RunRequest struct {
 	Priority    int              `json:"priority"`
 	BuildGroups []int            `json:"build_groups"`
+	RunIds	    []string         `json:"run_ids"`
 	Composition Composition      `json:"composition"`
 	Manifest    TestPlanManifest `json:"manifest"`
 	CreatedBy   CreatedBy        `json:"created_by"`

@@ -120,6 +120,7 @@ func (e *Engine) worker(n int) {
 
 				if res != nil {
 					result = res.Result
+					tsk.Composition = res.Composition
 				}
 			case task.TypeBuild:
 				var res []*api.BuildOutput
@@ -525,6 +526,8 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		return nil, err
 	}
 
+	compositionUsedForRun := comp
+
 	var (
 		plan    = comp.Global.Plan
 		tcase   = comp.Global.Case
@@ -577,26 +580,44 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 		return nil, fmt.Errorf("error while coalescing configuration values: %w", err)
 	}
 
+	if (len(input.RunIds) > 1) {
+		// TODO: remove when we can build multiple runs
+		return nil, fmt.Errorf("cannot specify multiple run ids for now")
+	}
+
+	runId := input.RunIds[0]
+	framedComp, err := comp.FrameForRuns(runId);
+
+	if err != nil {
+		return nil, fmt.Errorf("error while framing composition for run: %s: %w", runId, err)
+	}
+
+	compRun := framedComp.Runs[0]
+
 	in := api.RunInput{
 		RunID:          id,
 		EnvConfig:      *e.envcfg,
 		RunnerConfig:   obj,
 		TestPlan:       clean(plan),
 		TestCase:       clean(tcase),
-		TotalInstances: int(comp.Global.TotalInstances),
-		Groups:         make([]*api.RunGroup, 0, len(comp.Groups)),
+		TotalInstances: int(compRun.TotalInstances),
+		Groups:         make([]*api.RunGroup, 0, len(compRun.Groups)),
 		DisableMetrics: comp.Global.DisableMetrics,
 	}
 
-	// Trigger a build for each group, and wait until all of them are done.
-	for _, grp := range comp.Groups {
+	for _, grp := range compRun.Groups {
+		buildgroup, err := framedComp.GetGroup(grp.EffectiveGroupId())
+		if err != nil {
+			return nil, err
+		}
+
 		g := &api.RunGroup{
 			ID:           grp.ID,
 			Instances:    int(grp.CalculatedInstanceCount()),
-			ArtifactPath: grp.Run.Artifact,
-			Parameters:   grp.Run.TestParams,
+			ArtifactPath: buildgroup.Run.Artifact,
+			Parameters:   grp.TestParams,
 			Resources:    grp.Resources,
-			Profiles:     grp.Run.Profiles,
+			Profiles:     grp.Profiles,
 		}
 
 		in.Groups = append(in.Groups, g)
@@ -619,7 +640,7 @@ func (e *Engine) doRun(ctx context.Context, id string, input *RunInput, ow *rpc.
 	}
 
 	if out != nil { // TODO: Make sure all runners return a value, and get rid of nil check
-		out.Composition = input.Composition
+		out.Composition = *compositionUsedForRun
 	}
 
 	return out, err
