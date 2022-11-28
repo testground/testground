@@ -46,7 +46,6 @@ func (e *Engine) deleteSignal(id string) {
 
 func (e *Engine) worker(n int) {
 	logging.S().Infow("supervisor worker started", "worker_id", n)
-
 	taskTimeout := 10 * time.Minute
 	if e.EnvConfig().Daemon.Scheduler.TaskTimeoutMin != 0 {
 		taskTimeout = time.Duration(e.EnvConfig().Daemon.Scheduler.TaskTimeoutMin) * time.Minute
