@@ -40,7 +40,12 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	// Start the daemon
 	srv := setupDaemon(t)
 	defer func() {
+		err := runTerminate(t, srv, params.runner)
 		srv.Shutdown(context.Background()) //nolint
+
+		if err != nil {
+			t.Fatal(err)
+		}
 	}()
 
 	err := runHealthcheck(t, srv, params.runner)
@@ -120,6 +125,27 @@ func runHealthcheck(t *testing.T, srv *daemon.Daemon, runner string) error {
 		"healthcheck",
 		"--runner", runner,
 		"--fix",
+	}
+
+	err := app.Run(args)
+
+	return err
+}
+
+func runTerminate(t *testing.T, srv *daemon.Daemon, runner string) error {
+	app := cli.NewApp()
+	app.Name = "testground"
+	app.Commands = cmd.RootCommands
+	app.Flags = cmd.RootFlags
+	app.HideVersion = true
+
+	endpoint := fmt.Sprintf("http://%s", srv.Addr())
+
+	args := []string{
+		"testground",
+		"--endpoint", endpoint,
+		"terminate",
+		"--runner", runner,
 	}
 
 	err := app.Run(args)
