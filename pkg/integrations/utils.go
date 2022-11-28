@@ -5,6 +5,8 @@ package integrations
 
 import (
 	"context"
+	"log"
+	"os/exec"
 
 	"fmt"
 	"testing"
@@ -16,13 +18,14 @@ import (
 )
 
 type RunSingle struct {
-	plan      string
-	testcase  string
-	builder   string
-	runner    string
-	instances int
-	collect   bool
-	wait      bool
+	plan       string
+	testcase   string
+	builder    string
+	runner     string
+	instances  int
+	collect    bool
+	wait       bool
+	testParams []string
 }
 
 type RunResult struct {
@@ -55,6 +58,9 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 
 	// Run the test.
 	result, err := runSingle(t, params, srv)
+	if err != nil && result == nil {
+		t.Fatal(err)
+	}
 
 	// Collect the results.
 	// if params.collect {
@@ -200,4 +206,15 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	return &RunResult{
 		ExitCode: 0,
 	}, err
+}
+
+// use the CLI and call the command `docker pull` for each image in a list of images
+func dockerPull(t *testing.T, images ...string) {
+	for _, image := range images {
+		t.Logf("pulling image %s", image)
+		cmd := exec.Command("docker", "pull", image)
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		}
+	}
 }

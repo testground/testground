@@ -20,6 +20,11 @@ func Setup(t *testing.T) {
 func TestRustExample(t *testing.T) {
 	Setup(t)
 
+	dockerPull(
+		t,
+		"rust:1.59-bullseye",
+	)
+
 	params := RunSingle{
 		plan:      "testground/example-rust",
 		testcase:  "tcp-connect",
@@ -72,4 +77,50 @@ func TestGenericArtifact(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
+}
+
+func TestExampleBrowser(t *testing.T) {
+	Setup(t)
+
+	dockerPull(
+		t,
+		"node:16",
+		"mcr.microsoft.com/playwright:v1.25.2-focal",
+	)
+
+	cases := []struct {
+		browser string
+		testcase string
+		expectSuccess bool
+	}{
+		{"browser=chromium", "success", true},
+		{"browser=firefox", "success", true},
+		{"browser=chromium", "failure", false},
+		{"browser=firefox", "failure", false},
+	}
+
+	for _, c := range cases {
+		params := RunSingle{
+			plan:      "testground/example-browser",
+			testcase:  c.testcase,
+			builder:   "docker:generic",
+			runner:    "local:docker",
+			instances: 1,
+			collect:   true,
+			wait:      true,
+			testParams: []string{
+				c.browser,
+			},
+		}
+
+		result, err := Run(t, params)
+
+		if c.expectSuccess {
+			require.NoError(t, err)
+			require.Equal(t, 0, result.ExitCode)
+		} else {
+			require.Error(t, err)
+			require.Equal(t, 1, result.ExitCode)
+		}
+	}
 }
