@@ -1,39 +1,31 @@
 //go:build integration && docker_examples
 // +build integration,docker_examples
 
-package integrations
+package integration
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	. "github.com/testground/testground/pkg/integration/utils"
 )
-
-func Setup(t *testing.T) {
-	t.Helper()
-
-	err := runImport(t, "./plans", "testground")
-	if err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestRustExample(t *testing.T) {
 	Setup(t)
 
-	dockerPull(
+	DockerPull(
 		t,
 		"rust:1.59-bullseye",
 	)
 
 	params := RunSingle{
-		plan:      "testground/example-rust",
-		testcase:  "tcp-connect",
-		builder:   "docker:generic",
-		runner:    "local:docker",
-		instances: 2,
-		collect:   true,
-		wait:      true,
+		Plan:      "testground/example-rust",
+		Testcase:  "tcp-connect",
+		Builder:   "docker:generic",
+		Runner:    "local:docker",
+		Instances: 2,
+		Collect:   true,
+		Wait:      true,
 	}
 
 	result, err := Run(t, params)
@@ -48,13 +40,13 @@ func TestNodeExample(t *testing.T) {
 	Setup(t)
 
 	params := RunSingle{
-		plan:      "testground/example-js",
-		testcase:  "pingpong",
-		builder:   "docker:node",
-		runner:    "local:docker",
-		instances: 2,
-		collect:   true,
-		wait:      true,
+		Plan:      "testground/example-js",
+		Testcase:  "pingpong",
+		Builder:   "docker:node",
+		Runner:    "local:docker",
+		Instances: 2,
+		Collect:   true,
+		Wait:      true,
 	}
 
 	result, err := Run(t, params)
@@ -68,13 +60,13 @@ func TestGenericArtifact(t *testing.T) {
 	Setup(t)
 
 	params := RunSingle{
-		plan:      "testground/example",
-		testcase:  "artifact",
-		builder:   "docker:generic",
-		runner:    "local:docker",
-		instances: 1,
-		collect:   true,
-		wait:      true,
+		Plan:      "testground/example",
+		Testcase:  "artifact",
+		Builder:   "docker:generic",
+		Runner:    "local:docker",
+		Instances: 1,
+		Collect:   true,
+		Wait:      true,
 	}
 
 	result, err := Run(t, params)
@@ -87,7 +79,7 @@ func TestGenericArtifact(t *testing.T) {
 func TestExampleBrowser(t *testing.T) {
 	Setup(t)
 
-	dockerPull(
+	DockerPull(
 		t,
 		"node:16",
 		"mcr.microsoft.com/playwright:v1.25.2-focal",
@@ -106,14 +98,14 @@ func TestExampleBrowser(t *testing.T) {
 
 	for _, c := range cases {
 		params := RunSingle{
-			plan:      "testground/example-browser",
-			testcase:  c.testcase,
-			builder:   "docker:generic",
-			runner:    "local:docker",
-			instances: 1,
-			collect:   true,
-			wait:      true,
-			testParams: []string{
+			Plan:      "testground/example-browser",
+			Testcase:  c.testcase,
+			Builder:   "docker:generic",
+			Runner:    "local:docker",
+			Instances: 1,
+			Collect:   true,
+			Wait:      true,
+			TestParams: []string{
 				c.browser,
 			},
 		}

@@ -1,25 +1,26 @@
 //go:build integration && local_exec
 // +build integration,local_exec
 
-package integrations
+package integration
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	. "github.com/testground/testground/pkg/integration/utils"
 )
 
 func TestPlacebok(t *testing.T) {
 	Setup(t)
 
 	params := RunSingle{
-		plan:      "testground/placebo",
-		testcase:  "ok",
-		builder:   "exec:go",
-		runner:    "local:exec",
-		instances: 2,
-		collect:   true,
-		wait:      true,
+		Plan:      "testground/placebo",
+		Testcase:  "ok",
+		Builder:   "exec:go",
+		Runner:    "local:exec",
+		Instances: 2,
+		Collect:   true,
+		Wait:      true,
 	}
 
 	result, err := Run(t, params)
@@ -38,10 +39,10 @@ func TestOverrideDependencies(t *testing.T) {
 	Setup(t)
 
 	params := RunComposition{
-		file: "../../plans/placebo/_compositions/pr-1469-override-dependencies.toml",
-		runner: "local:exec",
-		collect: true,
-		wait: true,
+		File: "../../plans/placebo/_compositions/pr-1469-override-dependencies.toml",
+		Runner: "local:exec",
+		Collect: true,
+		Wait: true,
 	}
 
 	result, err := RunAComposition(t, params)
