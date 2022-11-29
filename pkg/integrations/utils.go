@@ -5,7 +5,9 @@ package integrations
 
 import (
 	"context"
+	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 
 	"fmt"
@@ -36,9 +38,29 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	t.Helper()
 
 	// Create a temporary directory for the test.
-	// dir, err := ioutil.TempDir("", "testground")
-	// require.NoError(t, err)
-	// defer os.RemoveAll(dir)
+	dir, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// Change directory during the test
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
 
 	// Start the daemon
 	srv := setupDaemon(t)
@@ -51,7 +73,7 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 		}
 	}()
 
-	err := runHealthcheck(t, srv, params.runner)
+	err = runHealthcheck(t, srv, params.runner)
 	if err != nil {
 		t.Fatal(err)
 	}
