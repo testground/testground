@@ -33,8 +33,9 @@ func getMatchedGroups(regEx *regexp.Regexp, x string) map[string]string {
 func RequireOutcomeIs(t *testing.T, outcome task.Outcome, result *RunResult) {
 	t.Helper()
 
-	// Find the string "outcome" in the result's stdout.
-	// run finished with outcome = failure (single:0/1)
+	// Find the "outcome" in the result's stdout.
+	// `run finished with outcome = failure (single:0/1)`
+	// `run finished with outcome unknown`
 	match_stdout := regexp.MustCompile("run finished with outcome (= )?(?P<outcome>[a-z0-9-]+)")
 	groups := getMatchedGroups(match_stdout, result.Stdout)
 
