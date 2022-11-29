@@ -46,7 +46,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=chromium
+    --tp BrowserKind=chromium \
     --collect \
     --wait | tee run.out
 
@@ -61,7 +61,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=firefox
+    --tp BrowserKind=firefox \
     --collect \
     --wait | tee run.out
 
@@ -76,7 +76,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=webkit
+    --tp BrowserKind=webkit \
     --collect \
     --wait | tee run.out
 
@@ -105,7 +105,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=chromium
+    --tp BrowserKind=chromium \
     --collect \
     --wait | tee run.out
 
@@ -120,7 +120,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=firefox
+    --tp BrowserKind=firefox \
     --collect \
     --wait | tee run.out
 
@@ -135,7 +135,7 @@ testground run single \
     --use-build=testplan:example-browser-node-browser \
     --runner=local:docker \
     --instances=1 \
-    --tp BrowserKind=webkit
+    --tp BrowserKind=webkit \
     --collect \
     --wait | tee run.out
 
