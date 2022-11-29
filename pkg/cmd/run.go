@@ -404,7 +404,7 @@ func (m *MultiRunStrategy) CurrentRunId() string {
 func (m *MultiRunStrategy) ExitStatus() error {
 	for _, result := range m.Results {
 		if (result.Error != "" || !data.IsOutcomeSuccess(result.Result.Outcome)) {
-			return fmt.Errorf("run \"%s\" failed", result.RunId)
+			return cli.Exit(fmt.Errorf("run \"%s\" failed", result.RunId), 1)
 		}
 	}
 

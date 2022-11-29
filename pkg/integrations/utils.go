@@ -165,6 +165,7 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	app.Commands = cmd.RootCommands
 	app.Flags = cmd.RootFlags
 	app.HideVersion = true
+	app.ExitErrHandler = func(context *cli.Context, err error) {} // Do not exit on error.
 
 	endpoint := fmt.Sprintf("http://%s", srv.Addr())
 
@@ -211,7 +212,7 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 // use the CLI and call the command `docker pull` for each image in a list of images
 func dockerPull(t *testing.T, images ...string) {
 	for _, image := range images {
-		t.Logf("pulling image %s", image)
+		t.Logf("$ docker pull %s", image)
 		cmd := exec.Command("docker", "pull", image)
 		if err := cmd.Run(); err != nil {
 			log.Fatal(err)
