@@ -40,6 +40,17 @@ type RunResult struct {
 	Stderr   string
 }
 
+// use the CLI and call the command `docker pull` for each image in a list of images
+func dockerPull(t *testing.T, images ...string) {
+	for _, image := range images {
+		t.Logf("$ docker pull %s", image)
+		cmd := exec.Command("docker", "pull", image)
+		if err := cmd.Run(); err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
 func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	t.Helper()
 
@@ -124,12 +135,28 @@ func setupDaemon(t *testing.T) *daemon.Daemon {
 	return srv
 }
 
-func runImport(t *testing.T, from string, name string) error {
+func makeTestgroundApp(captureExit bool) (*cli.App, *bytes.Buffer, *bytes.Buffer) {
 	app := cli.NewApp()
 	app.Name = "testground"
 	app.Commands = cmd.RootCommands
 	app.Flags = cmd.RootFlags
 	app.HideVersion = true
+
+	// Capture stdout and stderr
+	stdout, stderr := new(bytes.Buffer), new(bytes.Buffer)
+	app.Writer = stdout
+	app.ErrWriter = stderr
+
+	if captureExit {
+		app.ExitErrHandler = func(context *cli.Context, err error) {} // Do not exit on error.
+	}
+
+	return app, stdout, stderr
+}
+
+func runImport(t *testing.T, from string, name string) error {
+	t.Helper()
+	app, _, _ := makeTestgroundApp(true)
 
 	args := []string{
 		"testground",
@@ -145,11 +172,8 @@ func runImport(t *testing.T, from string, name string) error {
 }
 
 func runHealthcheck(t *testing.T, srv *daemon.Daemon, runner string) error {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = cmd.RootCommands
-	app.Flags = cmd.RootFlags
-	app.HideVersion = true
+	t.Helper()
+	app, _, _ := makeTestgroundApp(true)
 
 	endpoint := fmt.Sprintf("http://%s", srv.Addr())
 
@@ -167,11 +191,8 @@ func runHealthcheck(t *testing.T, srv *daemon.Daemon, runner string) error {
 }
 
 func runTerminate(t *testing.T, srv *daemon.Daemon, runner string) error {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = cmd.RootCommands
-	app.Flags = cmd.RootFlags
-	app.HideVersion = true
+	t.Helper()
+	app, _, _ := makeTestgroundApp(true)
 
 	endpoint := fmt.Sprintf("http://%s", srv.Addr())
 
@@ -188,17 +209,8 @@ func runTerminate(t *testing.T, srv *daemon.Daemon, runner string) error {
 }
 
 func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, error) {
-	app := cli.NewApp()
-	app.Name = "testground"
-	app.Commands = cmd.RootCommands
-	app.Flags = cmd.RootFlags
-	app.HideVersion = true
-	app.ExitErrHandler = func(context *cli.Context, err error) {} // Do not exit on error.
-
-	// Capture stdout and stderr
-	stdout, stderr := new(bytes.Buffer), new(bytes.Buffer)
-	app.Writer = stdout
-	app.ErrWriter = stderr
+	t.Helper()
+	app, stdout, stderr := makeTestgroundApp(true)
 
 	endpoint := fmt.Sprintf("http://%s", srv.Addr())
 
@@ -246,18 +258,7 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	}, err
 }
 
-// use the CLI and call the command `docker pull` for each image in a list of images
-func dockerPull(t *testing.T, images ...string) {
-	for _, image := range images {
-		t.Logf("$ docker pull %s", image)
-		cmd := exec.Command("docker", "pull", image)
-		if err := cmd.Run(); err != nil {
-			log.Fatal(err)
-		}
-	}
-}
-
-func getMatchedGroups(regEx *regexp.Regexp, x string) (map[string]string) {
+func getMatchedGroups(regEx *regexp.Regexp, x string) map[string]string {
 	match := regEx.FindStringSubmatch(x)
 
 	if match == nil {
@@ -267,15 +268,14 @@ func getMatchedGroups(regEx *regexp.Regexp, x string) (map[string]string) {
 	group_names := regEx.SubexpNames()
 	groups := make(map[string]string, len(group_names))
 
-    for i, name := range group_names {
-        if i > 0 && i <= len(match) {
-            groups[name] = match[i]
-        }
-    }
+	for i, name := range group_names {
+		if i > 0 && i <= len(match) {
+			groups[name] = match[i]
+		}
+	}
 
-    return groups
+	return groups
 }
-
 
 func RequireOutcomeIs(t *testing.T, outcome task.Outcome, result *RunResult) {
 	t.Helper()
