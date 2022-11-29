@@ -73,6 +73,15 @@ func dockerPull(t *testing.T, images ...string) {
 	}
 }
 
+func Setup(t *testing.T) {
+	t.Helper()
+
+	err := runImport(t, "./plans", "testground")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	t.Helper()
 
@@ -412,7 +421,7 @@ func RequireOutcomeIs(t *testing.T, outcome task.Outcome, result *RunResult) {
 
 	// Find the string "outcome" in the result's stdout.
 	// run finished with outcome = failure (single:0/1)
-	match_stdout := regexp.MustCompile("run finished with outcome = (?P<outcome>[a-z0-9-]+)")
+	match_stdout := regexp.MustCompile("run finished with outcome (= )?(?P<outcome>[a-z0-9-]+)")
 	groups := getMatchedGroups(match_stdout, result.Stdout)
 
 	if groups == nil {
