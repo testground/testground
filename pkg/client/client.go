@@ -308,7 +308,7 @@ func (c *Client) Logs(ctx context.Context, r *api.LogsRequest) (io.ReadCloser, e
 	return c.request(ctx, "POST", "/logs", bytes.NewReader(body.Bytes()))
 }
 
-func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface{}) error) error {
+func parseGeneric(r io.ReadCloser, fnProgress func(string) error, fnBinary, fnResult func(interface{}) error) error {
 	var chunk rpc.Chunk
 	var once sync.Once
 
@@ -324,7 +324,12 @@ func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface
 				fmt.Println(aurora.Bold(aurora.Cyan("\n>>> Server output:\n")))
 			})
 
-			err = fnProgress(chunk.Payload)
+			line, err := decodeProgress(chunk.Payload)
+			if err != nil {
+				return err
+			}
+
+			err = fnProgress(line)
 			if err != nil {
 				return err
 			}
@@ -358,14 +363,8 @@ func decodeProgress(progress interface{}) (string, error) {
 	return string(m), err
 }
 
-func printProgress(progress interface{}) error {
-	s, err := decodeProgress(progress)
-
-	if err != nil {
-		return err
-	}
-
-	fmt.Print(s)
+func printProgress(progress string) error {
+	fmt.Print(progress)
 	return nil
 }
 
@@ -509,13 +508,8 @@ func ParseLogsRequest(w io.Writer, r io.ReadCloser) (api.LogsResponse, error) {
 	var resp api.LogsResponse
 	err := parseGeneric(
 		r,
-		func(progress interface{}) error {
-			m, err := base64.StdEncoding.DecodeString(progress.(string))
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprint(w, string(m))
+		func(progress string) error {
+			fmt.Fprint(w, progress)
 			return nil
 		},
 		nil,
