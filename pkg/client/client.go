@@ -308,7 +308,7 @@ func (c *Client) Logs(ctx context.Context, r *api.LogsRequest) (io.ReadCloser, e
 	return c.request(ctx, "POST", "/logs", bytes.NewReader(body.Bytes()))
 }
 
-func parseGeneric(r io.ReadCloser, fnProgress func(string) error, fnBinary, fnResult func(interface{}) error) error {
+func parseGeneric(r io.ReadCloser, progress io.Writer, fnBinary, fnResult func(interface{}) error) error {
 	var chunk rpc.Chunk
 	var once sync.Once
 
@@ -329,7 +329,7 @@ func parseGeneric(r io.ReadCloser, fnProgress func(string) error, fnBinary, fnRe
 				return err
 			}
 
-			err = fnProgress(line)
+			_, err = fmt.Fprint(progress, line)
 			if err != nil {
 				return err
 			}
@@ -363,11 +363,6 @@ func decodeProgress(progress interface{}) (string, error) {
 	return string(m), err
 }
 
-func printProgress(progress string) error {
-	fmt.Print(progress)
-	return nil
-}
-
 func parseMarshalAndUnmarshal(resp interface{}) func(result interface{}) error {
 	return func(result interface{}) error {
 		// Workaround around mapstructure.Decode which cannot be easily
@@ -381,11 +376,11 @@ func parseMarshalAndUnmarshal(resp interface{}) func(result interface{}) error {
 }
 
 // ParseCollectResponse parses a response from a `collect` call
-func ParseCollectResponse(r io.ReadCloser, file io.Writer) (api.CollectResponse, error) {
+func ParseCollectResponse(r io.ReadCloser, file io.Writer, progress io.Writer) (api.CollectResponse, error) {
 	var resp api.CollectResponse
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		func(payload interface{}) error {
 			m, err := base64.StdEncoding.DecodeString(payload.(string))
 			if err != nil {
@@ -404,11 +399,11 @@ func ParseCollectResponse(r io.ReadCloser, file io.Writer) (api.CollectResponse,
 }
 
 // ParseRunResponse parses a response from a `run` call
-func ParseRunResponse(r io.ReadCloser) (string, error) {
+func ParseRunResponse(r io.ReadCloser, progress io.Writer) (string, error) {
 	var resp string
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		func(result interface{}) error {
 			var ok bool
@@ -423,11 +418,11 @@ func ParseRunResponse(r io.ReadCloser) (string, error) {
 }
 
 // ParseBuildResponse parses a response from a `build` call
-func ParseBuildResponse(r io.ReadCloser) (string, error) {
+func ParseBuildResponse(r io.ReadCloser, progress io.Writer) (string, error) {
 	var resp string
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		func(result interface{}) error {
 			var ok bool
@@ -442,10 +437,10 @@ func ParseBuildResponse(r io.ReadCloser) (string, error) {
 }
 
 // ParseBuildPurgeResponse parses a response from 'build/purge' call.
-func ParseBuildPurgeResponse(r io.ReadCloser) error {
+func ParseBuildPurgeResponse(r io.ReadCloser, progress io.Writer) error {
 	return parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		func(result interface{}) error {
 			return nil
@@ -454,10 +449,10 @@ func ParseBuildPurgeResponse(r io.ReadCloser) error {
 }
 
 // ParseTerminateRequest parses a response from a 'terminate' call
-func ParseTerminateRequest(r io.ReadCloser) error {
+func ParseTerminateRequest(r io.ReadCloser, progress io.Writer) error {
 	return parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		func(result interface{}) error {
 			return nil
@@ -466,11 +461,11 @@ func ParseTerminateRequest(r io.ReadCloser) error {
 }
 
 // ParseHealthcheckResponse parses a response from a 'healthcheck' call
-func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) {
+func ParseHealthcheckResponse(r io.ReadCloser, progress io.Writer) (api.HealthcheckResponse, error) {
 	var resp api.HealthcheckResponse
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		func(result interface{}) error {
 			return mapstructure.Decode(result, &resp)
@@ -480,11 +475,11 @@ func ParseHealthcheckResponse(r io.ReadCloser) (api.HealthcheckResponse, error) 
 }
 
 // ParseTasksRequest parses a response from a 'task' call
-func ParseTasksRequest(r io.ReadCloser) ([]*task.Task, error) {
+func ParseTasksRequest(r io.ReadCloser, progress io.Writer) ([]*task.Task, error) {
 	var resp []*task.Task
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		parseMarshalAndUnmarshal(&resp),
 	)
@@ -492,11 +487,11 @@ func ParseTasksRequest(r io.ReadCloser) ([]*task.Task, error) {
 }
 
 // ParseStatusResponse parses a response from a 'status' call
-func ParseStatusResponse(r io.ReadCloser) (api.StatusResponse, error) {
+func ParseStatusResponse(r io.ReadCloser, progress io.Writer) (api.StatusResponse, error) {
 	var resp api.StatusResponse
 	err := parseGeneric(
 		r,
-		printProgress,
+		progress,
 		nil,
 		parseMarshalAndUnmarshal(&resp),
 	)
@@ -508,10 +503,7 @@ func ParseLogsRequest(w io.Writer, r io.ReadCloser) (api.LogsResponse, error) {
 	var resp api.LogsResponse
 	err := parseGeneric(
 		r,
-		func(progress string) error {
-			fmt.Fprint(w, progress)
-			return nil
-		},
+		w,
 		nil,
 		parseMarshalAndUnmarshal(&resp),
 	)

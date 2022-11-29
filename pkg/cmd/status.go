@@ -47,7 +47,7 @@ func statusCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	res, err := client.ParseStatusResponse(r)
+	res, err := client.ParseStatusResponse(r, c.App.Writer)
 	if err != nil {
 		return err
 	}

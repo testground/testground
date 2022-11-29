@@ -3,12 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"text/tabwriter"
+
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
 	"github.com/testground/testground/pkg/task"
 	"github.com/urfave/cli/v2"
-	"os"
-	"text/tabwriter"
 )
 
 var TasksCommand = cli.Command{
@@ -40,7 +41,7 @@ func tasksCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	tsks, err := client.ParseTasksRequest(r)
+	tsks, err := client.ParseTasksRequest(r, c.App.Writer)
 	if err != nil {
 		return err
 	}

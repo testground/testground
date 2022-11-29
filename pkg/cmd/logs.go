@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -46,7 +45,7 @@ func logsCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(os.Stdout, r)
+	tsk, err := client.ParseLogsRequest(c.App.Writer, r)
 	if err != nil {
 		return err
 	}

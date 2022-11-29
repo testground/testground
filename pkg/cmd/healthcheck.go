@@ -50,7 +50,7 @@ func healthcheckCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	resp, err := client.ParseHealthcheckResponse(r)
+	resp, err := client.ParseHealthcheckResponse(r, c.App.Writer)
 	if err != nil {
 		return err
 	}

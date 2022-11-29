@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/testground/testground/pkg/api"
 	"github.com/testground/testground/pkg/client"
@@ -69,7 +70,7 @@ func (d *Daemon) getOutputsHandler(engine api.Engine) func(w http.ResponseWriter
 		tgw := rpc.NewFileOutputWriter(ww)
 
 		go func() {
-			_, err := client.ParseCollectResponse(rr, w)
+			_, err := client.ParseCollectResponse(rr, w, os.Stdout)
 			if err != nil {
 				fmt.Fprintf(w, "error while parsing collect response: %s", err.Error())
 			}
