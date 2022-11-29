@@ -6,7 +6,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [ "docker_examples" ]
+        suite: [ "docker_examples", "local_exec" ]
         os: [ "ubuntu" ]
         go: [ "1.19.x" ]
     env:
