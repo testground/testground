@@ -5,6 +5,7 @@ package integrations
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,6 +41,7 @@ func TestRustExample(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
 	require.NotEmpty(t, result.Stdout)
+	RequireOutcomeIsSuccess(t, result)
 }
 
 func TestNodeExample(t *testing.T) {
@@ -59,6 +61,7 @@ func TestNodeExample(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
+	RequireOutcomeIsSuccess(t, result)
 }
 
 func TestGenericArtifact(t *testing.T) {
@@ -78,6 +81,7 @@ func TestGenericArtifact(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
+	RequireOutcomeIsSuccess(t, result)
 }
 
 func TestExampleBrowser(t *testing.T) {
@@ -119,9 +123,11 @@ func TestExampleBrowser(t *testing.T) {
 		if c.expectSuccess {
 			require.NoError(t, err)
 			require.Equal(t, 0, result.ExitCode)
+			RequireOutcomeIsSuccess(t, result)
 		} else {
 			require.Error(t, err)
 			require.Equal(t, 1, result.ExitCode)
+			RequireOutcomeIsFailure(t, result)
 		}
 	}
 }
