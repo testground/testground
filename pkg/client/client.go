@@ -349,13 +349,23 @@ func parseGeneric(r io.ReadCloser, fnProgress, fnBinary, fnResult func(interface
 	}
 }
 
-func printProgress(progress interface{}) error {
+func decodeProgress(progress interface{}) (string, error) {
 	m, err := base64.StdEncoding.DecodeString(progress.(string))
+	if err != nil {
+		return "", err
+	}
+
+	return string(m), err
+}
+
+func printProgress(progress interface{}) error {
+	s, err := decodeProgress(progress)
+
 	if err != nil {
 		return err
 	}
 
-	fmt.Print(string(m))
+	fmt.Print(s)
 	return nil
 }
 
