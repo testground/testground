@@ -4,6 +4,7 @@
 package integrations
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"log"
@@ -32,6 +33,8 @@ type RunSingle struct {
 
 type RunResult struct {
 	ExitCode int
+	Stdout   string
+	Stderr   string
 }
 
 func Run(t *testing.T, params RunSingle) (*RunResult, error) {
@@ -189,6 +192,11 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	app.HideVersion = true
 	app.ExitErrHandler = func(context *cli.Context, err error) {} // Do not exit on error.
 
+	// Capture stdout and stderr
+	stdout, stderr := new(bytes.Buffer), new(bytes.Buffer)
+	app.Writer = stdout
+	app.ErrWriter = stderr
+
 	endpoint := fmt.Sprintf("http://%s", srv.Addr())
 
 	args := []string{
@@ -218,6 +226,8 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 		if exitErr, ok := err.(cli.ExitCoder); ok {
 			return &RunResult{
 				ExitCode: exitErr.ExitCode(),
+				Stdout:   stdout.String(),
+				Stderr:   stderr.String(),
 			}, err
 		}
 
@@ -228,6 +238,8 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	// No error
 	return &RunResult{
 		ExitCode: 0,
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
 	}, err
 }
 

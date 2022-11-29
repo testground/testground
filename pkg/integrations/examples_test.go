@@ -39,6 +39,7 @@ func TestRustExample(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
+	require.NotEmpty(t, result.Stdout)
 }
 
 func TestNodeExample(t *testing.T) {
