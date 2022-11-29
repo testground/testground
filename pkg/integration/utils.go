@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 
 	"fmt"
@@ -32,6 +33,27 @@ type RunSingle struct {
 	collect    bool
 	wait       bool
 	testParams []string
+}
+
+type RunComposition struct {
+	file string
+	// TODO: this is how we implemented these tests before.
+	// Load the composition directly and remove the need for this field.
+	runner  string
+	collect bool
+	wait    bool
+}
+
+// (pure method) rewrite the composition parameters to use absolute paths.
+func (r RunComposition) withAbsolutePath() RunComposition {
+	newPath, err := filepath.Abs(r.file)
+
+	if err != nil {
+		panic(err)
+	}
+
+	r.file = newPath
+	return r
 }
 
 type RunResult struct {
@@ -97,6 +119,68 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 
 	// Run the test.
 	result, err := runSingle(t, params, srv)
+	if err != nil && result == nil {
+		t.Fatal(err)
+	}
+
+	// Collect the results.
+	// if params.collect {
+	// 	result, err = Collect(t, dir, result)
+	// 	require.NoError(t, err)
+	// }
+
+	return result, err
+}
+
+func RunAComposition(t *testing.T, params RunComposition) (*RunResult, error) {
+	t.Helper()
+
+	// Rewrite path before changing directories.
+	params = params.withAbsolutePath()
+
+	// Create a temporary directory for the test.
+	dir, err := ioutil.TempDir("", "testground")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.RemoveAll(dir); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	// Change directory during the test
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Chdir(wd); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	// Start the daemon
+	srv := setupDaemon(t)
+	defer func() {
+		err := runTerminate(t, srv, params.runner)
+		srv.Shutdown(context.Background()) //nolint
+
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	err = runHealthcheck(t, srv, params.runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the test.
+	result, err := runComposition(t, params, srv)
 	if err != nil && result == nil {
 		t.Fatal(err)
 	}
@@ -224,6 +308,52 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 		"--builder", params.builder,
 		"--runner", params.runner,
 		"--instances", fmt.Sprintf("%d", params.instances),
+	}
+
+	if params.wait {
+		args = append(args, "--wait")
+	}
+
+	if params.collect {
+		args = append(args, "--collect")
+	}
+
+	err := app.Run(args)
+
+	if err != nil {
+		// Known error
+		if exitErr, ok := err.(cli.ExitCoder); ok {
+			return &RunResult{
+				ExitCode: exitErr.ExitCode(),
+				Stdout:   stdout.String(),
+				Stderr:   stderr.String(),
+			}, err
+		}
+
+		// Unknown error
+		return nil, err
+	}
+
+	// No error
+	return &RunResult{
+		ExitCode: 0,
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
+	}, err
+}
+
+func runComposition(t *testing.T, params RunComposition, srv *daemon.Daemon) (*RunResult, error) {
+	t.Helper()
+	app, stdout, stderr := makeTestgroundApp(true)
+
+	endpoint := fmt.Sprintf("http://%s", srv.Addr())
+
+	args := []string{
+		"testground",
+		"--endpoint", endpoint,
+		"run",
+		"composition",
+		"--file", params.file,
 	}
 
 	if params.wait {
