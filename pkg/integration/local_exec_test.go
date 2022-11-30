@@ -24,13 +24,13 @@ func TestPlacebok(t *testing.T) {
 	}
 
 	result, err := Run(t, params)
+	defer result.Cleanup()
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
 	require.NotEmpty(t, result.Stdout)
-	// TODO: `RequireOutcomeIsSuccess(t, result)` -- At the moment the local:exec runner generate an unknown outcome.
 
-	// TODO: port assert_run_output_is_correct (which checks the output content also).
+	RequireOutputContainsASingleValidResult(t, result.CollectFolder)
 }
 
 // fix: go dependencies rewrite in exec:go
@@ -41,7 +41,6 @@ func TestOverrideDependencies(t *testing.T) {
 	params := RunComposition{
 		File: "../../plans/placebo/_compositions/pr-1469-override-dependencies.toml",
 		Runner: "local:exec",
-		Collect: true,
 		Wait: true,
 	}
 
@@ -50,8 +49,5 @@ func TestOverrideDependencies(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
 	require.NotEmpty(t, result.Stdout)
-	// TODO: `RequireOutcomeIsSuccess(t, result)` -- At the moment the local:exec runner generate an unknown outcome.
-
-	// TODO: port assert_run_output_is_correct (which checks the output content also).
 }
 

@@ -31,6 +31,8 @@ type RunResult struct {
 	ExitCode int
 	Stdout   string
 	Stderr   string
+	CollectFolder string
+	Cleanup func()
 }
 
 // (pure method) rewrite the composition parameters to use absolute paths.

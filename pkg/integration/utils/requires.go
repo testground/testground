@@ -4,6 +4,8 @@
 package utils
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -52,4 +54,26 @@ func RequireOutcomeIsSuccess(t *testing.T, result *RunResult) {
 
 func RequireOutcomeIsFailure(t *testing.T, result *RunResult) {
 	RequireOutcomeIs(t, task.OutcomeFailure, result)
+}
+
+// Requires that the folder collected from the run contains
+// some logs and no errors.
+// Assumes it is a single run for a single group.
+func RequireOutputContainsASingleValidResult(t *testing.T, collectFolder string) {
+	t.Helper()
+
+	singleOutput := filepath.Join(collectFolder, "single" , "0" , "run.out")
+	singleErr := filepath.Join(collectFolder, "single" , "0" , "run.err")
+
+	// require file is NOT empty
+	f, err := os.Stat(singleOutput)
+	require.NoError(t, err)
+	require.False(t, f.IsDir())
+	require.NotZero(t, f.Size())
+
+	// require file is empty
+	f, err = os.Stat(singleErr)
+	require.NoError(t, err)
+	require.False(t, f.IsDir())
+	require.Zero(t, f.Size())
 }

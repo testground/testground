@@ -7,10 +7,10 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"testing"
 )
-
 
 func Setup(t *testing.T) {
 	t.Helper()
@@ -72,10 +72,38 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	}
 
 	// Collect the results.
-	// if params.collect {
-	// 	result, err = Collect(t, dir, result)
-	// 	require.NoError(t, err)
-	// }
+	if params.Collect {
+		collectedPath := filepath.Join(dir, "collected.tgz")
+		collectedDestination, err := ioutil.TempDir("", "testground-collected")
+		if err != nil {
+			t.Fatal(err)
+		}
+		// TODO: cleanup that folder in case of errors.
+
+		err = ExtractTarGz(collectedPath, collectedDestination)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Get the one file path in that folder (which is the run-id folder)
+		files, err := ioutil.ReadDir(collectedDestination)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Check that there is only one directory in the folder
+		if len(files) != 1 || !files[0].IsDir() {
+			t.Fatal("expected one directory in the collected folder")
+		}
+
+		collectFolder := filepath.Join(collectedDestination, files[0].Name())
+		result.CollectFolder = collectFolder
+		result.Cleanup = func() {
+			if err := os.RemoveAll(collectedDestination); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
 
 	return result, err
 }

@@ -110,7 +110,7 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	}
 
 	if params.Collect {
-		args = append(args, "--collect")
+		args = append(args, "--collect", "--collect-file", "./collected")
 	}
 
 	err := app.Run(args)
