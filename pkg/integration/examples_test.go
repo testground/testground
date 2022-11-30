@@ -24,7 +24,6 @@ func TestRustExample(t *testing.T) {
 		Builder:   "docker:generic",
 		Runner:    "local:docker",
 		Instances: 2,
-		Collect:   true,
 		Wait:      true,
 	}
 
@@ -45,7 +44,6 @@ func TestNodeExample(t *testing.T) {
 		Builder:   "docker:node",
 		Runner:    "local:docker",
 		Instances: 2,
-		Collect:   true,
 		Wait:      true,
 	}
 
@@ -65,7 +63,6 @@ func TestGenericArtifact(t *testing.T) {
 		Builder:   "docker:generic",
 		Runner:    "local:docker",
 		Instances: 1,
-		Collect:   true,
 		Wait:      true,
 	}
 
@@ -103,7 +100,6 @@ func TestExampleBrowser(t *testing.T) {
 			Builder:   "docker:generic",
 			Runner:    "local:docker",
 			Instances: 1,
-			Collect:   true,
 			Wait:      true,
 			TestParams: []string{
 				c.browser,
