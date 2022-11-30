@@ -1,6 +1,10 @@
 on: [push, pull_request]
 name: Integration Tests
 
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit:
     strategy:
