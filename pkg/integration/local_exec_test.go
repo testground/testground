@@ -10,7 +10,7 @@ import (
 	. "github.com/testground/testground/pkg/integration/utils"
 )
 
-func TestPlacebok(t *testing.T) {
+func TestPlaceboIsOk(t *testing.T) {
 	Setup(t)
 
 	params := RunSingle{
