@@ -30,7 +30,10 @@ const (
 )
 
 func (e *EnvConfig) Load() error {
-	e.EnsureMinimalConfig()
+	err := e.EnsureMinimalConfig()
+	if err != nil {
+		return err
+	}
 
 	// parse the .env.toml file, if it exists.
 	f := filepath.Join(e.dirs.Home(), ".env.toml")
