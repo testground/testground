@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fix dependencies rewrites in the `exec:go` builder. See [PR 1469]
 
+
+### Changed
+- Port shell code used for integration testing to a go package. See [PR 1537]
+
 [PR 1445]: https://github.com/testground/testground/pull/1445
 [PR 1469]: https://github.com/testground/testground/pull/1469
 [PR 1481]: https://github.com/testground/testground/pull/1481
+[PR 1537]: https://github.com/testground/testground/pull/1537
