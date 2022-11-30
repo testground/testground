@@ -25,29 +25,11 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	t.Helper()
 
 	// Create a temporary directory for the test.
-	dir, err := ioutil.TempDir("", "testground")
+	err, dir, cleanup := fromTemporaryDirectory(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	// Change directory during the test
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.Chdir(wd); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
+	defer cleanup()
 
 	// Start the daemon
 	srv := setupDaemon(t)
@@ -115,29 +97,11 @@ func RunAComposition(t *testing.T, params RunComposition) (*RunResult, error) {
 	params = params.withAbsolutePath()
 
 	// Create a temporary directory for the test.
-	dir, err := ioutil.TempDir("", "testground")
+	err, _, cleanup := fromTemporaryDirectory(t)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := os.RemoveAll(dir); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	// Change directory during the test
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := os.Chdir(wd); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
+	defer cleanup()
 
 	// Start the daemon
 	srv := setupDaemon(t)
