@@ -1,3 +1,10 @@
 go_version = '1.18'
 modfile = "go.v0.21.mod"
 selector = 'v0.21'
+b_value = '2'
+
+[[values]]
+id = "a"
+
+[[values]]
+id = "b"

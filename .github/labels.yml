@@ -234,3 +234,10 @@
 - name: status/blocked
   color: edb3a6
   description: "Status: Blocked"
+
+###
+### Starmaps
+###
+- name: starmaps
+  color: 27292c
+  description: "https://www.starmaps.app/"

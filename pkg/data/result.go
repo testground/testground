@@ -57,9 +57,13 @@ func IsTaskOutcomeInError(t *task.Task) error {
 		return err
 	}
 
-	if outcome != task.OutcomeSuccess {
+	if (!IsOutcomeSuccess(outcome)) {
 		return fmt.Errorf("run outcome: %s", outcome)
 	}
 
 	return nil
+}
+
+func IsOutcomeSuccess(outcome task.Outcome) bool {
+	return outcome == task.OutcomeSuccess
 }

@@ -56,7 +56,7 @@ var (
 )
 
 const (
-	defaultK8sNetworkAnnotation = "flannel"
+	defaultK8sNetworkAnnotation = "aws-cni"
 	// collect-outputs pod is used to compress outputs at the end of a testplan run
 	// as well as to copy archives from it, since it has EFS attached to it
 	collectOutputsPodName = "collect-outputs"
@@ -299,9 +299,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 
 		env := conv.ToEnvVar(runenv.ToEnvVars())
-		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis-headless"})
+		env = append(env, v1.EnvVar{Name: "REDIS_HOST", Value: "testground-infra-redis"})
 		env = append(env, v1.EnvVar{Name: "SYNC_SERVICE_HOST", Value: "testground-sync-service"})
 		env = append(env, v1.EnvVar{Name: "INFLUXDB_URL", Value: "http://influxdb:8086"})
+		// This subnet should correspond to the secondary CNI's IP range (usually Weave)
+		env = append(env, v1.EnvVar{Name: "TEST_SUBNET", Value: "10.32.0.0/12"})
 
 		// Set the log level if provided in cfg.
 		if cfg.LogLevel != "" {
@@ -825,7 +827,6 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 	var sysctls []v1.Sysctl
 	for _, v := range cfg.Sysctls {
 		sysctl := strings.Split(v, "=")
-
 		sysctls = append(sysctls, v1.Sysctl{Name: sysctl[0], Value: sysctl[1]})
 	}
 
@@ -854,7 +855,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				"testground.groupid":  g.ID,
 				"testground.purpose":  "plan",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "weave"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
@@ -976,9 +977,10 @@ func (c *ClusterK8sRunner) checkClusterResources(ow *rpc.OutputWriter, groups []
 
 	// all worker nodes are the same, so just take allocatable CPU from the first
 	item := res.Items[0].Status.Allocatable["cpu"]
-	nodeCPUs, _ := item.AsInt64()
+	nodeCPUs := item.ToDec().Value()
 
 	totalCPUs := nodes * int(nodeCPUs)
+
 	availableCPUs := float64(totalCPUs) - float64(nodes)*sidecarCPUs
 
 	for _, g := range groups {
@@ -1116,7 +1118,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 			Labels: map[string]string{
 				"testground.purpose": "outputs",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation},
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "weave"},
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{
@@ -1186,19 +1188,19 @@ func (c *ClusterK8sRunner) GetClusterCapacity() (int64, int64, error) {
 
 	for _, it := range res.Items {
 		i := it.Status.Allocatable["cpu"]
-		r, _ := i.AsInt64()
+		r := i.ToDec().Value()
 		allocatableCPUs += r
 
 		i = it.Status.Allocatable["memory"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		allocatableMemory += r
 
 		i = it.Status.Capacity["cpu"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		capacityCPUs += r
 
 		i = it.Status.Capacity["memory"]
-		r, _ = i.AsInt64()
+		r = i.ToDec().Value()
 		capacityMemory += r
 	}
 
