@@ -12,7 +12,7 @@ jobs:
       matrix:
         suite: [ "docker_examples", "local_exec" ]
         os: [ "ubuntu" ]
-        go: [ "1.19.x" ]
+        go: [ "1.16.x" ]
     env:
       COVERAGES: ""
     runs-on: ${{ format('{0}-latest', matrix.os) }}
