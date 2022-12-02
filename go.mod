@@ -30,14 +30,14 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/testground/plan-templates/templates v0.0.0-20200429051153-b24fdc73e401
-	github.com/testground/sdk-go v0.3.1-0.20211012114808-49c90fa75405
+	github.com/testground/sdk-go v0.3.1-0.20220525111316-b6b10897b578
 	github.com/urfave/cli/v2 v2.3.0
 	github.com/vishvananda/netlink v1.1.0
 	github.com/vishvananda/netns v0.0.0-20210104183010-2eb08e3e575f
 	github.com/whilp/git-urls v1.0.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v0.22.2

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"text/tabwriter"
@@ -57,6 +58,31 @@ func (tp *TestPlanManifest) TestCaseByName(name string) (idx int, tc *TestCase, 
 	return -1, nil, false
 }
 
+func (tp *TestPlanManifest) defaultParameters(testcaseName string) (map[string]string, error) {
+	_, tc, ok := tp.TestCaseByName(testcaseName)
+
+	if !ok {
+		return nil, fmt.Errorf("test case %s not found", testcaseName)
+	}
+
+	// TODO: the typing system here is broken. Rethink.
+	defaultsTestParams := make(map[string]string, len(tc.Parameters))
+	for n, v := range tc.Parameters {
+		switch dv := v.Default.(type) {
+		case string:
+			defaultsTestParams[n] = dv
+		default:
+			data, err := json.Marshal(v.Default)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse test case parameter; ignoring; name=%s, value=%v, err=%w", n, v, err)
+			}
+			defaultsTestParams[n] = string(data)
+		}
+	}
+
+	return defaultsTestParams, nil
+}
+
 func (tp *TestPlanManifest) HasBuilder(name string) bool {
 	for k := range tp.Builders {
 		if k == name {
@@ -67,11 +93,28 @@ func (tp *TestPlanManifest) HasBuilder(name string) bool {
 }
 
 func (tp *TestPlanManifest) SupportedBuilders() []string {
-	builders := make([]string, 0, len(tp.Builders))
-	for k := range tp.Builders {
-		builders = append(builders, k)
+	xs := make([]string, 0, len(tp.Builders))
+	for x := range tp.Builders {
+		xs = append(xs, x)
 	}
-	return builders
+	return xs
+}
+
+func (tp *TestPlanManifest) HasRunner(name string) bool {
+	for k := range tp.Runners {
+		if k == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (tp *TestPlanManifest) SupportedRunners() []string {
+	xs := make([]string, 0, len(tp.Runners))
+	for x := range tp.Runners {
+		xs = append(xs, x)
+	}
+	return xs
 }
 
 func (tp *TestPlanManifest) Describe(w io.Writer) {

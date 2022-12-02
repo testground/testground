@@ -11,6 +11,7 @@ const (
 	withResource        = "fixtures/templates/with-resource.toml"
 	withResourceComplex = "fixtures/templates/with-resource-complex.toml"
 	missingResource     = "fixtures/templates/missing-resource.toml"
+	tomlAndWithEnv = "fixtures/templates/issue-1493-toml-and-with-env.toml"
 )
 
 func loadExpected(basePath string) (string, error) {
@@ -55,4 +56,22 @@ func TestLoadCompositionWithMissingResourcesFail(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, buff)
+}
+
+func TestLoadCompositionWithTomlAndPickOperators(t *testing.T) {
+	input := &compositionData{Env: map[string]string{
+		"MyValue": "123",
+	}}
+
+	buff, err := compileCompositionTemplate(tomlAndWithEnv, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	str := buff.String()
+
+	expected, err := loadExpected(tomlAndWithEnv)
+
+	require.Nil(t, err)
+	require.Equal(t, expected, str)
 }

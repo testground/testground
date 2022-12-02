@@ -15,7 +15,7 @@ enabled = true
 
 [[testcases]]
 name = "issue-1357-mix-builder-configuration"
-instances = { min = 2, max = 2, default = 2 }
+instances = { min = 2, max = 100, default = 2 }
 
 [testcases.params]
   expected_implementation = { type = "string", desc = "expected implementation" }

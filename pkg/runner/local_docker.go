@@ -150,7 +150,7 @@ func (r *LocalDockerRunner) Healthcheck(ctx context.Context, engine api.Engine, 
 			Entrypoint: []string{"testground"},
 			Cmd:        []string{"sidecar", "--runner", "docker"},
 			// NOTE: we export REDIS_HOST for compatibility with older sdk versions.
-			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "GODEBUG=gctrace=1", additionalHosts},
+			Env: []string{"SYNC_SERVICE_HOST=testground-sync-service", "REDIS_HOST=testground-redis", "INFLUXDB_HOST=testground-influxdb", "INFLUXDB_URL=http://testground-influxdb:8086", "GODEBUG=gctrace=1", additionalHosts},
 		},
 		HostConfig: &container.HostConfig{
 			PublishAllPorts: true,
@@ -445,7 +445,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			var res container.ContainerCreateCreatedBody
 			res, err = cli.ContainerCreate(ctx, ccfg, hcfg, nil, name)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("failed to create container: %w", err)
 			}
 
 			container := testContainerInstance{
@@ -458,7 +458,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			// TODO: Remove this when we get the sidecar working. It'll do this for us.
 			err = attachContainerToNetwork(ctx, cli, res.ID, dataNetworkID)
 			if err != nil {
-				break
+				return nil, fmt.Errorf("failed to attach container to network: %w", err)
 			}
 		}
 	}
@@ -739,7 +739,7 @@ func attachContainerToNetwork(ctx context.Context, cli *client.Client, container
 	return cli.NetworkConnect(ctx, networkID, containerID, nil)
 }
 
-//nolint this function is unused, but it may come in handy.
+// nolint this function is unused, but it may come in handy.
 func detachContainerFromNetwork(ctx context.Context, cli *client.Client, containerID string, networkID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()

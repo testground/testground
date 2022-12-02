@@ -17,3 +17,11 @@ instances = { min = 1, max = 1, default = 1 }
 [[testcases]]
 name = "issue-1432-task-timeout"
 instances = { min = 1, max = 1, default = 1 }
+
+[[testcases]]
+name = "issue-1493-success"
+instances = { min = 1, max = 1000, default = 1 }
+
+[[testcases]]
+name = "issue-1493-optional-failure"
+instances = { min = 1, max = 1000, default = 1 }
