@@ -117,12 +117,9 @@
 ###
 ### Difficulties
 ###
-- name: exp/beginner
-  color: b2b7ff
-  description: "Can be confidently tackled by newcomers, who are widely unfamiliar with testground."
 - name: exp/novice
   color: 7886d7
-  description: "A prexisting testground user should be able to pick this up."
+  description: "Can be confidently tackled by newcomers."
 - name: exp/intermediate
   color: 6574cd
   description: "Prior experience in having developed testground modules is likely helpful."
