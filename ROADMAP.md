@@ -111,7 +111,6 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Documentations for maintainers,
 - Maintainable integration testing tooling (no more shell scripts or flakiness),
 - A Stability Dashboard used to identify regression & discuss improvement with Maintainers and Users,
-- Tooling for EKS testing.
 
 ### 3. Support libp2p's interoperability testing story as a way to drive "critical" Testground improvements
 
@@ -124,8 +123,7 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 **Deliverables:**
 
 - Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
-- Logging improvements - [Epic 1355](https://github.com/testground/testground/issues/1355)
-- Reliable Network simulation in Docker and EKS
+- Reliable Network simulation in Docker
   - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
   - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
   - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
@@ -197,6 +195,7 @@ Using a managed service (Amazon's Elastic Kubernetes Service) means our maintena
 - Integration of the EKS feature in our testing infrastructure
   - Test the EKS cluster during integration testing,
   - (use short lived-clusters during nightly CI tests for example).
+- Reliable Network simulation EKS
 
 ## Appendix: Problems we focus on
 
