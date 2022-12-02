@@ -57,7 +57,7 @@ Testground As A Service embodies our long-term vision.
 - An easy-to-follow documentation and guidelines for users to jump straight into action,
   - An example: pages that can hand-hold through the learning curve, thus fostering community-driven tutorials. As well as APIs section that can help navigate through the vast possibilities of testground.
 - The ability to experiment with large-scale networks and simplify the integration testing of "any" network-related code,
-  - An example: experiment with a set of rollup networks that deploy their data to a different DA network. A unified/standardised way of doing network(s)-to-network(s) experiments would eliminate a lof of bike-shedding that future teams will go through. 
+  - An example: having the ability to define standard experiments with a set of roll-up networks that deploy their data to a different DA network. This would help teams compare solutions using the same metrics.
 - The ability to track the impact of a change in terms of stability & performance across multiple projects,
   - An example: having the ability to run IPFS benchmarks and simulations with different combinations of libraries. This would help us measure regression and improvements as soon as they occur in upstream dependencies.
 
