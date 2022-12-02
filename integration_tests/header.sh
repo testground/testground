@@ -16,7 +16,8 @@ trap 'err_report $LINENO $FILENAME' ERR
 function finish {
   # if the SKIP_AUTO_START flag is unset or set to 0, kill the daemon we started
   if [[ ! -n "$SKIP_AUTO_START"  || $SKIP_AUTO_START = 0 ]]; then
-    kill -15 "$DAEMONPID"
+    #kill -15 "$DAEMONPID"
+    if ps -p "$DAEMONPID" > /dev/null;then echo "running "$DAEMONPID"" | kill -15 "$DAEMONPID";fi
   fi
 }
 trap finish EXIT
