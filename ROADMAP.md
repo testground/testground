@@ -122,49 +122,56 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 
 **Deliverables:**
 
-- Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
-- Reliable Network simulation in Docker
-  - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
-  - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
-  - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
-  - Network Simulation Fixes - [Epic 1492](https://github.com/testground/testground/issues/1492)
-- Remote-Runners for transport Benchmarking
-  - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
-  - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
-- Performance benchmarking tooling
-- Debug tooling
-  - tcpdump-related features - [Issue #1384](https://github.com/testground/testground/issues/1384)
-- Composition Improvements
+- +3 months
+  - Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
+  - Reliable Network simulation in Docker
+    - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
+    - Network Simulation Fixes - [Epic 1492](https://github.com/testground/testground/issues/1492)
+- +3 months
+  - Remote-Runners for transport Benchmarking
+    - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
+    - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
+  - Improved Network Simulation in Docker
+    - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
+    - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
+- +2 months
+  - Tooling
+    - Performance benchmarking tooling
+    - Debugging with tcpdump-related features - [Issue #1384](https://github.com/testground/testground/issues/1384)
+  - Composition Improvements
 
 ### 4. Testground Is Usable by Non-Testground experts
 
-- Delivery: Q2 2023
+- Delivery: Q3 2023
 - Theme: sustainability
-- Effort: approx. 4 developer-months
+- Effort: approx. 5 developer-months
 
 **Why:** If we attract more people to use Testground, we'll have more contributions to the project because Testground is an Open Source project.
 
 **Deliverables:**
 
-- Working Examples (tested in CI)
-- Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
-  - Updated documentation infrastructure
-  - Quickstart guides
-  - Updated examples which are tested in CI
-  - New features & parameters, etc.
-  - guides for most helpful use cases and features
-  - composition templating, etc.
-- Usability improvements
-- SDK implementers support
-  - Matrix of supported languages with links to SDKs
-  - Instructions for SDK Implementers
-- Outbound Communication
-  - Publish guides, usage reports (whitepapers), and more.
-  - We want to multiply the impact of this effort by attracting more users, contributors, and candidates.
+- +1 month
+  - Working Examples (tested in CI)
+  - SDK implementers support
+    - Matrix of supported languages with links to SDKs
+    - Instructions for SDK Implementers
+- +2 months
+  - Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
+    - Updated documentation infrastructure
+    - Quickstart guides
+    - Updated examples which are tested in CI
+    - New features & parameters, etc.
+    - guides for most helpful use cases and features
+    - composition templating, etc.
+- +2 months
+  - Usability improvements
+  - Outbound Communication
+    - Publish guides, usage reports (whitepapers), and more.
+    - We want to multiply the impact of this effort by attracting more users, contributors, and candidates.
 
 ### 5. Refresh Testground's EKS support
 
-- Delivery: Q4 2022
+- Delivery: Q2 2024
 - Theme: usefulness
 - Effort: approx. 6 developer-months
 
@@ -181,7 +188,7 @@ Using a managed service (Amazon's Elastic Kubernetes Service) means our maintena
 
 ### 6. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
 
-- Delivery: Q1 2023
+- Delivery: Q3 2024
 - Theme: usefulness
 - Effort: approx. 2 developer-months
 
