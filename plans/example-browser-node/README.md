@@ -2,9 +2,9 @@
 
 With this testplan we want to showcase how one could,
 while still using the `docker:generic` builder, have a testplan
-which can be tested in a node environment (using `docker:node`)
-as well as within a browser. This does require that the library
-you wish to test can be used from both environments.
+which can be tested a single docker container using the testplan
+directly in a node environment or within the browser.
+This does require that the library you wish to test can be used from both environments.
 
 ## Usage
 
@@ -28,6 +28,21 @@ testground run single \
     --runner local:docker \
     --wait
 ```
+
+This will run the testcase in `Node`. To run it in chromium you can run the following
+
+```
+testground run single \
+    --plan example-browser-node \
+    --testcase output \
+    --instances 1 \
+    --builder docker:generic \
+    --runner local:docker \
+    --tp Runtime=chromium \
+    --wait
+```
+
+Which overrides the default `--tp Runtime=node`.
 
 ## Remote Debugging
 

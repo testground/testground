@@ -22,7 +22,7 @@ RUN npm ci
 
 COPY ./plan/*.js /plan/
 COPY ./plan/src /plan/src
-COPY ./plan/browser /plan/browser
+COPY ./plan/runtime /plan/runtime
 
 RUN npm run webpack
 RUN npm cache clean --force
@@ -35,4 +35,4 @@ EXPOSE ${TEST_BROWSER_DEBUG_PORT}
 ENV TEST_BROWSER_DEBUG_PORT=${TEST_BROWSER_DEBUG_PORT}
 ENV TEST_KEEP_OPENED_BROWSERS=false
 
-ENTRYPOINT [ "npm", "run", "start:browser" ]
+ENTRYPOINT [ "npm", "run", "start" ]

@@ -10,8 +10,7 @@
     "node": ">=16"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "start:browser": "node browser/index.js",
+    "start": "node runtime/index.js",
     "webpack": "webpack --stats-error-details",
     "test": "standard"
   },

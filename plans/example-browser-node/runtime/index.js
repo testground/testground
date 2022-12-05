@@ -24,17 +24,23 @@ const spawnServer = require('./server')
  * 7. exit, fun and profit
  */
 ;(async () => {
-  spawnServer(8080)
-
   const envParameters = runtime.getEnvParameters()
   const runner = runtime.parseRunEnv(envParameters)
+
+  const runtimeKind = runner.runParams.testInstanceParams['Runtime'] || 'node';
+  if (runtimeKind === 'node') {
+    require('../src/index')
+    return
+  }
+
+  await spawnServer(8080)
 
   let browser
   try {
     const browserDebugPort =
       runner.runParams.testInstanceParams['BrowserDebugPort'] || process.env.TEST_BROWSER_DEBUG_PORT ||  9222
 
-    switch (runner.runParams.testInstanceParams['BrowserKind'] || 'chromium') {
+    switch (runtimeKind) {
       // chromium is the default browser engine,
       // and the only browser for which we currently support
       // remote debugging, meaning attaching a local chrome (on your host)
@@ -93,6 +99,10 @@ const spawnServer = require('./server')
           devtools: true
         })
         break
+
+      default:
+        console.error(`unknown runtime kind: ${runtimeKind}`)
+        exit(1)
     }
 
     const page = await browser.newPage()
