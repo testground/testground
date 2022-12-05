@@ -1,0 +1,34 @@
+name = "example-browser-node"
+
+[defaults]
+builder = "docker:node"
+runner = "local:docker"
+
+[builders."docker:node"]
+enabled = true
+
+[builders."docker:generic"]
+enabled = true
+
+[builders."docker:generic".build_args]
+TEST_BROWSER_KIND = "chromium"
+TEST_BROWSER_DEBUG_PORT = "5321"
+TEST_KEEP_OPENED_BROWSERS = "false"
+
+[runners."local:docker"]
+enabled = true
+
+[runners."local:docker".exposed_ports]
+CHROME_DEBUG = "5321"
+
+[[testcases]]
+name = "failure"
+instances = { min = 1, max = 200, default = 1 }
+
+[[testcases]]
+name = "output"
+instances = { min = 1, max = 200, default = 1 }
+
+[[testcases]]
+name = "sync"
+instances = { min = 2, max = 200, default = 2 }
