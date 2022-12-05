@@ -13,7 +13,7 @@ integration test for this plan which will run all its test cases
 in node and chromium:
 
 ```
-integration_tests/example_05_browser_node.sh
+integration_tests/example_04_browser_node.sh
 ```
 
 Or in case you want, and already have a `testground daemon` running,
@@ -43,6 +43,18 @@ testground run single \
 ```
 
 Which overrides the default `--tp Runtime=node`.
+
+## Real World Usage
+
+In a future version we might have a `docker:js` builder which supports both Node+Browser.
+Until then you'll have to copy paste this example plan as a starting point for your own
+cross-runtime testplan for your Javascript both, allowing you to test it in both NodeJS
+as well as one or all of the popular browser engines.
+
+Please provide us feedback and help us improve this (example) testplan
+in case you do you use, as this will will help us refine it as a step towards
+getting it into a position where we feel confident enough
+to turn it into a specialized builder.
 
 ## Remote Debugging
 
