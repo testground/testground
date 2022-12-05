@@ -27,7 +27,7 @@ const spawnServer = require('./server')
   const envParameters = runtime.getEnvParameters()
   const runner = runtime.parseRunEnv(envParameters)
 
-  const runtimeKind = runner.runParams.testInstanceParams['Runtime'] || 'node';
+  const runtimeKind = runner.runParams.testInstanceParams['runtime'] || 'node';
   if (runtimeKind === 'node') {
     require('../src/index')
     return

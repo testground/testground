@@ -39,7 +39,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=chromium \
+    --tp runtime=chromium \
     --collect \
     --wait | tee run.out
 
@@ -54,7 +54,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=firefox \
+    --tp runtime=firefox \
     --collect \
     --wait | tee run.out
 
@@ -69,7 +69,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=webkit \
+    --tp runtime=webkit \
     --collect \
     --wait | tee run.out
 
@@ -98,7 +98,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=chromium \
+    --tp runtime=chromium \
     --collect \
     --wait | tee run.out
 
@@ -113,7 +113,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=firefox \
+    --tp runtime=firefox \
     --collect \
     --wait | tee run.out
 
@@ -128,7 +128,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=1 \
-    --tp Runtime=webkit \
+    --tp runtime=webkit \
     --collect \
     --wait | tee run.out
 
@@ -157,7 +157,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=2 \
-    --tp Runtime=chromium \
+    --tp runtime=chromium \
     --collect \
     --wait | tee run.out
 
@@ -172,7 +172,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=2 \
-    --tp Runtime=firefox \
+    --tp runtime=firefox \
     --collect \
     --wait | tee run.out
 
@@ -187,7 +187,7 @@ testground run single \
     --use-build=testplan:example-browser-node \
     --runner=local:docker \
     --instances=2 \
-    --tp Runtime=webkit \
+    --tp runtime=webkit \
     --collect \
     --wait | tee run.out
 

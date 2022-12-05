@@ -38,11 +38,11 @@ testground run single \
     --instances 1 \
     --builder docker:generic \
     --runner local:docker \
-    --tp Runtime=chromium \
+    --tp runtime=chromium \
     --wait
 ```
 
-Which overrides the default `--tp Runtime=node`.
+Which overrides the default `--tp runtime=node`.
 
 ## Real World Usage
 
