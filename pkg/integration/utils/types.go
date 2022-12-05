@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-type RunSingle struct {
+type RunSingleParams struct {
 	Plan       string
 	Testcase   string
 	Builder    string
@@ -18,7 +18,7 @@ type RunSingle struct {
 	TestParams []string
 }
 
-type RunComposition struct {
+type RunCompositionParams struct {
 	File string
 	// TODO: this is how we implemented these tests before.
 	// Load the composition directly and remove the need for this field.
@@ -36,7 +36,7 @@ type RunResult struct {
 }
 
 // (pure method) rewrite the composition parameters to use absolute paths.
-func (r RunComposition) withAbsolutePath() RunComposition {
+func (r RunCompositionParams) withAbsolutePath() RunCompositionParams {
 	newPath, err := filepath.Abs(r.File)
 
 	if err != nil {

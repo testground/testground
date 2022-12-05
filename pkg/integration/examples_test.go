@@ -18,7 +18,7 @@ func TestRustExample(t *testing.T) {
 		"rust:1.59-bullseye",
 	)
 
-	params := RunSingle{
+	params := RunSingleParams{
 		Plan:      "testground/example-rust",
 		Testcase:  "tcp-connect",
 		Builder:   "docker:generic",
@@ -27,7 +27,7 @@ func TestRustExample(t *testing.T) {
 		Wait:      true,
 	}
 
-	result, err := Run(t, params)
+	result, err := RunSingle(t, params)
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
@@ -38,7 +38,7 @@ func TestRustExample(t *testing.T) {
 func TestNodeExample(t *testing.T) {
 	Setup(t)
 
-	params := RunSingle{
+	params := RunSingleParams{
 		Plan:      "testground/example-js",
 		Testcase:  "pingpong",
 		Builder:   "docker:node",
@@ -47,7 +47,7 @@ func TestNodeExample(t *testing.T) {
 		Wait:      true,
 	}
 
-	result, err := Run(t, params)
+	result, err := RunSingle(t, params)
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
@@ -57,7 +57,7 @@ func TestNodeExample(t *testing.T) {
 func TestGenericArtifact(t *testing.T) {
 	Setup(t)
 
-	params := RunSingle{
+	params := RunSingleParams{
 		Plan:      "testground/example",
 		Testcase:  "artifact",
 		Builder:   "docker:generic",
@@ -66,7 +66,7 @@ func TestGenericArtifact(t *testing.T) {
 		Wait:      true,
 	}
 
-	result, err := Run(t, params)
+	result, err := RunSingle(t, params)
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
@@ -94,7 +94,7 @@ func TestExampleBrowser(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		params := RunSingle{
+		params := RunSingleParams{
 			Plan:      "testground/example-browser",
 			Testcase:  c.testcase,
 			Builder:   "docker:generic",
@@ -106,7 +106,7 @@ func TestExampleBrowser(t *testing.T) {
 			},
 		}
 
-		result, err := Run(t, params)
+		result, err := RunSingle(t, params)
 
 		if c.expectSuccess {
 			require.NoError(t, err)

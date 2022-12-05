@@ -21,7 +21,7 @@ func Setup(t *testing.T) {
 	}
 }
 
-func Run(t *testing.T, params RunSingle) (*RunResult, error) {
+func RunSingle(t *testing.T, params RunSingleParams) (*RunResult, error) {
 	t.Helper()
 
 	// Create a temporary directory for the test.
@@ -90,7 +90,7 @@ func Run(t *testing.T, params RunSingle) (*RunResult, error) {
 	return result, err
 }
 
-func RunAComposition(t *testing.T, params RunComposition) (*RunResult, error) {
+func RunComposition(t *testing.T, params RunCompositionParams) (*RunResult, error) {
 	t.Helper()
 
 	// Rewrite path before changing directories.

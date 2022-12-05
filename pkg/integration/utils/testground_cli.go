@@ -87,7 +87,7 @@ func runTerminate(t *testing.T, srv *daemon.Daemon, runner string) error {
 	return err
 }
 
-func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, error) {
+func runSingle(t *testing.T, params RunSingleParams, srv *daemon.Daemon) (*RunResult, error) {
 	t.Helper()
 	app, stdout, stderr := makeTestgroundApp(true)
 
@@ -137,7 +137,7 @@ func runSingle(t *testing.T, params RunSingle, srv *daemon.Daemon) (*RunResult, 
 	}, err
 }
 
-func runComposition(t *testing.T, params RunComposition, srv *daemon.Daemon) (*RunResult, error) {
+func runComposition(t *testing.T, params RunCompositionParams, srv *daemon.Daemon) (*RunResult, error) {
 	t.Helper()
 	app, stdout, stderr := makeTestgroundApp(true)
 

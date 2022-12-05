@@ -13,7 +13,7 @@ import (
 func TestPlaceboIsOk(t *testing.T) {
 	Setup(t)
 
-	params := RunSingle{
+	params := RunSingleParams{
 		Plan:      "testground/placebo",
 		Testcase:  "ok",
 		Builder:   "exec:go",
@@ -23,7 +23,7 @@ func TestPlaceboIsOk(t *testing.T) {
 		Wait:      true,
 	}
 
-	result, err := Run(t, params)
+	result, err := RunSingle(t, params)
 	defer result.Cleanup()
 
 	require.NoError(t, err)
@@ -38,13 +38,13 @@ func TestPlaceboIsOk(t *testing.T) {
 func TestOverrideDependencies(t *testing.T) {
 	Setup(t)
 
-	params := RunComposition{
+	params := RunCompositionParams{
 		File: "../../plans/placebo/_compositions/pr-1469-override-dependencies.toml",
 		Runner: "local:exec",
 		Wait: true,
 	}
 
-	result, err := RunAComposition(t, params)
+	result, err := RunComposition(t, params)
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
