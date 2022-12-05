@@ -134,6 +134,65 @@ testground run single \
 
 assert_run_outcome_is run.out "failure"
 
+# Node: sync
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=sync \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node \
+    --runner=local:docker \
+    --instances=2 \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
+# Browser (Chromium): sync
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=sync \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node \
+    --runner=local:docker \
+    --instances=2 \
+    --tp Runtime=chromium \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
+# Browser (Firefox): sync
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=sync \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node \
+    --runner=local:docker \
+    --instances=2 \
+    --tp Runtime=firefox \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
+# Browser (WebKit): sync
+
+testground run single \
+    --plan=testground/example-browser-node \
+    --testcase=sync \
+    --builder=docker:generic \
+    --use-build=testplan:example-browser-node \
+    --runner=local:docker \
+    --instances=2 \
+    --tp Runtime=webkit \
+    --collect \
+    --wait | tee run.out
+
+assert_run_outcome_is run.out "success"
+
 popd
 
 echo "terminating remaining containers"
