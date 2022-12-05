@@ -16,7 +16,8 @@ import (
 	"testing"
 )
 
-// use the CLI and call the command `docker pull` for each image in a list of images
+// docker pull a list of images,
+// use the CLI and call the command in a shell for simplicity.
 func DockerPull(t *testing.T, images ...string) {
 	for _, image := range images {
 		t.Logf("$ docker pull %s", image)
