@@ -28,11 +28,11 @@ func DockerPull(t *testing.T, images ...string) {
 }
 
 func ExtractTarGz(src, dst string) error {
-		targzStream, err := os.Open(src)
-		if err != nil {
-			return err
-		}
-		defer targzStream.Close()
+	targzStream, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer targzStream.Close()
 
 	tarStream, err := gzip.NewReader(targzStream)
 	if err != nil {
