@@ -9,18 +9,18 @@ https://github.com/testground/testground/issues/1491
 
 ## Table Of Content
 
+- [Table Of Content](#table-of-content)
 - [Context](#context)
   - [About the Roadmap](#about-the-roadmap)
 - [Vision](#vision)
 - [Our Focus for 2022-2023](#our-focus-for-2022-2023)
 - [Milestones](#milestones)
   - [1. Bootstrap libp2p's interoperability testing story](#1-bootstrap-libp2ps-interoperability-testing-story)
-  - [2. Refresh Testground's EKS support](#2-refresh-testgrounds-eks-support)
-  - [3. Improve our Development & Testing infrastructure to meet engineering standards](#3-improve-our-development--testing-infrastructure-to-meet-engineering-standards)
-  - [4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams](#4-provide-a-testground-as-a-service-cluster-used-by-libp2p--ipfs-teams)
-  - [5. Testground Is Usable by Non-Testground experts](#5-testground-is-usable-by-non-testground-experts)
-  - [6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements](#6-support-libp2ps-interoperability-testing-story-and-probelabs-work-as-a-way-to-drive-critical-testground-improvements)
-- [Appendix: Problems we focus on](#appendix-problems-we-focus-on)
+  - [2. Improve our Development \& Testing infrastructure to meet engineering standards](#2-improve-our-development--testing-infrastructure-to-meet-engineering-standards)
+  - [3. Support libp2p's interoperability testing story as a way to drive "critical" Testground improvements](#3-support-libp2ps-interoperability-testing-story-as-a-way-to-drive-critical-testground-improvements)
+  - [4. Testground Is Usable by Non-Testground experts](#4-testground-is-usable-by-non-testground-experts)
+  - [5. Refresh Testground's EKS support](#5-refresh-testgrounds-eks-support)
+  - [6. Provide a Testground As A Service Cluster used by libp2p \& ipfs teams](#6-provide-a-testground-as-a-service-cluster-used-by-libp2p--ipfs-teams)
 
 ## Context
 
@@ -94,24 +94,7 @@ We want to ensure Testground is valuable and stable before we grow its feature s
 - A fully working example (ping test) used in go-libp2p and rust-libp2p CIs,
 - An interoperability Dashboard that shows how implementations and versions are tested.
 
-### 2. Refresh Testground's EKS support
-
-- Delivery: Q4 2022
-- Theme: usefulness
-- Effort: approx. 6 developer-months
-
-**Why:** Testground can simulate small networks in CI, but it covers more use cases when it lives in a larger cluster. When we run Testgroun in Kubernetes, we can support whole organizations through the Testground As A Service product.
-
-Using a managed service (Amazon's Elastic Kubernetes Service) means our maintenance costs are lower, and the team can focus on improvements.
-
-**Deliverables:**
-
-- An EKS installation script,
-  - Extra care is taken on Network infrastructure (CNIs).
-- A (fixed) Kubernetes runner that runs on Amazon's EKS,
-- The team can use the latest Testground version, create new releases, and upgrade the cluster.
-
-### 3. Improve our Development & Testing infrastructure to meet engineering standards
+### 2. Improve our Development & Testing infrastructure to meet engineering standards
 
 - Delivery: Q1 2023
 - Theme: reliability & sustainability
@@ -128,11 +111,84 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Documentations for maintainers,
 - Maintainable integration testing tooling (no more shell scripts or flakiness),
 - A Stability Dashboard used to identify regression & discuss improvement with Maintainers and Users,
-- Tooling for EKS testing.
 
-### 4. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
+### 3. Support libp2p's interoperability testing story as a way to drive "critical" Testground improvements
 
-- Delivery: Q1 2023
+- Delivery: Q3 2023
+- Theme: usefulness
+- Effort: approx. 8 developer-months
+
+**Why:** By focusing on a use case, we can move faster, generate interest, and create measurable improvements outside the project.
+
+**Deliverables:**
+
+- +3 months
+  - Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
+  - Reliable Network simulation in Docker
+    - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
+    - Network Simulation Fixes - [Epic 1492](https://github.com/testground/testground/issues/1492)
+- +3 months
+  - Remote-Runners for transport Benchmarking
+    - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
+    - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
+  - Improved Network Simulation in Docker
+    - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
+    - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
+- +2 months
+  - Tooling
+    - Performance benchmarking tooling
+    - Debugging with tcpdump-related features - [Issue #1384](https://github.com/testground/testground/issues/1384)
+  - Composition Improvements
+
+### 4. Testground Is Usable by Non-Testground experts
+
+- Delivery: Q3 2023
+- Theme: sustainability
+- Effort: approx. 5 developer-months
+
+**Why:** If we attract more people to use Testground, we'll have more contributions to the project because Testground is an Open Source project.
+
+**Deliverables:**
+
+- +1 month
+  - Working Examples (tested in CI)
+  - SDK implementers support
+    - Matrix of supported languages with links to SDKs
+    - Instructions for SDK Implementers
+- +2 months
+  - Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
+    - Updated documentation infrastructure
+    - Quickstart guides
+    - Updated examples which are tested in CI
+    - New features & parameters, etc.
+    - guides for most helpful use cases and features
+    - composition templating, etc.
+- +2 months
+  - Usability improvements
+  - Outbound Communication
+    - Publish guides, usage reports (whitepapers), and more.
+    - We want to multiply the impact of this effort by attracting more users, contributors, and candidates.
+
+### 5. Refresh Testground's EKS support
+
+- Delivery: Q2 2024
+- Theme: usefulness
+- Effort: approx. 6 developer-months
+
+**Why:** Testground can simulate small networks in CI, but it covers more use cases when it lives in a larger cluster. When we run Testgroun in Kubernetes, we can support whole organizations through the Testground As A Service product.
+
+Using a managed service (Amazon's Elastic Kubernetes Service) means our maintenance costs are lower, and the team can focus on improvements.
+
+**Deliverables:**
+
+- An EKS installation script,
+  - Extra care is taken on Network infrastructure (CNIs).
+- A (fixed) Kubernetes runner that runs on Amazon's EKS,
+- The team can use the latest Testground version, create new releases, and upgrade the cluster.
+
+### 6. Provide a Testground As A Service Cluster used by libp2p & ipfs teams
+
+- Delivery: Q3 2024
 - Theme: usefulness
 - Effort: approx. 2 developer-months
 
@@ -146,57 +202,7 @@ Extra care is taken on Testing and Stability: we are building a testing platform
 - Integration of the EKS feature in our testing infrastructure
   - Test the EKS cluster during integration testing,
   - (use short lived-clusters during nightly CI tests for example).
-
-### 5. Testground Is Usable by Non-Testground experts
-
-- Delivery: Q2 2023
-- Theme: sustainability
-- Effort: approx. 4 developer-months
-
-**Why:** If we attract more people to use Testground, we'll have more contributions to the project because Testground is an Open Source project.
-
-**Deliverables:**
-
-- Working Examples (tested in CI)
-- Documentation [EPICS 1741](https://github.com/testground/testground/issues/1471).
-  - Updated documentation infrastructure
-  - Quickstart guides
-  - Updated examples which are tested in CI
-  - New features & parameters, etc.
-  - guides for most helpful use cases and features
-  - composition templating, etc.
-- Usability improvements
-- SDK implementers support
-  - Matrix of supported languages with links to SDKs
-  - Instructions for SDK Implementers
-- Outbound Communication
-  - Publish guides, usage reports (whitepapers), and more.
-  - We want to multiply the impact of this effort by attracting more users, contributors, and candidates.
-
-### 6. Support libp2p's interoperability testing story and ProbeLabs work as a way to drive "critical" Testground improvements
-
-- Delivery: Q3 2023
-- Theme: usefulness
-- Effort: approx. 8 developer-months
-
-**Why:** By focusing on a use case, we can move faster, generate interest, and create measurable improvements outside the project.
-
-**Deliverables:**
-
-- Javascript & Browser support in Testground - [issue 1386](https://github.com/testground/testground/issues/1386)
-- Logging improvements - [Epic 1355](https://github.com/testground/testground/issues/1355)
-- Reliable Network simulation in Docker and EKS
-  - Access to public networks - [issue 1472](https://github.com/testground/testground/issues/1472)
-  - NAT simulation - [issue 1299](https://github.com/testground/testground/issues/1299)
-  - Complex topologies - [issue 1354](https://github.com/testground/testground/issues/1354)
-  - Network Simulation Fixes - [Epic 1492](https://github.com/testground/testground/issues/1492)
-- Remote-Runners for transport Benchmarking
-  - See [Notion](https://www.notion.so/pl-strflt/Remote-Runners-c4ad4886c4294fb6a6f8afd9c0c5b73c) design,
-  - And [PR 1425](https://github.com/testground/testground/pull/1425) preliminary work.
-- Performance benchmarking tooling
-- Debug tooling
-  - tcpdump-related features - [Issue #1384](https://github.com/testground/testground/issues/1384)
-- Composition Improvements
+- Reliable Network simulation EKS
 
 ## Appendix: Problems we focus on
 
