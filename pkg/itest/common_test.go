@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package cmd_test
 
 import (
@@ -25,12 +28,13 @@ func runSingle(t *testing.T, opts *terminateOpts, args ...string) error {
 			Scheduler: config.SchedulerConfig{
 				TaskRepoType: "memory",
 			},
+			Listen: "localhost:0",
 		},
 	}
-	if err := cfg.Load(); err != nil {
+	if err := cfg.EnsureMinimalConfig(); err != nil {
 		t.Fatal(err)
 	}
-	cfg.Daemon.Listen = "localhost:0"
+	
 	srv, err := daemon.New(cfg)
 	if err != nil {
 		t.Fatal(err)

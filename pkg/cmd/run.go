@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -302,6 +303,7 @@ func run(c *cli.Context, comp *api.Composition) (err error) {
 		collectionTarget:  collectionTarget,
 		resultTarget:      resultTarget,
 		Results:           make([]MultiRunResult, 0, len(runIds)),
+		Stdout:            c.App.Writer,
 	}
 
 	for {
@@ -404,7 +406,7 @@ func (m *MultiRunStrategy) CurrentRunId() string {
 func (m *MultiRunStrategy) ExitStatus() error {
 	for _, result := range m.Results {
 		if (result.Error != "" || !data.IsOutcomeSuccess(result.Result.Outcome)) {
-			return fmt.Errorf("run \"%s\" failed", result.RunId)
+			return cli.Exit(fmt.Errorf("run \"%s\" failed", result.RunId), 1)
 		}
 	}
 
@@ -426,7 +428,7 @@ func (m *MultiRunStrategy) CallDaemonRun(ctx context.Context, cl *client.Client)
 
 	defer resp.Close()
 
-	id, err := client.ParseRunResponse(resp)
+	id, err := client.ParseRunResponse(resp, m.Stdout)
 	if err != nil {
 		return "", err
 	}
@@ -446,7 +448,7 @@ func (m *MultiRunStrategy) WaitForTaskCompletion(ctx context.Context, cl *client
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(os.Stdout, r)
+	tsk, err := client.ParseLogsRequest(m.Stdout, r)
 	if err != nil {
 		return nil, err
 	}
@@ -503,7 +505,7 @@ func (m *MultiRunStrategy) CurrentCollectedPath(taskId string) string {
 
 func (m *MultiRunStrategy) Collect(ctx context.Context, cl *client.Client, taskId string) error {
 	if m.isCollecting {
-		err := collect(ctx, cl, m.Composition.Global.Runner, taskId, m.CurrentCollectedPath(taskId))
+		err := collect(ctx, cl, m.Stdout, m.Composition.Global.Runner, taskId, m.CurrentCollectedPath(taskId))
 
 		if err != nil {
 			return cli.Exit(err.Error(), 3)
@@ -599,6 +601,9 @@ type MultiRunStrategy struct {
 
 	// Results
 	Results []MultiRunResult
+
+	// Output
+	Stdout io.Writer
 }
 
 type MultiRunResult struct {

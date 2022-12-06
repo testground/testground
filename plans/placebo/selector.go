@@ -1,3 +1,4 @@
+//go:build foo && bar
 // +build foo,bar
 
 this is garbage.

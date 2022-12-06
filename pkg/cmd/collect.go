@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/testground/testground/pkg/api"
@@ -57,10 +58,10 @@ func collectCommand(c *cli.Context) error {
 		return err
 	}
 
-	return collect(ctx, cl, runner, id, output)
+	return collect(ctx, cl, c.App.Writer, runner, id, output)
 }
 
-func collect(ctx context.Context, cl *client.Client, runner string, runid string, outputFile string) error {
+func collect(ctx context.Context, cl *client.Client, stdout io.Writer, runner string, runid string, outputFile string) error {
 	req := &api.OutputsRequest{
 		Runner: runner,
 		RunID:  runid,
@@ -84,7 +85,7 @@ func collect(ctx context.Context, cl *client.Client, runner string, runid string
 	}
 	defer file.Close()
 
-	cr, err := client.ParseCollectResponse(resp, file)
+	cr, err := client.ParseCollectResponse(resp, file, stdout)
 	if err != nil {
 		return err
 	}

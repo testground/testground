@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -224,7 +223,7 @@ func build(c *cli.Context, comp *api.Composition) error {
 	}
 	defer resp.Close()
 
-	id, err := client.ParseBuildResponse(resp)
+	id, err := client.ParseBuildResponse(resp, c.App.Writer)
 	switch err {
 	case nil:
 	case context.Canceled:
@@ -249,7 +248,7 @@ func build(c *cli.Context, comp *api.Composition) error {
 	}
 	defer r.Close()
 
-	tsk, err := client.ParseLogsRequest(os.Stdout, r)
+	tsk, err := client.ParseLogsRequest(c.App.Writer, r)
 	if err != nil {
 		return err
 	}
@@ -296,7 +295,7 @@ func runBuildPurgeCmd(c *cli.Context) (err error) {
 	}
 	defer resp.Close()
 
-	err = client.ParseBuildPurgeResponse(resp)
+	err = client.ParseBuildPurgeResponse(resp, c.App.Writer)
 	if err != nil {
 		return err
 	}

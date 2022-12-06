@@ -57,5 +57,5 @@ func terminateCommand(c *cli.Context) error {
 	}
 	defer r.Close()
 
-	return client.ParseTerminateRequest(r)
+	return client.ParseTerminateRequest(r, c.App.Writer)
 }

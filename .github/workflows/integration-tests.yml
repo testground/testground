@@ -1,0 +1,39 @@
+on:
+  push:
+    branches:
+      - master
+  pull_request
+name: Integration Tests
+
+concurrency:
+  group: ${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [ "docker_examples", "local_exec" ]
+        os: [ "ubuntu" ]
+        go: [ "1.16.x" ]
+    env:
+      COVERAGES: ""
+    runs-on: ${{ format('{0}-latest', matrix.os) }}
+    name: "[${{ matrix.suite }}] on ${{ matrix.os }} (go ${{ matrix.go }})"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Go information
+        run: |
+          go version
+          go env
+      - name: Install Testground
+        # Required to get the sync-service and other docker containers used by the daemon.
+        run: |
+          make install
+      - name: Run tests
+        run: |
+          go test -tags "integration,${{ matrix.suite }}" -timeout 20m -parallel 1 -v -shuffle=on ./pkg/integration/...

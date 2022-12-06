@@ -1,3 +1,6 @@
+//go:build integration && local_exec
+// +build integration,local_exec
+
 package cmd_test
 
 import (
