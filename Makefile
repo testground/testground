@@ -88,3 +88,4 @@ test-integ-examples:
 	./integration_tests/example_02_js_sync.sh
 	./integration_tests/example_03_generic_artifact.sh
 	./integration_tests/example_04_browser_node.sh
+	./integration_tests/example_04_browser_node_sync_cross_runtime.sh

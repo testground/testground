@@ -1,0 +1,39 @@
+[metadata]
+name    = "sync-cross-runtime"
+author  = "Glen De Cauwsemaecker"
+
+[global]
+plan    = "example-browser-node"
+case    = "sync"
+builder = "docker:generic"
+runner  = "local:docker"
+
+total_instances = 4
+
+[[groups]]
+id = "sync-node"
+instances = { count = 1 }
+
+  [groups.run.test_params]
+  runtime = "node"
+
+[[groups]]
+id = "sync-chromium"
+instances = { count = 1 }
+
+  [groups.run.test_params]
+  runtime = "chromium"
+
+[[groups]]
+id = "sync-firefox"
+instances = { count = 1 }
+
+  [groups.run.test_params]
+  runtime = "firefox"
+
+[[groups]]
+id = "sync-webkit"
+instances = { count = 1 }
+
+  [groups.run.test_params]
+  runtime = "webkit"
