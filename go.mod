@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/BurntSushi/toml v0.4.1
+	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-sdk-go v1.40.19
 	github.com/containernetworking/cni v1.0.0
 	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
@@ -37,7 +38,6 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
-	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e // indirect
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v0.22.2

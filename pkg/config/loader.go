@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-
+	"github.com/adrg/xdg"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -50,6 +50,23 @@ func (e *EnvConfig) Load() error {
 	return nil
 }
 
+// checkLegacyHome will check if $HOME/testgraound exists and is a directory. Otherwise, returns defaultHome
+func checkLegacyHomeOrDefault(defaultHome string) string {
+	legacyHomePath := filepath.Join(xdg.Home, "testground")
+	fi, err := os.Stat(legacyHomePath)
+	if err == nil && fi.IsDir() {
+		// $HOME/testground detected, use this path to support legacy users
+		logging.S().Warnf("[DEPRECATED] path \"%s\" is deprecated. "+
+			"The default for future releases will be \"%s\". "+
+			"Use \"export TESTGROUND_HOME='%s'\" to override default testground home",
+			legacyHomePath, defaultHome, legacyHomePath)
+
+		return legacyHomePath
+	}
+
+	return defaultHome
+}
+
 func (e *EnvConfig) EnsureMinimalConfig() error {
 	// apply fallbacks.
 	e.Daemon.Listen = defaultString(e.Daemon.Listen, DefaultListenAddr)
@@ -59,21 +76,11 @@ func (e *EnvConfig) EnsureMinimalConfig() error {
 	e.Daemon.Scheduler.QueueSize = defaultInt(e.Daemon.Scheduler.QueueSize, DefaultQueueSize)
 	e.Daemon.Scheduler.TaskRepoType = defaultString(e.Daemon.Scheduler.TaskRepoType, DefaultTaskRepoType)
 
-	// calculate home directory; use env var, or fall back to $HOME/testground
-	// otherwise.
-	var home string
+	// default to $HOME/.config/testground (unix/linux) via xdg standard
+	home := checkLegacyHomeOrDefault(filepath.Join(xdg.ConfigHome, "testground"))
 	if v, ok := os.LookupEnv(EnvTestgroundHomeDir); ok {
-		// we have an env var.
 		home = v
-	} else {
-		// fallback to $HOME/testground.
-		v, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to obtain user home dir: %w", err)
-		}
-		home = filepath.Join(v, "testground")
 	}
-
 	switch fi, err := os.Stat(home); {
 	case os.IsNotExist(err):
 		logging.S().Infof("creating home directory at %s", home)
