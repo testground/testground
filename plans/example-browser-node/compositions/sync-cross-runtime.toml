@@ -8,8 +8,6 @@ case    = "sync"
 builder = "docker:generic"
 runner  = "local:docker"
 
-total_instances = 4
-
 [[groups]]
 id = "sync-node"
 instances = { count = 1 }
