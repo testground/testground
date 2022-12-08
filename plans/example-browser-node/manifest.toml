@@ -11,7 +11,6 @@ enabled = true
 enabled = true
 
 [builders."docker:generic".build_args]
-TEST_BROWSER_KIND = "chromium"
 TEST_BROWSER_DEBUG_PORT = "5321"
 TEST_KEEP_OPENED_BROWSERS = "false"
 

@@ -10,8 +10,7 @@
     "node": ">=16"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "start:browser": "node browser/index.js",
+    "start": "node runtime/index.js",
     "webpack": "webpack --stats-error-details",
     "test": "standard"
   },
@@ -24,7 +23,7 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
-    "@testground/sdk": "github:testground/sdk-js#4401d1d478d3a12c8b5fc36799a51651f5fdba52",
+    "@testground/sdk": "^0.1.3",
     "express": "^4.18.2",
     "playwright": "^1.27.1"
   }

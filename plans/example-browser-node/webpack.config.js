@@ -5,7 +5,7 @@ module.exports = {
   context: __dirname,
   entry: './src/index.js',
   output: {
-    path: path.resolve(__dirname, 'browser', 'server', 'static', 'assets'),
+    path: path.resolve(__dirname, 'runtime', 'server', 'static', 'assets'),
     filename: 'plan.bundle.js',
     library: '$',
     libraryTarget: 'umd'

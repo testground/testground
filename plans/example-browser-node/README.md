@@ -2,9 +2,9 @@
 
 With this testplan we want to showcase how one could,
 while still using the `docker:generic` builder, have a testplan
-which can be tested in a node environment (using `docker:node`)
-as well as within a browser. This does require that the library
-you wish to test can be used from both environments.
+which can be tested a single docker container using the testplan
+directly in a node environment or within the browser.
+This does require that the library you wish to test can be used from both environments.
 
 ## Usage
 
@@ -13,7 +13,7 @@ integration test for this plan which will run all its test cases
 in node and chromium:
 
 ```
-integration_tests/example_05_browser_node.sh
+integration_tests/example_04_browser_node.sh
 ```
 
 Or in case you want, and already have a `testground daemon` running,
@@ -28,6 +28,33 @@ testground run single \
     --runner local:docker \
     --wait
 ```
+
+This will run the testcase in `Node`. To run it in chromium you can run the following
+
+```
+testground run single \
+    --plan example-browser-node \
+    --testcase output \
+    --instances 1 \
+    --builder docker:generic \
+    --runner local:docker \
+    --tp runtime=chromium \
+    --wait
+```
+
+Which overrides the default `--tp runtime=node`.
+
+## Real World Usage
+
+In a future version we might have a `docker:js` builder which supports both Node+Browser.
+Until then you'll have to copy paste this example plan as a starting point for your own
+cross-runtime testplan for your Javascript both, allowing you to test it in both NodeJS
+as well as one or all of the popular browser engines.
+
+Please provide us feedback and help us improve this (example) testplan
+in case you do you use, as this will will help us refine it as a step towards
+getting it into a position where we feel confident enough
+to turn it into a specialized builder.
 
 ## Remote Debugging
 
