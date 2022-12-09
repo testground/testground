@@ -1,6 +1,7 @@
 [builders."docker:go"]
 enabled = true
 
+
 [runners."local:docker"]
 enabled = true
 ulimits = ["nofile=1048576:1048576"]
@@ -10,7 +11,7 @@ additional_hosts = ["http-echo"]
 listen = ":8040"
 
 [daemon.scheduler]
-task_timeout_min = 5
+task_timeout_min = 1
 task_repo_type = "disk"
 
 [client]
