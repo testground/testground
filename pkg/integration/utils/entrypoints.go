@@ -32,7 +32,7 @@ func RunSingle(t *testing.T, params RunSingleParams) (*RunResult, error) {
 	defer cleanup()
 
 	// Start the daemon
-	srv := setupDaemon(t)
+	srv := setupDaemon(t,  params.DaemonTimeout)
 	defer func() {
 		err := runTerminate(t, srv, params.Runner)
 		srv.Shutdown(context.Background()) //nolint
@@ -104,7 +104,7 @@ func RunComposition(t *testing.T, params RunCompositionParams) (*RunResult, erro
 	defer cleanup()
 
 	// Start the daemon
-	srv := setupDaemon(t)
+	srv := setupDaemon(t, 0)
 	defer func() {
 		err := runTerminate(t, srv, params.Runner)
 		srv.Shutdown(context.Background()) //nolint

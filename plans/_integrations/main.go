@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"time"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
@@ -11,6 +12,8 @@ var testcases = map[string]interface{}{
 	"issue-1349-silent-failure": silentFailure,
 	"issue-1493-success": run.InitializedTestCaseFn(success),
 	"issue-1493-optional-failure": run.InitializedTestCaseFn(optionalFailure),
+	"issue-1542-stalled-test-panic": run.InitializedTestCaseFn(panickingTest),
+	"issue-1542-stalled-test-stall": run.InitializedTestCaseFn(stallingTest),
 }
 
 func main() {
@@ -35,5 +38,27 @@ func optionalFailure(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
 		return errors.New("failing as requested")
 	}
 
+	return nil
+}
+
+func panickingTest(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	// Only the first instance panics
+	if initCtx.GlobalSeq == 1 {
+		runenv.RecordMessage("panicking on purpose")
+		panic(errors.New("this is an intentional panic"))
+	}
+
+	runenv.RecordMessage("container completed successfully")
+	return nil
+}
+
+func stallingTest(runenv *runtime.RunEnv, initCtx *run.InitContext) error {
+	// Only the first instance stalls
+	if initCtx.GlobalSeq == 1 {
+		runenv.RecordMessage("stalling on purpose")
+		time.Sleep(24 * time.Hour)
+	}
+
+	runenv.RecordMessage("container completed successfully")
 	return nil
 }

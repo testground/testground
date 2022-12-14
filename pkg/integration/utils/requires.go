@@ -56,6 +56,10 @@ func RequireOutcomeIsFailure(t *testing.T, result *RunResult) {
 	RequireOutcomeIs(t, task.OutcomeFailure, result)
 }
 
+func RequireOutcomeIsCanceled(t *testing.T, result *RunResult) {
+	RequireOutcomeIs(t, task.OutcomeCanceled, result)
+}
+
 // Requires that the folder collected from the run contains
 // some logs and no errors.
 // Assumes it is a single run for a single group.

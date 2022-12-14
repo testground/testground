@@ -5,17 +5,19 @@ package utils
 
 import (
 	"path/filepath"
+	"time"
 )
 
 type RunSingleParams struct {
-	Plan       string
-	Testcase   string
-	Builder    string
-	Runner     string
-	Instances  int
-	Collect    bool
-	Wait       bool
-	TestParams []string
+	Plan          string
+	Testcase      string
+	Builder       string
+	Runner        string
+	Instances     int
+	Collect       bool
+	Wait          bool
+	TestParams    []string
+	DaemonTimeout time.Duration
 }
 
 type RunCompositionParams struct {
@@ -28,11 +30,11 @@ type RunCompositionParams struct {
 }
 
 type RunResult struct {
-	ExitCode int
-	Stdout   string
-	Stderr   string
+	ExitCode      int
+	Stdout        string
+	Stderr        string
 	CollectFolder string
-	Cleanup func()
+	Cleanup       func()
 }
 
 // (pure method) rewrite the composition parameters to use absolute paths.
