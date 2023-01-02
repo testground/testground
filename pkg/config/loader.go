@@ -58,9 +58,10 @@ func getDefaultHome() string {
 	fi, err := os.Stat(legacyHomePath)
 	if err == nil && fi.IsDir() {
 		// $HOME/testground detected, use this path to support legacy users
-		logging.S().Warnf("[DEPRECATED] path \"%s\" is deprecated. "+
-			"The default for future releases will be \"%s\". "+
-			"Use \"export TESTGROUND_HOME='%s'\" to override default testground home",
+		logging.S().Warnf("[DEPRECATED] \"%s\" as a default testground home is deprecated. "+
+			"Future releases will use \"%s\" as the default for testground home. "+
+			"If you want to keep using your current testground home, "+
+			"please set it explicitly using \"export TESTGROUND_HOME='%s'\".",
 			legacyHomePath, defaultHomePath, legacyHomePath)
 
 		return legacyHomePath
