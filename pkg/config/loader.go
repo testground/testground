@@ -50,21 +50,23 @@ func (e *EnvConfig) Load() error {
 	return nil
 }
 
-// checkLegacyHome will check if $HOME/testgraound exists and is a directory. Otherwise, returns defaultHome
-func checkLegacyHomeOrDefault(defaultHome string) string {
+// returns $HOME/testground if it exists and is a directory (legacy)
+// otherwise, returns $XDG_CONFIG_HOME/testground
+func getDefaultHome() string {
 	legacyHomePath := filepath.Join(xdg.Home, "testground")
+	defaultHomePath := filepath.Join(xdg.ConfigHome, "testground")
 	fi, err := os.Stat(legacyHomePath)
 	if err == nil && fi.IsDir() {
 		// $HOME/testground detected, use this path to support legacy users
 		logging.S().Warnf("[DEPRECATED] path \"%s\" is deprecated. "+
 			"The default for future releases will be \"%s\". "+
 			"Use \"export TESTGROUND_HOME='%s'\" to override default testground home",
-			legacyHomePath, defaultHome, legacyHomePath)
+			legacyHomePath, defaultHomePath, legacyHomePath)
 
 		return legacyHomePath
 	}
 
-	return defaultHome
+	return defaultHomePath
 }
 
 func (e *EnvConfig) EnsureMinimalConfig() error {
@@ -76,10 +78,14 @@ func (e *EnvConfig) EnsureMinimalConfig() error {
 	e.Daemon.Scheduler.QueueSize = defaultInt(e.Daemon.Scheduler.QueueSize, DefaultQueueSize)
 	e.Daemon.Scheduler.TaskRepoType = defaultString(e.Daemon.Scheduler.TaskRepoType, DefaultTaskRepoType)
 
-	// default to $HOME/.config/testground (unix/linux) via xdg standard
-	home := checkLegacyHomeOrDefault(filepath.Join(xdg.ConfigHome, "testground"))
+	// 1. Use $TESTGROUND_HOME if set
+        // 2. Otherwise use $HOME/testground if directory exists (legacy, to be deprecated)
+        // 3. Otherwise use $XDG_CONFIG_HOME/testground
+	var home string
 	if v, ok := os.LookupEnv(EnvTestgroundHomeDir); ok {
 		home = v
+	} else {
+		home = getDefaultHome()
 	}
 	switch fi, err := os.Stat(home); {
 	case os.IsNotExist(err):
