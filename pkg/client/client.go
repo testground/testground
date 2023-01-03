@@ -249,6 +249,8 @@ func getFilteredDirectory(dir string) (string, bool, error) {
 		return "", false, err
 	}
 
+	// Parse the .testgroundignore file and generates a GitIgnore matcher object.
+	// This object is used later to detect which file matches the ignore patterns.
 	tgIgnore, err := ignore.CompileIgnoreFile(ignoreFilePath)
 	if err != nil {
 		return "", false, err
