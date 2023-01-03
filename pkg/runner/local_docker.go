@@ -295,7 +295,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 		}
 		if ctx.Err() == context.Canceled {
 			log.Infow("run canceled")
-			result.Outcome = task.OutcomeFailure
+			result.Outcome = task.OutcomeCanceled
 		}
 		if ctx.Err() == context.DeadlineExceeded {
 			log.Infow("run canceled after reaching the task timeout")
