@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -12,33 +14,29 @@ const (
 )
 
 func TestFilteredDirectoryWithoutIgnore(t *testing.T) {
-	dir, tmp, err := getFilteredDirectory(withoutIgnoreFileDir)
+	dir, err := getFilteredDirectory(withoutIgnoreFileDir)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if tmp {
-		t.Fatal("temp bool must be false")
-	}
-
-	if dir != withoutIgnoreFileDir {
-		t.Fatalf("returned directory must be %s, received %s", withoutIgnoreFileDir, dir)
-	}
-}
-
-func TestFilteredDirectoryWithIgnore(t *testing.T) {
-	dir, tmp, err := getFilteredDirectory(withIgnoreFileDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !tmp {
-		t.Fatal("temp bool must be true")
 	}
 
 	defer func() {
 		_ = os.RemoveAll(dir)
 	}()
+
+	require.NotEqual(t, withoutIgnoreFileDir, dir)
+}
+
+func TestFilteredDirectoryWithIgnore(t *testing.T) {
+	dir, err := getFilteredDirectory(withIgnoreFileDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		_ = os.RemoveAll(dir)
+	}()
+
+	require.NotEqual(t, withoutIgnoreFileDir, dir)
 
 	mustExist := []string{
 		"b/file.txt",
@@ -53,16 +51,10 @@ func TestFilteredDirectoryWithIgnore(t *testing.T) {
 	}
 
 	for _, file := range mustExist {
-		if _, err := os.Stat(filepath.Join(dir, file)); err != nil {
-			t.Fatalf("file must exist; %s", err)
-		}
+		require.FileExists(t, filepath.Join(dir, file))
 	}
 
 	for _, file := range mustNotExist {
-		if _, err := os.Stat(filepath.Join(dir, file)); !os.IsNotExist(err) {
-			t.Fatalf("file must not exist; %s", err)
-		}
+		require.NoFileExists(t, filepath.Join(dir, file))
 	}
-
-	t.Log(dir)
 }

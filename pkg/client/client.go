@@ -184,22 +184,20 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 		// Optional part 2: plan source directory.
 		if plandir != "" {
-			plandir, temp, err := getFilteredDirectory(plandir)
+			filteredDir, err := getFilteredDirectory(plandir)
 			if err != nil {
 				return err
 			}
 
-			if temp {
-				defer func() {
-					os.RemoveAll(plandir)
-				}()
-			}
+			defer func() {
+				os.RemoveAll(filteredDir)
+			}()
 
 			w, err = mp.CreatePart(hplan)
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, plandir); err != nil {
+			if err = writeZippedDirs(w, false, filteredDir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -237,28 +235,32 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 // getFilteredDirectory filters the directory dir according to the
 // ignored files specified in $dir/.testgroundignore. Returns a new
-// directory and a boolean indicating if such directory is temporary
-// and should be cleaned by the caller.
-func getFilteredDirectory(dir string) (string, bool, error) {
+// temporary directory.
+func getFilteredDirectory(dir string) (string, error) {
+	tmp, err := os.MkdirTemp("", "testground")
+	if err != nil {
+		return "", err
+	}
+
 	ignoreFilePath := filepath.Join(dir, ".testgroundignore")
-	_, err := os.Stat(ignoreFilePath)
+	_, err = os.Stat(ignoreFilePath)
 
 	if os.IsNotExist(err) {
-		return dir, false, nil
-	} else if err != nil {
-		return "", false, err
+		// If the .testgroundignore file does not exist, we just copy the
+		// directory as it is.
+		err = copy.Copy(dir, tmp)
+		return tmp, err
+	}
+
+	if err != nil {
+		return "", err
 	}
 
 	// Parse the .testgroundignore file and generates a GitIgnore matcher object.
 	// This object is used later to detect which file matches the ignore patterns.
 	tgIgnore, err := ignore.CompileIgnoreFile(ignoreFilePath)
 	if err != nil {
-		return "", false, err
-	}
-
-	tmp, err := ioutil.TempDir("", "testground")
-	if err != nil {
-		return "", false, err
+		return "", err
 	}
 
 	err = copy.Copy(dir, tmp, copy.Options{
@@ -273,7 +275,7 @@ func getFilteredDirectory(dir string) (string, bool, error) {
 		},
 	})
 
-	return tmp, true, err
+	return tmp, err
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
