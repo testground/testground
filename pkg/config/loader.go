@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-
+	"github.com/adrg/xdg"
 	"github.com/testground/testground/pkg/logging"
 )
 
@@ -50,6 +50,26 @@ func (e *EnvConfig) Load() error {
 	return nil
 }
 
+// returns $HOME/testground if it exists and is a directory (legacy)
+// otherwise, returns $XDG_CONFIG_HOME/testground
+func getDefaultHome() string {
+	legacyHomePath := filepath.Join(xdg.Home, "testground")
+	defaultHomePath := filepath.Join(xdg.ConfigHome, "testground")
+	fi, err := os.Stat(legacyHomePath)
+	if err == nil && fi.IsDir() {
+		// $HOME/testground detected, use this path to support legacy users
+		logging.S().Warnf("[DEPRECATED] \"%s\" as a default testground home is deprecated. "+
+			"Future releases will use \"%s\" as the default for testground home. "+
+			"If you want to keep using your current testground home, "+
+			"please set it explicitly using \"export TESTGROUND_HOME='%s'\".",
+			legacyHomePath, defaultHomePath, legacyHomePath)
+
+		return legacyHomePath
+	}
+
+	return defaultHomePath
+}
+
 func (e *EnvConfig) EnsureMinimalConfig() error {
 	// apply fallbacks.
 	e.Daemon.Listen = defaultString(e.Daemon.Listen, DefaultListenAddr)
@@ -59,21 +79,15 @@ func (e *EnvConfig) EnsureMinimalConfig() error {
 	e.Daemon.Scheduler.QueueSize = defaultInt(e.Daemon.Scheduler.QueueSize, DefaultQueueSize)
 	e.Daemon.Scheduler.TaskRepoType = defaultString(e.Daemon.Scheduler.TaskRepoType, DefaultTaskRepoType)
 
-	// calculate home directory; use env var, or fall back to $HOME/testground
-	// otherwise.
+	// 1. Use $TESTGROUND_HOME if set
+        // 2. Otherwise use $HOME/testground if directory exists (legacy, to be deprecated)
+        // 3. Otherwise use $XDG_CONFIG_HOME/testground
 	var home string
 	if v, ok := os.LookupEnv(EnvTestgroundHomeDir); ok {
-		// we have an env var.
 		home = v
 	} else {
-		// fallback to $HOME/testground.
-		v, err := os.UserHomeDir()
-		if err != nil {
-			return fmt.Errorf("failed to obtain user home dir: %w", err)
-		}
-		home = filepath.Join(v, "testground")
+		home = getDefaultHome()
 	}
-
 	switch fi, err := os.Stat(home); {
 	case os.IsNotExist(err):
 		logging.S().Infof("creating home directory at %s", home)

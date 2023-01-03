@@ -40,9 +40,8 @@ t2=$(testground run single \
     --wait \
     --collect)
 
-# Very unwieldy, $59 is the ID in the log
-run_id1=$(echo $t1 | awk '/run is queued with ID: / {print $59}')
-run_id2=$(echo $t2 | awk '/run is queued with ID: / {print $59}')
+run_id1=$(echo "$t1" | awk '/run is queued with ID: / {print $10}')
+run_id2=$(echo "$t2" | awk '/run is queued with ID: / {print $10}')
 
 # First run must be canceled
 assert_testground_task_status "$run_id1" 'canceled'
