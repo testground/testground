@@ -42,11 +42,13 @@ func TestFilteredDirectoryWithIgnore(t *testing.T) {
 
 	mustExist := []string{
 		"b/file.txt",
+		"d/file.txt",
 	}
 
 	mustNotExist := []string{
 		"a",
 		"b/c",
+		"b/d",
 		"b/file.out",
 	}
 
