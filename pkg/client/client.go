@@ -18,7 +18,7 @@ import (
 	"strings"
 	"sync"
 
-	copy2 "github.com/otiai10/copy"
+	copy "github.com/otiai10/copy"
 	ignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/logrusorgru/aurora"
@@ -259,7 +259,7 @@ func getFilteredDirectory(dir string) (string, bool, error) {
 		return "", false, err
 	}
 
-	err = copy2.Copy(dir, tmp, copy2.Options{
+	err = copy.Copy(dir, tmp, copy.Options{
 		Skip: func(src string) (bool, error) {
 			rel, err := filepath.Rel(dir, src)
 
