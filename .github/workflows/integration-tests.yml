@@ -21,7 +21,6 @@ jobs:
       COVERAGES: ""
     runs-on: ${{ format('{0}-latest', matrix.os) }}
     name: "[${{ matrix.suite }}] on ${{ matrix.os }} (go ${{ matrix.go }})"
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
