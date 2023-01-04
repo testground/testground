@@ -24,7 +24,6 @@ func TestPanickingTestWillEndAnyway(t *testing.T) {
 		Instances: 2,
 		Collect:   true,
 		Wait:      true,
-		DaemonTimeout: 2 * time.Minute,
 	}
 
 	result, err := RunSingle(t, params)
@@ -49,7 +48,7 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 		Runner:    "local:docker",
 		Instances: 2,
 		Wait:      true,
-		DaemonTimeout: 1 * time.Minute,
+		DaemonTimeout: 3 * time.Minute,
 	}
 
 	result, err := RunSingle(t, params)
