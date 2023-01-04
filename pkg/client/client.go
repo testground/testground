@@ -242,14 +242,17 @@ func getFilteredDirectory(dir string) (string, error) {
 		return "", err
 	}
 
+	// destination is the directory where we will copy the filtered files.
+	dest := filepath.Join(tmp, filepath.Base(dir))
+
 	ignoreFilePath := filepath.Join(dir, ".testgroundignore")
 	_, err = os.Stat(ignoreFilePath)
 
 	if os.IsNotExist(err) {
 		// If the .testgroundignore file does not exist, we just copy the
 		// directory as it is.
-		err = copy.Copy(dir, tmp)
-		return tmp, err
+		err = copy.Copy(dir, dest)
+		return dest, err
 	}
 
 	if err != nil {
@@ -263,7 +266,7 @@ func getFilteredDirectory(dir string) (string, error) {
 		return "", err
 	}
 
-	err = copy.Copy(dir, tmp, copy.Options{
+	err = copy.Copy(dir, dest, copy.Options{
 		Skip: func(src string) (bool, error) {
 			rel, err := filepath.Rel(dir, src)
 
@@ -275,7 +278,7 @@ func getFilteredDirectory(dir string) (string, error) {
 		},
 	})
 
-	return tmp, err
+	return dest, err
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.
