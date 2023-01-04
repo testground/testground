@@ -19,6 +19,11 @@ func Setup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	err = runImport(t, "../../plans/example-browser-node", "example-browser-node")
+	if err != nil {
+		t.Fatal(err)
+	}
 }
 
 func RunSingle(t *testing.T, params RunSingleParams) (*RunResult, error) {

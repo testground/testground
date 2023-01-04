@@ -48,13 +48,11 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 		Builder:   "docker:go",
 		Runner:    "local:docker",
 		Instances: 2,
-		Collect:   true,
 		Wait:      true,
 		DaemonTimeout: 1 * time.Minute,
 	}
 
 	result, err := RunSingle(t, params)
-	defer result.Cleanup()
 
 	require.Error(t, err)
 	require.Equal(t, 1, result.ExitCode)
@@ -80,7 +78,6 @@ func TestIssue1170TestgroundIgnoreFile(t *testing.T) {
 	}
 
 	result, err := RunSingle(t, params)
-	defer result.Cleanup()
 
 	require.NoError(t, err)
 	require.Equal(t, 0, result.ExitCode)
