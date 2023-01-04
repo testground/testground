@@ -64,3 +64,26 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 
 	require.Contains(t, result.Stdout, "run canceled after reaching the task timeout")
 }
+
+// feature: .testgroundignore
+// https://github.com/testground/testground/issues/1170
+func TestIssue1170TestgroundIgnoreFile(t *testing.T) {
+	Setup(t)
+
+	params := RunSingleParams{
+		Plan:      "testground/_integrations",
+		Testcase:  "issue-1170-simple-success",
+		Builder:   "docker:generic",
+		Runner:    "local:docker",
+		Instances: 1,
+		Wait:      true,
+	}
+
+	result, err := RunSingle(t, params)
+	defer result.Cleanup()
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.ExitCode)
+	require.NotEmpty(t, result.Stdout)
+	RequireOutcomeIsSuccess(t, result)
+}

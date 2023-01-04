@@ -9,6 +9,7 @@ import (
 )
 
 var testcases = map[string]interface{}{
+	"issue-1170-simple-success": run.InitializedTestCaseFn(success),
 	"issue-1349-silent-failure": silentFailure,
 	"issue-1493-success": run.InitializedTestCaseFn(success),
 	"issue-1493-optional-failure": run.InitializedTestCaseFn(optionalFailure),

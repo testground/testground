@@ -32,3 +32,7 @@ instances = { min = 1, max = 1000, default = 1 }
 [[testcases]]
 name = "issue-1542-stalled-test-stall"
 instances = { min = 1, max = 1000, default = 1 }
+
+[[testcases]]
+name = "issue-1170-simple-success"
+instances = { min = 1, max = 1000, default = 1 }
