@@ -14,13 +14,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [ "docker_examples", "local_exec" ]
+        suite: [ "docker_examples", "local_exec", "local_docker" ]
         os: [ "ubuntu" ]
         go: [ "1.16.x" ]
     env:
       COVERAGES: ""
     runs-on: ${{ format('{0}-latest', matrix.os) }}
     name: "[${{ matrix.suite }}] on ${{ matrix.os }} (go ${{ matrix.go }})"
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3

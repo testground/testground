@@ -287,11 +287,19 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 	}
 
 	defer func() {
+		log.Infow("run completed", "err", err)
+
 		if err != nil && result.Outcome == "" {
+			log.Infow("run failed", "err", err)
 			result.Outcome = task.OutcomeFailure
 		}
 		if ctx.Err() == context.Canceled {
+			log.Infow("run canceled")
 			result.Outcome = task.OutcomeCanceled
+		}
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Infow("run canceled after reaching the task timeout")
+			result.Outcome = task.OutcomeFailure
 		}
 	}()
 
@@ -633,7 +641,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 				log.Infow("container exited", "id", c.containerID, "group", c.groupID, "group_index", c.groupIdx, "status", status.StatusCode)
 				return nil
 			case <-runGroupCtx.Done(): // race with the group
-				log.Infow("container group exited", runGroupCtx.Err())
+				log.Infow("container group exited", "err", runGroupCtx.Err())
 				return nil
 			}
 		}
@@ -676,7 +684,7 @@ func (r *LocalDockerRunner) Run(ctx context.Context, input *api.RunInput, ow *rp
 			log.Infow("we timeout'd waiting for outcomes")
 			waitingForOutcomes = false
 		case <-runCtx.Done():
-			log.Infow("the test run ended early")
+			log.Infow("the test run ended early", "err", runCtx.Err())
 			return
 		}
 	}
