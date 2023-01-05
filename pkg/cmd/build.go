@@ -161,6 +161,8 @@ func build(c *cli.Context, comp *api.Composition) error {
 	ctx, cancel := context.WithCancel(ProcessContext())
 	defer cancel()
 
+	log := logging.NewLogging(logging.NewLocalLogger(c.App.Writer, c.App.ErrWriter))
+
 	// Resolve the test plan and its manifest.
 	var manifest *api.TestPlanManifest
 	planDir, manifest, err := resolveTestPlan(cfg, comp.Global.Plan)
@@ -173,7 +175,7 @@ func build(c *cli.Context, comp *api.Composition) error {
 		sdkDir  string
 	)
 
-	logging.S().Infof("test plan source at: %s", planDir)
+	log.S().Infof("test plan source at: %s", planDir)
 
 	comp, err = comp.PrepareForBuild(manifest)
 	if err != nil {
@@ -199,13 +201,13 @@ func build(c *cli.Context, comp *api.Composition) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve linked SDK directory: %w", err)
 		}
-		logging.S().Infof("linking with sdk at: %s", sdkDir)
+		log.S().Infof("linking with sdk at: %s", sdkDir)
 	}
 	// if there are extra sources to include for this builder, contextualize
 	// them to the plan's dir.
 	builder := strings.Replace(comp.Global.Builder, ":", "_", -1)
 	extra := manifest.ExtraSources[builder]
-	logging.S().Infof("build %s extra %s", builder, extra)
+	log.S().Infof("build %s extra %s", builder, extra)
 	for i, dir := range extra {
 		if !filepath.IsAbs(dir) {
 			// follow any symlinks in the plan dir.
@@ -232,7 +234,7 @@ func build(c *cli.Context, comp *api.Composition) error {
 		return err
 	}
 
-	logging.S().Infof("build queued with ID: %s", id)
+	log.S().Infof("build queued with ID: %s", id)
 
 	if !wait {
 		return nil
@@ -265,7 +267,7 @@ func build(c *cli.Context, comp *api.Composition) error {
 
 	for i, ap := range artifactPaths {
 		g := comp.Groups[i]
-		logging.S().Infow("generated build artifact", "group", g.ID, "artifact", ap)
+		log.S().Infow("generated build artifact", "group", g.ID, "artifact", ap)
 		g.Run.Artifact = ap
 	}
 

@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"io"
 	"time"
 
 	"go.uber.org/zap"
@@ -70,6 +71,13 @@ func NewLogger(extraWs ...zapcore.WriteSyncer) *zap.Logger {
 
 	core := zapcore.NewCore(encoder, ws, level)
 	return zap.New(core, zap.ErrorOutput(stderr))
+}
+
+func NewLocalLogger(stdout, stderr io.Writer) *zap.Logger {
+	wss := []zapcore.WriteSyncer{zapcore.AddSync(stdout)}
+	ws := zapcore.NewMultiWriteSyncer(wss...)
+	core := zapcore.NewCore(encoder, ws, level)
+	return zap.New(core, zap.ErrorOutput(zapcore.AddSync(stderr)))
 }
 
 // L returns the global raw logger.
