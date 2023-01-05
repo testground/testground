@@ -85,21 +85,27 @@ func TestExampleBrowser(t *testing.T) {
 	cases := []struct {
 		browser string
 		testcase string
+		instances int
 		expectSuccess bool
 	}{
-		{"browser=chromium", "success", true},
-		{"browser=firefox", "success", true},
-		{"browser=chromium", "failure", false},
-		{"browser=firefox", "failure", false},
+		{"browser=chromium", "output", 1, true},
+		{"browser=firefox", "output", 1, true},
+		{"browser=webkit", "output", 1, true},
+		{"browser=chromium", "failure", 1, false},
+		{"browser=firefox", "failure", 1, false},
+		{"browser=webkit", "failure", 1, false},
+		{"browser=chromium", "sync", 2, true},
+		{"browser=firefox", "sync", 2, true},
+		{"browser=webkit", "sync", 2, true},
 	}
 
 	for _, c := range cases {
 		params := RunSingleParams{
-			Plan:      "testground/example-browser",
+			Plan:      "testground/example-browser-node",
 			Testcase:  c.testcase,
 			Builder:   "docker:generic",
 			Runner:    "local:docker",
-			Instances: 1,
+			Instances: c.instances,
 			Wait:      true,
 			TestParams: []string{
 				c.browser,
@@ -118,4 +124,20 @@ func TestExampleBrowser(t *testing.T) {
 			RequireOutcomeIsFailure(t, result)
 		}
 	}
+}
+
+func TestExampleBrowserWithSyncAccrossRuntimes(t *testing.T) {
+	Setup(t)
+
+	params := RunCompositionParams{
+		File: "../../plans/example-browser-node/compositions/sync-cross-runtime.toml",
+		Runner: "local:docker",
+		Wait: true,
+	}
+
+	result, err := RunComposition(t, params)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.ExitCode)
+	require.NotEmpty(t, result.Stdout)
 }

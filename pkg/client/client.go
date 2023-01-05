@@ -18,6 +18,9 @@ import (
 	"strings"
 	"sync"
 
+	copy "github.com/otiai10/copy"
+	ignore "github.com/sabhiram/go-gitignore"
+
 	"github.com/logrusorgru/aurora"
 	"github.com/testground/testground/pkg/task"
 
@@ -72,9 +75,9 @@ func (c *Client) Run(ctx context.Context, r *api.RunRequest, plandir string, sdk
 //
 // A build (or run) request comprises the following parts:
 //
-//  * Part 1 (Content-Type: application/json): the request json, usually composition.
-//  * Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
-//  * Part 3 (optional, Content-Type: application/zip): linked sdk.
+//   - Part 1 (Content-Type: application/json): the request json, usually composition.
+//   - Part 2 (optional for runs, mandatory for builds, Content-Type: application/zip): test plan source.
+//   - Part 3 (optional, Content-Type: application/zip): linked sdk.
 //
 // The Body in the response implements an io.ReadCloser and it's up to the
 // caller to close it.
@@ -181,11 +184,20 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 		// Optional part 2: plan source directory.
 		if plandir != "" {
+			filteredDir, err := getFilteredDirectory(plandir)
+			if err != nil {
+				return err
+			}
+
+			defer func() {
+				os.RemoveAll(filteredDir)
+			}()
+
 			w, err = mp.CreatePart(hplan)
 			if err != nil {
 				return wr.CloseWithError(err)
 			}
-			if err = writeZippedDirs(w, false, plandir); err != nil {
+			if err = writeZippedDirs(w, false, filteredDir); err != nil {
 				return wr.CloseWithError(err)
 			}
 		}
@@ -219,6 +231,54 @@ func (c *Client) runBuild(ctx context.Context, r interface{}, path, plandir, sdk
 
 	contentType := "multipart/related; boundary=" + mp.Boundary()
 	return c.request(ctx, "POST", path, rd, "Content-Type", contentType)
+}
+
+// getFilteredDirectory filters the directory dir according to the
+// ignored files specified in $dir/.testgroundignore. Returns a new
+// temporary directory.
+func getFilteredDirectory(dir string) (string, error) {
+	tmp, err := os.MkdirTemp("", "testground")
+	if err != nil {
+		return "", err
+	}
+
+	// destination is the directory where we will copy the filtered files.
+	dest := filepath.Join(tmp, filepath.Base(dir))
+
+	ignoreFilePath := filepath.Join(dir, ".testgroundignore")
+	_, err = os.Stat(ignoreFilePath)
+
+	if os.IsNotExist(err) {
+		// If the .testgroundignore file does not exist, we just copy the
+		// directory as it is.
+		err = copy.Copy(dir, dest)
+		return dest, err
+	}
+
+	if err != nil {
+		return "", err
+	}
+
+	// Parse the .testgroundignore file and generates a GitIgnore matcher object.
+	// This object is used later to detect which file matches the ignore patterns.
+	tgIgnore, err := ignore.CompileIgnoreFile(ignoreFilePath)
+	if err != nil {
+		return "", err
+	}
+
+	err = copy.Copy(dir, dest, copy.Options{
+		Skip: func(src string) (bool, error) {
+			rel, err := filepath.Rel(dir, src)
+
+			if err != nil {
+				return false, err
+			}
+
+			return tgIgnore.MatchesPath(rel), nil
+		},
+	})
+
+	return dest, err
 }
 
 // CollectOutputs sends a `collectOutputs` request to the daemon.

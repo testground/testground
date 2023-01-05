@@ -21,7 +21,6 @@ jobs:
       COVERAGES: ""
     runs-on: ${{ format('{0}-latest', matrix.os) }}
     name: "[${{ matrix.suite }}] on ${{ matrix.os }} (go ${{ matrix.go }})"
-    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
@@ -37,4 +36,5 @@ jobs:
           make install
       - name: Run tests
         run: |
-          go test -tags "integration,${{ matrix.suite }}" -timeout 20m -parallel 1 -v -shuffle=on ./pkg/integration/...
+          # we disabled `-shuffle=on` until we upgrade past go 1.17
+          go test -tags "integration,${{ matrix.suite }}" -timeout 20m -parallel 1 -v ./pkg/integration/...

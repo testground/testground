@@ -24,7 +24,6 @@ func TestPanickingTestWillEndAnyway(t *testing.T) {
 		Instances: 2,
 		Collect:   true,
 		Wait:      true,
-		DaemonTimeout: 2 * time.Minute,
 	}
 
 	result, err := RunSingle(t, params)
@@ -48,13 +47,11 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 		Builder:   "docker:go",
 		Runner:    "local:docker",
 		Instances: 2,
-		Collect:   true,
 		Wait:      true,
-		DaemonTimeout: 1 * time.Minute,
+		DaemonTimeout: 3 * time.Minute,
 	}
 
 	result, err := RunSingle(t, params)
-	defer result.Cleanup()
 
 	require.Error(t, err)
 	require.Equal(t, 1, result.ExitCode)
@@ -63,4 +60,26 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 	RequireOutcomeIsFailure(t, result)
 
 	require.Contains(t, result.Stdout, "run canceled after reaching the task timeout")
+}
+
+// feature: .testgroundignore
+// https://github.com/testground/testground/issues/1170
+func TestIssue1170TestgroundIgnoreFile(t *testing.T) {
+	Setup(t)
+
+	params := RunSingleParams{
+		Plan:      "testground/_integrations",
+		Testcase:  "issue-1170-simple-success",
+		Builder:   "docker:generic",
+		Runner:    "local:docker",
+		Instances: 1,
+		Wait:      true,
+	}
+
+	result, err := RunSingle(t, params)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, result.ExitCode)
+	require.NotEmpty(t, result.Stdout)
+	RequireOutcomeIsSuccess(t, result)
 }
