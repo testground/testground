@@ -87,6 +87,24 @@ func runTerminate(t *testing.T, srv *daemon.Daemon, runner string) error {
 	return err
 }
 
+func buildTerminate(t *testing.T, srv *daemon.Daemon, builder string) error {
+	t.Helper()
+	app, _, _ := makeTestgroundApp(true)
+
+	endpoint := fmt.Sprintf("http://%s", srv.Addr())
+
+	args := []string{
+		"testground",
+		"--endpoint", endpoint,
+		"terminate",
+		"--builder", builder,
+	}
+
+	err := app.Run(args)
+
+	return err
+}
+
 func runSingle(t *testing.T, params RunSingleParams, srv *daemon.Daemon) (*RunResult, error) {
 	t.Helper()
 	app, stdout, stderr := makeTestgroundApp(true)
@@ -107,6 +125,10 @@ func runSingle(t *testing.T, params RunSingleParams, srv *daemon.Daemon) (*RunRe
 
 	if params.Wait {
 		args = append(args, "--wait")
+	}
+
+	if params.UseBuild != "" {
+		args = append(args, "--use-build", params.UseBuild)
 	}
 
 	if params.Collect {
@@ -131,6 +153,49 @@ func runSingle(t *testing.T, params RunSingleParams, srv *daemon.Daemon) (*RunRe
 
 	// No error
 	return &RunResult{
+		ExitCode: 0,
+		Stdout:   stdout.String(),
+		Stderr:   stderr.String(),
+	}, err
+}
+
+func buildSingle(t *testing.T, params BuildSingleParams, srv *daemon.Daemon) (*BuildResult, error) {
+	t.Helper()
+	app, stdout, stderr := makeTestgroundApp(true)
+
+	endpoint := fmt.Sprintf("http://%s", srv.Addr())
+
+	args := []string{
+		"testground",
+		"--endpoint", endpoint,
+		"build",
+		"single",
+		"--plan", params.Plan,
+		"--builder", params.Builder,
+	}
+
+	if params.Wait {
+		args = append(args, "--wait")
+	}
+
+	err := app.Run(args)
+
+	if err != nil {
+		// Known error
+		if exitErr, ok := err.(cli.ExitCoder); ok {
+			return &BuildResult{
+				ExitCode: exitErr.ExitCode(),
+				Stdout:   stdout.String(),
+				Stderr:   stderr.String(),
+			}, err
+		}
+
+		// Unknown error
+		return nil, err
+	}
+
+	// No error
+	return &BuildResult{
 		ExitCode: 0,
 		Stdout:   stdout.String(),
 		Stderr:   stderr.String(),

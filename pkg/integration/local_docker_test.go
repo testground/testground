@@ -11,6 +11,38 @@ import (
 	. "github.com/testground/testground/pkg/integration/utils"
 )
 
+func TestPlacebOk(t *testing.T) {
+	Setup(t)
+
+	params := BuildSingleParams{
+		Plan:    "testground/placebo",
+		Builder: "docker:go",
+		Wait:    true,
+	}
+
+	result, err := BuildSingle(t, params)
+	require.NoError(t, err)
+
+	DockerTag(t, result.Artifact, "testplan:placebo")
+	require.NoError(t, err)
+
+	runParams := RunSingleParams{
+		Plan:      "testground/placebo",
+		Testcase:  "ok",
+		Builder:   "docker:go",
+		UseBuild:  "testplan:placebo",
+		Runner:    "local:docker",
+		Instances: 1,
+		Wait:      true,
+		Collect:   true,
+	}
+
+	runResult, err := RunSingle(t, runParams)
+	defer runResult.Cleanup()
+
+	RequireRunOutputIsCorrect(t, runResult.CollectFolder)
+}
+
 // fix: stalled tests
 // https://github.com/testground/testground/issues/1542
 func TestPanickingTestWillEndAnyway(t *testing.T) {
@@ -42,12 +74,12 @@ func TestStalledTestWillEndAnyway(t *testing.T) {
 	Setup(t)
 
 	params := RunSingleParams{
-		Plan:      "testground/_integrations",
-		Testcase:  "issue-1542-stalled-test-stall",
-		Builder:   "docker:go",
-		Runner:    "local:docker",
-		Instances: 2,
-		Wait:      true,
+		Plan:          "testground/_integrations",
+		Testcase:      "issue-1542-stalled-test-stall",
+		Builder:       "docker:go",
+		Runner:        "local:docker",
+		Instances:     2,
+		Wait:          true,
 		DaemonTimeout: 3 * time.Minute,
 	}
 

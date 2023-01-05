@@ -37,7 +37,7 @@ func RunSingle(t *testing.T, params RunSingleParams) (*RunResult, error) {
 	defer cleanup()
 
 	// Start the daemon
-	srv := setupDaemon(t,  params.DaemonTimeout)
+	srv := setupDaemon(t, params.DaemonTimeout)
 	defer func() {
 		err := runTerminate(t, srv, params.Runner)
 		srv.Shutdown(context.Background()) //nolint
@@ -135,6 +135,43 @@ func RunComposition(t *testing.T, params RunCompositionParams) (*RunResult, erro
 	// 	result, err = Collect(t, dir, result)
 	// 	require.NoError(t, err)
 	// }
+
+	return result, err
+}
+
+func BuildSingle(t *testing.T, params BuildSingleParams) (*BuildResult, error) {
+	t.Helper()
+
+	// Rewrite path before changing directories.
+	// TODO: do we need a temporary directory?
+
+	// Start the daemon
+	srv := setupDaemon(t, 0)
+	defer func() {
+		// we can't terminate the build, because it's going to clear the images
+		// err := buildTerminate(t, srv, params.Builder)
+		srv.Shutdown(context.Background()) //nolint
+
+		// if err != nil {
+		// 	t.Fatal(err)
+		// }
+	}()
+
+	// Run the command.
+	result, err := buildSingle(t, params, srv)
+	if err != nil && result == nil {
+		t.Fatal(err)
+	}
+
+	if params.Wait {
+		artifactID, err := getResultArtifact(t, result)
+
+		if err != nil {
+			// TODO: is there something better than skipping here? In the case we expect an error it seems fair.
+		}
+
+		result.Artifact = artifactID
+	}
 
 	return result, err
 }

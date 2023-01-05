@@ -13,6 +13,7 @@ type RunSingleParams struct {
 	Testcase      string
 	Builder       string
 	Runner        string
+	UseBuild      string // TODO: implement
 	Instances     int
 	Collect       bool
 	Wait          bool
@@ -47,4 +48,18 @@ func (r RunCompositionParams) withAbsolutePath() RunCompositionParams {
 
 	r.File = newPath
 	return r
+}
+
+type BuildSingleParams struct {
+	Plan    string
+	Builder string
+	Wait    bool
+}
+
+type BuildResult struct {
+	ExitCode      int
+	Stdout        string
+	Stderr        string
+	Cleanup       func()
+	Artifact	  string
 }

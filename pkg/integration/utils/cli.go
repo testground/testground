@@ -28,6 +28,16 @@ func DockerPull(t *testing.T, images ...string) {
 	}
 }
 
+// docker tag [artifactId] [tag]
+// use the CLI and call the command in a shell for simplicity.
+func DockerTag(t *testing.T, artifactId, tag string) {
+	t.Logf("$ docker tag %s %s", artifactId, tag)
+	cmd := exec.Command("docker", "tag", artifactId, tag)
+	if err := cmd.Run(); err != nil {
+		log.Fatal(err)
+	}
+}
+
 func ExtractTarGz(src, dst string) error {
 	targzStream, err := os.Open(src)
 	if err != nil {
