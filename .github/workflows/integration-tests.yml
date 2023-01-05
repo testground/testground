@@ -36,4 +36,5 @@ jobs:
           make install
       - name: Run tests
         run: |
+          # we disabled `-shuffle=on` until we upgrade past go 1.17
           go test -tags "integration,${{ matrix.suite }}" -timeout 20m -parallel 1 -v ./pkg/integration/...
