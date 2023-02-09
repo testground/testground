@@ -13,7 +13,7 @@ assignees: ''
 
 <!--Describe the documentation issue.-->
 
-## What defines this endeavour to be complete?
+## What defines this endeavor to be complete?
 
 <!--Create a check list of what you expect to see as part of delivering on the ask--
 
