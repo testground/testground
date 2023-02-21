@@ -19,7 +19,7 @@ COPY . /
 # Testground version
 ARG TG_VERSION
 
-RUN cd / && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/testground/testground/pkg/version.GitCommit=${TG_VERSION}" -o testground
+RUN cd / && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/celestiaorg/testground/pkg/version.GitCommit=${TG_VERSION}" -o testground
 
 #:::
 #::: RUNTIME CONTAINER

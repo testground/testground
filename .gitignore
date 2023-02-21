@@ -30,6 +30,9 @@ node_modules
 ### VisualStudioCode ###
 .vscode/*
 
+### JetBrains ###
+.idea/*
+
 ### VisualStudioCode Patch ###
 # Ignore all local history of files
 .history
