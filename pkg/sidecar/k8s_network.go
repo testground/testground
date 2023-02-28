@@ -154,7 +154,7 @@ func (n *K8sNetwork) ConfigureNetwork(ctx context.Context, cfg *network.Config) 
 		delete(n.activeLinks, cfg.Network)
 	}
 
-	// Are we _connected_ to the network.
+	// Are we _connected_ to the network?
 	if !online {
 		// No, we're not.
 		// Connect.

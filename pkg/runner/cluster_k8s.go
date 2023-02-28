@@ -339,6 +339,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		}
 
 		for i := 0; i < g.Instances; i++ {
+			var gracePeriod int64 = 0
 			i := i
 			g := g
 			sem <- struct{}{}
@@ -352,7 +353,9 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 				client := c.pool.Acquire()
 				defer c.pool.Release(client)
 				ow.Debugw("deleting pod", "pod", podName)
-				err = client.CoreV1().Pods(c.config.Namespace).Delete(ctx, podName, metav1.DeleteOptions{})
+				err = client.CoreV1().Pods(c.config.Namespace).Delete(ctx, podName, metav1.DeleteOptions{
+					GracePeriodSeconds: &gracePeriod,
+				})
 				if err != nil {
 					ow.Errorw("couldn't remove pod", "pod", podName, "err", err)
 				}
@@ -855,7 +858,8 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 				"testground.groupid":  g.ID,
 				"testground.purpose":  "plan",
 			},
-			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation, "k8s.v1.cni.cncf.io/networks": "weave",
+			Annotations: map[string]string{"cni": defaultK8sNetworkAnnotation,
+				"k8s.v1.cni.cncf.io/networks":      "weave",
 				"telegraf.influxdata.com/class":    "default",
 				"telegraf.influxdata.com/port":     "26660",
 				"telegraf.influxdata.com/interval": "10s",
