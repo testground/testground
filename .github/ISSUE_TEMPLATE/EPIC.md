@@ -1,6 +1,6 @@
 ---
 name: Epic
-about: Tracking a multiple issue endeavour? What an Epic adventure!
+about: Tracking a multiple issue endeavor? What an Epic adventure!
 title: TITLE
 labels: Epic
 assignees: ''
