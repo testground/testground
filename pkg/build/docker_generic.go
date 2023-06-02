@@ -26,23 +26,48 @@ type DockerGenericBuilder struct {
 
 type DockerGenericBuilderConfig struct {
 	// Custom base path where we find the test source
-	Path      string             `toml:"path" default:"./"`
-	BuildArgs map[string]*string `toml:"build_args"` // ok if nil
+	Path       string             `toml:"path"`
+	Dockerfile string             `toml:"dockerfile"`
+	BuildArgs  map[string]*string `toml:"build_args"` // ok if nil
+}
+
+func newDockerGenericBuilderConfig(buildConfig interface{}) (*DockerGenericBuilderConfig, error) {
+	cfg, ok := buildConfig.(*DockerGenericBuilderConfig)
+
+	if !ok {
+		return nil, fmt.Errorf("expected configuration type DockerGenericBuilderConfig, was: %T", buildConfig)
+	}
+
+	if len(cfg.Path) == 0 {
+		cfg.Path = "./"
+	}
+
+	if len(cfg.Dockerfile) == 0 {
+		cfg.Dockerfile = "Dockerfile"
+	}
+
+	if cfg.BuildArgs == nil {
+		cfg.BuildArgs = make(map[string]*string)
+	}
+
+	if _, ok := cfg.BuildArgs["PLAN_PATH"]; !ok {
+		cfg.BuildArgs["PLAN_PATH"] = &cfg.Path
+	}
+
+	return cfg, nil
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
 func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc.OutputWriter) (*api.BuildOutput, error) {
-	cfg, ok := in.BuildConfig.(*DockerGenericBuilderConfig)
-	if !ok {
-		return nil, fmt.Errorf("expected configuration type DockerGenericBuilderConfig, was: %T", in.BuildConfig)
+	cfg, err := newDockerGenericBuilderConfig(in.BuildConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	cliopts := []client.Opt{client.FromEnv, client.WithAPIVersionNegotiation()}
 
-	var (
-		basesrc  = in.UnpackedSources.BaseDir
-		cli, err = client.NewClientWithOpts(cliopts...)
-	)
+	basesrc := in.UnpackedSources.BaseDir
+	cli, err := client.NewClientWithOpts(cliopts...)
 	if err != nil {
 		return nil, err
 	}
@@ -50,19 +75,11 @@ func (b *DockerGenericBuilder) Build(ctx context.Context, in *api.BuildInput, ow
 	planPath := cfg.Path
 	basePathForPlan := path.Join("/plan", planPath)
 
-	if cfg.BuildArgs == nil {
-		cfg.BuildArgs = make(map[string]*string)
-	}
-
-	if _, ok = cfg.BuildArgs["PLAN_PATH"]; !ok {
-		cfg.BuildArgs["PLAN_PATH"] = &cfg.Path
-	}
-
 	opts := types.ImageBuildOptions{
 		Tags:        []string{in.BuildID},
 		BuildArgs:   cfg.BuildArgs,
 		NetworkMode: "host",
-		Dockerfile:  filepath.Join(basePathForPlan, "Dockerfile"),
+		Dockerfile:  filepath.Join(basePathForPlan, cfg.Dockerfile),
 	}
 
 	imageOpts := docker.BuildImageOpts{
