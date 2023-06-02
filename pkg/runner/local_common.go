@@ -34,7 +34,7 @@ func localCommonHealthcheck(ctx context.Context, hh *healthcheck.Helper, cli *cl
 		healthcheck.StartContainer(ctx, ow, cli, &docker.EnsureContainerOpts{
 			ContainerName: "testground-grafana",
 			ContainerConfig: &container.Config{
-				Image: "bitnami/grafana",
+				Image: "grafana/grafana",
 			},
 			HostConfig: &container.HostConfig{
 				PortBindings: exposed,
