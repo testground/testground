@@ -7,7 +7,7 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-sdk-go v1.40.19
 	github.com/containernetworking/cni v1.0.0
-	github.com/docker/docker v1.4.2-0.20200206084213-b5fc6ea92cde
+	github.com/docker/docker v20.10.24+incompatible
 	github.com/docker/go-connections v0.4.0
 	github.com/docker/go-units v0.4.0
 	github.com/dustin/go-humanize v1.0.0
@@ -24,6 +24,8 @@ require (
 	github.com/mholt/archiver v3.1.1+incompatible
 	github.com/mitchellh/go-wordwrap v1.0.1
 	github.com/mitchellh/mapstructure v1.4.1
+	github.com/moby/sys/mount v0.3.3 // indirect
+	github.com/moby/term v0.5.0 // indirect
 	github.com/msoap/byline v1.1.1
 	github.com/otiai10/copy v1.7.0
 	github.com/pborman/uuid v1.2.1
@@ -39,6 +41,7 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	go.uber.org/zap v1.19.0
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4
+	gotest.tools/v3 v3.5.0 // indirect
 	k8s.io/api v0.22.2
 	k8s.io/apimachinery v0.22.2
 	k8s.io/client-go v0.22.2
