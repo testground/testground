@@ -172,7 +172,8 @@ jobs:
 
   build-macos:
     macos:
-      xcode: 13.2.0
+      xcode: 15.0.0
+    resource_class: macos.x86.medium.gen2
     steps:
       - setup-macos
       - run:
