@@ -17,7 +17,7 @@ commands:
     description: "install go, checkout and restore cache"
     steps:
       - go/install:
-          version: {{ .Environment.GOVERSION }}
+          version: '{{ .Environment.GOVERSION }}'
       - checkout
       - restore_cache:
           keys:
@@ -27,7 +27,7 @@ commands:
     description: "install go, checkout and restore cache"
     steps:
       - go/install:
-          version: {{ .Environment.GOVERSION }}
+          version: '{{ .Environment.GOVERSION }}'
       - checkout
 
   setup-install-bins:
