@@ -17,7 +17,7 @@ commands:
     description: "install go, checkout and restore cache"
     steps:
       - go/install:
-          version: $GOVERSION
+          version: "1.16"
       - checkout
       - restore_cache:
           keys:
