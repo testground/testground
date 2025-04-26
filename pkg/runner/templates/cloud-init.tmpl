@@ -1,0 +1,56 @@
+#cloud-config
+users:
+  - name: {{ .Username }}
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: {{ .Password }}
+chpasswd:
+  list: |
+    {{ .Username }}:{{ .Password }}
+  expire: False
+
+write_files:
+  - path: /etc/testground/env
+    content: |
+{{- range $k, $v := .EnvVars }}
+      export {{ $k }}="{{ $v }}"
+{{- end }}
+
+  - path: /usr/local/bin/testground-init.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      source /etc/testground/env
+      echo "==== Cloud-init: Starting testplan ===="
+      sudo ls -lh /root/testplan || { echo '/testplan not found!'; exit 1; }
+      sudo chmod +x /root/testplan
+      echo "==== Executing /root/testplan ===="
+      sudo -E /root/testplan --vv 2>&1 | tee /var/log/testplan.log
+      echo "==== Cloud-init: testplan finished ===="
+
+  - path: /var/log/testground-init.log
+    permissions: '0644'
+
+runcmd:
+  - mkdir -p /etc/testground
+  - mkdir -p /outputs
+  - |
+    set -ex
+    exec 1>/var/log/testground-init.log 2>&1
+    echo "Starting testground outputs initialization"
+    mkdir -p /outputs/{{.RunID}}/{{.InstanceType}}/{{.InstanceIndex}}
+    echo "Mounting outputs volume"
+    mount /dev/vdb /outputs || {
+      echo "Failed to mount outputs volume"
+      exit 1
+    }
+    echo "Setting permissions"
+    chmod -R 777 /outputs/{{.RunID}}
+    echo "Initialization complete"
+    touch /outputs/.ready
+  - mkfs.ext4 /dev/vdb
+  - mount /dev/vdb /outputs
+  - chmod +x /usr/local/bin/testground-init.sh
+  - sudo -E /usr/local/bin/testground-init.sh 

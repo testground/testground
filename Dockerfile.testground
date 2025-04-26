@@ -3,10 +3,10 @@
 #:::
 
 # GO_VERSION is the golang version this image will be built against.
-ARG GO_VERSION=1.16
+ARG GO_VERSION=1.24
 
 # Dynamically select the golang version.
-FROM golang:${GO_VERSION}-buster
+FROM golang:${GO_VERSION}-bookworm
 
 COPY /go.mod /go.mod
 
@@ -25,7 +25,7 @@ RUN cd / && CGO_ENABLED=0 GOOS=linux go build -ldflags "-X github.com/testground
 #::: RUNTIME CONTAINER
 #:::
 
-FROM golang:${GO_VERSION}-buster
+FROM golang:${GO_VERSION}-bookworm
 
 RUN mkdir -p /usr/local/bin
 COPY --from=0 /testground /testground
@@ -33,8 +33,15 @@ COPY --from=0 /static /static
 COPY --from=0 /tmpl /tmpl
 ENV PATH="/:/usr/local/bin:${PATH}"
 
+# Install virt-customize, Docker CLI, and dependencies
+RUN apt-get update && \
+    apt-get install -y libguestfs-tools curl docker.io && \
+    rm -rf /var/lib/apt/lists/*
+
 EXPOSE 8042
 
 WORKDIR "/"
+
+COPY --from=0 /pkg/runner/templates /templates
 
 ENTRYPOINT [ "/testground", "--vv", "daemon" ]

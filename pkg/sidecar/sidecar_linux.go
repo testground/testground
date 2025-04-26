@@ -18,9 +18,10 @@ const (
 )
 
 var runners = map[string]func() (Reactor, error){
-	"docker": NewDockerReactor,
-	"k8s":    NewK8sReactor,
-	"mock":   NewMockReactor,
+	"docker":           NewDockerReactor,
+	"k8s":              NewK8sReactor,
+	"mock":             NewMockReactor,
+	"cluster:kubevirt": NewKubevirtReactor,
 	// TODO: local
 }
 

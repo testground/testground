@@ -27,6 +27,7 @@ var AllBuilders = []api.Builder{
 	&build.ExecGoBuilder{},
 	&build.DockerGenericBuilder{},
 	&build.DockerNodeBuilder{},
+	&build.DockerKubevirtBuilder{},
 }
 
 // AllRunners enumerates all runners known to the system.
@@ -35,6 +36,7 @@ var AllRunners = []api.Runner{
 	&runner.LocalExecutableRunner{},
 	&runner.ClusterSwarmRunner{},
 	&runner.ClusterK8sRunner{},
+	&runner.ClusterKubevirtRunner{},
 }
 
 // Engine is the central runtime object of the system. It knows about all test

@@ -12,7 +12,7 @@ import (
 
 	"github.com/docker/docker/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 // CheckContainerStarted returns a Checker that succeeds if a container is
@@ -102,10 +102,10 @@ func CheckCommandStatus(ctx context.Context, cmd string, args ...string) Checker
 // CheckK8sPods returns a checker which verifies the number of pods found matches the number
 // expected. If Listing the pods returns an error, the error is returned. The boolean value returned
 // by the check follows whether the number of pods observed in the list matches the expected count.
-func CheckK8sPods(ctx context.Context, client *kubernetes.Clientset, label string, namespace string, count int) Checker {
+func CheckK8sPods(ctx context.Context, podInterface v1.PodInterface, label string, namespace string, count int) Checker {
 	return func() (bool, string, error) {
 		listOpts := metav1.ListOptions{LabelSelector: label}
-		pods, err := client.CoreV1().Pods(namespace).List(ctx, listOpts)
+		pods, err := podInterface.List(ctx, listOpts)
 		if err != nil {
 			return false, fmt.Sprintf("failed to list pods %s", label), err
 		}

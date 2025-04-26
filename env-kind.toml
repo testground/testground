@@ -8,6 +8,17 @@ autoscaler_enabled          = false
 provider                    = ""
 sysctls = []
 
+[runners."cluster:kubevirt"]
+run_timeout_min             = 1
+testplan_vm_cpu            = "10m"
+testplan_vm_memory         = "10Mi"
+collect_outputs_vm_cpu     = "10m"
+collect_outputs_vm_memory  = "10Mi"
+autoscaler_enabled          = false
+provider                    = ""
+sysctls = []
+base_vm_image              = ""
+
 [runners."local:docker"]
 ulimits = [
   "nofile=1048576:1048576",
