@@ -184,6 +184,11 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 		return nil, fmt.Errorf("could not init pool: %w", err)
 	}
 
+	logging.S().Infow("starting kubernetes runner execution",
+		"run_id", input.RunID,
+		"test_plan", input.TestPlan,
+		"total_instances", input.TotalInstances)
+
 	result := newResult(input)
 	runoutput = &api.RunOutput{
 		RunID:  input.RunID,
@@ -192,11 +197,17 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 
 	defer func() {
 		if ctx.Err() == context.Canceled {
+			logging.S().Warnw("run was canceled", "run_id", input.RunID)
 			result.Outcome = task.OutcomeCanceled
 		}
 	}()
 
 	ow = ow.With("runner", "cluster:k8s", "run_id", input.RunID)
+
+	logging.S().Debugw("initialized run context",
+		"run_id", input.RunID,
+		"namespace", c.config.Namespace,
+		"kube_config", c.config.KubeConfigPath)
 
 	cfg := *input.RunnerConfig.(*ClusterK8sRunnerConfig)
 
@@ -233,9 +244,7 @@ func (c *ClusterK8sRunner) Run(ctx context.Context, input *api.RunInput, ow *rpc
 	}
 
 	// currently weave is not releaasing IP addresses upon container deletion - we get errors back when trying to
-	// use an already used IP address, even if the container has been removed
-	// this functionality should be refactored asap, when we understand how weave releases IPs (or why it doesn't release
-	// them when a container is removed/ and as soon as we decide how to manage `networks in-use` so that there are no
+	// use an already used IP address, even if the container has been removed/ and as soon as we decide how to manage `networks in-use` so that there are no
 	// collisions in concurrent testplan runs
 	subnet, err := nextK8sSubnet()
 	if err != nil {
@@ -451,32 +460,32 @@ func (c *ClusterK8sRunner) Healthcheck(ctx context.Context, engine api.Engine, o
 	hh := &healthcheck.Helper{}
 
 	hh.Enlist("efs pod",
-		healthcheck.CheckK8sPods(ctx, client, "app=efs-provisioner", c.config.Namespace, 1),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "app=efs-provisioner", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("redis pod",
-		healthcheck.CheckK8sPods(ctx, client, "app=redis", c.config.Namespace, 1),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "app=redis", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("sync service pod",
-		healthcheck.CheckK8sPods(ctx, client, "name=testground-sync-service", c.config.Namespace, 1),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "name=testground-sync-service", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("prometheus pod",
-		healthcheck.CheckK8sPods(ctx, client, "app=prometheus", c.config.Namespace, 1),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "app=prometheus", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("grafana pod",
-		healthcheck.CheckK8sPods(ctx, client, "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "app.kubernetes.io/name=grafana", c.config.Namespace, 1),
 		healthcheck.NotImplemented(),
 	)
 
 	hh.Enlist("sidecar pods",
-		healthcheck.CheckK8sPods(ctx, client, "name=testground-sidecar", c.config.Namespace, len(planNodes)),
+		healthcheck.CheckK8sPods(ctx, client.CoreV1().Pods(c.config.Namespace), "name=testground-sidecar", c.config.Namespace, len(planNodes)),
 		healthcheck.NotImplemented(),
 	)
 
@@ -863,7 +872,7 @@ func (c *ClusterK8sRunner) createTestplanPod(ctx context.Context, podName string
 					Name: sharedVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "efs",
+							ClaimName: "efs-shared",
 						},
 					},
 				},
@@ -1126,7 +1135,7 @@ func (c *ClusterK8sRunner) createCollectOutputsPod(ctx context.Context, input *a
 					Name: sharedVolumeName,
 					VolumeSource: v1.VolumeSource{
 						PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-							ClaimName: "efs",
+							ClaimName: "efs-shared",
 						},
 					},
 				},

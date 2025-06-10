@@ -17,7 +17,7 @@ var TerminateCommand = cli.Command{
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "runner",
-			Usage: "runner to terminate; values include: 'local:exec', 'local:docker', 'cluster:k8s'",
+			Usage: "runner to terminate; values include: 'local:exec', 'local:docker', 'cluster:k8s', 'cluster:kubevirt'",
 		},
 		&cli.StringFlag{
 			Name:  "builder",

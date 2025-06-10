@@ -113,6 +113,10 @@ type DockerGoBuilderConfig struct {
 
 	// DockefileExtensions enables plans to inject custom Dockerfile directives.
 	DockerfileExtensions DockerfileExtensions `toml:"dockerfile_extensions"`
+
+	// BuildForKubeVirt indicates if this build is intended for the KubeVirt runner.
+	// When true, the final image will be a ContainerDisk compatible with KubeVirt.
+	BuildForKubeVirt bool `toml:"build_for_kubevirt"`
 }
 
 type DockerfileTemplateVars struct {
@@ -121,6 +125,7 @@ type DockerfileTemplateVars struct {
 	DockerfileExtensions DockerfileExtensions
 	SkipRuntimeImage     bool
 	CgoEnabled           int
+	BuildForKubeVirt     bool
 }
 
 // Build builds a testplan written in Go and outputs a Docker container.
@@ -171,6 +176,7 @@ func (b *DockerGoBuilder) Build(ctx context.Context, in *api.BuildInput, ow *rpc
 		DockerfileExtensions: cfg.DockerfileExtensions,
 		SkipRuntimeImage:     cfg.SkipRuntimeImage,
 		CgoEnabled:           cgoEnabled,
+		BuildForKubeVirt:     cfg.BuildForKubeVirt,
 	}
 
 	if err = goDockerfileTmpl.Execute(f, &vars); err != nil {
@@ -649,7 +655,6 @@ RUN cp /tmp/go.mod /tmp/go.sum ${PLAN_DIR}/
 
 {{.DockerfileExtensions.PreBuild}}
 
-
 RUN cd ${PLAN_DIR} \
     && go env -w GOPROXY="${GO_PROXY}" \
     && CGO_ENABLED=${CgoEnabled} GOOS=linux go build -o ${PLAN_DIR}/testplan.bin ${BUILD_TAGS} ${TESTPLAN_EXEC_PKG}
@@ -660,13 +665,40 @@ RUN cd ${PLAN_DIR} \
 RUN cd ${PLAN_DIR} \
   && go list -m all > /testground_dep_list
 
+{{ if .BuildForKubeVirt }}
 #:::
-#::: (OPTIONAL) RUNTIME CONTAINER
+#::: KUBEVIRT CONTAINER DISK
+#:::
+
+# Use a new stage to create the KubeVirt container disk
+FROM ubuntu:22.04 AS disk-builder
+
+# Install required tools
+RUN apt-get update && apt-get install -y qemu-utils && rm -rf /var/lib/apt/lists/*
+
+# Copy the runtime container filesystem
+COPY --from=builder /testground_dep_list /
+COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
+
+# Create a raw disk image from the runtime container filesystem
+RUN qemu-img create -f raw /disk 2G && \
+    mkfs.ext4 /disk && \
+    mkdir -p /mnt/disk && \
+    mount /disk /mnt/disk && \
+    cp -a /testplan /mnt/disk/ && \
+    cp -a /testground_dep_list /mnt/disk/ && \
+    umount /mnt/disk
+
+# Final stage that will be used by KubeVirt
+FROM scratch
+COPY --from=disk-builder /disk /disk
+
+{{ else }}
+#:::
+#::: RUNTIME CONTAINER
 #:::
 
 {{ if not .SkipRuntimeImage }}
-
-## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM ${RUNTIME_IMAGE} AS runtime
 
 # PLAN_PATH is the path of our test's source code.
@@ -684,7 +716,6 @@ COPY --from=builder ${PLAN_DIR}/testplan.bin /testplan
 
 {{ else }}
 
-## The 'AS runtime' token is used to parse Docker stdout to extract the build image ID to cache.
 FROM builder AS runtime
 
 # PLAN_PATH is the path of our test's source code.
@@ -699,4 +730,5 @@ RUN mv ${PLAN_DIR}/testplan.bin /testplan
 
 EXPOSE 6060
 ENTRYPOINT [ "/testplan"]
+{{ end }}
 `
